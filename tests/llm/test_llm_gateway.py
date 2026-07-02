@@ -2,9 +2,9 @@ import pytest
 from pydantic import BaseModel
 
 from content_factory.generation.exceptions import LLMAPIError, LLMRateLimitError
-from content_factory.generation.llm.factory import create_llm_client
-from content_factory.generation.llm.gateway import LLMGateway, LLMUsageBudgetTracker
-from content_factory.generation.llm.model_registry import ModelRegistry, ModelRoleConfig, ModelRoute
+from content_factory.platform.llm.factory import create_llm_client
+from content_factory.platform.llm.gateway import LLMGateway, LLMUsageBudgetTracker
+from content_factory.platform.llm.model_registry import ModelRegistry, ModelRoleConfig, ModelRoute
 
 
 def _registry_with_openai_deepseek(*, budget_usd: float | None = None) -> ModelRegistry:

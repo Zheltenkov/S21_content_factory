@@ -29,7 +29,7 @@ from content_factory.generation.exceptions import (
     LLMTimeoutError,
     ValidationError,
 )
-from content_factory.generation.llm.factory import create_llm_client
+from content_factory.platform.llm.factory import create_llm_client
 from content_factory.generation.models.schemas import ProjectSeed
 from content_factory.generation.orchestrator import Orchestrator
 

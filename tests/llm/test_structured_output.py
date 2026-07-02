@@ -6,7 +6,7 @@ import pytest
 from pydantic import BaseModel, Field
 
 from content_factory.generation.agents.base.llm_client import LLMClientProtocol
-from content_factory.generation.llm.structured_output import StructuredLLMClient
+from content_factory.platform.llm.structured_output import StructuredLLMClient
 
 
 class StructuredOutputTestModel(BaseModel):

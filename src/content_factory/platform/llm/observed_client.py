@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from content_factory.generation.observability import FallbackTraceEvent, LLMCallTraceEvent, LLMTraceRecorder, TokenUsage
+from content_factory.platform.observability import FallbackTraceEvent, LLMCallTraceEvent, LLMTraceRecorder, TokenUsage
 
 
 TRACE_ONLY_KWARGS = {

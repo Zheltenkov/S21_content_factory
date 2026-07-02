@@ -66,6 +66,28 @@ already satisfied; low integration risk.
   folded in Phase 3). `Content_generator_ver1/` now holds only git-ignored runtime dirs
   (`.venv`, caches) — kept temporarily as the working venv; delete once a root venv exists.
 
+## Phase 2 — platform core (LLM + observability + exceptions)  (DONE)
+- Created `src/content_factory/platform/` as the shared-core home, with placeholder
+  subpackages `config/`, `cache/`, `prompts/`, `db/`, `domain/` (filled as the duplicated
+  code from audit/catalog folds in during Phases 3–4 — deliberately not pre-built).
+- Moved the genuinely-shared infrastructure into platform (it was the top cross-module
+  duplication target):
+  - `generation/llm/` → `platform/llm/`  (multi-provider gateway, model registry, structured runner)
+  - `generation/observability.py` → `platform/observability.py`
+  - `generation/exceptions.py` → `platform/exceptions.py`
+- Left thin **re-export shims** at `generation/exceptions.py` and `generation/observability.py`
+  so their existing importers (14 + 14) keep working unchanged; verified the shims re-export
+  the *same* class objects (isinstance-safe). Shims flagged for removal in Phase 6.
+- Rewired `llm` importers (22 files, absolute + relative) to `content_factory.platform.llm`.
+  `platform/llm` is self-contained: its only intra-repo deps (`..exceptions`, observability)
+  now resolve inside `platform`; `model_registry.py`'s `__file__`-relative path still lands on
+  `content_factory/config/model_registry.yaml`.
+- **Verification:** all **691 tests green**; app still boots (83 routes); `platform.llm`,
+  `platform.observability`, `platform.exceptions` import cleanly.
+- Unified `Settings` (pydantic-settings) intentionally deferred: the app currently reads
+  `os.getenv` directly and there is no second consumer yet — it lands with the audit/catalog
+  config merge so it is designed against real duplication rather than speculatively.
+
 ## Open follow-ups for the user
 - **Rotate secrets:** live API keys + a deploy password were present in
   `Proverka/.env` and `Spravochnik/.env` (now git-ignored, never committed here, but

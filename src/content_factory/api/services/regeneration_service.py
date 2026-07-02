@@ -15,7 +15,7 @@ from content_factory.generation.agents.content_editor import ContentEditorAgent
 from content_factory.generation.agents.regeneration import RegenerationAgent
 from content_factory.generation.regeneration_pipeline import build_regeneration_pipeline_input
 from content_factory.generation.repair.style_guard import StyleGuardRepair
-from content_factory.generation.llm.factory import create_llm_client
+from content_factory.platform.llm.factory import create_llm_client
 from content_factory.generation.models.readme_document import ReadmeDocument
 from content_factory.generation.project_seed_provider import ProjectSeedProvider
 from content_factory.generation.renderers.toc import TOCRenderer

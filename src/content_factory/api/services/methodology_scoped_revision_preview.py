@@ -7,7 +7,7 @@ import copy
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from content_factory.generation.llm.factory import create_llm_client
+from content_factory.platform.llm.factory import create_llm_client
 from content_factory.generation.methodology import ScopedRevisionExecutor, build_section_target_registry
 
 from .generation_errors import GenerationServiceError

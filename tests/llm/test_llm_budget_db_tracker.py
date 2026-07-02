@@ -1,6 +1,6 @@
 from content_factory.generation.exceptions import LLMAPIError
-from content_factory.generation.llm.factory import create_llm_client
-from content_factory.generation.llm.gateway import LLMUsageBudgetTracker
+from content_factory.platform.llm.factory import create_llm_client
+from content_factory.platform.llm.gateway import LLMUsageBudgetTracker
 
 
 def test_memory_budget_tracker_uses_node_bucket_and_role_compatibility() -> None:

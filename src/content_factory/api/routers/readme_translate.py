@@ -39,7 +39,7 @@ from content_factory.api.utils.result_cache import (
     set_translation_phase,
 )
 from content_factory.generation.agents.translator import TranslatorAgent
-from content_factory.generation.llm.factory import create_llm_client
+from content_factory.platform.llm.factory import create_llm_client
 from content_factory.generation.agents.base.llm_client import LLMClientProtocol
 from content_factory.generation.models.schemas import ProjectSeed
 from content_factory.generation.subtitles.burned_pipeline import run_burned_subs_pipeline

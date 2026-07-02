@@ -20,7 +20,7 @@ from content_factory.api.utils.improvement_cache import get_improvement_owner
 from content_factory.api.utils.logger import get_logger
 from content_factory.api.utils.logging_context import set_request_id, set_user_id
 from content_factory.api.utils.result_cache import get_generation_owner, set_generation_status
-from content_factory.generation.llm.factory import create_llm_client
+from content_factory.platform.llm.factory import create_llm_client
 from content_factory.generation.models.schemas import ProjectSeed
 
 router = APIRouter()

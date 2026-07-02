@@ -16,7 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 import logging
 
-from content_factory.generation.llm.model_registry import resolve_configured_provider
+from content_factory.platform.llm.model_registry import resolve_configured_provider
 from content_factory.generation.subtitles.pipeline import build_srt, build_vtt, extract_audio
 from content_factory.generation.subtitles.pipeline import transcribe as openai_whisper_transcribe
 from content_factory.generation.utils.translation_languages import get_translation_language_profile
@@ -731,7 +731,7 @@ def run_burned_subs_pipeline(
     output_dir: директория для сохранения файлов (уже создана под request_id).
     Возвращает словарь с ключами: video_path, vtt_path, srt_path, ass_path, transcript_path, segments.
     """
-    from content_factory.generation.llm.factory import create_llm_client
+    from content_factory.platform.llm.factory import create_llm_client
     if llm_client is None:
         llm_client = create_llm_client(
             model=_resolve_subtitle_translate_model(),

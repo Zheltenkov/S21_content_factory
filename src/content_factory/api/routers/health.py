@@ -9,7 +9,7 @@ from fastapi import APIRouter
 
 from content_factory.api.db.session import check_database_connection, get_database_status
 from content_factory.api.utils.logger import get_logger
-from content_factory.generation.llm.model_registry import get_llm_provider_summary
+from content_factory.platform.llm.model_registry import get_llm_provider_summary
 
 router = APIRouter()
 logger = get_logger("health")

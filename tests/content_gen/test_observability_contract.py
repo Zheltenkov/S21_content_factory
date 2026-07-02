@@ -1,4 +1,4 @@
-from content_factory.generation.llm.observed_client import ObservedLLMClient
+from content_factory.platform.llm.observed_client import ObservedLLMClient
 from content_factory.generation.observability import (
     CompatibilityEvent,
     FallbackTraceEvent,

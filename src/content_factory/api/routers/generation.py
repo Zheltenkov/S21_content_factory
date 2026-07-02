@@ -72,7 +72,7 @@ from content_factory.api.utils.result_cache import (
 
 logger = get_logger("generation")
 from content_factory.generation.exceptions import ContentGenerationError
-from content_factory.generation.llm.factory import create_llm_client
+from content_factory.platform.llm.factory import create_llm_client
 from content_factory.generation.methodology import (
     MethodologistChangeRequest,
     ScopedRevisionExecutor,

@@ -24,7 +24,7 @@ from .agents.task_planner import TaskPlanner
 from .exceptions import ContentGenerationError
 from .flow_handlers import GenerationFlowHandlers
 from .flow_result import FlowResultFinalizer
-from .llm.observed_client import ObservedLLMClient
+from content_factory.platform.llm.observed_client import ObservedLLMClient
 from .methodology import (
     HumanApprovalCheckpointPolicy,
     MethodologyGate,

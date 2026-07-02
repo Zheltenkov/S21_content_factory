@@ -22,7 +22,7 @@ from ..config.thresholds import (
     get_enhancement_config_for_content_type,
 )
 from .base.llm_client import LLMClientProtocol
-from ..llm.structured_output import StructuredLLMClient
+from content_factory.platform.llm.structured_output import StructuredLLMClient
 from ..models.enhancement_plan import (
     EnhancementBudget,
     EnhancementPlan,

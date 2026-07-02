@@ -1,4 +1,4 @@
-from content_factory.generation.llm.model_registry import (
+from content_factory.platform.llm.model_registry import (
     ModelRegistry,
     ModelRoleConfig,
     ModelRoute,
