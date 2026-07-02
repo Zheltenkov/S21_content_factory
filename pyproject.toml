@@ -1,0 +1,110 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "content-factory"
+version = "0.1.0"
+description = "Unified School 21 content platform: generation, audit, and competency catalog."
+requires-python = ">=3.12"
+dependencies = [
+    # --- generation / api (ex Content_generator_ver1) ---
+    "pydantic[email]>=2.0.0",
+    "openai>=1.0.0",
+    "litellm>=1.83.14,<2.0",
+    "instructor>=1.13.0,<2.0",
+    "pydantic-ai>=1.0.5,<2.0",
+    "opentelemetry-api>=1.28.0,<2.0",
+    "langfuse>=3.0.0,<4.0",
+    "python-dotenv>=1.0.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "openpyxl>=3.0.0",
+    "requests>=2.31.0",
+    "httpx>=0.23.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "python-multipart>=0.0.6",
+    "pypdf>=5.0.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt,argon2]>=1.7.4",
+    "slowapi>=0.1.9",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+    "psycopg2-binary>=2.9.9",
+    "redis>=5.0.0",
+    "psutil>=5.9.0",
+    "pyyaml>=6.0.0",
+    "jinja2>=3.1.0",
+    # --- catalog (ex Spravochnik) ---
+    "rapidfuzz>=3.0",
+    "networkx>=3.0",
+    "python-docx>=1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+content_factory = ["config/*.yaml", "generation/config/*.yaml", "generation/config/**/*.yaml"]
+
+# ---------------------------------------------------------------------------
+# Test / lint / type-check config (unified; ex Content_generator_ver1 pyproject)
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers --tb=short --disable-warnings -p no:cacheprovider"
+markers = [
+    "unit: Unit тесты",
+    "integration: Интеграционные тесты",
+    "slow: Медленные тесты (требуют LLM API)",
+    "asyncio: Асинхронные тесты",
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["openai.*", "slowapi.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+ignore = ["E501", "B008", "C901"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.black]
+line-length = 120
+target-version = ['py312']
+extend-exclude = '''
+/(
+  \.eggs | \.git | \.hg | \.mypy_cache | \.tox | \.venv | venv
+  | _build | buck-out | build | dist | migrations | legacy
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip = ["migrations", ".venv", "venv", "legacy"]
