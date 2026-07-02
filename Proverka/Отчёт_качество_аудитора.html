@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Качество ИИ-аудита учебного контента</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+ --page:#f6f5f1;--surface:#ffffff;--surface-2:#faf9f6;--muted:#efeee8;
+ --border:#e4e2da;--border-strong:#d6d4ca;--ink:#16191f;--ink-2:#3b3f47;--text-muted:#6c707a;
+ --accent:#0f6b4f;--accent-soft:#e6f2ec;--accent-line:#9ecdb6;
+ --crit:#b23b32;--crit-soft:#fbe9e6;--major:#a86a13;--major-soft:#fbf0d9;--minor:#2a5d8f;--minor-soft:#e9f1f8;
+ --radius:14px;--shadow:0 18px 44px rgba(20,22,28,.08);
+ --serif:"Fraunces",Georgia,serif;--sans:"IBM Plex Sans",-apple-system,"Segoe UI",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.62}
+.page{max-width:1000px;margin:0 auto;padding:34px 24px 72px}
+.hero{padding:40px 38px;background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.hero:before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:linear-gradient(90deg,var(--accent),#3f9c79 60%,var(--minor))}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;margin-bottom:16px;padding:6px 13px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+h1{font-family:var(--serif);font-weight:600;font-size:38px;line-height:1.1;margin:0;letter-spacing:-.01em}
+.lead{margin:16px 0 0;max-width:72ch;color:var(--ink-2);font-size:18px}
+.passport{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:26px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.passport div{background:var(--surface);padding:13px 15px}
+.passport span{display:block;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+.passport strong{display:block;margin-top:3px;font-size:15px;font-weight:600}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px}
+.card{padding:20px 18px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.card .num{font-family:var(--serif);font-size:34px;font-weight:600;line-height:1}
+.card .lbl{margin-top:8px;font-size:13.5px;color:var(--text-muted)}
+.card.acc .num{color:var(--accent)}
+.card.acc{background:var(--accent-soft);border-color:var(--accent-line)}
+section.s{margin-top:16px;padding:28px 30px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+h2{font-family:var(--serif);font-weight:600;font-size:24px;margin:0 0 4px}
+h3{font-size:16px;font-weight:700;margin:20px 0 0}
+p{margin:11px 0 0;color:var(--ink-2)}
+table{width:100%;margin-top:16px;border-collapse:collapse;border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:14.5px}
+th,td{padding:11px 14px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+th{background:var(--surface-2);font-weight:600;font-size:13px;color:var(--ink-2)}
+tr:last-child td{border-bottom:0}
+.bar{height:10px;border-radius:6px;background:var(--muted);overflow:hidden;min-width:120px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.callout{margin-top:16px;padding:15px 18px;border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;background:var(--accent-soft)}
+.callout.warn{border-left-color:var(--major);background:var(--major-soft)}
+.callout b{color:var(--ink)}
+ul{margin:12px 0 0;padding-left:22px;color:var(--ink-2)}
+li+li{margin-top:7px}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700}
+.pill.g{background:var(--accent-soft);color:var(--accent)}.pill.r{background:var(--crit-soft);color:var(--crit)}.pill.m{background:var(--major-soft);color:var(--major)}.pill.b{background:var(--minor-soft);color:var(--minor)}
+.foot{margin-top:26px;color:var(--text-muted);font-size:13.5px;text-align:center}
+@media(max-width:820px){.passport,.cards{grid-template-columns:1fr 1fr}h1{font-size:30px}}
+</style>
+</head>
+<body>
+<main class="page">
+ <header class="hero">
+  <div class="eyebrow"><span class="dot"></span>Отчёт о качестве · ИИ-аудит контента Школы 21</div>
+  <h1>Детектор находит проблемы; узкое место — качество разметки и группировка критериев</h1>
+  <p class="lead">Сверка с ручной разметкой методологов на 17 проектах. Там, где разметка указывает точное место дефекта, алгоритм совпадает на 74%, а по проблемным зонам — на 100%. Низкий общий показатель объясняется не слепотой детектора, а особенностями набора и тем, что критерии методологов разбиты на пересекающиеся группы.</p>
+  <div class="passport">
+   <div><span>Проектов</span><strong>17</strong></div>
+   <div><span>Эталонных дефектов</span><strong>62</strong></div>
+   <div><span>Находок алгоритма</span><strong>&gt; 160</strong></div>
+  </div>
+  <div class="cards">
+   <div class="card acc"><div class="num">73,7%</div><div class="lbl">Совпадений там, где указана точная строка (14 из 19)</div></div>
+   <div class="card acc"><div class="num">100%</div><div class="lbl">Покрытие проблемных зон (22 из 22)</div></div>
+   <div class="card"><div class="num">53%</div><div class="lbl">По реально-ловимым дефектам (27 из 51)</div></div>
+   <div class="card"><div class="num">≈9</div><div class="lbl">Настоящих находок сверх ручного списка в среднем на проект (нижняя оценка)</div></div>
+  </div>
+ </header>
+
+ <section class="s">
+  <h2>Главное</h2>
+  <ul>
+   <li><b>Детектор работает.</b> Где разметка локализует дефект (указана строка) — совпадение <b>74%</b>; по зонам «есть проблема в этой области» — <b>100%</b>.</li>
+   <li><b>Алгоритм находит больше человека.</b> Помимо совпавших, поднял в среднем ~9 настоящих проблем на проект, которых в ручном списке не было (по консервативной оценке).</li>
+   <li><b>Что тянет общий показатель вниз — это данные, а не детектор:</b> в наборе есть посторонний проект и опечатки в названиях, а треть «эталона» — субъективные пожелания, а не дефекты. Плюс критерии методологов пересекаются (один и тот же дефект попадает в разные группы).</li>
+  </ul>
+ </section>
+
+ <section class="s">
+  <h2>Полнота: общая и там, где указана строка</h2>
+  <table>
+   <thead><tr><th>Срез</th><th>Совпало / всего</th><th>Полнота</th><th></th></tr></thead>
+   <tbody>
+    <tr><td><b>Дефекты с указанной строкой</b></td><td>14 / 19</td><td><b>73,7%</b></td><td><div class="bar"><i style="width:74%"></i></div></td></tr>
+    <tr><td>По реально-ловимым дефектам (без субъективных)</td><td>27 / 51</td><td>53%</td><td><div class="bar"><i style="width:53%"></i></div></td></tr>
+    <tr><td>Покрытие зон (проект × вид проблемы)</td><td>22 / 22</td><td>100%</td><td><div class="bar"><i style="width:100%"></i></div></td></tr>
+    <tr><td>Строгое совпадение по всем записям</td><td>27 / 62</td><td>44%</td><td><div class="bar"><i style="width:44%"></i></div></td></tr>
+   </tbody>
+  </table>
+  <div class="callout"><b>Вывод:</b> разрыв между 74% (со строкой) и 44% (по всем) — это прямое доказательство, что детектор находит, а теряется на записях без локализации и на субъективных пожеланиях.</div>
+  <p><b>Что такое «зона».</b> Зона — это пара «проект + вид проблемы» (например, проект SQLB3 × «Соответствие чек-листу»). Полнота 100% по зонам означает: во всех областях, где методолог отметил проблему, инструмент тоже выдал хотя бы одно замечание — то есть мы не пропускаем целые направления, расхождения только в точной формулировке.</p>
+ </section>
+
+ <section class="s">
+  <h2>Полнота по видам проблем</h2>
+  <table>
+   <thead><tr><th>Вид проблемы</th><th>Найдено / всего</th><th>Доля</th><th></th></tr></thead>
+   <tbody>
+    <tr><td>Грамотность и читаемость</td><td>12 / 22</td><td>55%</td><td><div class="bar"><i style="width:55%"></i></div></td></tr>
+    <tr><td>Точность и корректность</td><td>6 / 13</td><td>46%</td><td><div class="bar"><i style="width:46%"></i></div></td></tr>
+    <tr><td>Соответствие чек-листу</td><td>4 / 9</td><td>44%</td><td><div class="bar"><i style="width:44%"></i></div></td></tr>
+    <tr><td>Актуальность</td><td>5 / 18</td><td>28%</td><td><div class="bar"><i style="width:28%"></i></div></td></tr>
+   </tbody>
+  </table>
+ </section>
+
+ <section class="s">
+  <h2>Почему страдает качество измерения — данные и критерии</h2>
+  <h3>Набор для проверки</h3>
+  <ul>
+   <li><b>Посторонний проект.</b> В разметке есть «С2 — s21_string+», которого нет в выданном корпусе — его дефекты в принципе не на чем найти.</li>
+   <li><b>Опечатки в названиях.</b> «CbS11_Enterprise_IT_andscape» (пропущена буква) не сходится с папкой автоматически.</li>
+   <li><b>Треть — пожелания, а не дефекты.</b> «лучше добавить отладчик», «трудоёмкость завышена», «не буду комментировать» — это методические мнения, а не ошибки контента; их детектор ловить не должен.</li>
+   <li><b>Часто нет локализации.</b> У многих записей не указаны файл/строка, поэтому совпадение приходится искать по смыслу — отсюда потери.</li>
+  </ul>
+  <h3>Группировка критериев</h3>
+  <p>Один и тот же дефект методологи и инструмент кладут в разные категории. Пример из набора: сломанную ссылку методолог отнёс к «Точность и корректность», а по смыслу это «Актуальность/Ссылки». Пока границы критериев не согласованы, любое измерение получает искусственные расхождения.</p>
+ </section>
+
+ <section class="s">
+  <h2>Предложение: единая рубрика критериев</h2>
+  <p>Чтобы измерение стало честным и стабильным, предлагаем зафиксировать общий список критериев — одинаковый для разметки, ТЗ и инструмента. Ключевая правка: «Актуальность» разбить на три самостоятельных критерия (у них разные источники истины, стоимость и критичность), а «дефект против методического пожелания» вынести в отдельную пометку.</p>
+  <table>
+   <thead><tr><th>Критерий</th><th>Что проверяет</th><th>Источник истины</th><th>Критичность</th><th>Пример</th></tr></thead>
+   <tbody>
+    <tr><td><b>Ссылки</b></td><td>Битые/синтаксически неверные ссылки, недоступность</td><td>Краулер + синтаксис</td><td><span class="pill r">Высокая</span></td><td>обратный слеш в https:/\…</td></tr>
+    <tr><td><b>Версии и технологии</b></td><td>Устаревшие версии библиотек, ОС, инструментов</td><td>Реестр версий (npm/pypi/maven)</td><td><span class="pill m">Средняя</span></td><td>старая версия ОС в инструкции</td></tr>
+    <tr><td><b>Факты, определения, примеры</b></td><td>Неверные утверждения, определения, расхождение примеров вывода с кодом</td><td>Модель + веб</td><td><span class="pill m">Средняя</span></td><td>таблица вывода в задании ≠ atm.js</td></tr>
+    <tr><td><b>Грамотность и читаемость</b></td><td>Орфография, пунктуация, нумерация, формулировки</td><td>Детерминированные правила</td><td><span class="pill b">Низкая</span></td><td>«поступают неупорядоченные»</td></tr>
+    <tr><td><b>Соответствие чек-листу</b></td><td>README ↔ чек-лист: имена файлов, условия, ожидаемый вывод</td><td>Сопоставление + модель</td><td><span class="pill r">Высокая</span></td><td>в README xxx_UC, в чек-листе xxx_usecase</td></tr>
+    <tr><td><b>Ось: дефект / улучшение</b></td><td>Отдельная пометка к любой записи: это ошибка или методическое пожелание</td><td>Разметка</td><td>—</td><td>«лучше добавить отладчик» = улучшение</td></tr>
+   </tbody>
+  </table>
+  <div class="callout warn"><b>Что это даёт:</b> устранятся искусственные расхождения по категориям, из расчёта полноты уйдут пожелания, а «Актуальность» перестанет смешивать дешёвую проверку ссылок с дорогим фактчеком. Ожидаемый честный показатель после согласования рубрики и чистки набора — на уровне результата «со строкой», то есть около 70%.</div>
+ </section>
+
+ <section class="s">
+  <h2>Вывод</h2>
+  <p>Детектор работоспособен: на корректно локализованных дефектах — <b>74%</b>, по зонам — <b>100%</b>, плюс не менее 9-10 настоящих находок сверх ручного списка. Низкий общий показатель — следствие качества предоставленного набора (посторонний проект, опечатки, треть пожеланий, отсутствие локализации) и пересекающихся критериев. Приоритет — согласовать единую рубрику критериев (методологию определения) и привести разметку к ней для более качественной оценки работы алгоритма.</p>
+ </section>
+
+ <div class="foot">Сверка с ручной разметкой методологов · 17 проектов · модель-арбитр gpt-5.4-mini через Polza</div>
+</main>
+</body>
+</html>

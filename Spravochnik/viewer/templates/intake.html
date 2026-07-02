@@ -1,0 +1,1866 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+    <div>
+        <h1>{% if job %}Рабочий стол брифа #{{ job.id }}{% else %}Рабочий стол брифа{% endif %}</h1>
+        <p>
+            {% if job %}
+            Единый маршрут: проверить навыки, применить принятые решения в справочник, подтвердить шаблоны, построить DAG и УП.
+            {% else %}
+            Загрузите бриф. Система декомпозирует его в навыки, сопоставит с каталогом и подготовит очередь решений для методолога.
+            {% endif %}
+        </p>
+    </div>
+    {% if job %}
+    <div class="review-actions">
+        <a class="action-btn action-btn-secondary" href="/intake">Новый бриф</a>
+        <a class="action-btn action-btn-secondary" href="/reviews">Открытые решения</a>
+    </div>
+    {% endif %}
+</section>
+
+{% if not job %}
+<section class="filter-panel">
+    <form class="admin-form" method="post" action="/intake" enctype="multipart/form-data" id="intake-form">
+        <input type="hidden" name="brief_file_path" id="brief-file-path" value="{{ brief_file_path or '' }}">
+        <div class="brief-compose-grid">
+            <div class="brief-upload-panel">
+                <label class="upload-dropzone" id="brief-dropzone" for="brief-file-input" role="button" tabindex="0" aria-controls="brief-file-input">
+                    <div class="upload-dropzone-title">Загрузить документ</div>
+                    <div class="upload-dropzone-subtitle">Перетащите файл сюда или нажмите на область. Поддерживаются `.txt`, `.md`, `.csv`, `.docx`; после выбора обработка стартует автоматически.</div>
+                    <input class="brief-file-input-native" type="file" name="brief_file" id="brief-file-input" accept=".txt,.md,.csv,.docx" aria-label="Выбрать документ для обработки">
+                </label>
+                <div class="small muted" id="picker-status">Файл пока не выбран.</div>
+                {% if upload_name %}
+                <div class="small muted">Источник файла: {{ upload_name }}</div>
+                {% endif %}
+            </div>
+            <label class="brief-text-panel">
+                <span>Бриф (свободный текст)</span>
+                <textarea name="brief" id="brief-text" rows="13" placeholder="Например: подготовить junior backend-разработчика на Python для финтеха…">{{ brief or "" }}</textarea>
+                <span class="small muted">Если вставите текст, появится кнопка для обработки текстового брифа.</span>
+            </label>
+        </div>
+        {% if form_error %}
+        <div class="status-badge warn">{{ form_error }}</div>
+        {% endif %}
+        <div class="review-actions" id="brief-submit-wrap" {% if not brief %}hidden{% endif %}>
+            <button type="submit" class="action-btn">Обработать текстовый бриф</button>
+        </div>
+    </form>
+</section>
+{% endif %}
+
+{% if job %}
+<details class="collapse-panel workspace-control-panel" {% if job.status in ['pending', 'running', 'failed'] %}open{% endif %}>
+    <summary>
+        <span class="workspace-control-summary-main">
+            <strong>Контроль брифа</strong>
+            <span class="status-badge{% if job.status == 'failed' %} warn{% endif %}" id="job-status-badge">{{ job.status_label }}</span>
+            {% if workspace_state and workspace_state.next_step %}
+            <span class="workspace-control-summary-text">Следующий шаг: {{ workspace_state.next_step["label"] }}</span>
+            {% else %}
+            <span class="workspace-control-summary-text">{{ job.current_stage_label or 'Постановка в очередь' }}</span>
+            {% endif %}
+            {% if workspace_state and workspace_state.blockers %}
+            <span class="pill">{{ workspace_state.blockers|length }} блокеров</span>
+            {% endif %}
+        </span>
+        <span class="intake-progress-percent" id="job-progress-percent">0%</span>
+    </summary>
+    <div class="workspace-control-body">
+        <section class="workspace-control-card workspace-control-progress">
+            <div class="workspace-control-card-head">
+                <div>
+                    <div class="sub-label">Ход обработки</div>
+                    <h2 id="job-stage">{{ job.current_stage_label or 'Постановка в очередь' }}</h2>
+                </div>
+                <span class="small muted">{{ job.created_at|datetime_local if job.created_at else '—' }}</span>
+            </div>
+            <div class="small muted intake-run-source">
+                Источник: {{ 'документ' if job.source_kind == 'file' else 'текстовый бриф' }}
+                {% if job.source_name %} · {{ job.source_name }}{% endif %}
+            </div>
+            <section class="intake-progress-card">
+                <div class="intake-progress-head">
+                    <div class="small muted" id="job-progress">{{ job.progress_note or 'Задача поставлена в очередь.' }}</div>
+                </div>
+                <div class="intake-progress-track" aria-hidden="true">
+                    <div class="intake-progress-fill" id="job-progress-fill"></div>
+                </div>
+                <div class="intake-progress-steps" id="job-progress-steps">
+                    {% for step in intake_progress_steps %}
+                    <span class="intake-progress-step" data-stage="{{ step.code }}">{{ step.label }}</span>
+                    {% endfor %}
+                </div>
+            </section>
+            <div class="job-status-summary compact-status-row">
+                <span class="pill">Жюри: {{ 'включено' if job.use_council else 'выключено' }}</span>
+                <span class="pill ghost">Создано: {{ job.created_at|datetime_local if job.created_at else '—' }}</span>
+            </div>
+        </section>
+
+        {% if workspace_state and workspace_state.next_step %}
+        <section class="workspace-next-step workspace-control-card">
+            <div>
+                <div class="sub-label">Следующий шаг</div>
+                <h2>{{ workspace_state.next_step["label"] }}</h2>
+                <p class="small muted">{{ workspace_state.next_step["description"] }}</p>
+            </div>
+            <div class="review-actions">
+                {% if workspace_state.next_step["method"] == 'post' %}
+                <form method="post" action="{{ workspace_state.next_step["href"] }}">
+                    <button type="submit" class="action-btn action-btn-primary" {% if workspace_state.next_step["disabled"] %}disabled{% endif %}>Выполнить следующий шаг</button>
+                </form>
+                {% else %}
+                <a class="action-btn action-btn-primary {% if workspace_state.next_step["disabled"] %}is-disabled{% endif %}" href="{{ workspace_state.next_step["href"] }}">Выполнить следующий шаг</a>
+                {% endif %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if workspace_state and workspace_state.blockers %}
+        <section class="workspace-control-card workspace-blockers">
+            <div class="summary-head">
+                <h2>Что блокирует УП</h2>
+                <span class="pill">{{ workspace_state.blockers|length }} блокеров</span>
+            </div>
+            <div class="workspace-blocker-grid">
+                {% for blocker in workspace_state.blockers %}
+                <a class="workspace-blocker workspace-blocker-{{ blocker.severity }}" href="{{ blocker.href }}">
+                    <span class="workspace-blocker-count">{{ blocker.count }}</span>
+                    <span class="workspace-blocker-body">
+                        <strong>{{ blocker.label }}</strong>
+                        <span>{{ blocker.description }}</span>
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if result and result.catalog_state %}
+        <section class="workspace-control-card catalog-state-summary">
+            <div class="summary-head">
+                <h2>Состояние справочника</h2>
+                <span class="pill">для DAG и УП</span>
+            </div>
+            <div class="chips-row compact-summary-row">
+                <div class="summary-card{% if not result.catalog_state.catalog_applied and result.catalog_state.accepted_atomic %} summary-card-warn{% endif %}">
+                    <div class="summary-label">Применено в справочник</div>
+                    <div class="summary-value">{{ result.catalog_state.active_promotions }} / {{ result.catalog_state.accepted_atomic }}</div>
+                    <div class="small muted">принятые навыки → навык / синоним / компетенция</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Набор навыков брифа</div>
+                    <div class="summary-value">{{ result.catalog_state.skill_set_items }}</div>
+                    <div class="small muted">источник DAG и УП</div>
+                </div>
+                <div class="summary-card{% if result.catalog_state.open_template_proposals %} summary-card-warn{% endif %}">
+                    <div class="summary-label">Шаблоны УП</div>
+                    <div class="summary-value">{{ result.catalog_state.template_proposals }}</div>
+                    <div class="small muted">открыто {{ result.catalog_state.open_template_proposals }}, принято {{ result.catalog_state.accepted_template_proposals }}</div>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if workspace_state and workspace_state.catalog_summary and workspace_state.catalog_summary.total %}
+        <section class="workspace-control-card catalog-apply-summary">
+            <div class="summary-head">
+                <h2>Что попало в справочник</h2>
+                <span class="pill">{{ workspace_state.catalog_summary.total }} записей</span>
+            </div>
+            <div class="catalog-summary-list">
+                {% for item in workspace_state.catalog_summary["items"] %}
+                <a class="catalog-summary-item" href="/catalog-admin/skills/{{ item.skill_id }}">
+                    <strong>{{ item.canonical_name }}</strong>
+                    <span>{{ item.group_name or 'Без группы' }}</span>
+                    {% if item.suggested_name and item.suggested_name != item.canonical_name %}<small>из: {{ item.suggested_name }}</small>{% endif %}
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if workflow_steps %}
+        <section class="workspace-control-card workflow-stepper" aria-label="Маршрут брифа">
+            {% for step in workflow_steps %}
+            <a class="workflow-step workflow-step-{{ step.status }}" href="{{ step.href }}">
+                <span class="workflow-step-index">{{ loop.index }}</span>
+                <span class="workflow-step-body">
+                    <span class="workflow-step-label">{{ step.label }}</span>
+                    <span class="workflow-step-description">{{ step.description }}</span>
+                </span>
+            </a>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        {% if recent_jobs %}
+        <details class="workspace-control-card workspace-history-card">
+            <summary>Последние intake-задачи ({{ recent_jobs|length }})</summary>
+            <form class="review-actions intake-history-actions" method="post" action="/intake/jobs/clear" onsubmit="return confirm('Очистить историю intake-задач, брифы, очередь review по брифам и черновики УП? Канонический справочник не будет удалён.');">
+                <button type="submit" class="action-btn action-btn-danger">Очистить историю intake</button>
+            </form>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Задача</th>
+                        <th>Источник</th>
+                        <th>Статус</th>
+                        <th>Этап</th>
+                        <th>Жюри</th>
+                        <th>Открыть</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for recent in recent_jobs %}
+                    <tr>
+                        <td>#{{ recent.id }}<div class="small muted">{{ recent.created_at|datetime_local }}</div></td>
+                        <td>{{ recent.source_name or ('Текстовый бриф' if recent.source_kind == 'text' else 'Документ') }}</td>
+                        <td><span class="status-badge{% if recent.status == 'failed' %} warn{% endif %}">{{ recent.status_label }}</span></td>
+                        <td>{{ recent.current_stage_label }}</td>
+                        <td>{{ 'вкл' if recent.use_council else 'выкл' }}</td>
+                        <td><a href="/intake/jobs/{{ recent.id }}">Открыть</a></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </details>
+        {% endif %}
+    </div>
+</details>
+{% endif %}
+
+{% if recent_jobs and not job %}
+<section class="table-wrap">
+    <details class="collapse-panel">
+        <summary>Последние intake-задачи ({{ recent_jobs|length }})</summary>
+        <form class="review-actions intake-history-actions" method="post" action="/intake/jobs/clear" onsubmit="return confirm('Очистить историю intake-задач, брифы, очередь review по брифам и черновики УП? Канонический справочник не будет удалён.');">
+            <button type="submit" class="action-btn action-btn-danger">Очистить историю intake</button>
+        </form>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Задача</th>
+                    <th>Источник</th>
+                    <th>Статус</th>
+                    <th>Этап</th>
+                    <th>Жюри</th>
+                    <th>Открыть</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for recent in recent_jobs %}
+                <tr>
+                    <td>#{{ recent.id }}<div class="small muted">{{ recent.created_at|datetime_local }}</div></td>
+                    <td>{{ recent.source_name or ('Текстовый бриф' if recent.source_kind == 'text' else 'Документ') }}</td>
+                    <td><span class="status-badge{% if recent.status == 'failed' %} warn{% endif %}">{{ recent.status_label }}</span></td>
+                    <td>{{ recent.current_stage_label }}</td>
+                    <td>{{ 'вкл' if recent.use_council else 'выкл' }}</td>
+                    <td><a href="/intake/jobs/{{ recent.id }}">Открыть</a></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </details>
+</section>
+{% endif %}
+
+{% if result %}
+{% set accepted_candidate_count = result.candidates|selectattr('decision', 'equalto', 'accepted')|list|length %}
+{% set candidate_count = result.candidates|length %}
+{% set all_candidates_accepted = candidate_count > 0 and accepted_candidate_count == candidate_count %}
+<section class="hero hero-compact workflow-focus candidate-review-hero" id="candidate-review">
+    <div class="candidate-review-copy">
+        <h1>Проверка кандидатов</h1>
+        <p class="small muted">
+            Рабочий блок методолога: принять новый навык, привязать к каталогу или отклонить.
+            <br>
+            Похожесть = близость к каталогу. Новизна = насколько мало похожих записей найдено.
+            Уверенность и жюри показывают, можно ли доверять автопроверке.
+        </p>
+    </div>
+    <div class="review-actions candidate-review-actions">
+        <a class="action-btn action-btn-secondary" href="/reviews">Открыть очередь</a>
+        <a class="action-btn action-btn-secondary" href="/catalog-admin/groups">Открыть справочник</a>
+    </div>
+</section>
+<section class="candidate-card-workspace primary-workspace">
+    <details class="collapse-panel candidate-list-panel{% if all_candidates_accepted %} candidate-list-panel-complete{% endif %}" data-candidate-list-panel{% if not all_candidates_accepted %} open{% endif %}>
+        <summary>
+            <span data-candidate-list-summary>{{ 'Принятые навыки' if all_candidates_accepted else 'Карточки навыков' }}</span>
+            <span class="pill" data-candidate-list-count>{{ accepted_candidate_count if all_candidates_accepted else candidate_count }}</span>
+        </summary>
+    <div class="candidate-card-list">
+        {% for c in result.candidates %}
+            {% set rec = c.recommended_action if c.recommended_action is defined and c.recommended_action else none %}
+            {% set recommended_code = rec.code if rec else '' %}
+            <article class="candidate-review-card{% if c.decision == 'accepted' %} candidate-card-collapsed{% endif %}" data-candidate-row="{{ c.suggestion_id or '' }}" data-candidate-decision="{{ c.decision }}">
+                <div class="candidate-card-main">
+                    <div class="candidate-card-head">
+                        <div class="candidate-card-title-block">
+                            <div class="candidate-card-title-line">
+                                <h2><span class="param-index">①</span>{{ c.name }}</h2>
+                                <span class="candidate-bloom-pill"><span class="param-index">④</span>Блум {{ c.bloom }}</span>
+                                <span class="candidate-decision-compact status-badge {% if c.decision != 'accepted' %}warn{% endif %}" data-decision-compact>
+                                    {% if c.decision == 'accepted' %}Принято
+                                    {% elif c.decision == 'needs_review' %}На проверке
+                                    {% elif c.decision == 'rejected' %}Отклонено
+                                    {% elif c.decision == 'pending' %}Ожидает решения
+                                    {% elif c.decision == 'superseded' %}Заменено
+                                    {% else %}{{ c.decision }}{% endif %}
+                                </span>
+                            </div>
+                            {% if c.source_name and c.source_name != c.name %}
+                            <div class="candidate-source small muted">Исходная формулировка: {{ c.source_name }}</div>
+                            {% endif %}
+                            <div class="candidate-meta-line">
+                                <span><span class="param-index">②</span>{{ c.coverage_area or "Область покрытия не указана" }}</span>
+                                <span><span class="param-index">③</span>{{ c.group or "Группа не указана" }}</span>
+                            </div>
+                            <div class="candidate-tools small muted">
+                                <span class="param-index">①</span>Инструменты: {{ c.tools or "—" }}
+                            </div>
+                            {% if c.parent_name %}<div class="small muted">Из декомпозиции: {{ c.parent_name }}</div>{% endif %}
+                            {% if c.entity_type != 'skill' %}<div class="small muted">Тип сущности: {{ c.entity_type|review_entity_label }}</div>{% endif %}
+                        </div>
+                        <div class="candidate-card-actions">
+                            <div class="candidate-card-action-label"><span class="param-index">⑬</span>Действия</div>
+                            {% if c.can_review_inline and c.suggestion_id %}
+                            <form class="candidate-action-form" method="post" action="/intake/jobs/{{ job.id }}/candidate-decision" data-candidate-action-form>
+                                <input type="hidden" name="suggestion_id" value="{{ c.suggestion_id }}">
+                                <button type="submit" name="candidate_action" value="accept" data-action="accept" class="action-btn action-btn-icon {% if recommended_code == 'create' %}action-btn-primary action-btn-recommended{% else %}action-btn-secondary{% endif %}" title="Добавить как новый навык" aria-label="Добавить как новый навык"{% if c.decision == 'accepted' %} disabled{% endif %}>+</button>
+                                <button type="submit" name="candidate_action" value="link" data-action="link" class="action-btn action-btn-icon {% if recommended_code == 'link' %}action-btn-primary action-btn-recommended{% else %}action-btn-secondary{% endif %}" title="Привязать к ближайшему навыку из каталога" aria-label="Привязать к ближайшему навыку из каталога"{% if not c.nearest_skill_id %} data-static-disabled="1"{% endif %}{% if c.decision == 'accepted' or not c.nearest_skill_id %} disabled{% endif %}>↔</button>
+                                <button type="submit" name="candidate_action" value="review" data-action="review" class="action-btn action-btn-icon action-btn-light" title="Вернуть в проверку" aria-label="Вернуть в проверку"{% if c.decision == 'needs_review' %} disabled{% endif %}>↩</button>
+                                <button type="submit" name="candidate_action" value="reject" data-action="reject" class="action-btn action-btn-icon action-btn-danger" title="Отклонить и не использовать для покрытия" aria-label="Отклонить и не использовать для покрытия"{% if c.decision == 'rejected' %} disabled{% endif %}>×</button>
+                            </form>
+                            {% else %}
+                            <span class="small muted">Нет ручного действия</span>
+                            {% endif %}
+                            <button type="button" class="candidate-expand-toggle" data-candidate-toggle aria-expanded="{{ 'false' if c.decision == 'accepted' else 'true' }}">
+                                {{ 'Показать детали' if c.decision == 'accepted' else 'Свернуть' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="candidate-card-divider"></div>
+
+                    <div class="candidate-diagnostic-row">
+                        <span class="candidate-resolution-pill">
+                            <span class="param-index">⑤</span>
+                            {% if c.resolution == 'new' %}Новый
+                            {% elif c.resolution == 'matched' %}Совпадение найдено
+                            {% elif c.resolution == 'alias' %}Синоним найден
+                            {% elif c.resolution == 'fuzzy' %}Похожий вариант
+                            {% elif c.resolution %}{{ c.resolution }}
+                            {% else %}Не проверено{% endif %}
+                        </span>
+                        {% if c.similarity_hint is defined and c.similarity_hint %}
+                        <span class="candidate-match-chip match-hint-{{ c.similarity_hint.class }}"><span class="param-index">⑥</span>{{ c.similarity_hint.label }}</span>
+                        {% endif %}
+                        <span class="candidate-nearest">
+                            <span class="param-index">⑥</span>
+                            {% if c.nearest_name is defined and c.nearest_name %}
+                            Ближайший в каталоге:
+                            {% if c.nearest_skill_id %}
+                            <a href="/catalog-admin/skills/{{ c.nearest_skill_id }}" target="_blank" rel="noopener">{{ c.nearest_name }}</a>
+                            {% else %}
+                            {{ c.nearest_name }}
+                            {% endif %}
+                            {% if c.nearest_group %}<span class="muted"> · {{ c.nearest_group }}</span>{% endif %}
+                            {% else %}
+                            Ближайший в каталоге не найден
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="candidate-score-strip">
+                        <span><span class="param-index">⑥</span>похожесть <strong>{{ c.match_score if c.match_score is defined and c.match_score is not none else "—" }}</strong></span>
+                        <span><span class="param-index">⑦</span>новизна <strong>{{ c.novelty_score if c.novelty_score is defined and c.novelty_score is not none else "—" }}</strong></span>
+                        <span><span class="param-index">⑧</span>уверенность <strong>{{ c.confidence }}</strong></span>
+                        <span><span class="param-index">⑨</span>жюри <strong>{{ c.council_agreement if c.council_agreement is not none else "—" }}</strong></span>
+                        <span class="candidate-decision-badge status-badge {% if c.decision != 'accepted' %}warn{% endif %}" data-decision-badge>
+                            <span class="param-index">⑩</span>
+                            {% if c.decision == 'accepted' %}Принято
+                            {% elif c.decision == 'needs_review' %}На проверке
+                            {% elif c.decision == 'rejected' %}Отклонено
+                            {% elif c.decision == 'pending' %}Ожидает решения
+                            {% elif c.decision == 'superseded' %}Заменено
+                            {% else %}{{ c.decision }}{% endif %}
+                        </span>
+                    </div>
+
+                    <div class="candidate-recommendation-panel candidate-recommendation-{{ rec.code if rec else 'review' }}">
+                        <div class="candidate-recommendation-title">
+                            <span class="param-index">⑫</span>
+                            {% if rec %}{{ rec.label }}{% else %}Нужно решение методолога{% endif %}
+                        </div>
+                        {% if rec and rec.target %}<div class="small recommendation-target">{{ rec.target }}</div>{% endif %}
+                        {% if rec and rec.detail %}<div class="small recommendation-detail">{{ rec.detail }}</div>{% endif %}
+                        {% if c.similarity_hint is defined and c.similarity_hint and c.similarity_hint.recommendation %}
+                        <div class="small recommendation-detail">{{ c.similarity_hint.recommendation }}</div>
+                        {% endif %}
+                        {% if c.decision_rationale is defined and c.decision_rationale %}
+                        <details class="decision-rationale">
+                            <summary>Почему</summary>
+                            <div class="small">{{ c.decision_rationale.summary }}</div>
+                            <div class="small muted">{{ c.decision_rationale.match_evidence }}</div>
+                            <div class="small muted">{{ c.decision_rationale.council_rationale }}</div>
+                            <div class="small muted">{{ c.decision_rationale.validator_reasons }}</div>
+                        </details>
+                        {% endif %}
+                    </div>
+
+                    <details class="candidate-card-details">
+                        <summary><span class="param-index">⑪</span>Причины{% if c.decision %} ({% if c.decision == 'needs_review' %}на проверке{% elif c.decision == 'accepted' %}принято{% elif c.decision == 'rejected' %}отклонено{% else %}{{ c.decision }}{% endif %}){% endif %}</summary>
+                        <div class="small muted">{{ c.reasons or "Причины не указаны" }}</div>
+                        {% if c.nearest_preview is defined and c.nearest_preview and c.nearest_preview.indicators %}
+                        <div class="nearest-preview">
+                            <div class="small"><strong>Индикаторы ближайшего навыка</strong></div>
+                            <ul>
+                                {% for indicator in c.nearest_preview.indicators %}
+                                <li>
+                                    {% if indicator.type %}<span class="small muted">{{ indicator.type }}{% if indicator.complexity %} · {{ indicator.complexity }}{% endif %}: </span>{% endif %}
+                                    {{ indicator.text }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </details>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+
+    <div class="candidate-card-legend">
+        <div class="legend-title">Все 13 столбцов таблицы → зоны карточки</div>
+        <div class="legend-grid">
+            <span>① Навык и инструменты</span>
+            <span>② Область покрытия</span>
+            <span>③ Группа</span>
+            <span>④ Блум</span>
+            <span>⑤ Сопоставление с каталогом</span>
+            <span>⑥ Похожесть и ближайший навык</span>
+            <span>⑦ Новизна</span>
+            <span>⑧ Уверенность модели</span>
+            <span>⑨ Жюри</span>
+            <span>⑩ Решение</span>
+            <span>⑪ Причины</span>
+            <span>⑫ Рекомендация и объяснение</span>
+            <span>⑬ Действие</span>
+        </div>
+    </div>
+    </details>
+</section>
+
+<details class="collapse-panel technical-details technical-intake-details">
+<summary>Технические детали декомпозиции и нормализации</summary>
+<section class="hero hero-compact technical-section-title">
+    <div><h1>Декомпозиция</h1></div>
+</section>
+<section class="chips-row technical-summary-grid">
+    <div class="summary-card"><div class="summary-label">Тип брифа</div><div class="summary-value">{{ result.spec.artifact_type or "—" }}</div></div>
+    <div class="summary-card"><div class="summary-label">Роль</div><div class="summary-value">{{ result.spec.role }}</div></div>
+    <div class="summary-card"><div class="summary-label">Грейд</div><div class="summary-value">{{ result.spec.seniority }}</div></div>
+    <div class="summary-card"><div class="summary-label">Домен</div><div class="summary-value">{{ result.spec.domain }}</div></div>
+    {% if result.spec.operator_role %}
+    <div class="summary-card"><div class="summary-label">Оператор программы</div><div class="summary-value">{{ result.spec.operator_role }}</div></div>
+    {% endif %}
+</section>
+{% if result.spec.program_goal %}
+<section class="filter-panel">
+    <div class="small muted"><strong>Цель программы:</strong> {{ result.spec.program_goal }}</div>
+</section>
+{% endif %}
+{% if result.spec.must_include_areas %}
+<section class="table-wrap must-areas-panel">
+    <div class="must-areas-title">Обязательные области покрытия</div>
+    <ul class="must-areas-list">{% for item in result.spec.must_include_areas %}<li>{{ item }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% if result.coverage and result.coverage.rows %}
+<section class="hero hero-compact technical-section-title">
+    <div>
+        <h1>Покрытие обязательных областей</h1>
+        <p class="small muted">Здесь видно, какие области программа уже закрывает кандидатами, а какие пока не покрыты и требуют доработки пайплайна или ручной методологической проверки.</p>
+    </div>
+</section>
+<section class="chips-row technical-summary-grid technical-summary-grid-small">
+    <div class="summary-card summary-card-soft"><div class="summary-label">Закрыто</div><div class="summary-value">{{ result.coverage.covered_count }}</div></div>
+    <div class="summary-card"><div class="summary-label">Частично</div><div class="summary-value">{{ result.coverage.partial_count }}</div></div>
+    <div class="summary-card summary-card-warn"><div class="summary-label">Не закрыто</div><div class="summary-value">{{ result.coverage.uncovered_count }}</div></div>
+</section>
+<section class="table-wrap">
+    <table class="data-table">
+        <thead><tr><th>Обязательная область</th><th>Статус</th><th>Связанные кандидаты</th><th>Скрыто правилом</th><th>Пояснение</th></tr></thead>
+        <tbody>
+        {% for row in result.coverage.rows %}
+            <tr>
+                <td><strong>{{ row.area }}</strong></td>
+                <td>
+                    {% if row.status == 'covered' %}
+                    <span class="status-badge">закрыто</span>
+                    {% elif row.status == 'partial' %}
+                    <span class="status-badge warn">частично</span>
+                    {% else %}
+                    <span class="status-badge warn">не закрыто</span>
+                    {% endif %}
+                </td>
+                <td>{% if row.candidate_names %}{{ row.candidate_names|join(', ') }}{% else %}<span class="small muted">—</span>{% endif %}</td>
+                <td class="small muted">{% if row.dropped_candidate_names %}{{ row.dropped_candidate_names|join(', ') }}{% else %}—{% endif %}</td>
+                <td class="small muted">{{ row.rationale }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+<section class="table-wrap">
+    <div class="small muted">Под-запросы для поиска:</div>
+    <ul>{% for q in result.spec.sub_queries %}<li>{{ q }}</li>{% endfor %}</ul>
+</section>
+
+{% if result.atomize %}
+<section class="hero hero-compact technical-section-title">
+    <div>
+        <h1>Атомизация</h1>
+        <p class="small muted">Система проверяет, является ли формулировка атомарным навыком, составной записью или не-навыком. Составные записи разбиваются, а рамочные блоки не попадают напрямую в DAG.</p>
+    </div>
+</section>
+<section class="chips-row technical-summary-grid">
+    <div class="summary-card"><div class="summary-label">Кандидатов из синтеза</div><div class="summary-value">{{ result.atomize.raw_count }}</div></div>
+    <div class="summary-card summary-card-soft"><div class="summary-label">Атомарных навыков</div><div class="summary-value">{{ result.atomize.atomic_count }}</div></div>
+    <div class="summary-card summary-card-warn"><div class="summary-label">Разбито композитов</div><div class="summary-value">{{ result.atomize.composite_count }}</div></div>
+    <div class="summary-card summary-card-warn"><div class="summary-label">Не-навыки</div><div class="summary-value">{{ result.atomize.non_skill_count }}</div></div>
+</section>
+
+{% if result.atomize.events %}
+<section class="table-wrap">
+    <table class="data-table">
+        <thead><tr><th>Кандидат из синтеза</th><th>Вердикт</th><th>Результат</th><th>Обоснование</th></tr></thead>
+        <tbody>
+        {% for event in result.atomize.events %}
+            <tr>
+                <td><strong>{{ event.parent_name }}</strong></td>
+                <td>
+                    {% if event.verdict == 'composite' %}
+                    <span class="status-badge warn">составной</span>
+                    {% elif event.verdict == 'non_skill' %}
+                    <span class="status-badge warn">не навык</span>
+                    {% else %}
+                    <span class="pill ghost">атомарный</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if event.verdict == 'composite' %}
+                    <div class="small">Разбито на:</div>
+                    <ul>{% for child in event.children %}<li>{{ child }}</li>{% endfor %}</ul>
+                    {% elif event.verdict == 'non_skill' %}
+                    <div class="small muted">Реклассифицировано как `{{ event.entity_type }}` и отправлено на review</div>
+                    {% else %}
+                    <span class="small muted">Оставлено как есть</span>
+                    {% endif %}
+                </td>
+                <td class="small muted">{{ event.rationale or "—" }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+{% endif %}
+
+{% if result.normalize %}
+<section class="hero hero-compact technical-section-title">
+    <div>
+        <h1>Нормализация и дедупликация</h1>
+        <p class="small muted">После атомизации система схлопывает только безопасные exact/near-exact дубли, чтобы очередь review не раздувалась одинаковыми формулировками.</p>
+    </div>
+</section>
+<section class="chips-row technical-summary-grid">
+    <div class="summary-card"><div class="summary-label">Атомарных до слияния</div><div class="summary-value">{{ result.normalize.atomic_input_count }}</div></div>
+    <div class="summary-card summary-card-soft"><div class="summary-label">Атомарных после слияния</div><div class="summary-value">{{ result.normalize.atomic_output_count }}</div></div>
+    <div class="summary-card"><div class="summary-label">Схлопнуто дублей</div><div class="summary-value">{{ result.normalize.merged_count }}</div></div>
+    <div class="summary-card"><div class="summary-label">Убрано пере-дробления</div><div class="summary-value">{{ result.normalize.compacted_count }}</div></div>
+    <div class="summary-card"><div class="summary-label">Точное слияние</div><div class="summary-value">{{ result.normalize.exact_merged_count }}</div></div>
+    <div class="summary-card"><div class="summary-label">Похожее слияние</div><div class="summary-value">{{ result.normalize.fuzzy_merged_count }}</div></div>
+</section>
+{% if result.normalize.events %}
+<section class="table-wrap">
+    <table class="data-table">
+        <thead><tr><th>Оставлено</th><th>Поглощено</th><th>Причина</th><th>Оценка</th><th>Область покрытия</th></tr></thead>
+        <tbody>
+        {% for event in result.normalize.events %}
+            <tr>
+                <td><strong>{{ event.kept_name }}</strong></td>
+                <td>{{ event.absorbed_name }}</td>
+                <td class="small muted">{{ event.reason }}</td>
+                <td>{{ event.score }}</td>
+                <td>{% if event.coverage_area %}{{ event.coverage_area }}{% else %}<span class="small muted">—</span>{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+{% if result.normalize.compaction_events %}
+<section class="table-wrap">
+    <table class="data-table">
+        <thead><tr><th>Область покрытия</th><th>Оставлены на проверке</th><th>Убраны как пере-дробление</th><th>Правило</th></tr></thead>
+        <tbody>
+        {% for event in result.normalize.compaction_events %}
+            <tr>
+                <td><strong>{{ event.coverage_area }}</strong></td>
+                <td>{{ event.kept_names|join(', ') }}</td>
+                <td class="small muted">{{ event.dropped_names|join(', ') }}</td>
+                <td class="small muted">{{ event.reason }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+{% endif %}
+</details>
+
+{% if workspace_state and workspace_state.show_downstream_sections %}
+<section class="hero hero-compact"><div><h1>Граф пререквизитов</h1></div></section>
+<section class="chips-row">
+    <div class="summary-card"><div class="summary-label">Узлов в DAG</div><div class="summary-value">{{ result.dag.nodes }}</div></div>
+    <div class="summary-card"><div class="summary-label">Подтверждённых рёбер</div><div class="summary-value">{{ result.dag.edges }}</div></div>
+    <div class="summary-card summary-card-soft"><div class="summary-label">Рёбер на проверке</div><div class="summary-value">{{ result.dag.preview_edge_count or 0 }}</div></div>
+    <div class="summary-card {% if result.dag.removed_cycle %}summary-card-warn{% endif %}"><div class="summary-label">Разорвано циклов</div><div class="summary-value">{{ result.dag.removed_cycle }}</div></div>
+    <div class="summary-card summary-card-soft"><div class="summary-label">Убрано избыточных</div><div class="summary-value">{{ result.dag.removed_transitive }}</div></div>
+    <div class="summary-card"><div class="summary-label">Ацикличен</div><div class="summary-value">{{ "да" if result.dag.acyclic else "нет" }}</div></div>
+</section>
+{% if result.dag.status and result.dag.status != 'built' %}
+<section class="filter-panel">
+    <div class="small"><strong>Состояние DAG:</strong> {{ result.dag.message }}</div>
+    <div class="small muted">
+        принято атомарных = {{ result.dag.accepted_atomic_candidates or 0 }},
+        ожидают решения = {{ result.dag.pending_atomic_candidates or 0 }},
+        открыто в проверке = {{ result.dag.open_review_count or 0 }}.
+    </div>
+</section>
+{% endif %}
+<div class="small muted">DAG перестраивается автоматически по текущим принятым атомарным навыкам.</div>
+{% if result.dag.preview_edge_count %}
+<section class="filter-panel dag-review-callout">
+    <div>
+        <strong>Нужно проверить рёбра:</strong>
+        {{ result.dag.preview_edge_count }} предложенных связей видны на карте, но не влияют на УП, пока методолог их не подтвердит.
+    </div>
+    <a class="action-btn action-btn-primary" href="/reviews?status=open&entity_type=prerequisite_edge">Проверить рёбра</a>
+</section>
+{% endif %}
+
+{% set dag_visual_waves = result.dag.visual_waves if result.dag.visual_waves else result.dag.waves %}
+{% set dag_visual_order = result.dag.visual_order if result.dag.visual_order else result.dag.order %}
+{% if dag_visual_waves %}
+<section class="hero hero-compact">
+    <div>
+        <h1>Карта зависимостей</h1>
+        <p>Колонки показывают preview-волну зависимостей. Accepted-рёбра влияют на УП, proposed-рёбра видны только для проверки методологом.</p>
+    </div>
+</section>
+<section class="dag-visual-card">
+    <div class="dag-toolbar">
+        <div class="dag-legend">
+            <span class="dag-legend-chip dag-legend-chip-syllabus">Ребро из структуры</span>
+            <span class="dag-legend-chip dag-legend-chip-ai">Ребро от LLM</span>
+            <span class="dag-legend-chip dag-legend-chip-hard">Структурный пререквизит</span>
+            <span class="dag-legend-chip dag-legend-chip-soft">Мягкая методическая связь</span>
+            <span class="dag-legend-chip dag-legend-chip-review">Ожидает review</span>
+        </div>
+        <div class="review-actions">
+            {% if result.dag.preview_edge_count %}
+            <a class="action-btn action-btn-primary" href="/reviews?status=open&entity_type=prerequisite_edge">Проверить рёбра</a>
+            {% endif %}
+            <button type="button" class="action-btn action-btn-light" id="dag-expand-all">Развернуть группы</button>
+            <button type="button" class="action-btn action-btn-light" id="dag-collapse-all">Свернуть группы</button>
+            <button type="button" class="action-btn" id="dag-export-svg">SVG</button>
+            <button type="button" class="action-btn" id="dag-export-png">PNG</button>
+            <button type="button" class="action-btn action-btn-primary" id="dag-export-pdf">PDF</button>
+        </div>
+    </div>
+    <div class="dag-graph-shell" id="dag-graph-shell">
+        <svg class="dag-edges-layer" id="dag-edges-layer" aria-hidden="true"></svg>
+        <div class="dag-columns" id="dag-columns">
+            {% for wave in dag_visual_waves %}
+            <section class="dag-wave-column">
+                <div class="dag-wave-title">Волна {{ loop.index }}</div>
+                <div class="dag-wave-subtitle">{{ wave|length }} навыков</div>
+                {% for grouped in wave|groupby('group') %}
+                <details class="dag-group-cluster" data-group="{{ grouped.grouper }}" open>
+                    <summary>
+                        <span>{{ grouped.grouper }}</span>
+                        <span class="small muted">{{ grouped.list|length }} навыков</span>
+                    </summary>
+                    <div class="dag-group-nodes">
+                    {% for node in grouped.list %}
+                        <article class="dag-node-card" data-node-id="{{ node.id }}" data-group="{{ node.group }}">
+                            <div class="dag-node-meta">
+                                <span class="dag-node-group">{{ node.group }}</span>
+                                <span class="dag-node-bloom">Bloom {{ node.bloom }}</span>
+                            </div>
+                            <h3>{{ node.name }}</h3>
+                        </article>
+                    {% endfor %}
+                    </div>
+                </details>
+                {% endfor %}
+            </section>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="dag-tooltip" id="dag-tooltip" hidden></div>
+    <div class="small muted">Наведи курсор на навык, чтобы подсветить его зависимости. Наведи на ребро, чтобы увидеть источник, confidence и причины review.</div>
+</section>
+
+{% endif %}
+
+{% if dag_visual_order %}
+<details class="collapse-panel technical-details dag-preview-details">
+<summary>Порядок предварительного графа</summary>
+<section class="table-wrap">
+    <table class="data-table">
+        <thead><tr><th>#</th><th>Навык</th><th>Группа</th><th>Bloom</th></tr></thead>
+        <tbody>
+        {% for node in dag_visual_order %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><strong>{{ node.name }}</strong></td>
+                <td>{{ node.group }}</td>
+                <td>{{ node.bloom }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+</details>
+{% endif %}
+
+{% if result.dag.final_edges or result.dag.edge_review_queue %}
+<details class="collapse-panel technical-details">
+<summary>Технические детали рёбер DAG</summary>
+<section class="dag-review-explainer">
+    <div>
+        <strong>Что здесь проверяется</strong>
+        <span>Ребро показывает зависимость: навык слева желательно изучить до навыка справа.</span>
+    </div>
+    <div>
+        <strong>Почему это важно</strong>
+        <span>Только подтверждённые связи попадают в рабочий граф и влияют на порядок блоков УП.</span>
+    </div>
+    <div>
+        <strong>Как читать таблицу</strong>
+        <span>Причина объясняет, почему связь требует внимания; важность показывает риск; уверенность — силу предположения.</span>
+    </div>
+</section>
+{% if result.dag.final_edges %}
+<section class="hero hero-compact"><div><h1>Финальные рёбра DAG</h1></div></section>
+<section class="table-wrap">
+    <table class="data-table">
+        <thead><tr><th>Откуда</th><th>Куда</th><th>Тип</th><th>Источник</th><th>Уверенность</th><th>Решение</th><th>Причины</th></tr></thead>
+        <tbody>
+        {% for edge in result.dag.final_edges %}
+            <tr>
+                <td>{{ edge.src }}</td>
+                <td>{{ edge.dst }}</td>
+                <td>{{ edge.relation_label or edge.relation_type }}</td>
+                <td>{{ edge.source }}</td>
+                <td>{{ edge.confidence if edge.confidence is not none else "—" }}</td>
+                <td>{{ edge.decision }}</td>
+                <td class="small muted">{{ edge.reasons|edge_reason_label }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+
+{% if result.dag.edge_review_queue %}
+<section class="hero hero-compact"><div><h1>Проверка рёбер DAG</h1></div></section>
+<section class="table-wrap">
+    <table class="data-table">
+        <thead><tr><th>Ребро</th><th>Причина</th><th>Важность</th><th>Уверенность</th><th>Статус</th></tr></thead>
+        <tbody>
+        {% for item in result.dag.edge_review_queue %}
+            <tr>
+                <td>{{ item.edge_label }}</td>
+                <td>{{ item.reason_code|edge_reason_label }}</td>
+                <td>{{ item.severity|review_severity_label }}</td>
+                <td>{{ item.confidence if item.confidence is not none else "—" }}</td>
+                <td>{{ item.status|review_status_label }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+</details>
+{% endif %}
+
+{% if result.curriculum_plan %}
+<section class="hero hero-compact">
+    <div>
+        <h1>Черновик учебного плана</h1>
+        <p>{{ result.curriculum_plan.message }}</p>
+    </div>
+    <div class="review-actions">
+        {% set up_is_valid = result.curriculum_plan.status == 'built' %}
+        {% if result.curriculum_plan.plan_id and up_is_valid %}
+        <a class="action-btn action-btn-primary" href="/up/plans/{{ result.curriculum_plan.plan_id }}">Открыть УП</a>
+        {% elif result.curriculum_plan.plan_id %}
+        <span class="action-btn action-btn-light disabled">Открыть УП недоступно</span>
+        {% endif %}
+        {% if result.curriculum_plan.plan_id and result.curriculum_plan.template_proposal_count %}
+        <a class="action-btn action-btn-secondary" href="/up/plans/{{ result.curriculum_plan.plan_id }}/template-proposals">Шаблоны УП ({{ result.curriculum_plan.template_proposal_count }})</a>
+        {% endif %}
+        {% if result.curriculum_plan.rows and up_is_valid %}
+        <a class="action-btn action-btn-secondary" href="/up/plans/{{ result.curriculum_plan.plan_id }}/csv">Скачать CSV</a>
+        {% elif result.curriculum_plan.rows %}
+        <span class="action-btn action-btn-light disabled">CSV заблокирован</span>
+        {% endif %}
+    </div>
+</section>
+<section class="chips-row">
+    <div class="summary-card"><div class="summary-label">Блоков</div><div class="summary-value">{{ result.curriculum_plan.summary.blocks }}</div></div>
+    <div class="summary-card"><div class="summary-label">Проектов</div><div class="summary-value">{{ result.curriculum_plan.summary.projects }}</div></div>
+    <div class="summary-card"><div class="summary-label">Астр. часы</div><div class="summary-value">{{ result.curriculum_plan.summary.total_hours }}</div></div>
+</section>
+{% if result.curriculum_plan.blocks %}
+<section class="table-wrap">
+    <table class="data-table">
+        <thead><tr><th>Блок</th><th>Цель</th><th>Проектов</th><th>Астр. часы</th></tr></thead>
+        <tbody>
+        {% for block in result.curriculum_plan.blocks %}
+            <tr>
+                <td><strong>{{ block.title }}</strong></td>
+                <td class="small">{{ block.goal }}</td>
+                <td>{{ block.project_count }}</td>
+                <td>{{ block.total_hours }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+{% if result.curriculum_plan.rows %}
+<section class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>№</th>
+                <th>Блок</th>
+                <th>Название проекта</th>
+                <th>Образовательные результаты</th>
+                <th>Навыки</th>
+                <th>Роль навыков</th>
+                <th>Инструменты</th>
+                <th>Астр. часы</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for row in result.curriculum_plan.rows %}
+            <tr>
+                <td>{{ row.row_number }}</td>
+                <td>{% if row.block_title %}<strong>{{ row.block_title }}</strong>{% else %}<span class="small muted">тот же блок</span>{% endif %}</td>
+                <td>
+                    <strong>{{ row.project_name }}</strong>
+                    <div class="small muted">{{ row.project_summary }}</div>
+                </td>
+                <td class="small">{{ row.learning_outcomes }}</td>
+                <td>{{ row.skills_list }}</td>
+                <td class="small muted">
+                    {% if row.primary_skill_count is defined or row.repeat_skill_count is defined %}
+                    первичных: {{ row.primary_skill_count or 0 }}, повторов: {{ row.repeat_skill_count or 0 }}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+                <td>{{ row.required_tools or "—" }}</td>
+                <td>{{ row.effort_hours }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+{% if result.curriculum_plan.report and result.curriculum_plan.report.order_violations %}
+<section class="filter-panel">
+    <div class="small"><strong>Проверка порядка:</strong> найдены нарушения topological order.</div>
+    <div class="small muted">{{ result.curriculum_plan.report.order_violations|join(", ") }}</div>
+</section>
+{% endif %}
+{% if result.curriculum_plan.report and result.curriculum_plan.report.project_violations %}
+<section class="filter-panel">
+    <div class="small"><strong>Проверка проектов:</strong> проект содержит навыки, связанные прямым ребром DAG.</div>
+    <div class="small muted">{{ result.curriculum_plan.report.project_violations|join(", ") }}</div>
+</section>
+{% endif %}
+{% endif %}
+
+{% if result.meta or (llm_usage and llm_usage.rows) or result.council_metrics or result.persisted %}
+<details class="collapse-panel technical-details">
+<summary>Наблюдаемость и служебные метрики</summary>
+{% if result.meta %}
+<section class="chips-row service-metrics-grid">
+    <div class="summary-card"><div class="summary-label">Режим</div><div class="summary-value">{{ 'LIVE' if result.meta.use_live else 'MOCK' }}</div></div>
+    <div class="summary-card"><div class="summary-label">Жюри</div><div class="summary-value">{{ 'включено' if result.meta.use_council else 'выключено' }}</div></div>
+    <div class="summary-card"><div class="summary-label">Модель планирования</div><div class="summary-value">{{ result.meta.model_plan }}</div></div>
+    <div class="summary-card"><div class="summary-label">Модель поиска</div><div class="summary-value">{{ result.meta.model_search }}</div></div>
+</section>
+{% endif %}
+
+{% if llm_usage and llm_usage.rows %}
+<section class="hero hero-compact service-section-title"><div><h1>Расход LLM</h1></div></section>
+<section class="chips-row service-metrics-grid service-metrics-grid-tight">
+    <div class="summary-card"><div class="summary-label">Всего токенов</div><div class="summary-value">{{ llm_usage.total_tokens }}</div></div>
+    <div class="summary-card"><div class="summary-label">Запрос</div><div class="summary-value">{{ llm_usage.prompt_tokens }}</div></div>
+    <div class="summary-card"><div class="summary-label">Ответ</div><div class="summary-value">{{ llm_usage.completion_tokens }}</div></div>
+    <div class="summary-card"><div class="summary-label">Общее время</div><div class="summary-value">{{ llm_usage.total_latency_ms }} ms</div></div>
+    <div class="summary-card"><div class="summary-label">Стоимость</div><div class="summary-value">{{ llm_usage.estimated_cost_label }}</div></div>
+</section>
+<section class="table-wrap service-table-wrap">
+    <table class="data-table service-data-table">
+        <thead>
+            <tr>
+                <th>Этап</th>
+                <th>Модель</th>
+                <th>Вызовы</th>
+                <th>Среднее время</th>
+                <th>Общее время</th>
+                <th>Запрос</th>
+                <th>Ответ</th>
+                <th>Всего</th>
+                <th>Стоимость</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in llm_usage.rows %}
+            <tr>
+                <td>{{ row.stage }}</td>
+                <td>{{ row.model }}</td>
+                <td>{{ row.calls }}</td>
+                <td>{{ row.avg_latency_ms }} ms</td>
+                <td>{{ row.total_latency_ms }} ms</td>
+                <td>{{ row.prompt_tokens }}</td>
+                <td>{{ row.completion_tokens }}</td>
+                <td>{{ row.total_tokens }}</td>
+                <td>{{ row.estimated_cost_label }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+
+{% if result.council_metrics %}
+<section class="hero hero-compact service-section-title"><div><h1>Жюри и триаж</h1></div></section>
+<section class="chips-row service-metrics-grid service-metrics-grid-tight">
+    <div class="summary-card"><div class="summary-label">Всего кандидатов</div><div class="summary-value">{{ result.council_metrics.total_candidates }}</div></div>
+    <div class="summary-card"><div class="summary-label">Автопринято</div><div class="summary-value">{{ result.council_metrics.auto_accepted }}</div></div>
+    <div class="summary-card"><div class="summary-label">Ушло в жюри</div><div class="summary-value">{{ result.council_metrics.sent_to_council }}</div></div>
+    <div class="summary-card"><div class="summary-label">Подтверждено жюри</div><div class="summary-value">{{ result.council_metrics.accepted_after_council }}</div></div>
+    <div class="summary-card summary-card-warn"><div class="summary-label">Осталось на проверке</div><div class="summary-value">{{ result.council_metrics.needs_review_total }}</div></div>
+</section>
+<section class="chips-row service-metrics-grid service-metrics-grid-tight">
+    <div class="summary-card"><div class="summary-label">Совпадения</div><div class="summary-value">{{ result.council_metrics.matched_total }}</div></div>
+    <div class="summary-card"><div class="summary-label">Синонимы</div><div class="summary-value">{{ result.council_metrics.alias_total }}</div></div>
+    <div class="summary-card"><div class="summary-label">Похожие</div><div class="summary-value">{{ result.council_metrics.fuzzy_total }}</div></div>
+    <div class="summary-card"><div class="summary-label">Новые</div><div class="summary-value">{{ result.council_metrics.new_total }}</div></div>
+    <div class="summary-card"><div class="summary-label">После жюри</div><div class="summary-value">{{ result.council_metrics.review_after_council }}</div></div>
+</section>
+{% endif %}
+
+<section class="filter-panel">
+    <div class="small">
+        Записано в каталог: бриф #{{ result.brief_id }}, evidence {{ result.persisted.evidence_source }},
+        предложений {{ result.persisted.skill_suggestion }}, рёбер {{ result.persisted.skill_prerequisite }},
+        edge-review {{ result.persisted.prerequisite_reviews }}, строк УП {{ result.persisted.curriculum_plan_rows or 0 }},
+        промоций в канон {{ result.persisted.catalog_promoted or 0 }}, откатов {{ result.persisted.catalog_reverted or 0 }}.
+        Открытых записей в очереди проверки: <strong>{{ result.persisted.review_open }}</strong> →
+        <a href="/reviews">открыть очередь проверки</a>.
+    </div>
+</section>
+{% endif %}
+</details>
+{% endif %}
+
+{% if workspace_state and workspace_state.show_downstream_sections and quality_metrics and quality_metrics.up_project_count %}
+<section class="filter-panel quality-dashboard">
+    <div class="summary-head">
+        <h2>Метрики качества</h2>
+        <span class="pill">Итоговый контроль после построения УП</span>
+    </div>
+    <section class="chips-row">
+        <div class="summary-card">
+            <div class="summary-label">Принято / На проверке / Отклонено</div>
+            <div class="summary-value">{{ quality_metrics.accepted_count }} / {{ quality_metrics.review_count }} / {{ quality_metrics.rejected_count }}</div>
+        </div>
+        <div class="summary-card{% if quality_metrics.false_match_count %} summary-card-warn{% endif %}">
+            <div class="summary-label">Риск ложных совпадений</div>
+            <div class="summary-value">{{ quality_metrics.false_match_rate_pct }}%</div>
+            <div class="small muted">{{ quality_metrics.false_match_count }} из {{ quality_metrics.catalog_match_count }} сопоставлений</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Токены LLM</div>
+            <div class="summary-value">{{ quality_metrics.llm_total_tokens }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Стоимость LLM</div>
+            <div class="summary-value">{{ quality_metrics.llm_estimated_cost_label }}</div>
+            {% if not quality_metrics.llm_cost_configured %}
+            <div class="small muted">задайте LLM_PRICE_USD_PER_1M</div>
+            {% endif %}
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Средняя задержка</div>
+            <div class="summary-value">{{ quality_metrics.llm_avg_latency_ms }} ms</div>
+        </div>
+        <div class="summary-card{% if quality_metrics.single_skill_project_count %} summary-card-warn{% endif %}">
+            <div class="summary-label">Одиночных проектов</div>
+            <div class="summary-value">{{ quality_metrics.single_skill_project_count }}</div>
+            <div class="small muted">avg {{ quality_metrics.avg_skills_per_project }} · перв. {{ quality_metrics.avg_primary_skills_per_project }} · повт. {{ quality_metrics.avg_repeat_skills_per_project }}</div>
+        </div>
+        <div class="summary-card quality-dashboard-card-wide">
+            <div class="summary-label">Граф зависимостей и УП</div>
+            <div class="metric-pair">
+                <span><strong>{{ quality_metrics.dag_wave_count }}</strong><small>волн DAG</small></span>
+                <span><strong>{{ quality_metrics.up_block_count }}</strong><small>блоков УП</small></span>
+            </div>
+            <div class="small muted">Волна = уровень зависимостей между навыками. Блок = учебный модуль; одна волна может разбиваться на несколько блоков по нагрузке, теме и проверяемому артефакту.</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Шаблоны УП</div>
+            <div class="summary-value">{{ quality_metrics.template_proposal_count }}</div>
+            <div class="small muted">предложения для методолога</div>
+        </div>
+        <div class="summary-card{% if quality_metrics.enrichment_completeness_pct < 100 %} summary-card-warn{% endif %}">
+            <div class="summary-label">Обогащение УП</div>
+            <div class="summary-value">{{ quality_metrics.enrichment_completeness_pct }}%</div>
+            <div class="small muted">{{ quality_metrics.enriched_project_count }} из {{ quality_metrics.up_project_count }} проектов</div>
+        </div>
+    </section>
+    {% if job_observability and (job_observability.stage_latency_rows or job_observability.model_version_rows) %}
+    <details class="collapse-panel technical-details quality-observability">
+        <summary>Наблюдаемость: время, модели и версии промптов</summary>
+        {% if job_observability.stage_latency_rows %}
+        <section class="table-wrap">
+            <h2>Время по стадиям</h2>
+            <table class="data-table">
+                <thead><tr><th>Стадия</th><th>Вызовов</th><th>Итого</th><th>Среднее</th><th>Токены</th><th>Модели</th></tr></thead>
+                <tbody>
+                {% for row in job_observability.stage_latency_rows %}
+                    <tr>
+                        <td><strong>{{ row.stage_label }}</strong><div class="small muted">{{ row.stage }}</div></td>
+                        <td>{{ row.calls }}</td>
+                        <td>{{ row.total_latency_ms }} ms</td>
+                        <td>{{ row.avg_latency_ms }} ms</td>
+                        <td>{{ row.total_tokens }}</td>
+                        <td class="small muted">{{ row.models }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        {% endif %}
+        {% if job_observability.model_version_rows %}
+        <section class="table-wrap">
+            <h2>Версии промптов и моделей</h2>
+            <table class="data-table">
+                <thead><tr><th>Стадия</th><th>Версия промпта</th><th>Модель</th><th>Вызовы</th><th>Токены</th><th>Стоимость</th></tr></thead>
+                <tbody>
+                {% for row in job_observability.model_version_rows %}
+                    <tr>
+                        <td><strong>{{ row.stage_label }}</strong><div class="small muted">{{ row.stage }}</div></td>
+                        <td>{{ row.prompt_version }}</td>
+                        <td>{{ row.model }}</td>
+                        <td>{{ row.calls }}</td>
+                        <td>{{ row.total_tokens }}</td>
+                        <td>{{ row.estimated_cost_label }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        {% endif %}
+    </details>
+    {% endif %}
+    <p class="small muted">
+        Метрики строятся только после появления УП. До этого accepted/review, DAG-волны и плотность проектов не отражают финальное качество учебной программы.
+    </p>
+</section>
+{% endif %}
+{% endif %}
+<script>
+(() => {
+    const intakeForm = document.getElementById("intake-form");
+    const dropzone = document.getElementById("brief-dropzone");
+    const fileInput = document.getElementById("brief-file-input");
+    const pathInput = document.getElementById("brief-file-path");
+    const briefText = document.getElementById("brief-text");
+    const briefSubmitWrap = document.getElementById("brief-submit-wrap");
+    const statusNode = document.getElementById("picker-status");
+    const jobStageNode = document.getElementById("job-stage");
+    const jobProgressNode = document.getElementById("job-progress");
+    const jobStatusNode = document.getElementById("job-status-badge");
+    const jobProgressFillNode = document.getElementById("job-progress-fill");
+    const jobProgressPercentNode = document.getElementById("job-progress-percent");
+    const jobProgressStepNodes = Array.from(document.querySelectorAll(".intake-progress-step"));
+    const currentJobId = {{ job.id|tojson if job else "null" }};
+    const currentJobStatus = {{ job.status|tojson if job else 'null' }};
+    const currentJobStage = {{ job.current_stage|tojson if job else 'null' }};
+    const intakeProgressSteps = {{ intake_progress_steps|tojson }};
+    const dagPayload = {{ result.dag|tojson if result and result.dag else "null" }};
+    const dagShell = document.getElementById("dag-graph-shell");
+    const dagSvg = document.getElementById("dag-edges-layer");
+    const dagColumns = document.getElementById("dag-columns");
+    const dagTooltip = document.getElementById("dag-tooltip");
+    const dagExpandAllButton = document.getElementById("dag-expand-all");
+    const dagCollapseAllButton = document.getElementById("dag-collapse-all");
+    const dagExportSvgButton = document.getElementById("dag-export-svg");
+    const dagExportPngButton = document.getElementById("dag-export-png");
+    const dagExportPdfButton = document.getElementById("dag-export-pdf");
+    const dagVisualEdges = Array.isArray(dagPayload?.visual_edges) && dagPayload.visual_edges.length
+        ? dagPayload.visual_edges
+        : (Array.isArray(dagPayload?.final_edges) ? dagPayload.final_edges : []);
+
+    const syncTextSubmitVisibility = () => {
+        if (!briefSubmitWrap) {
+            return;
+        }
+        briefSubmitWrap.hidden = !briefText.value.trim();
+    };
+
+    const decisionByAction = {
+        accept: "accepted",
+        link: "accepted",
+        review: "needs_review",
+        reject: "rejected",
+    };
+    const decisionLabel = {
+        accepted: "Принято",
+        needs_review: "На проверке",
+        rejected: "Отклонено",
+        pending: "Ожидает решения",
+        superseded: "Заменено",
+    };
+
+    const setDecisionBadge = (node, decision, includeIndex = false) => {
+        if (!node) {
+            return;
+        }
+        const label = decisionLabel[decision] || decision || "Нужно решение";
+        node.innerHTML = includeIndex ? `<span class="param-index">⑩</span>${label}` : label;
+        node.classList.toggle("warn", decision !== "accepted");
+    };
+
+    const setCandidateCollapsed = (row, collapsed) => {
+        if (!row) {
+            return;
+        }
+        row.classList.toggle("candidate-card-collapsed", collapsed);
+        const toggle = row.querySelector("[data-candidate-toggle]");
+        if (toggle) {
+            toggle.setAttribute("aria-expanded", String(!collapsed));
+            toggle.textContent = collapsed ? "Показать детали" : "Свернуть";
+        }
+    };
+
+    const updateCandidateListPanel = () => {
+        const panel = document.querySelector("[data-candidate-list-panel]");
+        if (!panel) {
+            return;
+        }
+        const rows = Array.from(panel.querySelectorAll("[data-candidate-row]"));
+        const acceptedRows = rows.filter((row) => row.dataset.candidateDecision === "accepted");
+        const isComplete = rows.length > 0 && acceptedRows.length === rows.length;
+        const title = panel.querySelector("[data-candidate-list-summary]");
+        const count = panel.querySelector("[data-candidate-list-count]");
+        panel.classList.toggle("candidate-list-panel-complete", isComplete);
+        if (title) {
+            title.textContent = isComplete ? "Принятые навыки" : "Карточки навыков";
+        }
+        if (count) {
+            count.textContent = String(isComplete ? acceptedRows.length : rows.length);
+        }
+        if (isComplete) {
+            panel.open = false;
+        } else if (rows.some((row) => row.dataset.candidateDecision !== "accepted")) {
+            panel.open = true;
+        }
+    };
+
+    document.querySelectorAll("[data-candidate-toggle]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const row = button.closest("[data-candidate-row]");
+            setCandidateCollapsed(row, !row?.classList.contains("candidate-card-collapsed"));
+        });
+    });
+
+    document.querySelectorAll("[data-candidate-action-form]").forEach((form) => {
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const submitter = event.submitter;
+            if (!submitter || submitter.disabled) {
+                return;
+            }
+            const previousLabel = submitter.textContent;
+            const row = form.closest("[data-candidate-row]");
+            const badge = row?.querySelector("[data-decision-badge]");
+            const compactBadge = row?.querySelector("[data-decision-compact]");
+            const formData = new FormData(form);
+            formData.set(submitter.name, submitter.value);
+            if (!submitter.dataset.originalLabel) {
+                submitter.dataset.originalLabel = submitter.textContent;
+            }
+            submitter.disabled = true;
+            submitter.textContent = "…";
+            form.querySelectorAll("button").forEach((button) => {
+                if (!button.dataset.originalLabel) {
+                    button.dataset.originalLabel = button.textContent;
+                }
+                if (button !== submitter) {
+                    button.disabled = true;
+                }
+            });
+            try {
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    body: formData,
+                    headers: {
+                        "Accept": "application/json",
+                        "X-Requested-With": "fetch",
+                    },
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const payload = await response.json();
+                const nextDecision = payload.decision || decisionByAction[submitter.value] || "needs_review";
+                if (row) {
+                    row.dataset.candidateDecision = nextDecision;
+                }
+                setDecisionBadge(badge, nextDecision, true);
+                setDecisionBadge(compactBadge, nextDecision);
+                setCandidateCollapsed(row, nextDecision === "accepted");
+                updateCandidateListPanel();
+                form.querySelectorAll("button[data-action]").forEach((button) => {
+                    const action = button.dataset.action;
+                    button.disabled = button.dataset.staticDisabled === "1" || decisionByAction[action] === nextDecision;
+                    button.textContent = button.dataset.originalLabel || button.textContent;
+                });
+            } catch (error) {
+                submitter.disabled = false;
+                form.querySelectorAll("button[data-action]").forEach((button) => {
+                    if (button !== submitter) {
+                        button.disabled = button.dataset.staticDisabled === "1";
+                    }
+                });
+                alert("Не удалось сохранить решение. Попробуйте ещё раз.");
+            } finally {
+                submitter.textContent = previousLabel;
+            }
+        });
+        form.querySelectorAll("button[data-action]").forEach((button) => {
+            button.dataset.originalLabel = button.textContent;
+        });
+    });
+
+    const detailedStageOrder = [
+        "queued",
+        "starting",
+        "decompose",
+        "draft",
+        "atomize",
+        "normalize",
+        "resolve",
+        "search",
+        "council",
+        "triage",
+        "prerequisites",
+        "persist",
+        "completed",
+    ];
+    const detailedStageRank = new Map(detailedStageOrder.map((stage, index) => [stage, index]));
+    const visibleStageRank = new Map(intakeProgressSteps.map((step) => [step.code, detailedStageRank.get(step.code) ?? 0]));
+
+    const renderJobProgress = (stage, status) => {
+        if (!jobProgressFillNode || !jobProgressPercentNode || !jobProgressStepNodes.length) {
+            return;
+        }
+        let normalizedStage = stage || "queued";
+        if (status === "succeeded") {
+            normalizedStage = "completed";
+        } else if (status === "failed" && !detailedStageRank.has(normalizedStage)) {
+            normalizedStage = "persist";
+        }
+        const currentRank = detailedStageRank.get(normalizedStage) ?? 0;
+        const maxRank = detailedStageOrder.length - 1;
+        const percent = Math.max(4, Math.min(100, Math.round((currentRank / maxRank) * 100)));
+        jobProgressFillNode.style.width = `${percent}%`;
+        jobProgressPercentNode.textContent = `${percent}%`;
+        jobProgressFillNode.classList.toggle("failed", status === "failed");
+        jobProgressStepNodes.forEach((node) => {
+            const stepRank = visibleStageRank.get(node.dataset.stage || "") ?? 0;
+            node.classList.toggle("done", currentRank > stepRank || status === "succeeded");
+            node.classList.toggle("active", currentRank === stepRank && status !== "succeeded");
+            node.classList.toggle("failed", status === "failed" && currentRank <= stepRank);
+        });
+    };
+
+    const submitFileSelection = (files) => {
+        if (!fileInput || !pathInput || !briefText || !statusNode || !intakeForm) {
+            return;
+        }
+        const file = files?.[0];
+        if (!file) {
+            return;
+        }
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        fileInput.files = transfer.files;
+        pathInput.value = "";
+        briefText.value = "";
+        syncTextSubmitVisibility();
+        statusNode.textContent = `Загружаю: ${file.name}`;
+        intakeForm.requestSubmit();
+    };
+
+    if (intakeForm && dropzone && fileInput && pathInput && briefText && statusNode) {
+        dropzone.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                fileInput.click();
+            }
+        });
+
+        ["dragenter", "dragover"].forEach((eventName) => {
+            dropzone.addEventListener(eventName, (event) => {
+                event.preventDefault();
+                dropzone.classList.add("dragover");
+            });
+        });
+
+        ["dragleave", "dragend"].forEach((eventName) => {
+            dropzone.addEventListener(eventName, () => {
+                dropzone.classList.remove("dragover");
+            });
+        });
+
+        dropzone.addEventListener("drop", (event) => {
+            event.preventDefault();
+            dropzone.classList.remove("dragover");
+            submitFileSelection(event.dataTransfer?.files);
+        });
+
+        fileInput.addEventListener("change", () => {
+            submitFileSelection(fileInput.files);
+        });
+
+        briefText.addEventListener("input", () => {
+            if (!fileInput.files || fileInput.files.length === 0) {
+                pathInput.value = "";
+                statusNode.textContent = "Файл пока не выбран.";
+            }
+            syncTextSubmitVisibility();
+        });
+
+        intakeForm.addEventListener("submit", () => {
+            const hasSelectedFile = Boolean(fileInput.files && fileInput.files.length > 0);
+            if (!hasSelectedFile && briefText.value.trim()) {
+                pathInput.value = "";
+                statusNode.textContent = "Обрабатываю текстовый бриф.";
+            }
+        });
+
+        syncTextSubmitVisibility();
+    }
+    renderJobProgress(currentJobStage, currentJobStatus);
+
+    if (currentJobId && jobStageNode && jobProgressNode) {
+        const poll = async () => {
+            try {
+                const response = await fetch(`/intake/jobs/${currentJobId}/status`, { cache: "no-store" });
+                const payload = await response.json();
+                jobStageNode.textContent = payload.current_stage_label || payload.current_stage || "Не указан";
+                jobProgressNode.textContent = payload.progress_note || "Задача выполняется.";
+                renderJobProgress(payload.current_stage, payload.status);
+                if (jobStatusNode && payload.status_label) {
+                    jobStatusNode.textContent = payload.status_label;
+                    jobStatusNode.classList.toggle("warn", payload.status === "failed");
+                }
+                if (payload.status === "succeeded" || payload.status === "failed") {
+                    window.location.reload();
+                    return;
+                }
+            } catch (_error) {
+                jobProgressNode.textContent = "Не удалось обновить статус, повторяю запрос.";
+            }
+            window.setTimeout(poll, 4000);
+        };
+
+        const runningStates = new Set(["pending", "running"]);
+        if (runningStates.has(currentJobStatus)) {
+            window.setTimeout(poll, 1500);
+        }
+    }
+
+    const dagState = {
+        edgeRecords: [],
+        outgoing: new Map(),
+        incoming: new Map(),
+        activeNodeId: null,
+    };
+
+    const svgNamespace = "http://www.w3.org/2000/svg";
+    const textMeasureCanvas = document.createElement("canvas");
+    const textMeasureContext = textMeasureCanvas.getContext("2d");
+
+    const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+
+    const edgeLabel = (edge) => {
+        const reasonText = edge.reasons && edge.reasons.length ? edge.reasons.join(", ") : "—";
+        const confidenceText = edge.confidence ?? "—";
+        return `
+            <div class="dag-tooltip-title">${escapeHtml(edge.src)} → ${escapeHtml(edge.dst)}</div>
+            <div><strong>Источник:</strong> ${escapeHtml(edge.source)}</div>
+            <div><strong>Тип:</strong> ${escapeHtml(edge.relation_label || edge.relation_type)}</div>
+            <div><strong>Уверенность:</strong> ${escapeHtml(confidenceText)}</div>
+            <div><strong>Решение:</strong> ${escapeHtml(edge.decision)}</div>
+            <div><strong>Причины:</strong> ${escapeHtml(reasonText)}</div>
+        `;
+    };
+
+    const showTooltip = (event, edge) => {
+        if (!dagTooltip) {
+            return;
+        }
+        dagTooltip.innerHTML = edgeLabel(edge);
+        dagTooltip.hidden = false;
+        const shellRect = dagShell.getBoundingClientRect();
+        const tooltipRect = dagTooltip.getBoundingClientRect();
+        const maxLeft = shellRect.width - tooltipRect.width - 14;
+        const nextLeft = Math.max(12, Math.min(event.clientX - shellRect.left + 18, maxLeft));
+        const nextTop = Math.max(12, event.clientY - shellRect.top - tooltipRect.height - 12);
+        dagTooltip.style.left = `${nextLeft}px`;
+        dagTooltip.style.top = `${nextTop}px`;
+    };
+
+    const hideTooltip = () => {
+        if (!dagTooltip) {
+            return;
+        }
+        dagTooltip.hidden = true;
+    };
+
+    const getDescendants = (nodeId, map) => {
+        const visited = new Set();
+        const stack = [...(map.get(nodeId) || [])];
+        while (stack.length) {
+            const current = stack.pop();
+            if (!current || visited.has(current)) {
+                continue;
+            }
+            visited.add(current);
+            for (const next of map.get(current) || []) {
+                if (!visited.has(next)) {
+                    stack.push(next);
+                }
+            }
+        }
+        return visited;
+    };
+
+    const clearDagHighlight = () => {
+        dagState.activeNodeId = null;
+        document.querySelectorAll(".dag-node-card").forEach((node) => {
+            node.classList.remove("dag-node-focus", "dag-node-upstream", "dag-node-downstream", "dag-node-dimmed");
+        });
+        for (const record of dagState.edgeRecords) {
+            record.element.classList.remove("dag-edge-active", "dag-edge-context", "dag-edge-dimmed");
+        }
+    };
+
+    const highlightDagPath = (nodeId) => {
+        dagState.activeNodeId = nodeId;
+        const upstream = getDescendants(nodeId, dagState.incoming);
+        const downstream = getDescendants(nodeId, dagState.outgoing);
+        document.querySelectorAll(".dag-node-card").forEach((node) => {
+            const currentId = node.dataset.nodeId;
+            node.classList.remove("dag-node-focus", "dag-node-upstream", "dag-node-downstream", "dag-node-dimmed");
+            if (currentId === nodeId) {
+                node.classList.add("dag-node-focus");
+                return;
+            }
+            if (upstream.has(currentId)) {
+                node.classList.add("dag-node-upstream");
+                return;
+            }
+            if (downstream.has(currentId)) {
+                node.classList.add("dag-node-downstream");
+                return;
+            }
+            node.classList.add("dag-node-dimmed");
+        });
+
+        for (const record of dagState.edgeRecords) {
+            record.element.classList.remove("dag-edge-active", "dag-edge-context", "dag-edge-dimmed");
+            if (record.srcId === nodeId || record.dstId === nodeId) {
+                record.element.classList.add("dag-edge-active");
+                continue;
+            }
+            const inUpstreamPath = upstream.has(record.srcId) && (upstream.has(record.dstId) || record.dstId === nodeId);
+            const inDownstreamPath = downstream.has(record.dstId) && (downstream.has(record.srcId) || record.srcId === nodeId);
+            if (inUpstreamPath || inDownstreamPath) {
+                record.element.classList.add("dag-edge-context");
+                continue;
+            }
+            record.element.classList.add("dag-edge-dimmed");
+        }
+    };
+
+    const attachNodeHoverHandlers = () => {
+        document.querySelectorAll(".dag-node-card").forEach((node) => {
+            node.addEventListener("mouseenter", () => highlightDagPath(node.dataset.nodeId));
+            node.addEventListener("mouseleave", () => clearDagHighlight());
+        });
+    };
+
+    const createEdgePath = (pathData, sourceClass, relationClass, markerId, edge) => {
+        const path = document.createElementNS(svgNamespace, "path");
+        path.setAttribute("d", pathData);
+        const reviewClass = edge.decision === "accept" ? "" : " dag-edge-review";
+        path.setAttribute("class", `dag-edge dag-edge-${sourceClass} dag-edge-${relationClass}${reviewClass}`);
+        path.setAttribute("marker-end", `url(#${markerId})`);
+        path.dataset.srcId = edge.src_id;
+        path.dataset.dstId = edge.dst_id;
+        path.addEventListener("mouseenter", (event) => showTooltip(event, edge));
+        path.addEventListener("mousemove", (event) => showTooltip(event, edge));
+        path.addEventListener("mouseleave", hideTooltip);
+        return path;
+    };
+
+    const roundedConnectorPath = (startX, startY, endX, endY) => {
+        const gap = Math.max(1, endX - startX);
+        const laneX = startX + Math.max(24, Math.min(gap * 0.52, 72));
+        const verticalDelta = endY - startY;
+        const direction = verticalDelta >= 0 ? 1 : -1;
+        const radius = Math.min(18, Math.abs(verticalDelta) / 2, Math.max(8, gap / 5));
+        if (Math.abs(verticalDelta) < 18) {
+            const dx = Math.max(36, gap * 0.38);
+            return `M ${startX} ${startY} C ${startX + dx} ${startY}, ${endX - dx} ${endY}, ${endX} ${endY}`;
+        }
+        return [
+            `M ${startX} ${startY}`,
+            `L ${laneX - radius} ${startY}`,
+            `Q ${laneX} ${startY} ${laneX} ${startY + direction * radius}`,
+            `L ${laneX} ${endY - direction * radius}`,
+            `Q ${laneX} ${endY} ${laneX + radius} ${endY}`,
+            `L ${endX} ${endY}`,
+        ].join(" ");
+    };
+
+    const renderDagGraph = () => {
+        if (!dagPayload || !dagShell || !dagSvg || !dagColumns) {
+            return;
+        }
+
+        const shellRect = dagShell.getBoundingClientRect();
+        const columnsRect = dagColumns.getBoundingClientRect();
+        const width = Math.max(dagColumns.scrollWidth, columnsRect.width);
+        const height = Math.max(dagColumns.scrollHeight, columnsRect.height);
+        dagSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        dagSvg.setAttribute("width", String(width));
+        dagSvg.setAttribute("height", String(height));
+        dagSvg.innerHTML = `
+            <defs>
+                <marker id="dag-arrow-syllabus" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+                    <path d="M0,0 L8,4 L0,8 z" fill="#0e8f6f"></path>
+                </marker>
+                <marker id="dag-arrow-ai" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+                    <path d="M0,0 L8,4 L0,8 z" fill="#b85c38"></path>
+                </marker>
+                <marker id="dag-arrow-pipeline" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+                    <path d="M0,0 L8,4 L0,8 z" fill="#7a6a4d"></path>
+                </marker>
+            </defs>
+        `;
+
+        dagState.edgeRecords = [];
+        dagState.outgoing = new Map();
+        dagState.incoming = new Map();
+        const nodeMap = new Map();
+        Array.from(document.querySelectorAll(".dag-node-card")).forEach((node) => {
+            if (node.offsetParent === null || node.getClientRects().length === 0) {
+                return;
+            }
+            nodeMap.set(node.dataset.nodeId, node);
+        });
+
+        for (const edge of dagVisualEdges) {
+            const srcNode = nodeMap.get(edge.src_id);
+            const dstNode = nodeMap.get(edge.dst_id);
+            if (!srcNode || !dstNode) {
+                continue;
+            }
+
+            const srcRect = srcNode.getBoundingClientRect();
+            const dstRect = dstNode.getBoundingClientRect();
+            const startX = srcRect.right - columnsRect.left + 6;
+            const startY = srcRect.top - columnsRect.top + (srcRect.height / 2);
+            const endX = dstRect.left - columnsRect.left - 8;
+            const endY = dstRect.top - columnsRect.top + (dstRect.height / 2);
+            const pathData = roundedConnectorPath(startX, startY, endX, endY);
+            const sourceClass = edge.source === "ai" ? "ai" : edge.source === "syllabus" ? "syllabus" : "pipeline";
+            const relationClass = edge.relation_type === "soft" ? "soft" : "hard";
+            const markerId = sourceClass === "ai" ? "dag-arrow-ai" : sourceClass === "syllabus" ? "dag-arrow-syllabus" : "dag-arrow-pipeline";
+            const path = createEdgePath(pathData, sourceClass, relationClass, markerId, edge);
+            dagSvg.appendChild(path);
+            dagState.edgeRecords.push({
+                srcId: edge.src_id,
+                dstId: edge.dst_id,
+                edge,
+                element: path,
+            });
+            if (!dagState.outgoing.has(edge.src_id)) {
+                dagState.outgoing.set(edge.src_id, new Set());
+            }
+            if (!dagState.incoming.has(edge.dst_id)) {
+                dagState.incoming.set(edge.dst_id, new Set());
+            }
+            dagState.outgoing.get(edge.src_id).add(edge.dst_id);
+            dagState.incoming.get(edge.dst_id).add(edge.src_id);
+        }
+
+        if (dagState.activeNodeId && nodeMap.has(dagState.activeNodeId)) {
+            highlightDagPath(dagState.activeNodeId);
+        } else {
+            clearDagHighlight();
+        }
+    };
+
+    const setAllDagGroups = (open) => {
+        document.querySelectorAll(".dag-group-cluster").forEach((group) => {
+            group.open = open;
+        });
+        window.requestAnimationFrame(renderDagGraph);
+    };
+
+    const wrapText = (text, maxWidth, font) => {
+        if (!textMeasureContext) {
+            return [text];
+        }
+        textMeasureContext.font = font;
+        const words = String(text).split(/\s+/).filter(Boolean);
+        const lines = [];
+        let currentLine = "";
+        for (const word of words) {
+            const probe = currentLine ? `${currentLine} ${word}` : word;
+            if (textMeasureContext.measureText(probe).width <= maxWidth || !currentLine) {
+                currentLine = probe;
+                continue;
+            }
+            lines.push(currentLine);
+            currentLine = word;
+        }
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+        return lines.length ? lines : [String(text)];
+    };
+
+    const buildExportSvgMarkup = () => {
+        if (!dagPayload || !dagShell || !dagColumns) {
+            return null;
+        }
+
+        const columnsRect = dagColumns.getBoundingClientRect();
+        const visibleNodeCards = Array.from(document.querySelectorAll(".dag-node-card")).filter(
+            (node) => node.offsetParent !== null && node.getClientRects().length > 0
+        );
+
+        if (!visibleNodeCards.length) {
+            return null;
+        }
+
+        const nodeMap = new Map();
+        for (const node of visibleNodeCards) {
+            const rect = node.getBoundingClientRect();
+            nodeMap.set(node.dataset.nodeId, {
+                x: rect.left - columnsRect.left,
+                y: rect.top - columnsRect.top,
+                width: rect.width,
+                height: rect.height,
+                title: node.querySelector("h3")?.textContent?.trim() || "",
+                group: node.querySelector(".dag-node-group")?.textContent?.trim() || "",
+                bloom: node.querySelector(".dag-node-bloom")?.textContent?.trim() || "",
+            });
+        }
+
+        const visibleEdges = dagState.edgeRecords.filter((record) => nodeMap.has(record.srcId) && nodeMap.has(record.dstId));
+        const width = Math.max(dagColumns.scrollWidth, columnsRect.width);
+        const height = Math.max(dagColumns.scrollHeight, columnsRect.height) + 24;
+        const parts = [
+            `<svg xmlns="${svgNamespace}" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
+            "<defs>",
+            '<marker id="export-arrow-syllabus" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,4 L0,8 z" fill="#0e8f6f"></path></marker>',
+            '<marker id="export-arrow-ai" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,4 L0,8 z" fill="#b85c38"></path></marker>',
+            '<marker id="export-arrow-pipeline" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,4 L0,8 z" fill="#7a6a4d"></path></marker>',
+            "</defs>",
+            '<rect width="100%" height="100%" fill="#f5efe3"></rect>',
+        ];
+
+        document.querySelectorAll(".dag-wave-column").forEach((column, index) => {
+            const rect = column.getBoundingClientRect();
+            const x = rect.left - columnsRect.left;
+            const y = 32;
+            const waveWidth = rect.width;
+            const waveHeight = Math.max(rect.height - 16, 180);
+            parts.push(
+                `<rect x="${x}" y="${y}" width="${waveWidth}" height="${waveHeight}" rx="22" fill="#fbf8f2" stroke="#d9cfbf"></rect>`,
+                `<text x="${x + 18}" y="22" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#0e8f6f">Волна ${index + 1}</text>`
+            );
+        });
+
+        for (const record of visibleEdges) {
+            const pathD = record.element.getAttribute("d");
+            const sourceClass = record.edge.source === "ai" ? "ai" : record.edge.source === "syllabus" ? "syllabus" : "pipeline";
+            const markerId = sourceClass === "ai" ? "export-arrow-ai" : sourceClass === "syllabus" ? "export-arrow-syllabus" : "export-arrow-pipeline";
+            const dash = record.edge.relation_type === "soft" ? ' stroke-dasharray="5 7"' : "";
+            const opacity = record.edge.decision === "accept" ? ' opacity="0.68"' : ' opacity="0.28"';
+            const stroke = sourceClass === "ai" ? "#b85c38" : sourceClass === "syllabus" ? "#0e8f6f" : "#7a6a4d";
+            parts.push(`<path d="${pathD}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"${dash}${opacity} marker-end="url(#${markerId})"></path>`);
+        }
+
+        for (const [, layout] of nodeMap) {
+            parts.push(
+                `<rect x="${layout.x}" y="${layout.y}" width="${layout.width}" height="${layout.height}" rx="18" fill="#ffffff" stroke="#d9cfbf"></rect>`,
+                `<rect x="${layout.x + 14}" y="${layout.y + 14}" width="${Math.min(140, layout.group.length * 7 + 24)}" height="24" rx="12" fill="rgba(14, 143, 111, 0.1)"></rect>`,
+                `<text x="${layout.x + 26}" y="${layout.y + 30}" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#0e8f6f">${escapeHtml(layout.group)}</text>`,
+                `<text x="${layout.x + layout.width - 84}" y="${layout.y + 30}" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#445255">${escapeHtml(layout.bloom)}</text>`
+            );
+            const lines = wrapText(layout.title, layout.width - 28, "700 15px 'Segoe UI', Arial, sans-serif");
+            lines.forEach((line, index) => {
+                parts.push(
+                    `<text x="${layout.x + 14}" y="${layout.y + 58 + (index * 18)}" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1f2a2a">${escapeHtml(line)}</text>`
+                );
+            });
+        }
+
+        parts.push("</svg>");
+        return { markup: parts.join(""), width, height };
+    };
+
+    const downloadBlob = (blob, filename) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 500);
+    };
+
+    const exportDagSvg = () => {
+        const exportSvg = buildExportSvgMarkup();
+        if (!exportSvg) {
+            return;
+        }
+        downloadBlob(new Blob([exportSvg.markup], { type: "image/svg+xml;charset=utf-8" }), "dag-map.svg");
+    };
+
+    const exportDagPng = async () => {
+        const exportSvg = buildExportSvgMarkup();
+        if (!exportSvg) {
+            return;
+        }
+        const blob = new Blob([exportSvg.markup], { type: "image/svg+xml;charset=utf-8" });
+        const svgUrl = URL.createObjectURL(blob);
+        const image = new Image();
+        image.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.ceil(exportSvg.width * 2);
+            canvas.height = Math.ceil(exportSvg.height * 2);
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+                URL.revokeObjectURL(svgUrl);
+                return;
+            }
+            ctx.scale(2, 2);
+            ctx.fillStyle = "#f5efe3";
+            ctx.fillRect(0, 0, exportSvg.width, exportSvg.height);
+            ctx.drawImage(image, 0, 0, exportSvg.width, exportSvg.height);
+            canvas.toBlob((pngBlob) => {
+                if (pngBlob) {
+                    downloadBlob(pngBlob, "dag-map.png");
+                }
+                URL.revokeObjectURL(svgUrl);
+            }, "image/png");
+        };
+        image.src = svgUrl;
+    };
+
+    const exportDagPdf = () => {
+        const exportSvg = buildExportSvgMarkup();
+        if (!exportSvg) {
+            return;
+        }
+        const printWindow = window.open("", "_blank", "width=1200,height=900");
+        if (!printWindow) {
+            return;
+        }
+        printWindow.document.write(`
+            <!doctype html>
+            <html lang="ru">
+            <head>
+                <meta charset="utf-8">
+                <title>DAG export</title>
+                <style>
+                    body { margin: 0; background: #f5efe3; font-family: 'Segoe UI', Arial, sans-serif; }
+                    .page { padding: 24px; }
+                    svg { width: 100%; height: auto; }
+                </style>
+            </head>
+            <body>
+                <div class="page">${exportSvg.markup}</div>
+                <script>
+                    window.onload = () => { window.print(); };
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
+    if (dagPayload && dagShell && dagSvg && dagColumns) {
+        attachNodeHoverHandlers();
+        document.querySelectorAll(".dag-group-cluster").forEach((group) => {
+            group.addEventListener("toggle", () => {
+                hideTooltip();
+                window.requestAnimationFrame(renderDagGraph);
+            });
+        });
+        dagExpandAllButton?.addEventListener("click", () => setAllDagGroups(true));
+        dagCollapseAllButton?.addEventListener("click", () => setAllDagGroups(false));
+        dagExportSvgButton?.addEventListener("click", exportDagSvg);
+        dagExportPngButton?.addEventListener("click", exportDagPng);
+        dagExportPdfButton?.addEventListener("click", exportDagPdf);
+        window.requestAnimationFrame(renderDagGraph);
+        window.addEventListener("resize", () => {
+            hideTooltip();
+            renderDagGraph();
+        });
+    }
+})();
+</script>
+{% endblock %}

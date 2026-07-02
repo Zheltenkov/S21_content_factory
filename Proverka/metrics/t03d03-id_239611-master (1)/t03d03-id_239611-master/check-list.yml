@@ -1,0 +1,202 @@
+introduction: >
+  The methodology of School 21 makes sense only if peer-to-peer reviews are done seriously. Please read all guidelines carefully before starting the review.
+  
+  - Please, stay courteous, polite, respectful and constructive in all communications during this review.
+
+  - Highlight possible malfunctions of the work done by the person and take the time to discuss and debate it.
+
+  - Keep in mind that sometimes there can be differences in interpretation of the tasks and the scope of features. Please, stay open-minded to the vision of the other.
+
+  - If you have not finished the project yet, it is compulsory to read the entire instruction before starting the review.
+
+guidelines: >
+  - Evaluate only the files that are in src folder on the GIT repository of the student or group.
+
+  - Ensure to start reviewing a group project only when the team is present in full.
+
+  - Use special flags in the checklist to report, for example, an “empty work” if repository does not contain the work of the student (or group) in the src folder of the develop branch, or “cheat” in case of cheating or if the student (or group) are unable to explain their work at any time during review as well as if one of the points below is not met. However, except for cheating cases, you are encouraged to continue reviewing the project to identify the problems that caused the situation in order to avoid them at the next review.
+
+  - Doublecheck that the GIT repository is the one corresponding to the student or the group.
+
+  - Meticulously check that nothing malicious has been used to mislead you.
+
+  - In controversial cases, remember that the checklist determines only the general order of the check. The final decision on project evaluation remains with the reviewer.
+
+quick_actions:
+  - EMPTY_WORK
+  - INVALID_COMPILATION
+  - CODE_STYLE
+  - LEAKS
+  - CRASH
+  - CHEATING
+  - FORBIDDEN_FUNCTION
+language: en
+name: C. Day 03
+comment: ""
+sections:
+
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Quest 1.
+        description: >
+          -	There are no object files or executable files in the repository
+
+          -	Only <stdio.h> is included
+
+          - Test case 1
+            Output (stdout):
+                Hello, AI!  
+        rating: "6"
+      - name: Quest 2.
+        description: >
+          -	There are no object files or executable files in the repository
+
+          -	Once started, the program expects input
+
+          -	Only <stdio.h> is included
+
+          -	Test case 1
+            Input:
+              0
+            Output:
+              Hello, 0!
+
+          -	Test case 2
+            Input:
+              124
+            Output:
+              Hello, 124!
+        rating: "6"
+      - name: Quest 3.
+        description: >
+          -	There are no object files or executable files in the repository
+
+          -	There is a verification that only numbers are entered (when trying to enter characters, the program handles this situation correctly and does not try to perform arithmetic operations)
+
+          -	Handling of division by 0 exists
+
+          -	Only <stdio.h> is included
+
+
+          -	Test case 1
+            Input:
+              8 2
+            Output:
+              10 6 16 4
+
+          -	Test case 2
+            Input:
+              1 0
+            Output:
+              1 1 0 n/a
+
+          -	Test case 3
+            Input:
+              0 1
+            Output:
+              1 -1 0 0
+        rating: "6"
+      - name: Quest 4.
+        description: >
+          -	There are no object files or executable files in the repository
+
+          -	Only <stdio.h> is included
+
+          -	There is a verification that only numbers have been entered (when trying to enter characters, the program handles this situation correctly and does not try to perform arithmetic operations)
+
+
+          -	Test case 1
+            Input:
+              3 2
+            Output:
+              3
+
+          -	Test case 2
+            Input:
+              -5 1
+            Output:
+              1
+
+          -	Test case 3
+            Input:
+              10 10
+            Output:
+              10
+
+          -	There is a separate function for searching for the maximum
+        rating: "6"
+      - name: Quest 5.
+        description: >
+          -	There are no object files or executable files in the repository
+
+          -	Only <stdio.h> and <math.h> are included
+
+          -	There is a verification that only numbers have been entered (when trying to enter characters, the program handles this situation correctly and does not try to perform arithmetic operations)
+
+
+          -	Test case 1
+            Input:
+              1
+            Output:
+              -2070.4
+
+          -	Test case 2
+            Input:
+              0
+            Output:
+              n/a
+
+          -	Test case 3
+            Input:
+              13.4
+            Output:
+              62.1
+
+        rating: "6"
+      - name: Quest 6.
+        description: >
+          -	There are no object files or executable files in the repository
+
+          -	Only <stdio.h> and <math.h> are included
+
+          -	Test case 1
+            Output:
+                OK!
+
+
+          -	Code modification is in the if condition only. Declaring additional variables or constants is not considered a code change.
+
+          -	In such a condition, the module of the result of the function is compared to a very small value (something like 1e-6, but there may be another value)
+        rating: "6"
+      - name: Quest 7.
+        description: >
+          -	There are no object files or executable files in the repository
+
+          -	Only <stdio.h> is included
+
+          -	There is a verification that only numbers are entered (when trying to enter characters, the program handles this situation correctly and does not try to perform arithmetic operations)
+
+          -	Test case 1
+            Input:
+              1 1
+            Output:
+              GOTCHA
+
+
+          -	Test case 2
+            Input:
+              10 10
+            Output:
+              MISS
+
+
+          -	Test case 3       
+            Input:
+              5 5
+            Output:
+              MISS
+
+        rating: "6"
+        

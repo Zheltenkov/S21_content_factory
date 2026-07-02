@@ -1,0 +1,2 @@
+"""Middleware для FastAPI приложения."""
+

@@ -1,0 +1,43 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+group = 'ru.school21.example'
+version = '1.0-SNAPSHOT'
+
+ext {
+    allureVersion = "2.29.0"
+    junitVersion = "5.9.1"
+    lombokVersion = '1.18.34'
+}
+
+compileJava {
+    options.release = 21
+}
+
+compileTestJava {
+    options.release = 21
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+
+    //utils
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    //JUnit
+    implementation(platform('org.junit:junit-bom:5.10.3'))
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.11.3'
+    implementation('org.junit.jupiter:junit-jupiter')
+    testImplementation 'org.junit.platform:junit-platform-console-standalone:1.11.3'
+}

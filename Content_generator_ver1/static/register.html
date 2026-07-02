@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация - Генератор учебных проектов</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/auth-light.css?v=20260508-polish-ui">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>Регистрация</h1>
+            <p>Создайте новый аккаунт</p>
+        </div>
+        
+        <div id="errorMsg" class="error-msg"></div>
+        
+        <form id="registerForm" onsubmit="handleRegister(event)">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    required 
+                    autocomplete="email"
+                    placeholder="Введите ваш email"
+                    aria-required="true"
+                    aria-invalid="false"
+                    aria-describedby="email-error"
+                >
+                <span id="email-error" class="error-message" role="alert" aria-live="polite" style="display: none;"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="username">Имя пользователя</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    required 
+                    minlength="3"
+                    maxlength="100"
+                    autocomplete="username"
+                    placeholder="Введите имя пользователя"
+                    aria-required="true"
+                    aria-invalid="false"
+                    aria-describedby="username-error"
+                >
+                <span id="username-error" class="error-message" role="alert" aria-live="polite" style="display: none;"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Пароль</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    required
+                    minlength="8"
+                    autocomplete="new-password"
+                    placeholder="Введите пароль (минимум 8 символов)"
+                    aria-required="true"
+                    aria-invalid="false"
+                    aria-describedby="password-error"
+                >
+                <span id="password-error" class="error-message" role="alert" aria-live="polite" style="display: none;"></span>
+            </div>
+            
+            <button type="submit" class="btn" id="registerBtn">Зарегистрироваться</button>
+            
+            <div class="auth-actions center">
+                <a href="/" class="auth-link">Уже есть аккаунт? Войти</a>
+            </div>
+        </form>
+    </div>
+    
+    <script>
+        const API_BASE = window.location.origin;
+        const API_URL = `${API_BASE}/api/v1`;
+        
+        async function handleRegister(event) {
+            event.preventDefault();
+            
+            const btn = document.getElementById('registerBtn');
+            const errorMsg = document.getElementById('errorMsg');
+            const email = document.getElementById('email').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            // Валидация на клиенте
+            let hasErrors = false;
+            
+            // Валидация email
+            const emailError = document.getElementById('email-error');
+            const emailField = document.getElementById('email');
+            if (!email) {
+                emailField.setAttribute('aria-invalid', 'true');
+                emailField.classList.add('field-error');
+                emailError.textContent = 'Пожалуйста, введите email';
+                emailError.style.display = 'block';
+                hasErrors = true;
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                emailField.setAttribute('aria-invalid', 'true');
+                emailField.classList.add('field-error');
+                emailError.textContent = 'Введите корректный email адрес';
+                emailError.style.display = 'block';
+                hasErrors = true;
+            } else {
+                emailField.setAttribute('aria-invalid', 'false');
+                emailField.classList.remove('field-error');
+                emailError.textContent = '';
+                emailError.style.display = 'none';
+            }
+            
+            // Валидация username
+            const usernameError = document.getElementById('username-error');
+            const usernameField = document.getElementById('username');
+            if (!username) {
+                usernameField.setAttribute('aria-invalid', 'true');
+                usernameField.classList.add('field-error');
+                usernameError.textContent = 'Пожалуйста, введите имя пользователя';
+                usernameError.style.display = 'block';
+                hasErrors = true;
+            } else if (username.length < 3) {
+                usernameField.setAttribute('aria-invalid', 'true');
+                usernameField.classList.add('field-error');
+                usernameError.textContent = 'Имя пользователя должно содержать минимум 3 символа';
+                usernameError.style.display = 'block';
+                hasErrors = true;
+            } else {
+                usernameField.setAttribute('aria-invalid', 'false');
+                usernameField.classList.remove('field-error');
+                usernameError.textContent = '';
+                usernameError.style.display = 'none';
+            }
+            
+            // Валидация пароля
+            const passwordError = document.getElementById('password-error');
+            const passwordField = document.getElementById('password');
+            if (!password) {
+                passwordField.setAttribute('aria-invalid', 'true');
+                passwordField.classList.add('field-error');
+                passwordError.textContent = 'Пожалуйста, введите пароль';
+                passwordError.style.display = 'block';
+                hasErrors = true;
+            } else if (password.length < 8) {
+                passwordField.setAttribute('aria-invalid', 'true');
+                passwordField.classList.add('field-error');
+                passwordError.textContent = 'Пароль должен содержать минимум 8 символов';
+                passwordError.style.display = 'block';
+                hasErrors = true;
+            } else {
+                passwordField.setAttribute('aria-invalid', 'false');
+                passwordField.classList.remove('field-error');
+                passwordError.textContent = '';
+                passwordError.style.display = 'none';
+            }
+            
+            if (hasErrors) {
+                return;
+            }
+            
+            errorMsg.classList.remove('show');
+            btn.disabled = true;
+            btn.textContent = 'Регистрация...';
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                if (!response.ok) {
+                    let errorDetail = 'Ошибка регистрации';
+                    try {
+                        const errorData = await response.json();
+                        errorDetail = errorData.detail || errorData.message || `Ошибка ${response.status}`;
+                    } catch (e) {
+                        errorDetail = `Ошибка ${response.status}: ${response.statusText}`;
+                    }
+                    throw new Error(errorDetail);
+                }
+                
+                const data = await response.json();
+                showError(`${data.message || 'Регистрация успешна!'} Перенаправление на страницу входа...`, 'success');
+                
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Ошибка регистрации:', error);
+                showError(`${error.message || 'Ошибка при регистрации. Попробуйте еще раз.'}`);
+                btn.disabled = false;
+                btn.textContent = 'Зарегистрироваться';
+            }
+        }
+        
+        function showError(message, type = 'error') {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.textContent = message;
+            errorMsg.classList.add('show');
+            if (type === 'success') {
+                errorMsg.style.background = 'rgba(76, 175, 80, 0.2)';
+                errorMsg.style.borderColor = 'rgba(76, 175, 80, 0.5)';
+                errorMsg.style.color = '#4ade80';
+            } else {
+                errorMsg.style.background = 'rgba(220, 53, 69, 0.2)';
+                errorMsg.style.borderColor = 'rgba(220, 53, 69, 0.5)';
+                errorMsg.style.color = '#f87171';
+            }
+        }
+    </script>
+</body>
+</html>
+
+

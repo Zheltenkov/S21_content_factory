@@ -1,0 +1,31 @@
+# Манифест дидактики: версия и подключаемые фрагменты для промптов.
+version: "1.0.0"
+default_language: ru
+skills:
+  - id: tone_school21
+    path: ton_of_voice_school_21.md
+    description: Tone of Voice Школы 21
+  - id: tone_readme
+    path: ton_of_voice_readme.md
+    description: Редактурные правила README
+  - id: readme_template
+    path: readme_template.md
+    description: Шаблон структуры README
+  - id: readme_toc
+    path: readme_table_of_contents.md
+    description: Правила оглавления
+  - id: methodology
+    path: methodology.md
+    description: Образовательная модель
+  - id: readme_checkup
+    path: readme_checkup.md
+    description: Проверка README
+  - id: theory_inquiry
+    path: skills/theory_inquiry.md
+    description: Стиль теории (вопросы, короткие блоки)
+  - id: tasks_light
+    path: skills/tasks_light.md
+    description: Лёгкий формат заданий
+  - id: brand_editorial
+    path: skills/brand_editorial.md
+    description: Бренд и орфография (кратко)

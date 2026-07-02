@@ -1,0 +1,487 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Школа 21 — Генератор учебных проектов</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css?v=20260518-diagram-labels">
+    <link rel="stylesheet" href="/static/css/s21-tokens.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-base.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-forms.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-buttons.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-badges.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-markdown.css?v=20260520-methodology-diagram-stability">
+    <link rel="stylesheet" href="/static/css/s21-design.css?v=20260513-fluid-cleanup">
+    <link rel="stylesheet" href="/static/css/s21-dashboard.css?v=20260515-dashboard-fix">
+    <script src="/static/js/modules/modelSelector.js?v=20260514-header-fix"></script>
+    <script src="/static/js/utils/pagePrefetch.js?v=20260518-page-prefetch-lite" defer></script>
+</head>
+<body class="s21-product page-menu">
+    <header class="dashboard-header dashboard-header--menu">
+        <nav class="dashboard-nav" aria-label="Основные разделы">
+            <a href="/app" class="active">Главная</a>
+            <a href="/app/generate">Генерация</a>
+            <a href="/app/auditor">Аудитор</a>
+            <a href="/app/translate">Перевод</a>
+            <a href="/app/curriculum">УП</a>
+            <a href="/app/spravochnik">Справочник</a>
+            <a href="/app/instruction">Инструкция</a>
+        </nav>
+
+        <div class="dashboard-header-actions">
+            <div class="dashboard-model-picker" data-selected-model="polza">
+                <button class="dashboard-model-button" type="button" aria-label="Выбрать модель ИИ" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDashboardModelMenu(this)" title="Модель ИИ">
+                    <span aria-hidden="true">ИИ</span>
+                </button>
+                <div class="dashboard-model-menu" role="listbox" aria-label="Модель ИИ" hidden>
+                    <button type="button" role="option" data-model="polza" aria-selected="true" onclick="setDashboardModel(this.dataset.model)">polza</button>
+                    <button type="button" role="option" data-model="deepseek" aria-selected="false" onclick="setDashboardModel(this.dataset.model)">deepseek</button>
+                    <button type="button" role="option" data-model="gigachat" aria-selected="false" onclick="setDashboardModel(this.dataset.model)">gigachat</button>
+                </div>
+            </div>
+            <button class="dashboard-user" type="button" onclick="handleLogout()" title="Выйти">
+                <span class="dashboard-user-avatar" id="dashboardUserInitials">U</span>
+                <span id="dashboardUserName">Пользователь</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="dashboard-shell">
+        <section class="dashboard-hero" aria-labelledby="dashboardTitle">
+            <div class="dashboard-hero-copy">
+                <h1 id="dashboardTitle">Генератор учебных проектов</h1>
+                <p>Выберите режим работы. Все инструменты работают с одной методологической базой и общими словарями.</p>
+                <div class="dashboard-meta-row" aria-label="Состояние сервиса">
+                    <span class="dashboard-service"><span></span>Сервис доступен</span>
+                    <span class="dashboard-dot"></span>
+                    <span>Последний запуск: <strong id="dashboardLastRun">—</strong></span>
+                    <span class="dashboard-dot"></span>
+                    <span>Активных задач: <strong id="dashboardActiveTasks">0</strong></span>
+                </div>
+            </div>
+            <div class="dashboard-mosaic" aria-hidden="true">
+                <span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span>
+            </div>
+        </section>
+
+        <section class="dashboard-mode-grid" aria-label="Режимы работы">
+            <article class="dashboard-mode-card">
+                <div class="dashboard-card-art art-generate">
+                    <div class="art-doc light"></div>
+                    <span class="art-plus">+</span>
+                    <div class="art-doc dark"><span></span></div>
+                </div>
+                <div class="dashboard-card-body">
+                    <div class="dashboard-card-index">РЕЖИМ / 01</div>
+                    <h2>Генерация README</h2>
+                    <p>Полный пайплайн: от паспорта программы до итогового документа с теорией, практикой и критериями.</p>
+                    <ul>
+                        <li>Анализ учебного плана и результатов обучения</li>
+                        <li>План практики, задачи и критерии</li>
+                        <li>Диаграммы, формулы, отчёты</li>
+                    </ul>
+                    <a class="dashboard-primary-action" href="/app/generate">Перейти к генератору <span>→</span></a>
+                </div>
+            </article>
+
+            <article class="dashboard-mode-card">
+                <div class="dashboard-card-art art-check">
+                    <div class="art-report">
+                        <span class="art-line short"></span>
+                        <span class="art-line wide"></span>
+                        <span class="art-line"></span>
+                        <div class="art-report-score">87%</div>
+                        <div class="art-report-tags"><span>35 ✓</span><span>4 ×</span></div>
+                    </div>
+                </div>
+                <div class="dashboard-card-body">
+                    <div class="dashboard-card-index">РЕЖИМ / 02</div>
+                    <h2>Аудитор</h2>
+                    <p>Структурная и дидактическая оценка учебного проекта с понятными комментариями и флоу улучшений.</p>
+                    <ul>
+                        <li>Все критерии качества</li>
+                        <li>Что улучшить и почему — текстом</li>
+                        <li>Метрики, run-view и improvement flow</li>
+                    </ul>
+                    <a class="dashboard-primary-action" href="/app/auditor">Перейти к аудитору <span>→</span></a>
+                </div>
+            </article>
+
+            <article class="dashboard-mode-card">
+                <div class="dashboard-card-art art-translate">
+                    <div class="art-lang-card light">RU<span></span></div>
+                    <span class="art-arrow">→</span>
+                    <div class="art-lang-card dark">EN<span></span></div>
+                </div>
+                <div class="dashboard-card-body">
+                    <div class="dashboard-card-index">РЕЖИМ / 03</div>
+                    <h2>Перевод документов и видео</h2>
+                    <p>Переведите README или Markdown с сохранением структуры. Также доступны видео и субтитры.</p>
+                    <ul>
+                        <li>Markdown, формулы и таблицы целые</li>
+                        <li>Поддержка Mermaid-диаграмм</li>
+                        <li>Субтитры VTT/SRT и видео-перевод</li>
+                    </ul>
+                    <a class="dashboard-primary-action" href="/app/translate">Перейти к переводу <span>→</span></a>
+                </div>
+            </article>
+
+            <article class="dashboard-mode-card">
+                <div class="dashboard-card-art art-plan">
+                    <div class="art-plan-board">
+                        <span>01</span><span>02</span><span>03</span>
+                        <strong>УП</strong>
+                    </div>
+                </div>
+                <div class="dashboard-card-body">
+                    <div class="dashboard-card-index">РЕЖИМ / 04</div>
+                    <h2>Учебный план</h2>
+                    <p>Каталог, планирование и row-edit учебных проектов с привязкой к единой методологической базе.</p>
+                    <ul>
+                        <li>Иерархия планов и проектов</li>
+                        <li>Редактор строк и результатов обучения</li>
+                        <li>Предложения шаблонов артефактов</li>
+                    </ul>
+                    <a class="dashboard-primary-action" href="/app/curriculum">Перейти к УП <span>→</span></a>
+                </div>
+            </article>
+
+            <article class="dashboard-mode-card">
+                <div class="dashboard-card-art art-catalog">
+                    <div class="art-catalog-card">
+                        <span></span><span></span><span></span>
+                        <em>skill</em><em>CAT</em>
+                    </div>
+                    <div class="art-catalog-plus">+</div>
+                </div>
+                <div class="dashboard-card-body">
+                    <div class="dashboard-card-index">РЕЖИМ / 05</div>
+                    <h2>Справочник</h2>
+                    <p>Каталог компетенций, skills, индикаторов и review queue для общей методологической базы.</p>
+                    <ul>
+                        <li>Компетенции и профили</li>
+                        <li>Skills и индикаторы</li>
+                        <li>Intake, архив и review queue</li>
+                    </ul>
+                    <a class="dashboard-primary-action" href="/app/spravochnik">Перейти к справочнику <span>→</span></a>
+                </div>
+            </article>
+        </section>
+
+        <section class="dashboard-recent" aria-labelledby="recentRunsTitle">
+            <div class="dashboard-section-head">
+                <h2 id="recentRunsTitle">Недавние запуски</h2>
+                <button class="dashboard-link-button" type="button" onclick="loadDashboardRecent(20)">Все запуски →</button>
+            </div>
+            <div class="dashboard-recent-list" id="dashboardRecentRuns">
+                <div class="dashboard-recent-empty">Загружаю последние запуски...</div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/js/utils/authSession.js?v=20260702-auth-cookie-sync"></script>
+    <script>
+        const API_URL = `${window.location.origin}/api/v1`;
+
+        function getAuthHeaders() {
+            return window.ContentGenAuth?.getAuthHeaders() || {};
+        }
+
+        function clearAuthState() {
+            window.ContentGenAuth?.clearAuthState?.();
+        }
+
+        function redirectToLogin() {
+            clearAuthState();
+            window.location.replace('/');
+        }
+
+        function ensureAuth() {
+            return window.ContentGenAuth?.ensureAuthPresent?.() ?? false;
+        }
+
+        function resolveDisplayName(user = {}) {
+            return user.username || localStorage.getItem('username') || localStorage.getItem('email') || 'Пользователь';
+        }
+
+        function resolveInitials(name) {
+            const clean = String(name || '').trim();
+            if (!clean) return 'U';
+            const parts = clean.replace(/@.*$/, '').split(/[.\s_-]+/).filter(Boolean);
+            if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+            return clean.slice(0, 2).toUpperCase();
+        }
+
+        function updateUserHeader(user = {}) {
+            const name = resolveDisplayName(user);
+            document.getElementById('dashboardUserName').textContent = name;
+            document.getElementById('dashboardUserInitials').textContent = resolveInitials(name);
+        }
+
+        function parseApiDate(value) {
+            if (!value) return null;
+            const raw = String(value).trim();
+            const hasTime = /[T\s]\d{2}:\d{2}/.test(raw);
+            const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+            const normalized = hasTime && !hasTimezone ? raw.replace(' ', 'T') + 'Z' : raw;
+            const date = new Date(normalized);
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        function formatRunTime(value) {
+            if (!value) return '—';
+            const date = parseApiDate(value);
+            if (!date) return '—';
+            const now = new Date();
+            const sameDay = date.toDateString() === now.toDateString();
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
+            const time = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            if (sameDay) return `сегодня, ${time}`;
+            if (date.toDateString() === yesterday.toDateString()) return `вчера, ${time}`;
+            return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) + `, ${time}`;
+        }
+
+        function recentStatusClass(status) {
+            if (status === 'completed') return 'success';
+            if (status === 'failed' || status === 'cancelled' || status === 'interrupted') return 'danger';
+            return 'info';
+        }
+
+        function dashboardStatusLabel(item = {}) {
+            const labels = {
+                completed: 'ГОТОВО',
+                in_progress: 'В РАБОТЕ',
+                pending: 'ОЖИДАЕТ',
+                needs_review: 'НА ПРОВЕРКЕ',
+                resuming: 'ВОЗОБНОВЛЕНИЕ',
+                interrupted: 'ПРЕРВАНО',
+                failed: 'ОШИБКА',
+                cancelled: 'ОСТАНОВЛЕНО',
+            };
+            const status = String(item.status || '').toLowerCase();
+            return labels[status] || item.status_label || item.status || 'ГОТОВО';
+        }
+
+        function isRecentRunOpenable(item = {}) {
+            const status = String(item.status || '').toLowerCase();
+            return !['failed', 'cancelled'].includes(status);
+        }
+
+        function isRecentRunActive(item = {}) {
+            const status = String(item.status || '').toLowerCase();
+            return ['pending', 'in_progress', 'needs_review', 'resuming'].includes(status);
+        }
+
+        function recentRunActionLabel(item = {}) {
+            const status = String(item.status || '').toLowerCase();
+            if (status === 'interrupted') return 'Восстановить';
+            if (status === 'needs_review') return 'Продолжить';
+            if (isRecentRunActive(item)) return 'Открыть';
+            return 'Открыть';
+        }
+
+        function renderRecentRuns(items) {
+            const container = document.getElementById('dashboardRecentRuns');
+            if (!items || items.length === 0) {
+                container.innerHTML = '<div class="dashboard-recent-empty">Пока нет запусков. Начните с генерации README.</div>';
+                return;
+            }
+            container.innerHTML = items.map((item) => {
+                const openable = isRecentRunOpenable(item);
+                const requestId = escapeHtml(item.request_id || '');
+                const kind = escapeHtml(item.kind || '');
+                const openUrl = escapeHtml(item.open_url || '');
+                const downloadUrl = escapeHtml(item.download_url || '');
+                const status = escapeHtml(item.status || '');
+                const cancellable = isRecentRunActive(item);
+                const openLabel = recentRunActionLabel(item);
+                return `
+                <article class="dashboard-run-row" data-run-status="${escapeHtml(item.status || '')}">
+                    <div class="dashboard-run-icon" aria-hidden="true"></div>
+                    <div class="dashboard-run-main">
+                        <h3>${escapeHtml(item.title || 'README project')}</h3>
+                        <p>${formatRunTime(item.updated_at || item.created_at)}</p>
+                    </div>
+                    <div class="dashboard-run-meta">
+                        <span class="dashboard-run-chip">${escapeHtml(item.kind_label || 'ГЕНЕРАЦИЯ')}</span>
+                        <span class="dashboard-run-chip ${recentStatusClass(item.status)}">• ${escapeHtml(dashboardStatusLabel(item))}</span>
+                        <span class="dashboard-run-score">${escapeHtml(item.score?.label || '—')}</span>
+                    </div>
+                    <div class="dashboard-run-actions">
+                        <button class="dashboard-run-open" type="button" ${openable ? `onclick="openRecentRun('${requestId}', '${kind}', '${openUrl}', '${downloadUrl}', '${status}')"` : 'disabled title="Запуск завершился без результата"'}>${openable ? escapeHtml(openLabel) : 'Нет результата'}</button>
+                        ${cancellable ? `<button class="dashboard-run-cancel" type="button" aria-label="Остановить запуск" title="Остановить запуск" onclick="cancelRecentRun('${requestId}', event)">×</button>` : ''}
+                    </div>
+                </article>
+            `;
+            }).join('');
+        }
+
+        function saveActiveGenerationForRestore(requestId, status = 'pending', workflow = null) {
+            const workflowStatus = String(workflow?.status || '').toLowerCase();
+            const phase = workflow?.current_node || workflow?.last_completed_node || workflow?.resume_from_node || 'initialization';
+            sessionStorage.setItem('generation_state', JSON.stringify({
+                requestId,
+                currentGenerationStatus: status || 'pending',
+                lastKnownGenerationPhase: phase,
+                lastKnownGenerationProgress: workflow?.progress_current && workflow?.progress_total
+                    ? Math.round((Number(workflow.progress_current) / Math.max(1, Number(workflow.progress_total))) * 100)
+                    : 1,
+                lastKnownGenerationAgent: workflowStatus === 'needs_review' ? 'Ожидание методолога' : 'Продолжение генерации',
+                timestamp: Date.now()
+            }));
+        }
+
+        async function resumeInterruptedRun(requestId) {
+            const response = await fetch(`${API_URL}/generate/workflow/${requestId}/command`, {
+                method: 'POST',
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: 'resume', payload: {} })
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ detail: 'Не удалось восстановить запуск.' }));
+                alert(error.detail || 'Не удалось восстановить запуск.');
+                return false;
+            }
+            saveActiveGenerationForRestore(requestId, 'in_progress');
+            return true;
+        }
+
+        async function openRecentRun(requestId, kind, openUrl, downloadUrl, initialStatus = '') {
+            const normalizedKind = String(kind || '').toLowerCase();
+            if (openUrl && normalizedKind !== 'generation' && normalizedKind !== 'regeneration') {
+                window.location.href = openUrl;
+                return;
+            }
+            const normalizedInitialStatus = String(initialStatus || '').toLowerCase();
+            if (normalizedInitialStatus === 'interrupted') {
+                if (await resumeInterruptedRun(requestId)) {
+                    window.location.href = '/app/generate';
+                }
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/generate/status/${requestId}`, { headers: getAuthHeaders() });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (['pending', 'in_progress', 'needs_review'].includes(data.status)) {
+                        saveActiveGenerationForRestore(requestId, data.status, data.workflow || null);
+                        window.location.href = '/app/generate';
+                        return;
+                    }
+                    if (data.status === 'interrupted') {
+                        if (await resumeInterruptedRun(requestId)) {
+                            window.location.href = '/app/generate';
+                        }
+                        return;
+                    }
+                    if (data.status === 'completed' && data.result) {
+                        sessionStorage.setItem('generation_state', JSON.stringify({
+                            requestId,
+                            result: data.result,
+                            markdown: data.result.markdown || '',
+                            originalMarkdown: data.result.markdown || '',
+                            timestamp: Date.now()
+                        }));
+                        window.location.href = '/app/generate';
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.warn('Не удалось открыть результат из runtime cache:', error);
+            }
+            if (downloadUrl) {
+                await downloadRecentRun(downloadUrl, requestId);
+            }
+        }
+
+        async function cancelRecentRun(requestId, event) {
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
+            if (!confirm('Остановить этот запуск и убрать его из активных задач?')) return;
+            try {
+                const response = await fetch(`${API_URL}/generate/cancel/${requestId}`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ detail: 'Не удалось остановить запуск.' }));
+                    alert(error.detail || 'Не удалось остановить запуск.');
+                    return;
+                }
+                await loadDashboardRecent();
+            } catch (error) {
+                console.error('Ошибка остановки запуска:', error);
+                alert('Не удалось остановить запуск.');
+            }
+        }
+
+        async function downloadRecentRun(downloadUrl, requestId) {
+            const response = await fetch(downloadUrl, { headers: getAuthHeaders() });
+            if (!response.ok) {
+                alert('Не удалось открыть запуск. Результат не найден или нет доступа.');
+                return;
+            }
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `generation_${requestId}.zip`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        async function loadDashboardRecent(limit = 6) {
+            const container = document.getElementById('dashboardRecentRuns');
+            try {
+                const response = await fetch(`${API_URL}/dashboard/recent?limit=${limit}`, { headers: getAuthHeaders() });
+                if (response.status === 401) {
+                    redirectToLogin();
+                    return;
+                }
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                updateUserHeader(data.user || {});
+                document.getElementById('dashboardActiveTasks').textContent = String(data.active_tasks || 0);
+                document.getElementById('dashboardLastRun').textContent = formatRunTime(data.last_run_at);
+                renderRecentRuns(data.items || []);
+            } catch (error) {
+                console.error('Ошибка загрузки dashboard:', error);
+                container.innerHTML = '<div class="dashboard-recent-empty">Не удалось загрузить недавние запуски.</div>';
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch(`${API_URL}/auth/logout`, { method: 'POST', headers: getAuthHeaders() });
+            } catch (error) {
+                console.warn('Logout request failed:', error);
+            }
+            clearAuthState();
+            window.location.replace('/');
+        }
+
+        if (ensureAuth()) {
+            window.restoreDashboardModel?.();
+            updateUserHeader();
+            loadDashboardRecent();
+        }
+    </script>
+</body>
+</html>
+

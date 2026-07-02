@@ -1,0 +1,157 @@
+introduction: >
+  The methodology of School 21 makes sense only if peer-to-peer reviews are done seriously. Please read all guidelines carefully before starting the review.
+  
+  - Please, stay courteous, polite, respectful and constructive in all communications during this review.
+
+  - Highlight possible malfunctions of the work done by the person and take the time to discuss and debate it.
+
+  - Keep in mind that sometimes there can be differences in interpretation of the tasks and the scope of features. Please, stay open-minded to the vision of the other.
+
+  - If you have not finished the project yet, it is compulsory to read the entire instruction before starting the review.
+
+guidelines: >
+  - Evaluate only the files that are in src folder on the GIT repository of the student or group.
+
+  - Ensure to start reviewing a group project only when the team is present in full.
+
+  - Use special flags in the checklist to report, for example, an “empty work” if repository does not contain the work of the student (or group) in the src folder of the develop branch, or “cheat” in case of cheating or if the student (or group) are unable to explain their work at any time during review as well as if one of the points below is not met. However, except for cheating cases, you are encouraged to continue reviewing the project to identify the problems that caused the situation in order to avoid them at the next review.
+
+  - Doublecheck that the GIT repository is the one corresponding to the student or the group.
+
+  - Meticulously check that nothing malicious has been used to mislead you.
+
+  - In controversial cases, remember that the checklist determines only the general order of the check. The final decision on project evaluation remains with the reviewer.
+
+quick_actions:
+  - EMPTY_WORK
+  - INVALID_COMPILATION
+  - CODE_STYLE
+  - LEAKS
+  - CRASH
+  - CHEATING
+  - FORBIDDEN_FUNCTION
+language: en
+name: C. Day 08
+comment: ""
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Quest 1.
+        description: >
+          -	The maxmin function is present in the code and is called in main
+
+          -	Returning multiple values from a function is done by passing a pointer
+
+          -	The program finds the largest and smallest value of the 3 numbers entered, and correctly handles situations with equal numbers.
+
+          -	Dynamic memory is not used
+
+          -	Test case 1
+            Input:
+              1 2 3
+            Output:
+              3 1
+
+
+          -	Test case 2
+            Input:
+              9 5 1
+            Output:
+              9 1
+
+
+          -	Test case 3
+            Input:
+              1 5 2
+            Output:
+              5 1
+
+        rating: "6"
+      - name: Quest 2.
+        description: >
+          -	There are separate functions for input/output and processing
+
+          -	Functions are declared before main, definitions — after main
+
+          -	The array is passed via pointer
+
+          -	The program correctly handles the situation with an array of 0, 1, and 11+ elements. 
+
+          -	The program works correctly with both positive and negative numbers.
+
+          -	Dynamic memory is not used
+
+          -	Test case 1
+            Input:
+              3
+              1 2 3
+            Output:
+              1 4 9
+
+        rating: "6"
+      - name: Quest 3.
+        description: >
+          -	The array is passed via pointer
+
+          -	There are separate functions for input/output and processing 
+
+          -	The order of arguments for the same type of functions is identical
+
+          -	There is one exit-point among the functions that return a value
+
+          -	The program correctly handles the situation with an array of 0, 1, 2, 3 and 11+ elements.
+
+          -	The program correctly handles the situation with an array consisting entirely of 0 elements.
+
+          -	The program correctly handles the situation with an array consisting entirely of the same elements.
+
+          -	The program correctly determines the extremes (max and min), the expected value, and the variance for a data set.
+
+          -	Dynamic memory is not used
+
+          -	Test case 1
+            Input:
+              4
+              1 2 3 4
+            Output:
+              1 2 3 4
+              4 1 2.500000 1.250000
+
+        rating: "6"
+      - name: Quest 4.
+        description: >
+          -	The array is passed via pointer
+
+          -	There are separate functions for input/output and processing 
+
+          -	There is one output among the functions that return a value
+
+          -	The program correctly handles the situation with an array of 0, 1, 2, 3 and 31+ elements.
+
+          -	The program correctly handles the situation with an array consisting entirely of 0 elements.
+
+          -	The program correctly handles the situation with an array consisting entirely of the same elements.
+
+          -	The program correctly finds the first occurrence of an element that meets the conditions (is even, is greater than or equal to the expected value, is subject to the three-sigma rule, and is not equal to 0).
+
+          -	Dynamic memory is not used
+
+          -	Test case 1
+            Input:
+              4
+              1 2 3 4
+            Output:
+              4
+              
+
+          -	Test case 2
+            Input:
+              2
+              0 0
+            Output:
+              0
+
+        rating: "6"
+        

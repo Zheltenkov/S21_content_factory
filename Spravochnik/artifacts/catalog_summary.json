@@ -1,0 +1,145 @@
+{
+  "generated_at_utc": "2026-06-02T18:24:49.152525+00:00",
+  "counts": {
+    "workbooks": 13,
+    "sheets": 35,
+    "blocks": 182,
+    "profiles": 13,
+    "competencies": 116,
+    "profile_competencies": 182,
+    "skills": 746,
+    "competency_skills": 1140,
+    "indicator_rows": 15172,
+    "indicator_level_cells": 16307,
+    "open_reviews": 111
+  },
+  "duplicate_skills": [
+    {
+      "canonical_name": "Командное взаимодействие",
+      "profile_count": 9,
+      "competency_links": 10
+    },
+    {
+      "canonical_name": "Понимание основ реляционных баз данных",
+      "profile_count": 9,
+      "competency_links": 10
+    },
+    {
+      "canonical_name": "Следование Agile-методологии",
+      "profile_count": 9,
+      "competency_links": 10
+    },
+    {
+      "canonical_name": "Работа с системами управления задачами (Task Tracking)",
+      "profile_count": 8,
+      "competency_links": 9
+    },
+    {
+      "canonical_name": "Работа с языком SQL",
+      "profile_count": 8,
+      "competency_links": 9
+    },
+    {
+      "canonical_name": "Документирование кода и работа с документацией",
+      "profile_count": 8,
+      "competency_links": 8
+    },
+    {
+      "canonical_name": "Применение рекурсивных алгоритмов",
+      "profile_count": 8,
+      "competency_links": 8
+    },
+    {
+      "canonical_name": "Работа со строковыми алгоритмами",
+      "profile_count": 8,
+      "competency_links": 8
+    },
+    {
+      "canonical_name": "Применение системы контроля версий Git",
+      "profile_count": 7,
+      "competency_links": 8
+    },
+    {
+      "canonical_name": "Документирование архитектурных решений",
+      "profile_count": 7,
+      "competency_links": 7
+    },
+    {
+      "canonical_name": "Написание интеграционных тестов",
+      "profile_count": 7,
+      "competency_links": 7
+    },
+    {
+      "canonical_name": "Оптимизация запросов и производительности баз данных",
+      "profile_count": 7,
+      "competency_links": 7
+    },
+    {
+      "canonical_name": "Оценка и выбор архитектурных решений",
+      "profile_count": 7,
+      "competency_links": 7
+    },
+    {
+      "canonical_name": "Понимание принципов SOLID",
+      "profile_count": 7,
+      "competency_links": 7
+    },
+    {
+      "canonical_name": "Применение GRASP паттернов",
+      "profile_count": 7,
+      "competency_links": 7
+    }
+  ],
+  "review_breakdown": [
+    {
+      "reason_code": "missing_dimension",
+      "severity": "warning",
+      "cnt": 130
+    },
+    {
+      "reason_code": "no_header_rows",
+      "severity": "warning",
+      "cnt": 3
+    },
+    {
+      "reason_code": "ambiguous_block_title",
+      "severity": "warning",
+      "cnt": 2
+    },
+    {
+      "reason_code": "ambiguous_skill_name",
+      "severity": "warning",
+      "cnt": 2
+    }
+  ],
+  "scales": [
+    {
+      "title": "Начальный (junior) / Базовый (junior+) / Продвинутый (middle) / Мастерский",
+      "levels": 4
+    },
+    {
+      "title": "Начальный (junior-) / Базовый (junior+) / Продвинутый (middle)",
+      "levels": 3
+    },
+    {
+      "title": "Начальный (junior-) / Базовый (junior+) / Продвинутый (middle) / Мастерский",
+      "levels": 4
+    },
+    {
+      "title": "Начальный / Базовый",
+      "levels": 2
+    },
+    {
+      "title": "Начальный / Базовый / Мастерский",
+      "levels": 3
+    },
+    {
+      "title": "Стажер (Junior-) / Начальный (junior) / Базовый (junior+) / Уверенный (Middle) / Продвинутый (Senior)",
+      "levels": 5
+    },
+    {
+      "title": "Стажер / Начальный (junior-) / Базовый (junior+) / Продвинутый (middle) / Мастерский",
+      "levels": 5
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+{
+    "tests": [
+        {
+            "number": 0,
+            "name": "s21_cat.part1",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 1,
+            "name": "s21_cat.part1",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 2,
+            "name": "s21_cat.part1",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 3,
+            "name": "s21_cat.part1",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 4,
+            "name": "s21_cat.part1",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 5,
+            "name": "s21_cat.part1",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 6,
+            "name": "s21_cat.part1",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 7,
+            "name": "s21_cat.part1",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 8,
+            "name": "s21_cat.part1",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 9,
+            "name": "s21_cat.part1",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 10,
+            "name": "s21_grep.part2",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 11,
+            "name": "s21_grep.part2",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 12,
+            "name": "s21_grep.part2",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 13,
+            "name": "s21_grep.part2",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 14,
+            "name": "s21_grep.part2",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 15,
+            "name": "s21_grep.part2",
+            "category": "basic",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 16,
+            "name": "s21_grep.part3",
+            "category": "bonus",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 17,
+            "name": "s21_grep.part3",
+            "category": "bonus",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 18,
+            "name": "s21_grep.part3",
+            "category": "bonus",
+            "result": "PLACEHOLDER"
+        },
+        {
+            "number": 19,
+            "name": "s21_grep.part3",
+            "category": "bonus",
+            "result": "PLACEHOLDER"
+        },
+		{
+            "number": 20,
+            "name": "s21_grep.part4",
+            "category": "bonus",
+            "result": "PLACEHOLDER"
+        },
+		{
+            "number": 21,
+            "name": "s21_grep.part4",
+            "category": "bonus",
+            "result": "PLACEHOLDER"
+        },
+		{
+            "number": 22,
+            "name": "s21_grep.part4",
+            "category": "bonus",
+            "result": "PLACEHOLDER"
+        },
+		{
+            "number": 23,
+            "name": "s21_grep.part4",
+            "category": "bonus",
+            "result": "PLACEHOLDER"
+        },
+		{
+            "number": 24,
+            "name": "s21_grep.part4",
+            "category": "bonus",
+            "result": "PLACEHOLDER"
+        },
+		{
+            "number": 25,
+            "name": "s21_grep.part4",
+            "category": "bonus",
+            "result": "PLACEHOLDER"
+        }
+    ]
+}

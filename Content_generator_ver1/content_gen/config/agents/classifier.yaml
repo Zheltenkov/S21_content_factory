@@ -1,0 +1,19 @@
+name: classifier
+version: "1.0.0"
+updated_at: "2024-01-01"
+
+llm:
+  temperature: 0.1
+  max_tokens: 1000
+
+prompts:
+  system:
+    type: file
+    path: content_gen/prompts/reverse_extraction/classifier/system.md
+  user_template:
+    type: file
+    path: content_gen/prompts/reverse_extraction/classifier/user_template.md
+
+options:
+  max_retries: 2
+

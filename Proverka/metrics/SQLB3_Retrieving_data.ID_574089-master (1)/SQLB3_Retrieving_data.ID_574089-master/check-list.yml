@@ -1,0 +1,301 @@
+introduction: >
+  School 21 methodology only makes sense if peer-to-peer reviews are taken seriously. Please read all the guidelines carefully before starting the review.
+
+  - Please remain courteous, polite, respectful, and constructive in all communications during this review.
+
+  - Point out possible flaws in the person's work and take the time to discuss and debate them.
+
+  - Keep in mind that sometimes there may be differences in interpretation of tasks and scope of functionality. Please remain open to each other's vision.
+guidelines: >
+  - Evaluate only the files located in the src folder of the student's or group's GIT repository.
+
+  - If you have not finished the project yet, it is compulsory to read the entire instruction before starting the review. 
+
+  - Ensure to start reviewing a group project only when the team is present in full.
+
+  - Use special flags in the checklist to report, for example, "empty work" if the repository does not contain the student's (or group's) work in the src folder of the develop branch, or "cheat" in the case of cheating, or if the student (or group) is unable to explain their work at any time during the review, or if any of the items below are not met. However, except in cases of cheating, you are encouraged to continue reviewing the project to identify the problems that caused the situation so that they can be avoided in the next review.
+
+  - Double check that the GIT repository is the one corresponding to the student or group.
+
+  - Carefully check that nothing malicious has been used to fool you.
+
+  - In controversial cases, remember that the checklist determines only the general order of the check. The final decision on project evaluation remains with the reviewer.
+  
+quick_actions:
+  - EMPTY_WORK
+  - CHEAT
+  - FORBIDDEN_FUNCTION
+language: en
+name: Day02
+comment: ""
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Exercise 00 Move to the LEFT, move to the RIGHT
+        description: >
+          Checks for the file day02_ex00.sql
+
+          - The SQL script looks like below.
+
+                SELECT p.name AS pizzeria_name, rating
+                FROM pizzeria p
+                LEFT JOIN person_visits pv ON p.id = pv.pizzeria_id
+                WHERE pv.id IS NULL
+
+          - The result is below (raw ordering should be the same like on a screen below)
+
+                "DoDo Pizza"	"3.2"
+
+        rating: "5"
+
+      - name: Exercise 01 Find data gaps
+        description: >
+          Checks for the file day02_ex01.sql
+
+          - The SQL script looks like below.
+
+                SELECT g::date AS missing_date
+                FROM
+                  (SELECT * FROM person_visits po
+                  WHERE person_id = 1 OR person_id = 2) AS po
+                RIGHT  JOIN generate_series('2022-01-01', '2022-01-10', interval '1 day') AS g ON po.visit_date =g
+                WHERE po.id IS NULL
+                ORDER BY 1
+
+          - The result is below (raw ordering should be the same like below)
+
+                "2022-01-03"
+                "2022-01-04"
+                "2022-01-05"
+                "2022-01-06"
+                "2022-01-07"
+                "2022-01-08"
+                "2022-01-09"
+                "2022-01-10"
+
+        rating: "5"
+
+      - name: Exercise 02 FULL means 'completely filled'
+        description: >
+          Checks for the file day02_ex02.sql
+
+          - The SQL script looks like below.
+
+                SELECT coalesce(p.name, '-') AS person_name,
+                      pv.visit_date, coalesce(pz.name, '-') AS pizzeria_name
+                FROM person p
+                FULL JOIN
+                  (SELECT * FROM person_visits po
+                  WHERE visit_date BETWEEN '2022-01-01' AND '2022-01-03') pv ON p.id = pv.person_id
+                FULL JOIN pizzeria pz ON pz.id = pv.pizzeria_id
+                ORDER BY 1, 2, 3
+
+          The result is below (raw ordering should be the same like below)
+
+                -	        null	  DinoPizza
+                -	        null	  DoDo Pizza
+                Andrey	  2022-01-01	Dominos
+                Andrey	  2022-01-02	Pizza Hut
+                Anna	    2022-01-01	Pizza Hut
+                Denis	    null	      -
+                Dmitriy	  null	      -
+                Elvira	  null	      -
+                Irina	    2022-01-01	Papa Johns
+                Kate	    2022-01-03	Best Pizza
+                Nataly	  null	      -
+                Peter	    2022-01-03	Pizza Hut
+
+
+        rating: "5"
+
+      - name: Exercise 03 Reformat to CTE
+        description: >
+          Checks for the file day02_ex03.sql
+
+          - The SQL script looks like below.
+
+                WITH g AS
+                  (SELECT g::date
+                  FROM generate_series('2022-01-01', '2022-01-10', interval '1 day') AS g)
+                SELECT g::date AS missing_date
+                FROM
+                  (SELECT * FROM person_visits po
+                  WHERE person_id = 1 OR person_id = 2) AS po
+                RIGHT JOIN g AS g ON po.visit_date = g
+                WHERE po.id IS NULL
+                ORDER BY 1
+
+          - The result is below (raw ordering should be the same like below)
+
+                "2022-01-03"
+                "2022-01-04"
+                "2022-01-05"
+                "2022-01-06"
+                "2022-01-07"
+                "2022-01-08"
+                "2022-01-09"
+                "2022-01-10"
+
+        rating: "5"
+
+      - name: Exercise 04 Find favorite pizzas
+        description: >
+          Checks for the file day02_ex04.sql
+
+          - The SQL script looks like below.
+
+                SELECT pizza_name, name AS pizzeria_name, price
+                FROM menu
+                INNER JOIN pizzeria p ON menu.pizzeria_id = p.id
+                WHERE pizza_name IN ('mushroom pizza', 'pepperoni pizza')
+                ORDER BY 1, 2
+
+          - The result is below (raw ordering should be the same like below)
+
+                "mushroom pizza"	  "Dominos"	    "1100"
+                "mushroom pizza"	  "Papa Johns"	"950"
+                "pepperoni pizza"	  "Best Pizza"	"800"
+                "pepperoni pizza"	  "DinoPizza"	  "800"
+                "pepperoni pizza"	  "Papa Johns"	"1000"
+                "pepperoni pizza"	  "Pizza Hut"	  "1200"
+
+        rating: "5"
+
+      - name: Exercise 05 Investigate Person Data
+        description: >
+          Checks for the file day02_ex05.sql
+
+          - The SQL script looks like below.
+
+                SELECT name
+                FROM person
+                WHERE gender = 'female'
+                  AND age > 25
+                ORDER BY 1
+
+          - The result is below (raw ordering should be the same like below)
+
+                 "Elvira"
+                 "Kate"
+                 "Nataly"
+
+        rating: "5"
+
+
+      - name: Exercise 06 Favorite pizzas for Denis and Anna
+        description: >
+          Checks for the file day02_ex06.sql
+
+          - The SQL script looks like below.
+
+                  SELECT m.pizza_name, p2.name AS pizzeria_name
+                  FROM person_order
+                  INNER JOIN person p ON p.id = person_order.person_id
+                  INNER JOIN menu m ON m.id = person_order.menu_id
+                  INNER JOIN pizzeria p2 ON m.pizzeria_id = p2.id
+                  WHERE p.name IN ('Denis', 'Anna')
+                  ORDER BY 1, 2
+
+          - The result is below (raw ordering should be the same like below)
+
+                  "cheese pizza"	    "Best Pizza"
+                  "cheese pizza"	    "Pizza Hut"
+                  "pepperoni pizza"	  "Best Pizza"
+                  "pepperoni pizza"	  "DinoPizza"
+                  "pepperoni pizza"	  "Pizza Hut"
+                  "sausage pizza"	    "DinoPizza"
+                  "supreme pizza"	    "Best Pizza"
+
+        rating: "5"
+
+      - name: Exercise 07 Cheapest pizzeria for Dmitriy
+        description: >
+          Checks for the file day02_ex07.sql
+
+          - The SQL script looks like below.
+
+                SELECT p.name AS pizzeria_name
+                FROM menu
+                INNER JOIN pizzeria p ON p.id = menu.pizzeria_id
+                INNER JOIN person_visits pv ON menu.pizzeria_id = pv.pizzeria_id
+                INNER JOIN person p2 ON p2.id = pv.person_id
+                WHERE price < 800
+                  AND p2.name = 'Dmitriy'
+                  AND visit_date = '2022-01-08'
+
+          - The result is below (raw ordering should be the same like below)
+
+                "Papa Johns"
+
+        rating: "5"
+
+      - name: Exercise 08 Continuing to research data
+        description: >
+          Checks for the file day02_ex08.sql
+
+          - The SQL script looks like below.
+
+                SELECT person.name
+                FROM person
+                INNER JOIN person_order po ON person.id = po.person_id
+                INNER JOIN menu m ON m.id = po.menu_id
+                WHERE gender= 'male' AND pizza_name IN ('pepperoni pizza', 'mushroom pizza')
+                  AND address IN ('Moscow', 'Samara')
+                ORDER BY 1 DESC
+
+          - The result is below (raw ordering should be the same like below)
+
+                "Dmitriy"
+                "Andrey"
+
+        rating: "5"
+
+      - name: Exercise 09 Who loves cheese and pepperoni?
+        description: >
+          Checks for the file day02_ex09.sql
+
+          - The SQL script looks like below.
+
+                SELECT p.name
+                FROM person p
+                INNER JOIN person_order po ON p.id = po.person_id
+                INNER JOIN menu m ON m.id = po.menu_id
+                WHERE m.pizza_name = 'pepperoni pizza'
+                  AND p.gender = 'female' INTERSECT
+                  SELECT p.name
+                  FROM person p
+                  INNER JOIN person_order po ON p.id = po.person_id
+                  INNER JOIN menu m ON m.id = po.menu_id WHERE m.pizza_name = 'cheese pizza'
+                  AND p.gender = 'female'
+                ORDER BY 1
+
+          - The result is below (raw ordering should be the same like below)
+
+                 "Anna"
+                 "Nataly"
+
+        rating: "5"
+
+      - name: Exercise 10 Find persons from one city
+        description: >
+          Checks for the file day02_ex10.sql
+
+          - The SQL script looks like below.
+
+                SELECT p1.name, p2.name, p1.address AS common_address
+                FROM person p1
+                INNER JOIN person p2 ON p1.id > p2.id
+                AND p1.address = p2.address
+                ORDER BY 1, 2, 3
+
+          - The result is below (raw ordering should be the same like below)
+
+                 "Andrey"	"Anna"	"Moscow"
+                 "Denis"	"Kate"	"Kazan"
+                 "Elvira"	"Denis"	"Kazan"
+                 "Elvira"	"Kate"	"Kazan"
+                 "Peter"	"Irina"	"Saint-Petersburg"
+
+        rating: "5"        

@@ -1,0 +1,222 @@
+introduction: >
+
+  School 21ning metodologiyasi, faqatgina o‘zaro bir-biringizni to‘g‘ri baholay olsangizgina katta samaraga ega bo‘lasiz. Baholashni boshlashdan oldin barcha ko‘rsatmalarni diqqat bilan o‘qib chiq.
+
+  - Iltimos, baholash davomidagi barcha muloqotlarda xushmuomala, muloyim, odobli va konstruktiv (ijobiy yondashuvda) bo‘l.
+
+  - Shaxs tomonidan bajarilgan ishning kamchiliklarini ta’kidlab o‘t va uni muhokama, munozara qilish uchun vaqt ajrat.
+  
+  - Shuni yodda tut, ba’zida vazifalarni talqin qilishda va xususiyatlar ko‘lamida farqlar bo‘lishi mumkin. Iltimos, boshqalarning qarashlarini to‘g‘ri qabul qil.
+
+  - Agar sen hali loyihani tugatmagan bo‘lsang, baholashni boshlashdan oldin ko‘rsatmalarni to‘liq o‘qib chiqishing shart.
+
+guidelines: >
+
+  - Ishtirokchi yoki guruhning GIT omboridagi faqat src papkasidagi fayllarni bahola. 
+
+  - Jamoaviy loyihalarni tekshirishni faqat jamoa to‘liq holatda bo‘lgandagina amalga oshir.
+
+  - Agar ombordagi develop tamog‘ining src papkasida ishtirokchi (yoki jamoa) ishi bo‘lmasa - "bo‘sh loyiha" yoki loyiha ko‘chirilgan taqdirda yoki agar ishtirokchi (yoki jamoa) tekshiruv paytida o‘z ishini tushuntirib bera olmasa "Ko‘chirilgan", shuningdek, quyidagi bandlardan biri bajarilmagan bo‘lsa, hisobot berish uchun nazorat ro‘yxatidagi maxsus nomli bayroqlardan foydalan. Muammollarni keltirib chiqargan sabablarni aniqlash va keyingi tekshiruvlarda ularni oldini olish maqasadida loyihani ko‘rib chiqishni davom ettirish tavsiya etiladi,  faqat ko‘chirish holatlardan tashqari.
+
+
+quick_actions:
+  - EMPTY_WORK
+  - INVALID_COMPILATION
+  - CODE_STYLE
+  - LEAKS
+  - CRASH
+  - CHEATING
+  - FORBIDDEN_FUNCTION
+language: uz
+name: C. Day 03
+comment: ""
+sections:
+
+  - kind: "1"
+    name: Asosiy qism
+    description: ""
+    questions:
+      - name: Quest 1.
+        description: >
+          - gcc va bayroqlar -Wall, -Werror va -Wextra bilan src/hello.c faylini yaratish xatosiz yakunlangan.
+
+          - Omborda hech qanday obyekt fayllari yoki bajariladigan fayllar mavjud emas
+
+          - Dastur ishlayapti
+
+          - Faqat <stdio.h> kiritilgan
+
+          - 1-Sinov ishi, 
+            Chiqish (stdout): 
+                Hello, Al!
+        rating: "6"
+      - name: Quest 2.
+        description: >
+          - gcc va bayroqlar -Wall, -Werror va -Wextra bilan src/named\_hello.c faylini yaratish xatosiz yakunlangan.
+
+          - Omborda hech qanday obyekt fayllari yoki bajariladigan fayllar mavjud emas
+
+          - Dastur ishlayapti
+
+          - Ishga tushgandan so'ng, dastur kiritishni kutadi
+
+          - Faqat <stdio.h> kiritildi
+
+          - 1-Sinov ishi
+            Kirish:
+              0
+            Chiqish:
+              Hello, 0!
+
+          - 2-Sinov ishi
+            Kirish:
+              124
+            Chiqish:
+              Hello, 124!
+        rating: "6"
+      - name: Quest 3.
+        description: >
+          - gcc va bayroqlar -Wall, -Werror va -Wextra bilan src/arithmetic.c faylini yaratish xatosiz yakunlangan.
+
+          - Omborda hech qanday obyekt fayllari yoki bajariladigan fayllar mavjud emas
+
+          - Dastur ishlayapti
+
+          - Faqat raqamlar kiritilganligini tekshirish mavjud (belgilarni kiritishga urinilganda, dastur bu vaziyatni to'g'ri hal qiladi va arifmetik amallarni bajarishga urinmaydi)
+
+          - 0 ga bo'lishda ishlab chiqish mavjud
+
+          - Faqat <stdio.h> kiritildi
+
+          - 1-Sinov ishi Kirish:
+              8 2
+            Chiqish: 
+              10 6 16 4
+
+          - 2-Sinov ishi 
+            Kirish: 
+              1 0 
+            Chiqish: 
+              1 1 0 n/a
+
+          - 3-Sinov ishi 
+            Kirish: 
+              0 1 
+            Chiqish: 
+              1 -1 0 0
+        rating: "6"
+      - name: Quest 4.
+        description: >
+          - gcc va bayroqlar -Wall, -Werror va -Wextra bilan src/max.c faylini yaratish xatosiz yakunlangan.
+
+          - Omborda hech qanday obyekt fayllari yoki bajariladigan fayllar mavjud emas
+
+          - Faqat <stdio.h> kiritilgan
+
+          - Dastur ishlayapti
+
+          - Faqat raqamlar kiritilganligini tekshirish mavjud (belgilarni kiritishga urinilganda, dastur bu vaziyatni to'g'ri hal qiladi va arifmetik amallarni bajarishga urinmaydi)
+
+          - 1-Sinov ishi 
+            Kirish: 
+              3 2 
+            Chiqish: 
+              3
+
+          - 2-Sinov ishi 
+            Kirish: 
+              -5 1 
+            Chiqish: 
+              1
+
+          - 3-Sinov ishi 
+            Kirish: 
+              10 10 
+            Chiqish: 
+              10
+
+          - Maksimalni qidirish uchun alohida funksiya mavjud
+        rating: "6"
+      - name: Quest 5.
+        description: >
+          - gcc va bayroqlar -Wall, -Werror va -Wextra bilan src/important\_function.c faylini yaratish xatosiz yakunlangan.
+
+          - Omborda hech qanday obyekt fayllari yoki bajariladigan fayllar mavjud emas
+
+          - Dastur ishlayapti
+
+          - Faqat raqamlar kiritilganligini tekshirish mavjud (belgilarni kiritishga urinilganda, dastur bu vaziyatni to'g'ri hal qiladi va arifmetik amallarni bajarishga urinmaydi) 
+
+          - Faqat <stdio.h> va <math.h> kiritilgan
+
+
+          - 1-Sinov ishi 
+            Kirish: 
+              1 
+            Chiqish: 
+              -2070.4
+
+          - 2-Sinov ishi 
+            Kirish: 
+              0 
+            Chiqish: 
+              n/a
+
+          - 3-Sinov ishi 
+            Kirish: 
+              13.4 
+            Chiqish: 
+              62.1
+
+        rating: "6"
+      - name: Quest 6.
+        description: >
+          - gcc va bayroqlar -Wall, -Werror va -Wextra bilan src/float\_compare.c faylini yaratish xatosiz yakunlangan.
+
+          - Omborda hech qanday obyekt fayllari yoki bajariladigan fayllar mavjud emas
+
+          - Dastur ishlayapti
+
+          - Faqat <stdio.h> va <math.h> kiritilgan
+
+          - 1-Sinov ishi 1 
+            Chiqish: 
+                OK!
+
+
+          - Kodni o'zgartirish faqat “if” holatida. Qo'shimcha o'zgaruvchilar yoki o’zgarmaslarni e'lon qilish kod o'zgarishi hisoblanmaydi.
+
+          - Bunday holatda funksiya natijasining moduli juda kichik qiymat bilan taqqoslanadi (1e-6 kabi, lekin boshqa qiymat ham bo‘lishi mumkin)
+        rating: "6"
+      - name: Quest 7.
+        description: >
+          - gcc va bayroqlar -Wall, -Werror va -Wextra bilan src/crack.c faylini yaratish xatosiz yakunlangan.
+
+          - Omborda hech qanday obyekt fayllari yoki bajariladigan fayllar mavjud emas
+
+          - Dastur ishlayapti
+
+          - Faqat raqamlar kiritilganligini tekshirish mavjud (belgilarni kiritishga urinilganda, dastur bu vaziyatni to'g'ri hal qiladi va arifmetik amallarni bajarishga urinmaydi)
+
+          - Faqat <stdio.h> kiritilgan
+
+          - 1-Sinov ishi 
+            Kirish: 
+              1 1 
+            Chiqish: 
+              GOTCHA
+
+          - 2-Sinov ishi 
+            Kirish: 
+              10 10 
+            Chiqish: 
+              MISS
+
+          - 3-Sinov ishi 
+            Kirish: 
+              5 5 
+            Chiqish: 
+              MISS
+
+        rating: "6"
+        

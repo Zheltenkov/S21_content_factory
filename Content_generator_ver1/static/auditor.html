@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аудит контента · Панель отчета</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/s21-auditor.css?v=20260702-original-menu">
+    <script src="/static/js/utils/pagePrefetch.js?v=20260518-page-prefetch-lite" defer></script>
+</head>
+<body class="s21-product page-auditor">
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="wordmark">
+                <span class="glyph"><img src="/static/assets/avatar-placeholder.jpg" alt=""></span>
+                <span>
+                    <span class="brand-title">Аудит контента</span>
+                    <span class="brand-sub">проверка учебных проектов</span>
+                </span>
+            </div>
+            <nav class="top-actions" aria-label="Действия аудитора">
+                <a class="link-button" href="#summary">Сводка</a>
+                <button class="link-button" type="button" onclick="handleLogout()">Выйти</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="shell">
+        <section class="run-panel">
+            <details class="run-details" open>
+                <summary class="run-bar">
+                    <span class="run-bar-text" id="runBarText">Проверка локального проекта</span>
+                    <span class="run-bar-actions">
+                        <span class="link-button run-restart" role="button" tabindex="0" id="runRestart" hidden>Перезапустить</span>
+                        <span class="run-bar-edit"></span>
+                    </span>
+                </summary>
+                <div class="panel-head">
+                    <div>
+                        <h1>Проверка локального проекта</h1>
+                    </div>
+                </div>
+                <form id="auditorForm" enctype="multipart/form-data">
+                    <div class="form-grid">
+                        <div>
+                            <label for="inputPath">Путь к проекту</label>
+                            <input id="inputPath" name="input_path" type="text" spellcheck="false" autocomplete="off">
+                        </div>
+                        <button class="button" id="auditorSubmit" type="submit">Запустить</button>
+                    </div>
+                    <label class="upload-zone" for="projectArchive">
+                        <input id="projectArchive" name="project_archive" type="file" accept=".zip,.rar,.tar,.gz,.tgz,.bz2,.xz">
+                        <span class="upload-title">Архив проекта</span>
+                        <span class="upload-name" id="archiveFileName">ZIP / RAR / TAR</span>
+                    </label>
+                    <div class="run-progress" id="runProgress" role="status" aria-live="polite" aria-busy="false" hidden>
+                        <div class="run-progress-head">
+                            <span>Готовность отчета</span>
+                            <span class="run-progress-stage" id="runProgressStage">Подготовка запуска</span>
+                        </div>
+                        <div class="run-progress-track" aria-hidden="true">
+                            <div class="run-progress-fill" id="runProgressFill"></div>
+                        </div>
+                        <div class="run-progress-meta">
+                            <span id="runProgressPercent">0%</span>
+                            <span id="runProgressElapsed">0 с</span>
+                        </div>
+                    </div>
+                </form>
+            </details>
+        </section>
+
+        <div class="alert" id="auditorError" hidden></div>
+
+        <section class="empty" id="emptyState">
+            <strong>Отчета пока нет.</strong>
+            <div>Запустите проверку по пути к проекту или архиву, чтобы увидеть панель отчета.</div>
+        </section>
+
+        <section class="report-panel" id="summary" hidden>
+            <div class="summary-head">
+                <div>
+                    <h2>Сводка</h2>
+                    <p id="runIdentity">Запуск аудитора</p>
+                </div>
+                <span class="status-pill" id="runStatusPill">В работе</span>
+            </div>
+            <div class="summary-strip" id="auditorSummary">
+                <div><span>Единиц</span><strong>—</strong></div>
+                <div><span>Файлов</span><strong>—</strong></div>
+                <div><span>Случаев</span><strong>—</strong></div>
+                <div><span>Модель</span><strong>—</strong></div>
+            </div>
+            <div class="downloads" id="auditorDownloads"></div>
+        </section>
+    </main>
+
+    <script src="/static/js/utils/authSession.js?v=20260702-auth-cookie-sync"></script>
+    <script>
+        const API_URL = `${window.location.origin}/api/v1`;
+        const stageLabels = {
+            queued: 'В очереди',
+            audit: 'Аудит проекта',
+            export: 'Сборка отчета',
+            completed: 'Готово',
+            failed: 'Ошибка',
+            restored: 'Восстановлено'
+        };
+        let currentRunId = null;
+        let pollingTimer = null;
+        let runStartedAt = null;
+
+        function getAuthHeaders(extraHeaders) {
+            return window.ContentGenAuth?.getAuthHeaders(extraHeaders) || extraHeaders || {};
+        }
+
+        function clearAuthState() {
+            window.ContentGenAuth?.clearAuthState?.();
+        }
+
+        function ensureAuth() {
+            return window.ContentGenAuth?.ensureAuthPresent?.() ?? false;
+        }
+
+        function setError(message) {
+            const errorBox = document.getElementById('auditorError');
+            errorBox.hidden = !message;
+            errorBox.textContent = message || '';
+        }
+
+        function setRunBarText(text) {
+            document.getElementById('runBarText').textContent = text || 'Проверка локального проекта';
+        }
+
+        function setProgress(stage, progress) {
+            const safeProgress = Math.max(0, Math.min(100, Number(progress || 0)));
+            const progressBox = document.getElementById('runProgress');
+            progressBox.hidden = false;
+            progressBox.setAttribute('aria-busy', safeProgress >= 100 ? 'false' : 'true');
+            document.getElementById('runProgressStage').textContent = stageLabels[stage] || stage || 'В работе';
+            document.getElementById('runProgressPercent').textContent = `${safeProgress}%`;
+            document.getElementById('runProgressFill').style.width = `${safeProgress}%`;
+            if (runStartedAt) {
+                const elapsed = Math.max(0, Math.round((Date.now() - runStartedAt) / 1000));
+                document.getElementById('runProgressElapsed').textContent = `${elapsed} с`;
+            }
+        }
+
+        function renderSummary(summary = {}) {
+            const modelUsed = summary.model_used ? 'да' : summary.model_used === false ? 'нет' : '—';
+            document.getElementById('auditorSummary').innerHTML = `
+                <div><span>Единиц</span><strong>${escapeHtml(summary.units_total ?? '—')}</strong></div>
+                <div><span>Файлов</span><strong>${escapeHtml(summary.files_total ?? '—')}</strong></div>
+                <div><span>Случаев</span><strong>${escapeHtml(summary.findings_total ?? '—')}</strong></div>
+                <div><span>Модель</span><strong>${escapeHtml(modelUsed)}</strong></div>
+            `;
+        }
+
+        function renderDownloads(downloads = []) {
+            const box = document.getElementById('auditorDownloads');
+            if (!downloads.length || !currentRunId) {
+                box.innerHTML = '';
+                return;
+            }
+            box.innerHTML = downloads.map((name) => `
+                <a class="download-link" href="${API_URL}/auditor/runs/${currentRunId}/download/${encodeURIComponent(name)}">${escapeHtml(name)}</a>
+            `).join('');
+        }
+
+        function renderRun(data) {
+            currentRunId = data.run_id || currentRunId;
+            document.getElementById('emptyState').hidden = true;
+            document.getElementById('summary').hidden = false;
+            document.getElementById('runRestart').hidden = false;
+            document.getElementById('runIdentity').textContent = currentRunId ? `run ${currentRunId.slice(0, 8)}` : 'Запуск аудитора';
+            setProgress(data.stage, data.progress);
+            renderSummary(data.summary || {});
+            renderDownloads(data.downloads || []);
+            setError(data.error || '');
+
+            const statusPill = document.getElementById('runStatusPill');
+            if (data.status === 'completed') {
+                statusPill.textContent = 'Отчет готов';
+                statusPill.dataset.state = 'success';
+                setRunBarText('Отчет готов');
+                stopPolling();
+            } else if (data.status === 'failed') {
+                statusPill.textContent = 'Ошибка';
+                statusPill.dataset.state = 'danger';
+                setRunBarText('Аудит завершился ошибкой');
+                stopPolling();
+            } else {
+                statusPill.textContent = 'В работе';
+                statusPill.dataset.state = 'info';
+                setRunBarText('Аудит выполняется');
+            }
+        }
+
+        async function pollRun() {
+            if (!currentRunId) return;
+            const response = await fetch(`${API_URL}/auditor/runs/${currentRunId}`, { headers: getAuthHeaders() });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            renderRun(await response.json());
+        }
+
+        function startPolling() {
+            stopPolling();
+            pollingTimer = window.setInterval(() => pollRun().catch((error) => console.warn('Auditor polling failed:', error)), 1500);
+        }
+
+        function stopPolling() {
+            if (pollingTimer) window.clearInterval(pollingTimer);
+            pollingTimer = null;
+        }
+
+        async function submitAudit(event) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const button = document.getElementById('auditorSubmit');
+            const archive = document.getElementById('projectArchive').files?.[0] || null;
+            const inputPath = document.getElementById('inputPath').value.trim();
+            if (!archive && !inputPath) {
+                setError('Укажите путь к проекту или приложите архив.');
+                return;
+            }
+
+            const data = new FormData();
+            if (archive) data.append('project_archive', archive);
+            if (inputPath) data.append('input_path', inputPath);
+            data.append('use_model', 'false');
+            data.append('allow_network', 'false');
+            data.append('include_unknown', 'true');
+
+            button.disabled = true;
+            runStartedAt = Date.now();
+            setError('');
+            setRunBarText('Подготовка запуска');
+            setProgress('queued', 5);
+            try {
+                const response = await fetch(`${API_URL}/auditor/runs`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: data
+                });
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+                    throw new Error(error.detail || 'Не удалось запустить аудит');
+                }
+                renderRun(await response.json());
+                startPolling();
+                form.reset();
+                document.getElementById('archiveFileName').textContent = 'ZIP / RAR / TAR';
+            } catch (error) {
+                setError(error.message || 'Ошибка запуска');
+                setRunBarText('Ошибка запуска');
+                document.getElementById('runStatusPill').textContent = 'Ошибка';
+                document.getElementById('runStatusPill').dataset.state = 'danger';
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch(`${API_URL}/auth/logout`, { method: 'POST', headers: getAuthHeaders() });
+            } catch (error) {
+                console.warn('Logout request failed:', error);
+            }
+            clearAuthState();
+            window.location.replace('/');
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        document.getElementById('projectArchive').addEventListener('change', (event) => {
+            const file = event.target.files?.[0];
+            document.getElementById('archiveFileName').textContent = file ? file.name : 'ZIP / RAR / TAR';
+        });
+        document.getElementById('auditorForm').addEventListener('submit', submitAudit);
+        document.getElementById('runRestart').addEventListener('click', () => {
+            document.querySelector('.run-details').open = true;
+            document.getElementById('inputPath').focus();
+        });
+
+        ensureAuth();
+    </script>
+</body>
+</html>

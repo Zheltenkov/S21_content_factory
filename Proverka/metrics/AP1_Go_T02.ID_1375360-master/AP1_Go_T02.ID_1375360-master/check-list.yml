@@ -1,0 +1,92 @@
+introduction: >-
+  - The methodology of "School 21" can lead to high educational outcomes only if peer-to-peer assessment is conducted with the utmost responsibility. This document is designed to help you with that.
+  
+  - Be kind and polite. Treat others and their work with respect. When providing feedback, be constructive.
+  
+  - While reviewing someone else's work, take note of ambiguous or potentially incorrect points. Discuss them with the author of the solution—perhaps you are the one who is mistaken.
+  
+  - Strive to remain open to different perspectives or ways of interpreting the task. It’s possible that both your approach and the other person’s approach are equally valid.
+guidelines: >
+  - Only the files that a student or a group has uploaded to the GIT repository are subject to evaluation.
+  
+  - Make sure you haven’t mixed anything up and that the repository belongs to the student or group you are reviewing.
+  
+  - If you haven’t yet completed the assignment yourself, be sure to reread it before starting the review.
+  
+  - Below, you will find special tags for different cases: missing solution, non‐working solution, and plagiarism. In these cases, the participant receives 0 points. If plagiarism is not detected, we still encourage you to continue the review and try to identify the issue together with the student whose solution is not working.
+  
+  - Do not stop the review after encountering the first incorrectly completed exercise if the rest are done correctly.
+
+quick_actions:  
+  - EMPTY_WORK
+  - CHEATING
+  - FORBIDDEN_FUNCTION
+  - INVALID_COMPILATION
+language: en
+comment: ""
+name: AP1_Go. Project 02
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: "Task 1. Stopwatch for Asynchronous Tasks"
+        description: |-
+          -	The program reads launch arguments N and M.
+          -	The parameters N and M are passed as arguments when launching the program.
+          -	The program launches N goroutines, each of which sleeps (time.Sleep) for a random time from 1 to M milliseconds.
+          -	The program outputs a list to the console consisting of pairs <goroutine number, sleep time>, sorted in descending order of sleep time.
+          -	The goroutine number is the iteration index of the loop in which the goroutine was launched.
+
+        rating: "6"
+
+      - name: "Task 2. Square Number Generator"
+        description: |-
+          -	The program reads the launch arguments K and N. The parameters K and N are passed as arguments when the program is run.
+          -	The program launches two functions: a generator and a squaring function.
+          -	The generator function starts a goroutine and returns channel 1. Inside the goroutine, numbers from K to N (inclusive) are generated and sent to channel 1.
+          -	The squaring function starts a goroutine and returns channel 2. Inside the goroutine, numbers are read from channel 1, squared, and sent to channel 2.
+          -	The main program reads numbers from channel 2 and prints them to the console.
+          -	The squaring function must accept channel 1 as a read-only channel obtained from the generator function.
+          -	The generator and squaring function must run concurrently. Squaring must occur sequentially. After reading a number from channel 1, it must be squared and sent forward before processing the next number.
+        rating: "6"
+
+      - name: "Task 3. Ticker"
+        description: |-
+          -	The program reads the launch argument K.
+          -	The parameter K is passed as an argument when the program is run.
+          -	K sets the ticker interval in seconds and is of type uint.
+          -	The program prints to stdout the message Tick <i> since <time>, where <i> is the tick number and <time> is the time elapsed since the ticker started (in seconds).
+          -	The program terminates when it receives one of the signals: SIGTERM or SIGINT.
+          -	After receiving a signal, the program stops the ticker and prints the message Termination.
+          -	The ticker works asynchronously, uses time.Sleep in its implementation, and must not use any other functions from the time package.
+        rating: "6"
+  - kind: "2"
+    name: Bonus part
+    description: ""
+    questions:
+      - name: "Bonus Task 4. LRU Cache with Generics"
+        description: |-
+          -	A package is implemented containing the Cache structure that uses the LRU (Least Recently Used) algorithm.
+          -	A constructor function is implemented that takes the element type and capacity, and returns a pointer to the Cache structure.
+          -	The Cache provides the following methods:
+            -	Set — add an element with a specific key;
+            -	Get — retrieve an element by key;
+            -	Clear — delete all elements from the cache.
+          -	The complexity of Set and Get operations is O(1).
+          - LRU logic:
+            - On addition:
+              -	If the element is already in the cache, its position is moved to the front.
+              -	If the element is not in the cache and the capacity is not exceeded, it is added to the front.
+              -	If the element is not in the cache and the capacity is exceeded, it is added to the front and the last element is removed.
+            - On retrieval:
+              -	If the element is found, it is moved to the front and returned to the user along with an additional true flag.
+              -	If the element is not found, the user receives the zero-value for the element’s type and an additional false flag.
+          -	The Cache must only work with the element type specified when calling the constructor (using Golang generics).
+          -	The Cache must be thread-safe, meaning that concurrent access from different goroutines must not result in race conditions.
+          -	Tests must be implemented to cover the following scenarios:
+            -	Rarely used elements are evicted from the cache.
+            -	When the cache exceeds its capacity, the least recently used elements are evicted.
+
+
+        rating: "6"

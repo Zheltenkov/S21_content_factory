@@ -1,0 +1,532 @@
+﻿/* Methodology review and assistant shared styles. */
+
+body.s21-product .methodology-review-workspace {
+  color: var(--s21-ink-2) !important;
+}
+
+body.s21-product .methodology-review-workspace,
+body.s21-product .methodology-review-main,
+body.s21-product .methodology-review-toolbar,
+body.s21-product .methodology-generated-block,
+body.s21-product .methodology-readme-fragment-section,
+body.s21-product .methodology-markdown-viewer,
+body.s21-product .methodology-context-details,
+body.s21-product .methodology-history-details,
+body.s21-product .methodology-checkpoint-card {
+  background: var(--s21-surface) !important;
+  border: 1px solid var(--s21-border) !important;
+  border-radius: var(--s21-radius-lg) !important;
+  box-shadow: var(--s21-shadow-2) !important;
+}
+
+body.s21-product .methodology-checkpoint-layout,
+body.s21-product .methodology-context-details,
+body.s21-product .methodology-generated-block,
+body.s21-product .methodology-readme-fragment-section,
+body.s21-product .methodology-markdown-viewer {
+  max-width: 100%;
+  min-width: 0;
+}
+
+body.s21-product .methodology-generated-block {
+  overflow: hidden;
+}
+
+body.s21-product .methodology-generated-details {
+  padding: 0 !important;
+}
+
+body.s21-product .methodology-generated-details .methodology-generated-heading {
+  margin: 0 !important;
+  padding: 14px 18px !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom-color: var(--s21-border) !important;
+  cursor: pointer;
+  list-style: none;
+}
+
+body.s21-product .methodology-generated-details .methodology-generated-heading::-webkit-details-marker {
+  display: none;
+}
+
+body.s21-product .methodology-generated-details .methodology-generated-heading::before {
+  content: "›";
+  color: var(--s21-accent);
+  font-size: 16px;
+  font-weight: 900;
+  transition: transform 0.16s ease;
+}
+
+body.s21-product .methodology-generated-details[open] .methodology-generated-heading::before {
+  transform: rotate(90deg);
+}
+
+body.s21-product .methodology-generated-details:not([open]) .methodology-generated-heading {
+  border-bottom-color: transparent !important;
+}
+
+body.s21-product .methodology-generated-content {
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 18px 18px;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+body.s21-product .methodology-generated-content > *,
+body.s21-product .methodology-context-body > *,
+body.s21-product .methodology-artifact-list,
+body.s21-product .methodology-artifact-text {
+  max-width: 100%;
+  min-width: 0;
+}
+
+body.s21-product .methodology-generated-content .methodology-artifact-pre,
+body.s21-product .methodology-context-details .methodology-artifact-pre {
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+body.s21-product .methodology-readme-fragment-section {
+  padding: 18px !important;
+}
+
+body.s21-product .methodology-readme-fragment-section > .methodology-artifact-title {
+  margin-top: 0;
+}
+
+body.s21-product .methodology-readme-fragment-section .methodology-markdown-viewer {
+  margin-top: 12px;
+  box-shadow: none !important;
+}
+
+body.s21-product .methodology-readme-fragment-section .methodology-markdown-preview {
+  min-height: min(780px, calc(100vh - 300px));
+  max-height: none;
+}
+
+body.s21-product .methodology-readme-fragment-section .methodology-section-tabs {
+  max-width: 100%;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+body.s21-product .methodology-readme-fragment-section .methodology-section-tab {
+  flex: 0 0 auto;
+  max-width: min(320px, 80vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.s21-product .methodology-review-workspace {
+  margin-bottom: 16px;
+  padding: 16px !important;
+}
+
+body.s21-product .methodology-summary-value,
+body.s21-product .methodology-review-title,
+body.s21-product .methodology-artifact-title,
+body.s21-product .methodology-generated-heading,
+body.s21-product .methodology-form-title,
+body.s21-product .methodology-active-section-title,
+body.s21-product .methodology-structure-title {
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .methodology-summary-label,
+body.s21-product .methodology-form-hint,
+body.s21-product .methodology-field-hint,
+body.s21-product .methodology-structure-hint {
+  color: var(--s21-muted) !important;
+}
+
+body.s21-product .methodology-stage-meta,
+body.s21-product .methodology-stage-meta strong {
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .methodology-artifact-text {
+  color: var(--s21-ink-2) !important;
+}
+
+body.s21-product .methodology-context-details summary {
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .methodology-context-details summary span,
+body.s21-product .methodology-context-details summary em {
+  color: var(--s21-muted) !important;
+}
+
+body.s21-product .methodology-context-details summary strong,
+body.s21-product .methodology-context-row span {
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .methodology-context-body {
+  border-top-color: var(--s21-border) !important;
+}
+
+body.s21-product .methodology-context-row {
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .methodology-context-row strong {
+  color: var(--s21-muted) !important;
+}
+
+body.s21-product .methodology-artifact-list {
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .methodology-artifact-list li::marker {
+  color: var(--s21-muted);
+}
+
+body.s21-product .methodology-context-review {
+  display: grid;
+  gap: 14px;
+}
+
+body.s21-product .methodology-planning-review {
+  display: grid;
+  gap: 14px;
+}
+
+body.s21-product .methodology-context-review h3 {
+  margin: 0;
+  color: var(--s21-ink);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+body.s21-product .methodology-context-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+body.s21-product .methodology-context-facts div,
+body.s21-product .methodology-context-text-block,
+body.s21-product .methodology-context-list-block,
+body.s21-product .methodology-task-flow {
+  padding: 12px;
+  border: 1px solid var(--s21-border);
+  border-radius: var(--s21-radius-sm);
+  background: var(--s21-surface-2);
+}
+
+body.s21-product .methodology-context-facts dt,
+body.s21-product .methodology-context-text-block h4,
+body.s21-product .methodology-context-list-block h4,
+body.s21-product .methodology-task-flow h4 {
+  margin: 0 0 6px;
+  color: var(--s21-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+body.s21-product .methodology-context-facts dd,
+body.s21-product .methodology-context-text-block p,
+body.s21-product .methodology-context-list-block li,
+body.s21-product .methodology-task-flow li {
+  margin: 0;
+  color: var(--s21-ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+body.s21-product .methodology-context-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+body.s21-product .methodology-context-list-block ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+body.s21-product .methodology-story-summary {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+body.s21-product .methodology-story-summary div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.24fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+body.s21-product .methodology-story-summary dt {
+  color: var(--s21-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+body.s21-product .methodology-story-summary dd {
+  margin: 0;
+  color: var(--s21-ink);
+}
+
+body.s21-product .methodology-task-flow ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+body.s21-product .methodology-task-flow li {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--s21-border);
+}
+
+body.s21-product .methodology-task-flow li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+body.s21-product .methodology-task-flow strong,
+body.s21-product .methodology-task-flow span {
+  display: block;
+}
+
+body.s21-product .methodology-task-flow code,
+body.s21-product .methodology-context-list-block code {
+  color: var(--s21-ink);
+  background: var(--s21-surface);
+  border: 1px solid var(--s21-border);
+  border-radius: var(--s21-radius-xs);
+  padding: 1px 5px;
+}
+
+body.s21-product .methodology-rubric-card {
+  margin-top: 12px;
+}
+
+body.s21-product .methodology-rubric-details {
+  border: 1px solid var(--s21-border);
+  border-radius: var(--s21-radius-md);
+  background: var(--s21-surface);
+  overflow: hidden;
+}
+
+body.s21-product .methodology-rubric-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  cursor: pointer;
+  list-style: none;
+  border-bottom: 1px solid transparent;
+}
+
+body.s21-product .methodology-rubric-summary::-webkit-details-marker {
+  display: none;
+}
+
+body.s21-product .methodology-rubric-summary::before {
+  content: "›";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: var(--s21-success);
+  background: var(--s21-success-bg);
+  transform: rotate(0deg);
+  transition: transform 0.16s ease;
+}
+
+body.s21-product .methodology-rubric-details[open] .methodology-rubric-summary {
+  border-bottom-color: var(--s21-border);
+}
+
+body.s21-product .methodology-rubric-details[open] .methodology-rubric-summary::before {
+  transform: rotate(90deg);
+}
+
+body.s21-product .methodology-rubric-view {
+  padding: 14px;
+}
+
+body.s21-product .methodology-rubric-view .s21-metrics-view {
+  gap: 14px;
+}
+
+body.s21-product .methodology-structure-tree ol {
+  border-left-color: var(--s21-border) !important;
+}
+
+body.s21-product .methodology-structure-row,
+body.s21-product .methodology-structure-node.level-3 .methodology-structure-row {
+  background: transparent !important;
+  border-color: var(--s21-border) !important;
+  box-shadow: none !important;
+}
+
+body.s21-product .methodology-structure-kind {
+  background: var(--s21-surface) !important;
+  border-color: var(--s21-border-strong) !important;
+  color: var(--s21-success) !important;
+}
+
+body.s21-product .methodology-structure-placeholder {
+  color: var(--s21-muted) !important;
+}
+
+body.s21-product .methodology-context-details .methodology-requirements-matrix {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--s21-border);
+}
+
+body.s21-product .methodology-requirement-row {
+  background: var(--s21-surface) !important;
+  border-color: var(--s21-border) !important;
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .methodology-requirement-row.status-pass {
+  border-left-color: var(--s21-success) !important;
+}
+
+body.s21-product .methodology-requirement-row.status-fail {
+  border-left-color: var(--s21-danger) !important;
+}
+
+body.s21-product .methodology-requirement-status {
+  color: var(--s21-muted) !important;
+  background: var(--s21-surface-2);
+}
+
+body.s21-product .methodology-requirement-row.status-pass .methodology-requirement-status {
+  color: var(--s21-success) !important;
+}
+
+body.s21-product .methodology-requirement-row.status-fail .methodology-requirement-status {
+  color: var(--s21-danger) !important;
+}
+
+body.s21-product .methodology-requirement-title {
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .methodology-requirement-evidence {
+  color: var(--s21-muted) !important;
+}
+
+body.s21-product .methodology-history-details .methodology-stage-list {
+  display: grid;
+  gap: 10px;
+}
+
+body.s21-product .methodology-history-details .methodology-stage-item {
+  min-width: 0;
+  margin: 0 !important;
+  padding: 14px 16px !important;
+  background: var(--s21-surface) !important;
+  border: 1px solid var(--s21-border) !important;
+  border-left-width: 3px !important;
+  border-radius: var(--s21-radius-sm) !important;
+  color: var(--s21-ink) !important;
+  box-shadow: none !important;
+}
+
+body.s21-product .methodology-history-details .methodology-stage-item.action-pause {
+  border-left-color: var(--s21-warn) !important;
+}
+
+body.s21-product .methodology-history-details .methodology-stage-item.action-continue {
+  border-left-color: var(--s21-success) !important;
+}
+
+body.s21-product .methodology-history-details .methodology-stage-item.action-fail {
+  border-left-color: var(--s21-danger) !important;
+}
+
+body.s21-product .methodology-history-details .methodology-stage-item.action-warn {
+  border-left-color: var(--s21-info) !important;
+}
+
+body.s21-product .methodology-history-details .methodology-stage-header,
+body.s21-product .methodology-history-details .methodology-stage-header span {
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .methodology-history-details .methodology-stage-meta {
+  color: var(--s21-muted) !important;
+  overflow-wrap: anywhere;
+}
+
+body.s21-product .methodology-diff-preview {
+  max-width: 100%;
+  overflow: hidden !important;
+  background: var(--s21-surface) !important;
+  border: 1px solid var(--s21-border) !important;
+  border-radius: var(--s21-radius-sm) !important;
+  color: var(--s21-ink) !important;
+  box-shadow: none !important;
+}
+
+body.s21-product .methodology-diff-summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--s21-border);
+  background: var(--s21-surface-2);
+  color: var(--s21-muted);
+  font-family: var(--s21-font-sans);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+body.s21-product .methodology-diff-summary span:first-child {
+  color: var(--s21-ink);
+}
+
+body.s21-product .methodology-diff-lines {
+  max-height: 300px;
+  overflow: auto;
+  padding: 10px;
+}
+
+body.s21-product .methodology-diff-preview .diff-line {
+  max-width: 100%;
+  padding: 3px 6px !important;
+  color: var(--s21-ink) !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  background: transparent !important;
+}
+
+body.s21-product .methodology-diff-preview .diff-added {
+  color: var(--s21-success) !important;
+  background: var(--s21-success-bg) !important;
+}
+
+body.s21-product .methodology-diff-preview .diff-removed {
+  color: var(--s21-danger) !important;
+  background: var(--s21-danger-bg) !important;
+}
+
+body.s21-product .methodology-diff-preview .diff-hunk {
+  color: var(--s21-info) !important;
+  background: var(--s21-info-bg) !important;
+}
+

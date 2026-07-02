@@ -1,0 +1,62 @@
+schema_version: 1
+bundle_id: "school21_readme_ru"
+version: "1.1.0"
+mode: "strict"
+default_language: "ru"
+skill_specs:
+  - id: "voice.default"
+    file: "../../didactics/ton_of_voice_school_21.md"
+    machine_rules: []
+    severity: "soft"
+  - id: "voice.readme"
+    file: "../../didactics/ton_of_voice_readme.md"
+    machine_rules: []
+    severity: "soft"
+  - id: "structure.readme"
+    file: "../../didactics/readme_template.md"
+    machine_rules: []
+    severity: "hard"
+  - id: "structure.toc"
+    file: "../../didactics/readme_table_of_contents.md"
+    machine_rules: []
+    severity: "soft"
+  - id: "structure.schema"
+    file: "../../didactics/readme_strcture.json"
+    machine_rules: []
+    severity: "hard"
+  - id: "methodology.model"
+    file: "../../didactics/methodology.md"
+    machine_rules: []
+    severity: "hard"
+  - id: "quality.checkup"
+    file: "../../didactics/readme_checkup.md"
+    machine_rules: []
+    severity: "hard"
+  - id: "source.stage_rules"
+    file: "../../didactics/source_stage_rules.md"
+    machine_rules: []
+    severity: "hard"
+agent_bindings:
+  title_annotation: ["voice.default", "voice.readme", "structure.readme", "quality.checkup", "source.stage_rules"]
+  intro_rules: ["voice.default", "voice.readme", "structure.readme", "quality.checkup", "source.stage_rules"]
+  theory: ["voice.default", "voice.readme", "structure.readme", "structure.schema", "methodology.model", "quality.checkup", "source.stage_rules"]
+  practice: ["voice.default", "voice.readme", "structure.readme", "structure.toc", "structure.schema", "methodology.model", "quality.checkup", "source.stage_rules"]
+  regeneration: ["voice.default", "voice.readme", "structure.readme", "quality.checkup", "source.stage_rules"]
+  rewrite_style: ["voice.default", "voice.readme", "quality.checkup", "source.stage_rules"]
+  content_editor: ["voice.default", "voice.readme", "structure.readme", "quality.checkup", "source.stage_rules"]
+  style_guard: ["voice.default", "voice.readme", "quality.checkup"]
+  evaluation: ["structure.readme", "structure.schema", "quality.checkup", "source.stage_rules"]
+  rubric: ["structure.readme", "structure.schema", "quality.checkup", "source.stage_rules"]
+threshold_refs:
+  annotation:
+    chars: "annotation_chars"
+  intro:
+    words: "intro_words"
+  instruction:
+    words: "instruction_words"
+  theory:
+    parts: "theory_parts"
+    words_per_part: "theory_words_per_part"
+  practice:
+    tasks_range: "practice_tasks_range"
+    approach_words_max: "approach_words_max"

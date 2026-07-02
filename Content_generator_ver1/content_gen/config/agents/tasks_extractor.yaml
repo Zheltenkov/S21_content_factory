@@ -1,0 +1,16 @@
+name: tasks_extractor
+version: "1.0.0"
+updated_at: "2024-05-20"
+
+llm:
+  temperature: 0.1
+  max_tokens: 2000
+
+prompts:
+  system:
+    type: file
+    path: content_gen/prompts/reverse_extraction/tasks_extractor/system.md
+  user_template:
+    type: file
+    path: content_gen/prompts/reverse_extraction/tasks_extractor/user_template.md
+

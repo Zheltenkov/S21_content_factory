@@ -1,0 +1,226 @@
+introduction: >
+  Project review is not just a formality — it's part of your learning:
+
+  - It's an opportunity to exchange experiences, discuss challenging aspects, and even come up with new approaches to solving problems.
+
+  - When reviewing other participants' projects, you're not just ticking boxes — you're exploring different solutions and developing the critical eye every specialist needs.
+
+  - Even if your own project isn't ready yet, you can still conduct reviews. Those whose work you review may act as mentors, explaining their thought process. This helps them better understand their own work — and helps you grasp the topic more deeply.
+
+  - It is ok to criticize, but what really matters is suggesting ways to improve. This makes the project better and helps your peers grow — an essential skill for teamwork.
+
+  - After reviewing the tasks against the checklist, choose 2-3 questions from the list below to discuss during the meeting:
+
+  - About challenges: "What was the most difficult part of this project for you? How did you solve it? Maybe in some unexpected way?"
+
+  - About successes: "What worked particularly well? Why do you think that was? How could this approach be applied to other projects?"
+
+  - About improvements: "If you had to do this project again now, what would you do differently? Why?"
+
+  - About research: "Where did you look for answers to your questions? Which resource or method was the most helpful? How do you verify the accuracy of the information from your chosen source?"
+
+  - Make the most of this meeting — use it as a chance to dive deeper into the topic and discover new problem-solving approaches.
+
+guidelines: >-
+  - Only the files uploaded to the GIT repository in the src folder will be evaluated.
+  
+  - Make sure the repository belongs to the participant or group you are reviewing.
+  
+  - If you're still working on the project and it's not ready, be sure to review it again before the evaluation.
+  
+  - At the end of the checklist, there are special flags: EMPTY WORK (empty repo/incorrect branch) or CHEAT (if you suspect the participant did not complete the work independently (e.g., cannot explain their solution). If either flag is applied at the end of the checklist, the project will be marked as failed. However, we encourage continuing the review to troubleshoot issues together.
+
+quick_actions:
+  - EMPTY_WORK
+  - CHEAT
+language: en
+name: AQA1_Basics
+comment: ""
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Task 1. First steps with JUnit
+        description: |-
+          - The code is written in Java programming language version 21 or higher.
+
+          - The code follows the Clean Code principles.
+          
+          - Tests are located in the src/test package and the main code is in the src/main package.
+          
+          - The @DisplayName annotations contain meaningful test descriptions.
+          
+          - The tests cover all methods.
+          
+          - AssertAll is used correctly in all tests.
+          
+          - Assertions include error descriptions.
+          
+          - Tests avoid redundancy.          
+          
+          - The repository contains files labeled manual-solution (manual implementation) and ai-assisted-solution (AI-assisted implementation).
+          
+          - The peer can describe their experience using AI in the assignment by answering the following questions:
+              - What variants for the test annotation did the AI suggest?
+              - Which variant did you choose and why?
+              - Did you need to edit the AI's suggestions?
+
+          
+          Evaluation criteria:
+          
+          - For every 2 unmet requirements, deduct 1 point.
+
+          - Missing files labeled manual-solution — minus 4 points (the task is not considered to have been completed correctly).
+        rating: "6"
+      - name: Task 2. JUnit parameterized tests
+        description: |-
+          - The code is written in Java programming language version 21 or higher.
+         
+          - The code follows the Clean Code principles.
+          
+          - Tests are located in the src/test package and the main code is in the src/main package.
+          
+          - The @DisplayName annotations contain meaningful test descriptions.
+          
+          - Test 1 validates the following: name length (>3 chars), age (>18), string format validity (max 2 space-separated parts).
+          
+          - Test 2 implements a palindrome check with a loop.
+          
+          - Input trimming with .trim().
+          
+          - The MethodSource includes positive and negative cases.
+
+          - The repository contains files labeled manual-solution (manual implementation) and ai-assisted-solution (AI-assisted implementation).
+          
+          - The peer can describe their experience using AI in the assignment by answering the following questions:
+
+             - What are the differences between your dataset and the AI's dataset?
+             - Which test cases did the AI miss, and which did it add unnecessarily?
+             - Which dataset would you choose for the final version of the test and why?
+
+
+          Evaluation criteria:
+          
+          - For every 2 unmet requirements, deduct 1 point.
+
+          - Missing files labeled manual-solution — minus 4 points (the task is not considered to have been completed correctly).
+        rating: "6"
+      - name: Task 3. Test execution order in JUnit
+        description: |-
+          - The code is written in Java programming language version 21 or higher.
+          
+          - The code follows the Clean Code principles.
+          
+          - The tests are located in the src/test package and the main code is in the src/main package.
+          
+          - The @DisplayName annotations contain meaningful test descriptions.
+          
+          - The execution order is as follows: is1shouldBeThird → is2shouldBeFirst → is3shouldBeSecond.
+          
+          - The test class is annotated with @TestMethodOrder to specify the order in which the tests are executed.
+          
+          - The test class contains @BeforeAll and @AfterAll methods that print to the console:
+
+                "Autotests will now run in the correct order" (BeforeAll).
+
+                "Thank you for your attention!" (AfterAll).
+          
+          Evaluation criteria:
+          
+          - For every unmet requirements, deduct 1 point.
+        rating: "6"
+      - name: Task 4. Test suites
+        description: |-
+          - The code is written in Java programming language version 21 or higher.
+          
+          - The code follows the Clean Code principles.
+          
+          - The tests are located in the src/test package and the main code is in the src/main package.
+          
+          - The @DisplayName annotations contain meaningful test descriptions.
+          
+          - junit-suite-engine is in build.gradle.
+          
+          - Two valid test suites with different paths specified in their respective annotations.
+          
+          Evaluation criteria:
+          
+          - For every unmet requirements, deduct 1 point.
+        rating: "6"
+      - name: Task 5. Custom Java exception
+        description: |-
+          - The code is written in Java programming language version 21 or higher.
+          
+          - The code follows the Clean Code principles.
+          
+          - The tests are located in the src/test package and the main code is in the src/main package.
+          
+          - The @DisplayName annotations contain meaningful test descriptions.
+          
+          - Custom exception is in src/main.
+          
+          - RuntimeException inheritance + meaningful name.
+          
+          - The exception is properly propagated in the catch block added to the first test from the Task 3.
+          
+          - The thrown exception contains a custom error description.
+
+          - The repository contains files labeled manual-solution (manual implementation) and ai-assisted-solution (AI-assisted implementation).
+          
+          - The peer can describe their experience using AI in the assignment by answering the following questions:
+             - What were the differences between the code versions?
+             - What edits did you have to make to the code based on the AI's recommendations?
+             - Which version will you choose and why do you trust specific AI suggestions?
+
+          
+          Evaluation criteria:
+          
+          - For every unmet requirements, deduct 1 point.
+
+          - Missing files labeled manual-solution — minus 4 points (the task is not considered to have been completed correctly).
+        rating: "6"
+      - name: Task 6. Alternative test execution
+        description: |-
+          - The code is written in Java programming language version 21 or higher.
+          
+          - The code follows the Clean Code principles.
+          
+          - The tests are located in the src/test package and the main code is in the src/main package.
+          
+          - The @DisplayName annotations contain meaningful test descriptions.
+          
+          - The readme.md file contains commands for running both test suites from the Task 4.
+          
+          - Clickable script buttons are in the preview.
+          
+          - Verified suite execution when triggered by the aforementioned clickable button.
+          
+          Evaluation criteria:
+          
+          - For every unmet requirement, deduct 1 point.
+        rating: "6"
+      - name: Task 7. TestNG Introduction
+        description: |-
+          - The code is written in Java programming language version 21 or higher.
+          
+          - The code follows the Clean Code principles.
+          
+          - The tests are located in the src/test package and the main code is in the src/main package.
+          
+          - TestNG dependencies are in build.gradle.
+          
+          - Parameterized tests are defined using a parameter (dataProvider) inside the @Test annotation.
+          
+          - The assertAll implementation is correct (non-lambda but rather by calling the method at the end of the test class and creating an assert class in the @Before method.)
+          
+          - Test suites are defined in XML files.
+          
+          - The @Test annotations in all TestNG tests are imported from the corresponding library. In the imports, the Test annotation is inherited from TestNG.
+          
+          - Dedicated package structure.
+          
+          Evaluation criteria:
+          
+          - For every 2 unmet requirements, deduct 1 point.
+        rating: "6"

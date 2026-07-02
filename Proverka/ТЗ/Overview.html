@@ -1,0 +1,474 @@
+<!-- @dsCard group="Catalog" viewport="1180x900" name="Overview — Full system" subtitle="All tokens & components on one page" -->
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skills Catalog — Design System Overview</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--app-background);
+    background-attachment: fixed;
+    color: var(--text-body);
+    -webkit-font-smoothing: antialiased;
+    line-height: var(--leading-body);
+  }
+  .shell { max-width: 1100px; margin: 0 auto; padding: 0 32px 120px; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    backdrop-filter: var(--blur-bar);
+    background: rgba(247, 244, 237, 0.82);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .topbar-inner {
+    max-width: 1100px; margin: 0 auto; padding: 14px 32px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .wordmark { display: flex; align-items: center; gap: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-brand); }
+  .wordmark .glyph {
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    background: var(--accent-gradient); color: #fff;
+    display: grid; place-items: center; font-size: 16px; font-weight: var(--weight-heavy);
+    box-shadow: var(--glow-accent);
+  }
+  .wordmark .name { font-size: var(--text-base); }
+  .wordmark .sub  { font-size: var(--text-2xs); color: var(--text-muted); font-weight: var(--weight-medium); }
+  .navlinks { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+  .navlinks a {
+    font-size: var(--text-xs); font-weight: var(--weight-semibold);
+    color: var(--text-muted); text-decoration: none;
+    padding: 7px 13px; border-radius: var(--radius-pill);
+    transition: background var(--dur-fast), color var(--dur-fast);
+  }
+  .navlinks a:hover { background: var(--accent-tint-08); color: var(--accent); }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 64px 0 40px; max-width: 760px; }
+  .hero h1 {
+    font-size: var(--text-2xl); line-height: var(--leading-tight);
+    font-weight: var(--weight-heavy); margin: 0 0 16px; letter-spacing: -0.01em;
+  }
+  .hero p { font-size: var(--text-md); color: var(--text-muted); margin: 0 0 28px; }
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; }
+  .stat {
+    background: var(--surface-card); border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+    padding: 14px 20px; min-width: 120px;
+  }
+  .stat .num { font-size: var(--text-lg); font-weight: var(--weight-heavy); color: var(--accent); }
+  .stat .cap { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--text-muted); font-weight: var(--weight-strong); }
+
+  /* ---------- section scaffolding ---------- */
+  section { padding-top: 56px; scroll-margin-top: 80px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 24px; border-bottom: 1px solid var(--border-soft); padding-bottom: 14px; }
+  .sec-head .kicker { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--accent); font-weight: var(--weight-bold); }
+  .sec-head h2 { font-size: var(--text-xl); font-weight: var(--weight-bold); margin: 0; }
+  .sec-head .desc { margin-left: auto; font-size: var(--text-sm); color: var(--text-muted); max-width: 380px; text-align: right; }
+
+  .sub-label { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--text-muted); font-weight: var(--weight-strong); margin: 28px 0 12px; }
+  .sub-label:first-child { margin-top: 0; }
+
+  /* ---------- panel (white framed demo area) ---------- */
+  .panel {
+    background: var(--surface-card); border: 1px solid var(--border-strong);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 26px 28px;
+  }
+  .panel + .panel { margin-top: 18px; }
+
+  /* ---------- color swatches ---------- */
+  .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .swatch { border: 1px solid var(--border-soft); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-card); }
+  .swatch .chip { height: 64px; }
+  .swatch .meta { padding: 9px 11px; }
+  .swatch .nm { font-size: var(--text-xs); font-weight: var(--weight-semibold); }
+  .swatch .hex { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-muted); }
+
+  /* ---------- type scale ---------- */
+  .type-row { display: flex; align-items: baseline; gap: 20px; padding: 13px 0; border-bottom: 1px solid var(--border-soft); }
+  .type-row:last-child { border-bottom: 0; }
+  .type-row .tk { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-muted); width: 150px; flex: none; }
+  .type-row .samp { line-height: 1.2; }
+  .fam-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .fam { border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 18px 20px; }
+  .fam .fam-name { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--text-muted); font-weight: var(--weight-strong); margin-bottom: 8px; }
+  .fam .fam-sans { font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+  .fam .fam-mono { font-family: var(--font-mono); font-size: var(--text-lg); }
+  .fam .fam-stack { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-muted); margin-top: 6px; word-break: break-word; }
+
+  /* ---------- spacing / radius / shadow ---------- */
+  .triad { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .space-row { display: flex; align-items: center; gap: 14px; padding: 6px 0; }
+  .space-row .bar { height: 14px; background: var(--accent-tint-18); border-radius: 3px; }
+  .space-row .tk { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-muted); width: 110px; flex: none; }
+  .radius-grid, .shadow-grid { display: flex; gap: 16px; flex-wrap: wrap; }
+  .radius-box { width: 92px; }
+  .radius-box .box { height: 64px; background: var(--accent-soft); border: 1px solid var(--accent); }
+  .radius-box .tk { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-muted); margin-top: 7px; text-align: center; }
+  .shadow-box { width: 130px; }
+  .shadow-box .box { height: 72px; background: var(--surface-strong); border-radius: var(--radius-md); }
+  .shadow-box .tk { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-muted); margin-top: 12px; text-align: center; }
+
+  /* ---------- component demo helpers ---------- */
+  .group { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .stack { display: grid; gap: 16px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  .ind-wrap { background: var(--surface-strong); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 6px 20px; }
+
+  /* ---------- flow / screens ---------- */
+  .flow-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 26px; }
+  .fstep { background: var(--surface-card); border: 1px solid var(--border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 16px 18px; }
+  .fstep .n { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--accent); font-weight: var(--weight-bold); }
+  .fstep .t { font-size: var(--text-base); font-weight: var(--weight-bold); margin: 4px 0 4px; }
+  .fstep.warn .n { color: var(--warn); }
+  .fstep p { margin: 0; font-size: var(--text-xs); color: var(--text-muted); line-height: 1.4; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .shot { border-radius: 14px; overflow: hidden; background: var(--surface-strong); border: 1px solid var(--border-strong); box-shadow: var(--shadow); }
+  .shot .bar { display: flex; align-items: center; gap: 7px; padding: 10px 14px; background: var(--surface-muted); border-bottom: 1px solid var(--border-soft); }
+  .shot .bar i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+  .shot .url { margin-left: 8px; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-muted); }
+  .shot img { display: block; width: 100%; }
+  .shot .cap { padding: 12px 16px 14px; }
+  .shot .cap .h { font-size: var(--text-sm); font-weight: var(--weight-bold); }
+  .shot .cap .d { font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px; }
+
+  footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--border-soft); font-size: var(--text-xs); color: var(--text-muted); }
+  footer code { font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="wordmark">
+      <span class="glyph">С</span>
+      <span>
+        <div class="name">Справочник · Skills Catalog</div>
+        <div class="sub">Design System Overview</div>
+      </span>
+    </div>
+    <nav class="navlinks">
+      <a href="#colors">Colors</a>
+      <a href="#type">Type</a>
+      <a href="#spacing">Spacing</a>
+      <a href="#core">Core</a>
+      <a href="#forms">Forms</a>
+      <a href="#feedback">Feedback</a>
+      <a href="#cards">Cards</a>
+      <a href="#flow">Поток</a>
+    </nav>
+  </div>
+</div>
+
+<div class="shell">
+
+  <header class="hero">
+    <h1>Тёплая, архивная система для каталога компетенций</h1>
+    <p>Кремовая «бумага», глубокие чернила-слейт, изумрудный акцент и терракота для предупреждений. Ниже — все токены и живые компоненты системы на одной странице.</p>
+    <div class="stats">
+      <div class="stat"><div class="num">10</div><div class="cap">компонентов</div></div>
+      <div class="stat"><div class="num">109</div><div class="cap">токенов</div></div>
+      <div class="stat"><div class="num">18</div><div class="cap">карточек</div></div>
+      <div class="stat"><div class="num">11</div><div class="cap">стартовых точек</div></div>
+    </div>
+  </header>
+
+  <!-- ============ COLORS ============ -->
+  <section id="colors">
+    <div class="sec-head">
+      <span class="kicker">Foundations</span>
+      <h2>Цвета</h2>
+      <span class="desc">Тёплая бумажная палитра. Поверхности кремовые, акцент изумрудный, предупреждения терракотовые.</span>
+    </div>
+
+    <div class="sub-label">Поверхности</div>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background:#f4f1ea"></div><div class="meta"><div class="nm">bg</div><div class="hex">#f4f1ea</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#f7f4ed"></div><div class="meta"><div class="nm">bg-top</div><div class="hex">#f7f4ed</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#fffdfa"></div><div class="meta"><div class="nm">surface-card</div><div class="hex">#fffdfa</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#ffffff"></div><div class="meta"><div class="nm">surface-strong</div><div class="hex">#ffffff</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#f1ece2"></div><div class="meta"><div class="nm">surface-muted</div><div class="hex">#f1ece2</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#d9cfbf"></div><div class="meta"><div class="nm">border</div><div class="hex">#d9cfbf</div></div></div>
+    </div>
+
+    <div class="sub-label">Чернила · Ink</div>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background:#1f2a2a"></div><div class="meta"><div class="nm">text-body</div><div class="hex">#1f2a2a</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#586469"></div><div class="meta"><div class="nm">text-muted</div><div class="hex">#586469</div></div></div>
+    </div>
+
+    <div class="sub-label">Акцент · Emerald</div>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background:#0e8f6f"></div><div class="meta"><div class="nm">accent</div><div class="hex">#0e8f6f</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#26b28f"></div><div class="meta"><div class="nm">emerald-bright</div><div class="hex">#26b28f</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#15735a"></div><div class="meta"><div class="nm">emerald-deep</div><div class="hex">#15735a</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#d8f2ea"></div><div class="meta"><div class="nm">accent-soft</div><div class="hex">#d8f2ea</div></div></div>
+    </div>
+
+    <div class="sub-label">Предупреждения и семантика</div>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background:#b85c38"></div><div class="meta"><div class="nm">warn</div><div class="hex">#b85c38</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#fbe5dc"></div><div class="meta"><div class="nm">warn-soft</div><div class="hex">#fbe5dc</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#1d5fd0"></div><div class="meta"><div class="nm">info-blue (Знает)</div><div class="hex">#1d5fd0</div></div></div>
+      <div class="swatch"><div class="chip" style="background:#9a6420"></div><div class="meta"><div class="nm">amber-ink</div><div class="hex">#9a6420</div></div></div>
+    </div>
+  </section>
+
+  <!-- ============ TYPE ============ -->
+  <section id="type">
+    <div class="sec-head">
+      <span class="kicker">Foundations</span>
+      <h2>Типографика</h2>
+      <span class="desc">Inter (≈ Segoe UI) для текста, JetBrains Mono (≈ Consolas) для кода. Rem-шкала от 16px.</span>
+    </div>
+
+    <div class="panel">
+      <div class="fam-grid">
+        <div class="fam">
+          <div class="fam-name">Sans · текст и заголовки</div>
+          <div class="fam-sans">Справочник компетенций</div>
+          <div class="fam-stack">"Inter", "Segoe UI", system-ui, …</div>
+        </div>
+        <div class="fam">
+          <div class="fam-name">Mono · код и токены</div>
+          <div class="fam-mono">data_work · SELECT</div>
+          <div class="fam-stack">"JetBrains Mono", "Consolas", …</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <div class="type-row"><span class="tk">--text-2xl · 2.6rem</span><span class="samp" style="font-size:var(--text-2xl);font-weight:var(--weight-heavy)">Каталог компетенций</span></div>
+      <div class="type-row"><span class="tk">--text-xl · 2.1rem</span><span class="samp" style="font-size:var(--text-xl);font-weight:var(--weight-bold)">Работа с данными</span></div>
+      <div class="type-row"><span class="tk">--text-lg · 1.6rem</span><span class="samp" style="font-size:var(--text-lg);font-weight:var(--weight-heavy);color:var(--accent)">1 248</span></div>
+      <div class="type-row"><span class="tk">--text-md · 1.15rem</span><span class="samp" style="font-size:var(--text-md);font-weight:var(--weight-semibold)">Написание SQL-запросов</span></div>
+      <div class="type-row"><span class="tk">--text-base · 1rem</span><span class="samp" style="font-size:var(--text-base)">Знает основы SELECT, JOIN и GROUP BY.</span></div>
+      <div class="type-row"><span class="tk">--text-sm · 0.9rem</span><span class="samp" style="font-size:var(--text-sm);color:var(--text-muted)">Вторичный текст и подписи.</span></div>
+      <div class="type-row"><span class="tk">--text-2xs · 0.78rem</span><span class="samp" style="font-size:var(--text-2xs);text-transform:uppercase;letter-spacing:var(--tracking-label);font-weight:var(--weight-strong);color:var(--text-muted)">Микро-лейбл</span></div>
+    </div>
+  </section>
+
+  <!-- ============ SPACING / RADIUS / SHADOW ============ -->
+  <section id="spacing">
+    <div class="sec-head">
+      <span class="kicker">Foundations</span>
+      <h2>Отступы, радиусы и тени</h2>
+      <span class="desc">Шкала кластеризуется вокруг 8/12/16/22. Pill-радиусы повсюду, одна фирменная мягкая тень.</span>
+    </div>
+
+    <div class="triad">
+      <div class="panel">
+        <div class="sub-label">Шкала отступов</div>
+        <div class="space-row"><span class="tk">--space-3 · 8</span><span class="bar" style="width:8px"></span></div>
+        <div class="space-row"><span class="tk">--space-5 · 12</span><span class="bar" style="width:12px"></span></div>
+        <div class="space-row"><span class="tk">--space-7 · 16</span><span class="bar" style="width:16px"></span></div>
+        <div class="space-row"><span class="tk">--space-9 · 20</span><span class="bar" style="width:20px"></span></div>
+        <div class="space-row"><span class="tk">--space-10 · 22</span><span class="bar" style="width:22px"></span></div>
+        <div class="space-row"><span class="tk">--space-12 · 28</span><span class="bar" style="width:28px"></span></div>
+      </div>
+      <div class="panel">
+        <div class="sub-label">Радиусы</div>
+        <div class="radius-grid">
+          <div class="radius-box"><div class="box" style="border-radius:12px"></div><div class="tk">sm · 12</div></div>
+          <div class="radius-box"><div class="box" style="border-radius:16px"></div><div class="tk">md · 16</div></div>
+          <div class="radius-box"><div class="box" style="border-radius:20px"></div><div class="tk">base · 20</div></div>
+          <div class="radius-box"><div class="box" style="border-radius:999px"></div><div class="tk">pill · 999</div></div>
+        </div>
+        <div class="sub-label" style="margin-top:26px">Тени</div>
+        <div class="shadow-grid">
+          <div class="shadow-box"><div class="box" style="box-shadow:var(--shadow-sm)"></div><div class="tk">shadow-sm</div></div>
+          <div class="shadow-box"><div class="box" style="box-shadow:var(--shadow)"></div><div class="tk">shadow</div></div>
+          <div class="shadow-box"><div class="box" style="box-shadow:var(--shadow-pop)"></div><div class="tk">shadow-pop</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CORE ============ -->
+  <section id="core">
+    <div class="sec-head">
+      <span class="kicker">Components · Core</span>
+      <h2>Кнопки, пилюли, бейджи</h2>
+      <span class="desc">Pill-кнопки в 5 вариантах + статусные пилюли и бейджи.</span>
+    </div>
+    <div class="panel">
+      <div class="sub-label">Button — варианты</div>
+      <div class="group" id="demo-buttons"></div>
+      <div class="sub-label">Pill &amp; StatusBadge</div>
+      <div class="group" id="demo-pills"></div>
+    </div>
+  </section>
+
+  <!-- ============ FORMS ============ -->
+  <section id="forms">
+    <div class="sec-head">
+      <span class="kicker">Components · Forms</span>
+      <h2>Поля и выпадающие списки</h2>
+      <span class="desc">Поиск, админ-поля, многострочный ввод и select.</span>
+    </div>
+    <div class="panel">
+      <div id="demo-forms"></div>
+    </div>
+  </section>
+
+  <!-- ============ FEEDBACK ============ -->
+  <section id="feedback">
+    <div class="sec-head">
+      <span class="kicker">Components · Feedback</span>
+      <h2>Индикаторы и прогресс</h2>
+      <span class="desc">Типизированные строки индикаторов (Знает / Умеет / Владеет) и трекер пайплайна.</span>
+    </div>
+    <div class="panel">
+      <div id="demo-feedback"></div>
+    </div>
+  </section>
+
+  <!-- ============ CARDS ============ -->
+  <section id="cards">
+    <div class="sec-head">
+      <span class="kicker">Components · Cards</span>
+      <h2>Карточки</h2>
+      <span class="desc">Сводные стат-карточки, карточки-записи и сворачиваемое дерево иерархии.</span>
+    </div>
+    <div class="panel">
+      <div class="sub-label">SummaryCard</div>
+      <div id="demo-summary" class="stat-row"></div>
+      <div class="sub-label">EntityCard &amp; TreeCard</div>
+      <div id="demo-tree" class="stack"></div>
+    </div>
+  </section>
+
+  <!-- ============ FLOW / SCREENS ============ -->
+  <section id="flow">
+    <div class="sec-head">
+      <span class="kicker">В системе</span>
+      <h2>Поток работы</h2>
+      <span class="desc">Как компоненты складываются в рабочие экраны: бриф → разбор → проверка → каталог.</span>
+    </div>
+
+    <div class="flow-steps">
+      <div class="fstep"><div class="n">01</div><div class="t">Бриф</div><p>Методолог загружает требования к роли.</p></div>
+      <div class="fstep"><div class="n">02</div><div class="t">Разбор</div><p>Система парсит и сопоставляет с каталогом.</p></div>
+      <div class="fstep warn"><div class="n">03</div><div class="t">Проверка</div><p>Спорные места — в очередь на утверждение.</p></div>
+      <div class="fstep"><div class="n">04</div><div class="t">Каталог</div><p>Подтверждённое публикуется в справочник.</p></div>
+    </div>
+
+    <div class="shots">
+      <div class="shot">
+        <div class="bar"><i></i><i></i><i></i><span class="url">catalog / intake</span></div>
+        <img src="assets/shot-intake.png" alt="Экран Intake">
+        <div class="cap"><div class="h">Intake — загрузка и авторазбор</div><div class="d">Drag-and-drop брифа, прогресс пайплайна в реальном времени.</div></div>
+      </div>
+      <div class="shot">
+        <div class="bar"><i></i><i></i><i></i><span class="url">catalog / reviews</span></div>
+        <img src="assets/shot-review.png" alt="Экран очереди проверки">
+        <div class="cap"><div class="h">Проверка — навыки на утверждение</div><div class="d">Карточка-разбор с причиной, источником и действиями.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Skills Catalog Design System · namespace <code>SkillsCatalogDesignSystem_aa19ff</code> · источник <code>github.com/Zheltenkov/Spravochnik</code>
+  </footer>
+
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="_ds_bundle.js"></script>
+<script type="text/babel">
+  const NS = window.SkillsCatalogDesignSystem_aa19ff;
+  const { Button, Pill, StatusBadge, Input, Select, IndicatorRow, ProgressTracker, SummaryCard, EntityCard, TreeCard } = NS;
+  const render = (id, node) => ReactDOM.createRoot(document.getElementById(id)).render(node);
+
+  render("demo-buttons", (
+    <React.Fragment>
+      <Button variant="primary">Создать группу</Button>
+      <Button variant="secondary">Подтвердить</Button>
+      <Button variant="default">Открыть группу</Button>
+      <Button variant="light">Вернуть в очередь</Button>
+      <Button variant="danger">Архивировать</Button>
+      <Button variant="primary" disabled>disabled</Button>
+    </React.Fragment>
+  ));
+
+  render("demo-pills", (
+    <React.Fragment>
+      <StatusBadge tone="ok">active</StatusBadge>
+      <StatusBadge tone="warn">deprecated</StatusBadge>
+      <Pill tone="knows">Знает</Pill>
+      <Pill tone="skill">Умеет</Pill>
+      <Pill tone="ghost">open</Pill>
+      <Pill tone="chip">12 индикаторов</Pill>
+    </React.Fragment>
+  ));
+
+  render("demo-forms", (
+    <div className="form-grid">
+      <div className="full">
+        <Input size="lg" placeholder="Поиск по компетенциям, skills и индикаторам" />
+      </div>
+      <Input label="Новая группа" placeholder="Например, Алгоритмы" />
+      <Select label="Status" options={["active", "candidate", "deprecated"]} />
+      <div className="full">
+        <Input label="Комментарий" multiline={true} rows={2} placeholder="Коротко: что решили и почему" />
+      </div>
+    </div>
+  ));
+
+  render("demo-feedback", (
+    <div className="stack">
+      <ProgressTracker
+        title="Обработка брифа"
+        percent={60}
+        steps={[
+          { label: "Загрузка", state: "done" },
+          { label: "Разбор", state: "done" },
+          { label: "Сопоставление", state: "active" },
+          { label: "Проверка", state: "todo" },
+        ]}
+      />
+      <div className="ind-wrap">
+        <IndicatorRow type="Знает" text="Знает назначение индексов в базе данных" />
+        <IndicatorRow type="Умеет" text="Умеет писать SQL-запросы с JOIN" />
+        <IndicatorRow type="Владеет" text="Владеет приёмами оптимизации запросов" />
+      </div>
+    </div>
+  ));
+
+  render("demo-summary", (
+    <React.Fragment>
+      <SummaryCard label="Skills" value="1 248" />
+      <SummaryCard label="Индикаторы" value="5 392" tone="soft" />
+      <SummaryCard label="Open review" value="7" tone="warn" />
+    </React.Fragment>
+  ));
+
+  render("demo-tree", (
+    <React.Fragment>
+      <EntityCard
+        title="Работа с данными"
+        meta="data_work"
+        badge={<StatusBadge tone="ok">active</StatusBadge>}
+        metrics={["8 skills", "42 индикаторов", "sort 1"]}
+      />
+      <TreeCard title="Работа с данными" metrics={["8 skills", "42 индикаторов"]} defaultOpen={true}>
+        <TreeCard variant="nested" small={true} title="Написание SQL-запросов" metrics={["6 индикаторов"]} defaultOpen={true}>
+          <IndicatorRow type="Знает" text="Знает основы SELECT, JOIN, GROUP BY" />
+          <IndicatorRow type="Умеет" text="Умеет писать запросы с фильтрацией и агрегацией" />
+        </TreeCard>
+      </TreeCard>
+    </React.Fragment>
+  ));
+</script>
+</body>
+</html>

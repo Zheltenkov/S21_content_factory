@@ -1,0 +1,419 @@
+introduction: >
+  -  Проверка — это не формальность, а часть твоего обучения. Здесь можно
+  обменяться опытом, обсудить сложные моменты и даже придумать новые подходы к
+  решению задач.
+
+  - Проверяя проекты других участников, ты не просто ставишь "галочки" — ты изучаешь разные варианты решений и расширяешь необходимую специалисту насмотренность. 
+
+  - Даже если твой проект еще не готов — ты можешь проводить проверку. Те, чьи работы ты проверяешь, могут выступить в роли ментора и объяснить свою логику. Это поможет им лучше понять свою работу, а тебе — разобраться в теме.
+
+  - Критика — это здорово, но главное — предложить способы улучшения. Так ты сделаешь проект лучше и поможешь коллеге расти - а это очень важный навык для работы в команде.
+
+  - После проверки заданий по чек-листу выбери 2-3 вопроса из списка ниже, которые ты хочешь обсудить во время встречи. 
+
+  1. Про сложности:
+
+  "Что в этом проекте было самым сложным для тебя? 
+  Каким образом это удалось решить? Может, какой-то неочевидный способ?"   
+
+  2. Про успехи:
+
+  "А что, наоборот, получилось хорошо? Почему именно это? Как этот подход можно использовать в других проектах?"
+
+  3. Про улучшения:
+
+  "Если бы сейчас пришлось снова сделать этот проект, что можно было бы сделать по-другому? Почему?"   
+
+  4. Про поиск информации:
+  
+  "Где тебе приходилось искать ответы на возникающие вопросы? Какой ресурс или способ оказался самым полезным? Как ты убеждаешься в том, что информация из выбранного источника точная?"
+
+  - Используй по максимуму эту встречу как возможность глубже разобраться в теме и найти новые подходы к решениям.
+guidelines: >-
+  - Подлежат оцениванию только те файлы, которые выложены в GIT-репозиторий в
+  папку src.
+
+  - Убедись в том, что репозиторий является репозиторием участника или группы, которых ты проверяешь.
+
+  - Если ты еще работаешь над проектом, и он не готов, обязательно перечитай его еще раз перед проверкой. 
+    
+  - В конце чек-листа есть специальные флаги: EMPTY WORK, если репозиторий пустой или решение запушено не в папку src ветки develop, либо ветка develop отсутствует; CHEAT, если ты видишь признаки того, что участник не самостоятельно выполнил работу (например, не может объяснить решение). В случае применения одного из флагов в конце чек-листа проект будет провален. Однако, кроме случаев плагиата, рекомендуем все равно продолжить проверку и попытаться вместе выяснить проблему, которая привела к неработающему решению.
+quick_actions:
+  - EMPTY_WORK
+  - CHEAT
+  - FORBIDDEN_FUNCTION
+language: ru
+name: Day09
+comment: ""
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Задание 00 — Audit of incoming inserts
+        description: >
+          Проверь наличие файла day09_ex00.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                CREATE TABLE person_audit 
+                (created timestamp WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                type_event char(1) NOT NULL DEFAULT 'I',
+                row_id bigint NOT NULL,
+                name varchar, 
+                age integer, 
+                gender varchar, 
+                address varchar, 
+                CONSTRAINT ch_type_event CHECK (type_event IN ('I','U','D'))
+                );
+
+          - SQL-код для триггерной функции
+
+
+                CREATE OR REPLACE FUNCTION fnc_trg_person_insert_audit( )
+                RETURNS TRIGGER AS
+                $BODY$
+                BEGIN
+                INSERT INTO person_audit(created, type_event, row_id, name, age, gender, address)
+                VALUES(current_timestamp,'I', NEW.id, NEW.name, NEW.age, NEW.gender, NEW.address);
+                RETURN NULL;
+                END;
+                $BODY$
+                LANGUAGE plpgsql;
+
+          - SQL-код триггера
+
+                CREATE  TRIGGER trg_person_insert_audit
+                AFTER    INSERT ON person FOR EACH ROW
+                EXECUTE FUNCTION  fnc_trg_person_insert_audit( );
+
+          - SQL-запрос для проверки
+
+                SELECT * FROM person_audit
+
+          - Результат SQL
+
+                "2022-03-21 20:27:40.283551 +00:00"	"I"	"10"	"Damir"	"22"	"male"	"Irkutsk"
+
+        rating: "5"
+
+      - name: Задание 01 — Audit of incoming updates
+        description: >
+          Проверь наличие файла day09_ex01.sql
+
+          - SQL-код для триггерной функции
+
+                CREATE OR REPLACE FUNCTION fnc_trg_person_update_audit( )
+                RETURNS TRIGGER AS
+                $BODY$
+                BEGIN
+                INSERT INTO person_audit(created, type_event, row_id, name, age, gender, address)
+                VALUES(current_timestamp,'U', OLD.id, OLD.name, OLD.age, OLD.gender, OLD.address);
+                RETURN NULL;
+                END;
+                $BODY$
+                LANGUAGE plpgsql;
+
+          - SQL-код триггера
+
+                CREATE  TRIGGER trg_person_update_audit
+                AFTER    UPDATE ON person FOR EACH ROW
+                EXECUTE FUNCTION  fnc_trg_person_update_audit( );
+
+          - SQL-запрос для проверки
+
+                SELECT * FROM person_audit
+
+          - Результат SQL
+
+                "2022-03-21 20:27:40.283551 +00:00"	"I"	"10"	"Damir"	"22"	"male"	"Irkutsk"
+                "2022-03-21 20:29:38.834865 +00:00"	"U"	"10"	"Damir"	"22"	"male"	"Irkutsk"
+                "2022-03-21 20:29:39.333943 +00:00"	"U"	"10"	"Bulat"	"22"	"male"	"Irkutsk"
+
+        rating: "5"
+
+      - name: Задание 02 — Audit of incoming deletes
+        description: >
+          Проверь наличие файла day09_ex02.sql
+
+          - SQL-код для триггерной функции
+
+                CREATE OR REPLACE FUNCTION fnc_trg_person_delete_audit( )
+                RETURNS TRIGGER AS
+                $BODY$
+                BEGIN
+                INSERT INTO person_audit(created, type_event, row_id, name, age, gender, address)
+                VALUES(current_timestamp,'D', OLD.id, OLD.name, OLD.age, OLD.gender, OLD.address);
+                RETURN NULL;
+                END;
+                $BODY$
+                LANGUAGE plpgsql;
+
+          - SQL-код триггера
+
+                CREATE  TRIGGER trg_person_delete_audit
+                AFTER    DELETE ON person FOR EACH ROW
+                EXECUTE FUNCTION  fnc_trg_person_delete_audit( );
+
+          - SQL-запрос для проверки
+
+                SELECT * FROM person_audit ORDER BY created;
+
+          - Результат SQL
+
+                "2022-03-21 20:27:40.283551 +00:00"	"I"	"10"	"Damir"	"22"	"male"	"Irkutsk"
+                "2022-03-21 20:29:38.834865 +00:00"	"U"	"10"	"Damir"	"22"	"male"	"Irkutsk"
+                "2022-03-21 20:29:39.333943 +00:00"	"U"	"10"	"Bulat"	"22"	"male"	"Irkutsk"
+                "2022-03-21 20:30:57.731367 +00:00"	"D"	"10"	"Damir"	"22"	"male"	"Irkutsk"
+
+        rating: "5"
+
+      - name: Задание 03 — Generic Audit
+        description: >
+          Проверь наличие файла day09_ex03.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                DROP trigger trg_person_delete_audit on person;
+                DROP trigger trg_person_update_audit on person;
+                DROP trigger trg_person_insert_audit on person;
+
+                drop function fnc_trg_person_delete_audit();
+                drop function fnc_trg_person_update_audit();
+                drop function fnc_trg_person_insert_audit();
+
+                truncate person_audit; 
+
+          - SQL-код для триггерной функции
+
+                CREATE OR REPLACE FUNCTION fnc_trg_person_audit( )
+                RETURNS TRIGGER AS
+                $BODY$
+                BEGIN
+                IF (TG_OP = 'INSERT') THEN
+                    INSERT INTO person_audit(created, type_event, row_id, name, age, gender, address)
+                    VALUES(current_timestamp,'I', NEW.id, NEW.name, NEW.age, NEW.gender, NEW.address);
+                ELSEIF (TG_OP = 'UPDATE') THEN
+                    INSERT INTO person_audit(created, type_event, row_id, name, age, gender, address)
+                    VALUES(current_timestamp,'U', OLD.id, OLD.name, OLD.age, OLD.gender, OLD.address);
+                ELSE
+                    INSERT INTO person_audit(created, type_event, row_id, name, age, gender, address)
+                    VALUES(current_timestamp,'D', OLD.id, OLD.name, OLD.age, OLD.gender, OLD.address);
+                END IF;
+
+                RETURN NULL;
+                END;
+                $BODY$
+                LANGUAGE plpgsql; 
+
+          - SQL-код триггера
+
+                CREATE  TRIGGER trg_person_audit
+                AFTER    DELETE OR UPDATE OR INSERT ON person FOR EACH ROW
+                EXECUTE FUNCTION  fnc_trg_person_audit( );    
+
+          - SQL-запрос для проверки
+
+                SELECT * FROM person_audit ORDER BY created;                                                               
+
+          - Результат SQL
+
+                "2022-03-21 20:33:30.826364 +00:00"	"I"	"10"	"Damir"	"22"	"male"	"Irkutsk"
+                "2022-03-21 20:33:31.282922 +00:00"	"U"	"10"	"Damir"	"22"	"male"	"Irkutsk"
+                "2022-03-21 20:33:31.746362 +00:00"	"U"	"10"	"Bulat"	"22"	"male"	"Irkutsk"
+                "2022-03-21 20:33:32.228181 +00:00"	"D"	"10"	"Damir"	"22"	"male"	"Irkutsk"
+
+        rating: "5"
+
+      - name: Задание 04 — Database View VS Database Function
+        description: >
+          Проверь наличие файла day09_ex04.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                CREATE FUNCTION fnc_persons_female( )
+                RETURNS TABLE(id    person.id%TYPE,
+                            name    person.name%TYPE,
+                            age    person.age%TYPE,
+                            gender    person.gender%TYPE,
+                            address    person.address%TYPE) AS $$
+                SELECT id, name, age, gender, address
+                    FROM person
+                WHERE gender= 'female';
+                $$ LANGUAGE SQL;
+
+                CREATE FUNCTION fnc_persons_male( )
+                RETURNS TABLE(id    person.id%TYPE,
+                            name    person.name%TYPE,
+                            age    person.age%TYPE,
+                            gender    person.gender%TYPE,
+                            address    person.address%TYPE) AS $$
+                SELECT id, name, age, gender, address
+                    FROM person
+                WHERE gender= 'male';
+                $$ LANGUAGE SQL;
+
+          - SQL-запрос для проверки
+
+                SELECT * FROM fnc_persons_male();
+
+          - Результат SQL
+
+                "2"	  "Andrey"    "21"	"male"	"Moscow"
+                "4"	  "Denis"	    "13"	"male"	"Kazan"
+                "7"	  "Peter"	    "24"	"male"	"Saint-Petersburg"
+                "9"	  "Dmitriy"	  "18"	"male"	"Samara"
+
+          - SQL-запрос для проверки
+
+                SELECT * FROM fnc_persons_female();
+
+          - Результат SQL
+
+                "1"	  "Anna"	  "16"	"female"	"Moscow"
+                "3"	  "Kate"	  "33"	"female"	"Kazan"
+                "5"	  "Elvira"  "45"	"female"	"Kazan"
+                "6"	  "Irina"	  "21"	"female"	"Saint-Petersburg"
+                "8"	  "Nataly"  "30"	"female"	"Novosibirsk"
+
+
+        rating: "5"
+
+      - name: Задание 05 — Parameterized Database Function
+        description: >
+          Проверь наличие файла day09_ex05.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                 CREATE OR REPLACE FUNCTION fnc_persons(pgender varchar default 'female')
+                 RETURNS TABLE(id    person.id%TYPE,
+                             name    person.name%TYPE,
+                             age    person.age%TYPE,
+                             gender    person.gender%TYPE,
+                             address    person.address%TYPE) AS $$
+                 SELECT id, name, age, gender, address
+                     FROM person
+                 WHERE gender= pgender;
+                 $$ LANGUAGE SQL;
+
+          - SQL-запрос для проверки
+
+                SELECT * FROM fnc_persons(pgender := 'male');
+
+          - Результат SQL
+
+                "2"	  "Andrey"    "21"	"male"	"Moscow"
+                "4"	  "Denis"	    "13"	"male"	"Kazan"
+                "7"	  "Peter"	    "24"	"male"	"Saint-Petersburg"
+                "9"	  "Dmitriy"	  "18"	"male"	"Samara"
+
+          - SQL-запрос для проверки
+
+                SELECT * FROM fnc_persons();
+
+          - Результат SQL
+
+                "1"	  "Anna"	  "16"	"female"	"Moscow"
+                "3"	  "Kate"	  "33"	"female"	"Kazan"
+                "5"	  "Elvira"	"45"	"female"	"Kazan"
+                "6"	  "Irina" 	"21"	"female"	"Saint-Petersburg"
+                "8"	  "Nataly"	"30"	"female"	"Novosibirsk"
+
+        rating: "5"
+
+      - name: Задание 06 — Function like a function-wrapper
+        description: >
+          Проверь наличие файла day09_ex06.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                    CREATE FUNCTION fnc_person_visits_and_eats_on_date(pperson varchar default 'Dmitriy', 
+                    pprice numeric default 500, pdate date default '2022-01-08')
+                    RETURNS TABLE(name    varchar) AS $$
+                    BEGIN
+                    RETURN QUERY
+                        select p.name as pizzeria_name
+                        from menu inner join pizzeria p on p.id = menu.pizzeria_id
+                            inner join person_visits pv on menu.pizzeria_id = pv.pizzeria_id
+                            inner join person p2 on p2.id = pv.person_id
+                        where price  < pprice and p2.name = pperson and visit_date = pdate;
+                    END;
+                    $$ LANGUAGE PLPGSQL;
+
+          - SQL-запрос для проверки
+
+                SELECT * FROM fnc_person_visits_and_eats_on_date(pprice := 800);
+
+          - Результат SQL
+
+                "Papa Johns"
+                "DoDo Pizza"
+
+          - SQL-запрос для проверки
+
+                SELECT *
+                FROM fnc_person_visits_and_eats_on_date(pperson := 'Anna',pprice := 1300,pdate := '2022-01-01');          
+
+          - Результат SQL
+
+                "Pizza Hut"
+                "Pizza Hut"
+                "Pizza Hut"
+                "Pizza Hut"
+
+        rating: "5"
+                 
+      - name: Задание 07 — Different view to find a Minimum
+        description: >
+          Проверь наличие файла day09_ex07.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                    CREATE FUNCTION func_minimum(VARIADIC arr NUMERIC[ ])
+                    RETURNS NUMERIC AS
+                    $$
+                    SELECT min( i ) FROM unnest(arr) g( i );
+                    $$ LANGUAGE SQL;
+
+          - SQL-запрос для проверки
+
+                SELECT func_minimum(VARIADIC arr => ARRAY[10.0, -1.0, 5.0, 4.4]);
+
+          - Результат SQL
+
+                "-1"
+
+        rating: "5"                
+
+      - name: Задание 08 — Fibonacci algorithm is in a function
+        description: >
+          Проверь наличие файла day09_ex08.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                    CREATE OR REPLACE FUNCTION fnc_fibonacci(pstop integer default 10)
+                    RETURNS TABLE(a    bigint) AS $$
+                    WITH RECURSIVE f (a,b) AS
+                    (SELECT 0 AS a, 1 AS b
+                    UNION ALL
+                    SELECT b, a+b FROM f WHERE b<pstop)
+                    SELECT a
+                    FROM f;
+                    $$ LANGUAGE SQL;
+
+          - SQL-запрос для проверки
+
+                SELECT * FROM fnc_fibonacci(20)
+
+          - Результат SQL
+
+                "0"  
+                "1"
+                "1"
+                "2"
+                "3"
+                "5"
+                "8"
+                "13"
+
+        rating: "5"                

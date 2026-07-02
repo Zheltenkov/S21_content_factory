@@ -1,0 +1,318 @@
+introduction: >
+  -  Проверка — это не формальность, а часть твоего обучения. Здесь можно
+  обменяться опытом, обсудить сложные моменты и даже придумать новые подходы к
+  решению задач.
+
+  - Проверяя проекты других участников, ты не просто ставишь "галочки" — ты изучаешь разные варианты решений и расширяешь необходимую специалисту насмотренность. 
+
+  - Даже если твой проект еще не готов — ты можешь проводить проверку. Те, чьи работы ты проверяешь, могут выступить в роли ментора и объяснить свою логику. Это поможет им лучше понять свою работу, а тебе — разобраться в теме.
+
+  - Критика — это здорово, но главное — предложить способы улучшения. Так ты сделаешь проект лучше и поможешь коллеге расти - а это очень важный навык для работы в команде.
+
+  - После проверки заданий по чек-листу выбери 2-3 вопроса из списка ниже, которые ты хочешь обсудить во время встречи. 
+
+  1. Про сложности:
+
+  "Что в этом проекте было самым сложным для тебя? 
+  Каким образом это удалось решить? Может, какой-то неочевидный способ?"   
+
+  2. Про успехи:
+
+  "А что, наоборот, получилось хорошо? Почему именно это? Как этот подход можно использовать в других проектах?"
+
+  3. Про улучшения:
+
+  "Если бы сейчас пришлось снова сделать этот проект, что можно было бы сделать по-другому? Почему?"   
+
+  4. Про поиск информации:
+  
+  "Где тебе приходилось искать ответы на возникающие вопросы? Какой ресурс или способ оказался самым полезным? Как ты убеждаешься в том, что информация из выбранного источника точная?"
+
+  - Используй по максимуму эту встречу как возможность глубже разобраться в теме и найти новые подходы к решениям.
+guidelines: >-
+  - Подлежат оцениванию только те файлы, которые выложены в GIT-репозиторий в
+  папку src.
+
+  - Убедись в том, что репозиторий является репозиторием участника или группы, которых ты проверяешь.
+
+  - Если ты еще работаешь над проектом, и он не готов, обязательно перечитай его еще раз перед проверкой. 
+    
+  - В конце чек-листа есть специальные флаги: EMPTY WORK, если репозиторий пустой или решение запушено не в папку src ветки develop, либо ветка develop отсутствует; CHEAT, если ты видишь признаки того, что участник не самостоятельно выполнил работу (например, не может объяснить решение). В случае применения одного из флагов в конце чек-листа проект будет провален. Однако, кроме случаев плагиата, рекомендуем все равно продолжить проверку и попытаться вместе выяснить проблему, которая привела к неработающему решению.
+quick_actions:
+  - EMPTY_WORK
+  - CHEAT
+  - FORBIDDEN_FUNCTION
+language: ru
+name: Day02
+comment: ""
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Задание 00 Move to the LEFT, move to the RIGHT
+        description: >
+          Проверь наличие файла day02_ex00.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT p.name AS pizzeria_name, rating
+                FROM pizzeria p
+                LEFT JOIN person_visits pv ON p.id = pv.pizzeria_id
+                WHERE pv.id IS NULL
+
+          - Результат приведен ниже (порядок строк должен быть таким же)
+
+                "DoDo Pizza"	"3.2"
+
+        rating: "5"
+
+      - name: Задание 01 Find data gaps
+        description: >
+          Проверь наличие файла day02_ex01.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT g::date AS missing_date
+                FROM
+                  (SELECT * FROM person_visits po
+                  WHERE person_id = 1 OR person_id = 2) AS po
+                RIGHT  JOIN generate_series('2022-01-01', '2022-01-10', interval '1 day') AS g ON po.visit_date =g
+                WHERE po.id IS NULL
+                ORDER BY 1
+
+          - Результат приведен ниже (порядок строк должен быть таким же)
+
+                "2022-01-03"
+                "2022-01-04"
+                "2022-01-05"
+                "2022-01-06"
+                "2022-01-07"
+                "2022-01-08"
+                "2022-01-09"
+                "2022-01-10"
+
+        rating: "5"
+
+      - name: Задание 02 FULL means 'completely filled'
+        description: >
+          Проверь наличие файла day02_ex02.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT coalesce(p.name, '-') AS person_name,
+                      pv.visit_date, coalesce(pz.name, '-') AS pizzeria_name
+                FROM person p
+                FULL JOIN
+                  (SELECT * FROM person_visits po
+                  WHERE visit_date BETWEEN '2022-01-01' AND '2022-01-03') pv ON p.id = pv.person_id
+                FULL JOIN pizzeria pz ON pz.id = pv.pizzeria_id
+                ORDER BY 1, 2, 3
+
+          - Результат приведен ниже (порядок строк должен быть таким же)
+
+                -	        null	  DinoPizza
+                -	        null	  DoDo Pizza
+                Andrey	  2022-01-01	Dominos
+                Andrey	  2022-01-02	Pizza Hut
+                Anna	    2022-01-01	Pizza Hut
+                Denis	    null	      -
+                Dmitriy	  null	      -
+                Elvira	  null	      -
+                Irina	    2022-01-01	Papa Johns
+                Kate	    2022-01-03	Best Pizza
+                Nataly	  null	      -
+                Peter	    2022-01-03	Pizza Hut
+
+
+        rating: "5"
+
+      - name: Задание 03 Reformat to CTE
+        description: >
+          Проверь наличие файла day02_ex03.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                WITH g AS
+                  (SELECT g::date
+                  FROM generate_series('2022-01-01', '2022-01-10', interval '1 day') AS g)
+                SELECT g::date AS missing_date
+                FROM
+                  (SELECT * FROM person_visits po
+                  WHERE person_id = 1 OR person_id = 2) AS po
+                RIGHT JOIN g AS g ON po.visit_date = g
+                WHERE po.id IS NULL
+                ORDER BY 1
+
+          - Результат приведен ниже (порядок строк должен быть таким же)
+
+                "2022-01-03"
+                "2022-01-04"
+                "2022-01-05"
+                "2022-01-06"
+                "2022-01-07"
+                "2022-01-08"
+                "2022-01-09"
+                "2022-01-10"
+
+        rating: "5"
+
+      - name: Задание 04 Find favorite pizzas
+        description: >
+          Проверь наличие файла day02_ex04.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT pizza_name, name AS pizzeria_name, price
+                FROM menu
+                INNER JOIN pizzeria p ON menu.pizzeria_id = p.id
+                WHERE pizza_name IN ('mushroom pizza', 'pepperoni pizza')
+                ORDER BY 1, 2
+
+          - Результат приведен ниже (порядок строк должен быть таким же)
+
+                "mushroom pizza"	  "Dominos"	    "1100"
+                "mushroom pizza"	  "Papa Johns"	"950"
+                "pepperoni pizza"	  "Best Pizza"	"800"
+                "pepperoni pizza"	  "DinoPizza"	  "800"
+                "pepperoni pizza"	  "Papa Johns"	"1000"
+                "pepperoni pizza"	  "Pizza Hut"	  "1200"
+
+        rating: "5"
+
+      - name: Задание 05 Investigate Person Data
+        description: >
+          Проверь наличие файла day02_ex05.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT name
+                FROM person
+                WHERE gender = 'female'
+                  AND age > 25
+                ORDER BY 1
+
+          - Результат приведен ниже (порядок строк должен быть таким же)
+
+                 "Elvira"
+                 "Kate"
+                 "Nataly"
+
+        rating: "5"
+
+
+      - name: Задание 06 Favorite pizzas for Denis and Anna
+        description: >
+          Проверь наличие файла day02_ex06.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                  SELECT m.pizza_name, p2.name AS pizzeria_name
+                  FROM person_order
+                  INNER JOIN person p ON p.id = person_order.person_id
+                  INNER JOIN menu m ON m.id = person_order.menu_id
+                  INNER JOIN pizzeria p2 ON m.pizzeria_id = p2.id
+                  WHERE p.name IN ('Denis', 'Anna')
+                  ORDER BY 1, 2
+
+          - Результат приведен ниже (порядок строк должен быть таким же)
+
+                  "cheese pizza"	    "Best Pizza"
+                  "cheese pizza"	    "Pizza Hut"
+                  "pepperoni pizza"	  "Best Pizza"
+                  "pepperoni pizza"	  "DinoPizza"
+                  "pepperoni pizza"	  "Pizza Hut"
+                  "sausage pizza"	    "DinoPizza"
+                  "supreme pizza"	    "Best Pizza"
+
+        rating: "5"
+
+      - name: Задание 07 Cheapest pizzeria for Dmitriy
+        description: >
+          Проверь наличие файла day02_ex07.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT p.name AS pizzeria_name
+                FROM menu
+                INNER JOIN pizzeria p ON p.id = menu.pizzeria_id
+                INNER JOIN person_visits pv ON menu.pizzeria_id = pv.pizzeria_id
+                INNER JOIN person p2 ON p2.id = pv.person_id
+                WHERE price < 800
+                  AND p2.name = 'Dmitriy'
+                  AND visit_date = '2022-01-08'
+
+          - Результат приведен ниже (порядок строк должен быть таким же)
+
+                "Papa Johns"
+
+        rating: "5"
+
+      - name: Задание 08 Continuing to research data
+        description: >
+          Проверь наличие файла day02_ex08.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT person.name
+                FROM person
+                INNER JOIN person_order po ON person.id = po.person_id
+                INNER JOIN menu m ON m.id = po.menu_id
+                WHERE gender= 'male' AND pizza_name IN ('pepperoni pizza', 'mushroom pizza')
+                  AND address IN ('Moscow', 'Samara')
+                ORDER BY 1 DESC
+
+          - Результат приведен ниже (порядок строк должен быть таким же)
+
+                "Dmitriy"
+                "Andrey"
+
+        rating: "5"
+
+      - name: Задание 09 Who loves cheese and pepperoni?
+        description: >
+          Проверь наличие файла day02_ex09.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT p.name
+                FROM person p
+                INNER JOIN person_order po ON p.id = po.person_id
+                INNER JOIN menu m ON m.id = po.menu_id
+                WHERE m.pizza_name = 'pepperoni pizza'
+                  AND p.gender = 'female' INTERSECT
+                  SELECT p.name
+                  FROM person p
+                  INNER JOIN person_order po ON p.id = po.person_id
+                  INNER JOIN menu m ON m.id = po.menu_id WHERE m.pizza_name = 'cheese pizza'
+                  AND p.gender = 'female'
+                ORDER BY 1
+
+          - Результат приведен ниже (порядок строк должен быть таким же)
+
+                 "Anna"
+                 "Nataly"
+
+        rating: "5"
+
+      - name: Задание 10 Find persons from one city
+        description: >
+          Проверь наличие файла day02_ex10.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT p1.name, p2.name, p1.address AS common_address
+                FROM person p1
+                INNER JOIN person p2 ON p1.id > p2.id
+                AND p1.address = p2.address
+                ORDER BY 1, 2, 3
+
+          - Результат приведен ниже (порядок строк должен быть таким же)
+
+                 "Andrey"	"Anna"	"Moscow"
+                 "Denis"	"Kate"	"Kazan"
+                 "Elvira"	"Denis"	"Kazan"
+                 "Elvira"	"Kate"	"Kazan"
+                 "Peter"	"Irina"	"Saint-Petersburg"
+
+        rating: "5"        

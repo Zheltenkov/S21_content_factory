@@ -1,0 +1,46 @@
+﻿/* Badge and chip state styles extracted from s21-design.css. */
+
+body.s21-product .badge,
+body.s21-product .chip,
+body.s21-product .methodology-review-status,
+body.s21-product .methodology-section-tab {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--s21-border);
+  border-radius: 999px;
+  background: var(--s21-surface);
+  color: var(--s21-ink-2);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+body.s21-product .badge.success {
+  background: var(--s21-success-bg);
+  color: var(--s21-success);
+  border-color: #c7e5d3;
+}
+
+body.s21-product .badge.warn,
+body.s21-product .methodology-review-status {
+  background: var(--s21-warn-bg);
+  color: var(--s21-warn);
+  border-color: #ead7b6;
+}
+
+body.s21-product .badge.info {
+  background: var(--s21-info-bg);
+  color: var(--s21-info);
+  border-color: #c8d8e8;
+}
+
+body.s21-product .chip.on,
+body.s21-product .methodology-section-tab.active {
+  background: var(--s21-dark);
+  color: var(--s21-accent);
+  border-color: var(--s21-dark);
+}
+

@@ -1,0 +1,117 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+.venv
+ENV/
+
+
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# ChromaDB
+chroma_db/
+.chroma/
+
+# RAG Index
+.rag_index/
+
+# Redis dump
+dump.rdb
+
+# Alembic
+alembic.ini.bak
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+pytest-cache-files-*/
+.pytest_eval_tmp/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Project specific
+*.zip
+materials/
+data/generated/
+uploads/
+downloads/
+output/
+.playwright-mcp/
+.curriculum_cache/
+.tmp/
+.tmp_script_tests/
+.pytest_tmp/
+.tmp_prodcheck_pytest/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Linting
+.ruff_cache/
+
+bibliarium/
+.cursor/
+.serena/

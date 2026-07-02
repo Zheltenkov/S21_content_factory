@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }} | Рабочий контур методолога</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="wordmark" href="/intake">
+                <img class="wordmark-logo" src="/static/school21-sber-logo.jpg?v=1" alt="Школа 21">
+                <span>
+                    <span class="wordmark-name">Рабочий контур методолога</span>
+                </span>
+            </a>
+            <nav class="nav">
+                {% for item in nav %}
+                {% set state = namespace(active=false) %}
+                {% for prefix in item.prefixes or [item.href] %}
+                    {% if request_path == prefix or request_path.startswith(prefix ~ '/') %}
+                        {% set state.active = true %}
+                    {% endif %}
+                {% endfor %}
+                <a href="{{ item.href }}" class="nav-link{% if state.active %} active{% endif %}">{{ item.label }}</a>
+                {% endfor %}
+            </nav>
+        </div>
+    </header>
+    {% if secondary_nav and show_secondary_nav %}
+    <nav class="secondary-nav">
+        {% for item in secondary_nav %}
+        {% set state = namespace(active=false) %}
+        {% for prefix in item.prefixes or [item.href] %}
+            {% if request_path == prefix or request_path.startswith(prefix ~ '/') %}
+                {% set state.active = true %}
+            {% endif %}
+        {% endfor %}
+        <a href="{{ item.href }}" class="secondary-nav-link{% if state.active %} active{% endif %}">{{ item.label }}</a>
+        {% endfor %}
+    </nav>
+    {% endif %}
+
+    {% set wide_workspace = request_path.startswith('/intake') or request_path.startswith('/up') or request_path.startswith('/reviews') %}
+    <main class="page-shell{% if wide_workspace %} page-shell-intake{% endif %}">
+        <aside class="summary-panel{% if wide_workspace %} summary-panel-intake{% endif %}">
+            <div class="summary-card">
+                <div class="summary-label">Профили</div>
+                <div class="summary-value">{{ summary.counts.profiles if summary and summary.counts else "?" }}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Компетенции</div>
+                <div class="summary-value">{{ summary.counts.competencies if summary and summary.counts else "?" }}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Skills</div>
+                <div class="summary-value">{{ summary.counts.skills if summary and summary.counts else "?" }}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Индикаторы</div>
+                <div class="summary-value">{{ summary.counts.indicator_rows if summary and summary.counts else "?" }}</div>
+            </div>
+            <div class="summary-card summary-card-warn">
+                <div class="summary-label">Open review</div>
+                <div class="summary-value">{{ summary.counts.open_reviews if summary and summary.counts else "?" }}</div>
+            </div>
+        </aside>
+
+        <section class="content-panel{% if request_path.startswith('/intake') or request_path.startswith('/up') %} content-panel-intake{% endif %}">
+            {% block content %}{% endblock %}
+        </section>
+    </main>
+</body>
+</html>

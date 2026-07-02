@@ -1,0 +1,119 @@
+# =============================================================================
+# FLOW: content_generation — карта процессов генерации контента
+# =============================================================================
+# Исполняемый конфиг для рантайма: content_gen/config/flow.yaml (без комментариев).
+# Этот файл — справочный; описание нод, входов/выходов и переходов для карты процессов.
+# Рантайм: AgentFlowRunner (content_gen/workflow/flow_runner.py).
+# Старый content_gen/agents/flow.py остается compatibility shim для paused sessions.
+# =============================================================================
+
+flows:
+  content_generation:
+    name: content_generation
+    version: "1.0.0"
+
+    nodes:
+      # --- Phase 0: Intent & Context ---
+      # Описание: Формирование seed из raw_input и curriculum context из УП.
+      - id: context
+        name: Phase 0 · Intent & Context
+        handler: context
+        type: context
+        outputs: [seed, context_meta, context_analysis, context_bundle, similar_projects, warnings]
+
+      # --- Task Planner ---
+      # Описание: Планирование числа задач и deterministic contracts для story/practice/artifact chain до теории.
+      - id: task_planning
+        name: Task Planner
+        handler: task_planning
+        type: planner
+        inputs: [seed, context_meta, context_analysis]
+        outputs: [seed, task_plan, story_map_contract, practice_plan_contract, artifact_chain_plan, evidence_specs, warnings]
+
+      # --- Phase 1a: Title & Annotation ---
+      # Описание: Генерация названия проекта и аннотации как отдельного review-артефакта.
+      - id: title_annotation
+        name: Phase 1a · Title & Annotation
+        handler: title_annotation
+        type: generation
+        inputs: [seed, context_meta]
+        outputs: [title, annotation]
+
+      # --- Phase 1b: Structure Draft ---
+      # Описание: Генерация черновика структуры README после утверждения названия.
+      - id: skeleton
+        name: Phase 1b · Structure Draft
+        handler: skeleton
+        type: generation
+        inputs: [seed, context_meta, title, annotation, story_map_contract, practice_plan_contract]
+        outputs: [markdown, title, annotation, intro_section, blueprint, warnings, issues]
+
+      # --- Phase 2: Theory ---
+      # Описание: Генерация теоретической части (Глава 2) как поддержки PracticePlanContract.
+      - id: theory
+        name: Phase 2 · Theory
+        handler: theory
+        type: generation
+        inputs: [seed, context_meta, markdown, story_map_contract, practice_plan_contract, artifact_chain_plan, section_contexts]
+        outputs: [markdown, theory_parts, warnings, issues]
+
+      # --- Phase 3: Practice + Critic ---
+      # Описание: Генерация практических задач по PracticePlanContract, ArtifactChainPlan и theory summary.
+      - id: practice
+        name: Phase 3 · Practice + Critic
+        handler: practice
+        type: generation
+        inputs: [seed, markdown, story_map_contract, practice_plan_contract, artifact_chain_plan, section_contexts]
+        outputs: [markdown, practice_tasks, warnings, issues, practice_critic_issues, artifact_chain_plan, evidence_specs, dataset_files, section_contexts]
+
+      # --- Phase 4: Global Quality ---
+      # Описание: Глобальная доработка текста (связность, стиль, полнота).
+      - id: global_quality
+        name: Phase 4 · Global Quality
+        handler: global_quality
+        type: quality
+        inputs: [seed, markdown]
+        outputs: [markdown]
+
+      # --- Phase 5: Final Evaluation ---
+      # Описание: Финальная оценка по рубрике (критерии), формирование rubric_json.
+      - id: evaluation
+        name: Phase 5 · Final Evaluation
+        handler: evaluation
+        type: scoring
+        inputs: [seed, markdown]
+        outputs: [rubric_json, issues]
+
+      # --- Phase 6: Translation ---
+      # Описание: Перевод markdown на target_language. Внутри хендлера: пропуск, если язык уже совпадает.
+      - id: translate
+        name: Phase 6 · Translation
+        handler: translate
+        type: quality
+        inputs: [seed, markdown]
+        outputs: [markdown, translated_markdown]
+        conditions:
+          run_if: "target_language != 'ru'"
+
+      # --- Finalize & Export ---
+      # Описание: Сборка result (report_json, spec), mermaid->изображения, артефакты практики, translated assets.
+      - id: finalize
+        name: Finalize & Export
+        handler: finalize
+        type: finalize
+        inputs: [seed, markdown, context_meta, context_analysis, context_bundle, title, annotation, intro_section, theory_parts, practice_tasks, blueprint, rubric_json, task_plan, story_map_contract, practice_plan_contract, artifact_chain_plan, evidence_specs, translated_markdown]
+        outputs: [result, assets, project_spec, section_contexts]
+
+    # -------------------------------------------------------------------------
+    # Рёбра: линейная цепочка; условие пропуска перевода задано на node translate.
+    # -------------------------------------------------------------------------
+    edges:
+      - { source: context, target: task_planning }
+      - { source: task_planning, target: title_annotation }
+      - { source: title_annotation, target: skeleton }
+      - { source: skeleton, target: theory }
+      - { source: theory, target: practice }
+      - { source: practice, target: global_quality }
+      - { source: global_quality, target: evaluation }
+      - { source: evaluation, target: translate }
+      - { source: translate, target: finalize }

@@ -1,0 +1,197 @@
+introduction: >
+  - School 21 methodology only makes sense if peer-to-peer reviews are taken seriously. Please read all the guidelines carefully before starting the review.
+
+  - Please remain courteous, polite, respectful, and constructive in all communications during this review.
+
+  - Point out possible flaws in the person's work and take the time to discuss and debate them.
+
+  - Keep in mind that sometimes there may be differences in interpretation of tasks and scope of functionality. Please remain open to each other's vision.
+guidelines: >
+  - Evaluate only the files located in the src folder of the student's or group's GIT repository.
+
+  - If you have not finished the project yet, it is compulsory to read the entire instruction before starting the review. 
+
+  - Ensure to start reviewing a group project only when the team is present in full.
+
+  - Use special flags in the checklist to report, for example, "empty work" if the repository does not contain the student's (or group's) work in the src folder of the develop branch, or "cheat" in the case of cheating, or if the student (or group) is unable to explain their work at any time during the review, or if any of the items below are not met. However, except in cases of cheating, you are encouraged to continue reviewing the project to identify the problems that caused the situation so that they can be avoided in the next review.
+
+  - Double check that the GIT repository is the one corresponding to the student or group.
+
+  - Carefully check that nothing malicious has been used to fool you.
+
+  - In controversial cases, remember that the checklist determines only the general order of the check. The final decision on project evaluation remains with the reviewer.
+
+quick_actions:
+  - EMPTY_WORK
+  - CHEAT
+language: en
+name: Day01
+comment: ""
+sections:
+
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Exercise 00. Data types
+        description: >
+          - Does the file `data_types.py` exist in the repository directory?
+
+          - Is the output strictly identical to the subject?
+
+          - Is the output not explicitly written in the code?
+
+          - In all other cases, the test is failed.
+
+        rating: "6"
+
+      - name: Exercise 01. Working with files
+        description: >
+          - Does the file `read_and_write.py` exist in the repository directory?
+
+          - Run the script on the attached file `ds.csv`. Does the output have a delimiter "\t" other than a comma?
+
+          - Ask to add a line to the file with a value containing a comma. Does the script skip it for replacement?
+
+          - Is the output not explicitly written in the code?
+
+        rating: "6"
+
+      - name: Exercise 02. Search by key
+        description: >
+          - Does the file `stock_prices.py` exist in the repository directory?
+
+          - If no argument is given, does the program show nothing and exit properly?
+
+          - If an empty string is given as an argument, does the program show "Unknown company"?
+
+          - If an invalid string is given as an argument (e.g., "lolo"), does the program show "Unknown company"?
+
+          - Does the program show the correct stock price when a valid company name is given?
+
+          - Try doing the same with lowercase and uppercase letters.
+
+          - Nothing except the authorized function is used to produce the result.
+
+          - Is the output not explicitly written in the code?
+
+        rating: "6"
+
+      - name: Exercise 03. Search by value and by key
+        description: >
+          - Does the file `ticker_symbol.py` exist in the repository directory?
+
+          - If no argument is given, does the program show nothing and exit properly?
+
+          - If an empty string is given as an argument, does the program show "Unknown ticker"?
+
+          - Does the program show "Unknown ticker" when an invalid string is given as an argument (e.g., "pepe")?
+
+          - Does the program show the correct company name and stock price when a valid ticker name is given?
+
+          - Try doing the same with lowercase and uppercase letters.
+
+          - Nothing except the authorized function is used to produce the result.
+
+          - Is the output not explicitly written in the code? 
+
+        rating: "6"
+
+      - name: Exercise 04. Dictionaries
+        description: >
+          - Does the file `to_dictionary.py` exist in the repository directory?
+
+          - Does the script transform the list into a dictionary?
+
+          - Does the output conform to the expected format?
+
+          - Is the output not explicitly written in the code?
+
+          - In all other cases, the test is failed.
+
+          - Ask why the dictionary order is not necessarily identical to the example.
+
+          - The answer does not affect the validation of the exercise.
+
+        rating: "6"
+        
+      - name: Exercise 05. Search by value or by key
+        description: >
+          - Does the file `all_stocks.py` exist in the repository directory?
+
+          - If no argument is given, does the program show nothing and exit properly?
+
+          - If an invalid string is given (e.g., "pepe"), does the program show "pepe is an unknown company or an unknown ticker symbol"?
+
+          - If a valid ticker or company name is given, does the program show the correct company name or stock price ("is a ticker symbol for" or "stock price is")?
+
+          - Does the program behave correctly when given a valid ticker name, a valid company name, an invalid name, two commas in a row, or white space everywhere?
+
+          - Nothing except the authorized function is used to produce the result.
+
+          - Is the output not explicitly written in the code?
+
+        rating: "6"
+        
+      - name: Exercise 06. Sorting a dictionary
+        description: >
+          - Does the file `dict_sorter.py` exist in the repository directory?
+
+          - Does the program display the country names in the correct order by descending numbers?
+
+          - When the numbers are equal, are the country names shown in alphabetical order?
+
+          - Are the country names displayed one by one without numbers?
+
+          - If you change several country names and numbers in the dictionary, does it still show the correct output?
+
+          - Is the output not explicitly written in the code?
+
+        rating: "6"
+        
+      - name: Exercise 07. Sets
+        description: >
+          - Does the file `marketing.py` exist in the repository directory?
+
+          - Does the function `call_center` return the following: ['ted@mosby.com', 'bill_gates@live.com', 'mark@facebook.com', 'elon@paypal.com', 'jessica@gmail.com']?
+
+          - Does the function `potential_clients` return the following: ['walter@heisenberg.com', 'vasily@mail.ru', 'pinkman@yo.org', 'mr@robot.gov', and 'eleven@yahoo.com']?
+
+          - Does the function `loyalty_program` return the following: ['andrew@gmail.com', 'ted@mosby.com', 'john@snow.is', 'bill_gates@live.com', 'mark@facebook.com']?
+
+          - If the wrong name of the argument is given, is an exception raised?
+
+        rating: "6"
+        
+      - name: Exercise 08. Working with strings as lists
+        description: >
+          - Do the files `names_extractor.py` and letter_starter.py exist in the repository directory?
+
+          - Does `Names_extractor.py` create a file with the correct header and fields? Is the delimiter tab?
+
+          - Does `Letter_starter.py` create a text file with the correct person's name from the file?
+
+          - Does the script use f-strings instead of string.format()?
+
+        rating: "6"
+        
+      - name: Exercise 09. Caesar cipher
+        description: >
+          - Does the file `caesar.py` exist in the repository directory?
+
+          - Does the encoder correctly encode a given string and shift?
+
+          - Does the decoder correctly decode a given string and shift?
+
+          - Are numbers and special symbols not processed by the shift?
+
+          - Nothing except the authorized function is used to produce the result.
+
+          - When inputting strings with and without quotes, does the result still have quotes?
+
+          - When an incorrect number of arguments is given, does the program show an exception?
+
+          - Is the output not explicitly written in the code?
+
+        rating: "6"
+

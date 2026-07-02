@@ -1,0 +1,168 @@
+introduction: >
+  - The School 21 methodology can lead to high eduse caseational results only if peer-to-peer assessment is done as responsibly as possible. Please read the instruse casetions carefully before starting the check.
+
+   - Be friendly and polite. Be respectful of the other person and the work they have done. Be construse casetive when giving feedback.
+
+   - When reviewing the work, notice for yourself any incorrect or possibly controversial moments. Discuss them with the author of the solution.
+
+   - Try to be open to a different opinion or way of interpreting the task. It is possible that both your approach and the approach of another may be correct.    
+  
+   - If you haven't finished the project yourself, be sure to read it completely before reviewing it.
+
+guidelines: >
+  - Evaluate only the files that are in the GIT repository of the student or group.
+
+  -	Start reviewing a group project only when all team members are present.
+
+  -	Use the special flags in the end of the checklist, for example, "EMPTY_WORK", if the repository does not contain the student's (or group's) work in the src directory of the develop branch, or "CHEAT" in the case of plagiarism or if the student (or anyone from the group being reviewed) cannot explain their decision at any time during the review. Also, the "CHEAT" flag is applicable if the following two points are not fulfilled. If one of the flags at the end of the checklist applies, the project will be considered a failure. However, except for a case of cheating, you are encouraged to continue reviewing the project and try to work with another student to figure out the problem that led to the failed solution.  
+  
+  -	Doublecheck that the GIT repository is the one corresponding to the student or the group. 
+  
+  -	Meticulously check that nothing malicious has been used to mislead you.
+  
+  -	In controversial cases, keep in mind that the checklist only defines the general order of the review. The final decision remains with the reviewer.
+
+quick_actions:
+  - EMPTY_WORK
+  - CHEAT
+
+language: en
+comment: ""
+name: BSA13_RequirementsManagements
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Exercise 00 — Identification of Requirement Types
+        description: |-
+          Groups of requirements (by their types) that need to be tracked are written out and requirement attributes are defined for application for Task 1.
+          - Types of requirements are defined.
+            - Four types of requirements are selected:
+              - Business requirements: product goals, objectives, business rules;
+              - User (stakeholder) requirements: UC, US, business process diagrams and descriptions, DB schemas, etc.
+              - Functional system requirements (system specifications, interfaces);
+              - Non-functional system requirements (quality attributes).
+            - Each type of requirements is assigned a three-letter identifier.
+          - The requirements attributes defined for each type are.
+            - State:
+              - Date, time of creation;
+              - Date, time when the requirement was transferred to its current state;
+              - Status of the requirement;
+              - Priority of the requirement;
+              - Product version in which the requirement is contained;
+              - Patch (Sprint, Release) in which the requirement is included.
+            - Description and Rationale:
+              - A brief title of the requirement (no more than 50 characters);
+              - Description of the requirement (no more than 150 characters);
+              - Placement of the requirement materials (description, diagram, other) — reference;
+              - Method of verification or acceptance criterion;
+              - Source of requirement, superior requirement (except business requirements);
+              - Relationship of the requirement.
+            - Responsible Persons:
+              - Current executor;
+              - The decision maker of the requirement;
+              - The author of the requirement (who registered).
+          - The statuses of the requirements are defined as:
+            - New;
+            - Under analysis;
+            - In development;
+            - In testing;
+            - Included in Patch;
+            - Rejected;
+            - Postponed;
+            - Completed.
+          - A personalized instance of WEEEK (or another service) has been deployed ()
+          - The requirements listed above are created in WEEEK (or another service).
+          - Scaning of WEEEK (or another service) is performed and the scan is placed in the response.
+
+        rating: "6"
+
+      - name: Exercise 01 — Creation of Requirements and Registration
+        description: |-
+          The requirements are described in terms of the highlighted record of Тask 1. Registered in WEEEK (or another service) personal instance and specified parameters.
+          - Stakeholder requirements are described in terms of user stories and registered in service. The one highlighted by the cursor is decomposed:
+            - The manager informs the client about the service appointment;
+            - The client receiving the information about the service appointment;
+            - Interactions on the information channels;
+            - Creation of the information schedule.
+          - System functionality requirements are described and recorded in service to meet business requirements for
+            - Setting up a schedule;
+            - Automatically sending reminders.
+          - System interface requirements are described and registered in service to meet business requirements for:
+            - Set up a schedule;
+            - Automatically send reminders.
+          - Requirements are prioritized.
+          - Specify dependencies between different types of requirements in the Source attribute in service.
+          - Horizontal relationships between requirements are specified in the Relationships attribute in service.
+          - The service is scanned and placed in the response.
+
+        rating: "6"
+
+      - name: Exercise 02 — Creating a Positive Test Case
+        description: |-
+          For Task 1, positive test cases are developed for UC02.
+          - The following are specified for test cases:
+            - Alphanumeric identifier;
+            - Test short name;
+            - Priority;
+            - Precondition (if necessary)
+            - Select a manager person from the Employee entity who has the role of Manager in the Employee Role entity;
+            - Execution steps (instructions, simple and unambiguous, specifying the correct values of the required parameters when executed);
+            - Expected Result (ER);
+            - Postconditions (how to restore the state before the check);
+            - Actual Result (ER);
+            - Each case corresponds to the principle of repeatability (F.I. Repeatable S.T.);
+            - Each case corresponds to the principle of Atomicity/Independence (F.Independent.S.T.);
+            - Presented in tabular form.
+
+        rating: "6"
+
+      - name: Exercise 03 — Creating a Negative Test Case
+        description: |-
+          For Task 1, negative test cases for UC02 are developed.
+          - The following is specified for each test case
+            - Alphanumeric identifier;
+            - Test short name;
+            - Priority;
+            - Precondition, if necessary;
+            - Select a manager person from the Employee entity who has the role of Manager in the Employee Role entity;
+            - Execution steps (instructions, simple and unambiguous, specifying the correct values of the required parameters when executed);
+            - Expected Result (ER);
+            - Postconditions (how to restore the state before the check);
+            - Actual Result (ER);
+            - Each case corresponds to the principle of Repeatability (F.I. Repeatable S.T.);
+            - Each case corresponds to the principle of Atomicity/Independence (F.Independent.S.T);
+            - Presented in tabular form.
+
+
+        rating: "6"
+
+      - name: Exercise 04 — Result Evaluation
+        description: |-
+          For Task 1 UC02, the results of the positive test case are discussed.
+          - The result of the test case is determined and an issue report is created if necessary.
+          - After completing steps 1, 2:
+            - The system reports that the selected slot is booked in the system by the client. However, when contacting the client, the client denies having booked this slot.
+            - The system reports that the selected slot is not booked in the system by the client.
+          - After completing steps 1-5:
+            - The system assigns the slot to the master, the slot does not appear in the list of free slots during further work;
+            - the system does not assign the slot to a Master. This slot can also be selected from the list of free slots for further work.
+          - In case of a negative test case result:
+            - An error report is created. The following is described:
+              - Defect identifier (alphanumeric);
+              - Brief description (one sentence, "what, where, when?");
+              - *Prerequisite (if necessary);
+              - Steps to reproduce the defect (not necessarily the same as the text case steps);
+              - Expected Result (ER): the positive result of the test case that was expected after testing;
+              - Actual Result (AR): the result obtained from the execution, highlighting what makes it different from the ER;
+              - *Postconditions (how to restore the state before testing);
+              - *Environment (description of the environment: operating system, browser, screen resolution, etc.);
+              - Priority (urgency of fixing the bug);
+              - *Importance (criticality to execution);
+              - Description;
+              - Supporting documentation (screenshots, logs, documents, etc.).
+            - The AR column contains a negative result mark and the reported defect identifier.
+          - In the case of a positive test case result, the AR column contains a positive case pass mark.
+
+        rating: "6"

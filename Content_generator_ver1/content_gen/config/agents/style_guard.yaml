@@ -1,0 +1,10 @@
+name: style_guard
+version: "1.0.0"
+updated_at: "2025-01-05"
+options:
+  enforce_directives: true
+  enforce_cta: true
+  enforce_pronouns: true
+  enforce_eval_labels: true
+  auto_fix_quotes: true
+

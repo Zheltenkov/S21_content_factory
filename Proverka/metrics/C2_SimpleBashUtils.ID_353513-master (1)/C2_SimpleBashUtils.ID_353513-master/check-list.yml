@@ -1,0 +1,174 @@
+introduction: >
+  School 21 methodology only makes sense if peer-to-peer reviews are taken seriously. Please read all the guidelines carefully before starting the review.
+
+  - Please remain courteous, polite, respectful, and constructive in all communications during this review.
+
+  - Point out possible flaws in the person's work and take the time to discuss and debate them.
+
+  - Keep in mind that sometimes there may be differences in interpretation of tasks and scope of functionality. Please remain open to each other's vision.
+guidelines: >
+  - Evaluate only the files located in the src folder of the student's or group's GIT repository.
+
+  - If you have not finished the project yet, it is compulsory to read the entire instruction before starting the review. 
+
+  - Ensure to start reviewing a group project only when the team is present in full.
+
+  - Use special flags in the checklist to report, for example, "empty work" if the repository does not contain the student's (or group's) work in the src folder of the develop branch, or "cheat" in the case of cheating, or if the student (or group) is unable to explain their work at any time during the review, or if any of the items below are not met. However, except in cases of cheating, you are encouraged to continue reviewing the project to identify the problems that caused the situation so that they can be avoided in the next review.
+
+  - Double check that the GIT repository is the one corresponding to the student or group.
+
+  - Carefully check that nothing malicious has been used to fool you.
+
+  - In controversial cases, remember that the checklist determines only the general order of the check. The final decision on project evaluation remains with the reviewer.
+  
+  - Check whether the feedback form is filled or not (https://new.oprosso.net/p/4cb31ec3f47a4596bc758ea1861fb624).
+
+quick_actions:
+  - EMPTY_WORK
+  - INVALID_COMPILATION
+  - CODE_STYLE
+  - LEAKS
+  - CRASH
+  - CHEAT
+  - FORBIDDEN_FUNCTION
+language: en
+name: C3
+comment: ""
+sections:
+
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Part_1.CAT
+        description: >
+          - The cat program builds successfully.
+
+          - Tests run successfully.
+
+          - Tests include all variants of flags (including GNU versions) and input values to them.
+
+          - The program is developed in C language of C11 standard using gcc compiler.
+
+          - The code of the program is in the src folder.
+
+          - The program is built with Makefile with target s21_cat.
+
+          - The program works.
+
+          - The program is developed according to the principles of structured programming: the program is decomposed into files and functions, top-down design is used. Business logic and io-tasks are separated into different functions.
+
+          - There is no code duplication.
+
+          - There is one input and one output in all program structures (functions and loops). This excludes the cases when multiple outputs are allowed at the beginning of functions to handle erroneous situations.
+
+          - No goto statement is used.
+
+          - Integration tests fully cover the programs comparing the results of the developed programs with the standard ones provided by OS.
+
+          - The common code of the utilities is placed in a special module that is used by all programs.
+
+          - The code is decomposed.
+
+          - The program supports both calls with and without flags.
+
+        rating: "6"
+      - name: Part_2.GREP
+        description: >
+          - The grep program builds successfully.
+
+          - Tests run successfully.
+
+          - Tests include all following variants of flags and input values to them: -e, -i, -v, -c, -l, -n.
+
+          - The program is developed in C language of C11 standard using gcc compiler.
+
+          - The code of the program is in the src folder.
+
+          - The program is built with Makefile with target s21_grep.
+
+          - The program works.
+
+          - The program is developed according to the principles of structured programming: the program is decomposed into files and functions, top-down design is used. Business logic and io-tasks are separated into different functions.
+
+          - There is no code duplication.
+
+          - There is one input and one output in all program structures (functions and loops). This excludes the cases when multiple outputs are allowed at the beginning of functions to handle erroneous situations.
+
+          - No goto statement is used.
+
+          - Integration tests fully cover the programs comparing the results of the developed programs with the standard ones provided by OS.
+
+          - The common code of the utilities is placed in a special module that is used by all programs.
+
+          - The code is decomposed.
+
+          - The program supports both calls with and without flags.
+
+        rating: "6"
+  - kind: "2"
+    name: Bonus part
+    description: ""
+    questions:
+      - name: Part_3.GREP
+        description: >
+          - The grep program builds successfully.
+
+          - Tests run successfully.
+
+          - Tests include all variants of flags and input values to them: -h, -s, -f, -o.
+
+          - The program is developed in C language of C11 standard using gcc compiler.
+
+          - The code of the program is in the src folder.
+
+          - The program is built with Makefile with target s21_grep.
+
+          - The program works.
+
+          - The program is developed according to the principles of structured programming: the program is decomposed into files and functions, top-down design is used.
+
+          - There is no code duplication.
+
+          - There is one input and one output in all program structures (functions and loops). This excludes the cases when multiple outputs are allowed at the beginning of functions to handle erroneous situations.
+
+          - No goto statement is used.
+
+          - Integration tests fully cover the programs comparing the results of the developed programs with the standard ones provided by OS.
+
+          - The common code of the utilities is placed in a special module that is used by all programs.
+
+          - The code is decomposed.
+
+        rating: "6"
+      - name: Part_4.GREP
+        description: >
+          - The grep program builds successfully.
+
+          - Tests run successfully.
+
+          - Tests include all variants of flags, their pair combinations and input values to them.
+
+          - The program is developed in C language of C11 standard using gcc compiler.
+
+          - The code of the program is in the src folder.
+
+          - The program is built with Makefile with target s21_grep.
+
+          - The program works.
+
+          - The program is developed according to the principles of structured programming: the program is decomposed into files and functions, top-down design is used.
+
+          - There is no code duplication.
+
+          - There is one input and one output in all program structures (functions and loops). This excludes the cases when multiple outputs are allowed at the beginning of functions to handle erroneous situations.
+
+          - No goto statement is used.
+
+          - Integration tests fully cover the programs comparing the results of the developed programs with the standard ones provided by OS.
+
+          - The common code of the utilities is placed in a special module that is used by all programs.
+
+          - The code is decomposed.
+
+        rating: "6"

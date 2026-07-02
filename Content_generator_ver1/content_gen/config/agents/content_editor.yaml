@@ -1,0 +1,20 @@
+name: content_editor
+version: "1.0.0"
+updated_at: "2025-01-05"
+llm:
+  temperature: 0.15
+  max_tokens: 5000
+prompts:
+  system:
+    type: file
+    path: content_gen/prompts/content_editor/system.md
+  edit_template:
+    type: file
+    path: content_gen/prompts/content_editor/edit_template.md
+  coherence_template:
+    type: file
+    path: content_gen/prompts/content_editor/coherence_template.md
+options:
+  bridge_max_sentences: 3
+  allow_table_cleanup: true
+

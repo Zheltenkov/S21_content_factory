@@ -1,0 +1,133 @@
+introduction: >-
+  - The methodology of "School 21" can lead to high educational outcomes only if peer-to-peer assessment is conducted with the utmost responsibility. This document is designed to help you with that.
+  
+  - Be kind and polite. Treat others and their work with respect. When providing feedback, be constructive.
+  
+  - While reviewing someone else's work, take note of ambiguous or potentially incorrect points. Discuss them with the author of the solution—perhaps you are the one who is mistaken.
+  
+  - Strive to remain open to different perspectives or ways of interpreting the task. It's possible that both your approach and the other person's approach are equally valid.
+guidelines: >
+  - Only the files that a student or a group has uploaded to the GIT repository are subject to evaluation.
+  
+  - Make sure you haven't mixed anything up and that the repository belongs to the student or group you are reviewing.
+  
+  - If you haven't yet completed the assignment yourself, be sure to reread it before starting the review.
+  
+  - Below, you will find special tags for different cases: missing solution, non-working solution, and plagiarism. In these cases, the participant receives 0 points. If plagiarism is not detected, we still encourage you to continue the review and try to identify the issue together with the student whose solution is not working.
+  
+  - Do not stop the review after encountering the first incorrectly completed exercise if the rest are done correctly.
+
+quick_actions:  
+  - EMPTY_WORK
+  - CHEATING
+  - FORBIDDEN_FUNCTION
+  - INVALID_COMPILATION
+language: en
+comment: ""
+name: AP1_Go. Project 01
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: "Task 1. Console Calculator"
+        description: |-
+          - The program reads the left operand.
+          - The program reads the operation.
+          - The program reads the right operand.
+          - The program performs the required operation and prints the result to the console.
+          - The following operations are supported: addition, subtraction, multiplication, division.
+          - Division precision — 3 decimal places.
+          - Before entering each operand and the operation, the program displays a prompt to the
+          user.
+          - Operands and operation are entered in the console by pressing Enter.
+          - Operands are of type float64.
+          - When invalid data is entered, the program prints the error message (Invalid input) to
+          stdout and prompts the user to re-enter the data.
+          - Test case 1
+
+              > \>Enter left 
+              >
+              > 3
+
+              > \>Enter operation
+              >
+              > \+
+
+              > \>Enter right operand
+              >
+              > 8.15
+
+              > \>Result:
+              >
+              > \>11.15
+
+          - Test case 2
+
+              > \>Enter left operand
+              >
+              >  3
+
+              > \>Enter operation
+              >
+              > mod
+              > \>Invalid input
+
+              > \>Enter operation
+              >
+              > \+
+
+              > >Enter right operand
+              >
+              > 8.15
+
+              > \>Result:
+              >
+              > 11.15
+
+        rating: "6"
+
+      - name: "Task 2. Most Frequent Words"
+        description: |-
+          - The program reads a string of words.
+          - The program reads a number K, which limits the number of words.
+          - The program determines how many times each word appears in the string.
+          - The program sorts the resulting array in descending order and returns the first K words.
+          - Words are separated by spaces.
+          - If the number of words is less than K, the program outputs a list of all unique
+          words, sorted by their frequency.
+          - If an empty string is entered, the result should also be an empty string.
+          - If multiple words have the same frequency, they must be sorted lexicographically.
+          - Running the go test command launches tests for the following scenarios:
+              - Behavior with K smaller than the number of unique words
+              - Passing an empty list of words
+              - Passing a list of words where K exceeds the number of unique words
+        rating: "6"
+
+      - name: "Task 3. Slice Intersection"
+        description: |-
+          - The program reads the first list of numbers from the console, separated by spaces; input ends with Enter.
+          - The program reads the second list of numbers from the console, separated by spaces; input ends with Enter.
+          - The program works only with numbers of type int.
+          - The program finds the intersection of the two lists and returns it in ascending order.
+          - Example
+            - Input
+              > 5 3 4 2 1 6 \
+              > 6 4 2 4
+            - Output
+              > 4 2 6
+          - If the intersection is empty, the program prints: Empty intersection
+          - If the list contains values that are not of type int, the program prints the error: Invalid input and terminates.
+        rating: "6"
+
+      - name: "Task 4. Visit Log"
+        description: |- 
+          - The program runs in an interactive console mode, waiting for command input.
+          - The program reads the Save operation, after which it stores the visitor's full name, the doctor's specialization they visited, and the visit date into the log. Each parameter is separated by pressing Enter.
+          - The program reads the GetHistory operation, which allows viewing the patient's hospital visit history. It takes the patient's full name and returns a list of pairs — doctor specialization and visit date. Parameters are separated by pressing Enter.
+          - The program reads the GetLastVisit operation, which allows retrieving the patient's last visit to a specific specialist. It takes the patient's full name and the doctor's specialization, and returns the last visit date. Parameters are separated by pressing Enter.
+          - If the patient is not found, the program returns an error of type PatientNotFoundError with the message: patient not found.
+          - The program does not support long-term storage; when restarted, all data is lost.
+          - The program terminates after exiting interactive mode in the console.
+
+        rating: "6"

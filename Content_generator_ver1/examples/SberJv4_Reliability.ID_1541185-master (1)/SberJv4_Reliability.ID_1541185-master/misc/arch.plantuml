@@ -1,0 +1,18 @@
+@startuml
+
+package adapter {
+    class GameGateway
+    class RecommendationGateway
+}
+package web.mapper #9D9D9D {
+    interface GameMapper
+}
+package web.controller {
+    class GamesController
+}
+
+GamesController       *--> GameGateway
+GamesController       *.> GameMapper
+GamesController       *--> RecommendationGateway
+
+@enduml

@@ -1,0 +1,102 @@
+introduction: >
+  School 21ning metodologiyasi, faqatgina o‘zaro bir-biringizni to‘g‘ri baholay olsangizgina katta samaraga ega bo‘lasiz. Baholashni boshlashdan oldin barcha ko‘rsatmalarni diqqat bilan o‘qib chiq.
+
+  - Iltimos, baholash davomidagi barcha muloqotlarda xushmuomala, muloyim, odobli va konstruktiv (ijobiy yondashuvda) bo‘l.
+
+  - Shaxs tomonidan bajarilgan ishning kamchiliklarini ta’kidlab o‘t va uni muhokama, munozara qilish uchun vaqt ajrat.
+  
+  - Shuni yodda tut, ba’zida vazifalarni talqin qilishda va xususiyatlar ko‘lamida farqlar bo‘lishi mumkin. Iltimos, boshqalarning qarashlarini to‘g‘ri qabul qil.
+
+  - Agar sen hali loyihani tugatmagan bo‘lsang, baholashni boshlashdan oldin ko‘rsatmalarni to‘liq o‘qib chiqishing shart.
+
+guidelines: >
+  - Faqat talaba yoki jamoaning GIT omboridagi src papkasidagi fayllarni baholang.
+
+  - Jamoa loyihasini ko'rib chiqishni faqat jamoa to'liq tarkibda ishtirok etganda boshlashni ta'minlang.
+
+  - Quyidagilar haqida xabar berish uchun nazorat roʻyxatidagi maxsus bayroqchalardan foydalaning, masalan, agar omborda develop tarmog’ining src papkasida talaba (yoki jamoa)ning ishi boʻlmasa, “boʻsh loyiha” yoki ko’chirilgan taqdirda yoki agar talaba (yoki jamoa) ko'rib chiqish paytida istalgan vaqtda o'z ishini tushuntira olmasa, shuningdek, quyidagi bandlardan biri bajarilmasa, “ko’chirilgan”. Biroq, ko’chirish holatlaridan tashqari, keyingi ko'rib chiqishda ularning oldini olish uchun vaziyatni keltirib chiqargan muammolarni aniqlash uchun loyihani ko'rib chiqishni davom ettirish tavsiya etiladi.
+
+  - GIT ombori talaba yoki jamoa omboriga mos kelishini ikki marta tekshiring.
+
+  - Sizni chalg’itish uchun hech qanday zararli narsa ishlatilmaganligini diqqat bilan tekshiring.
+
+  - Bahsli holatlarda, nazorat ro'yxati faqat tekshirishning umumiy tartibini belgilashini unutmang. Loyihani baholash bo'yicha yakuniy qaror tekshiruvchida qoladi.mbordagi develop tamog‘ining src papkasida ishtirokchi (yoki jamoa) ishi bo‘lmasa - "bo‘sh loyiha" yoki loyiha ko‘chirilgan taqdirda yoki agar ishtirokchi (yoki jamoa) tekshiruv paytida o‘z ishini tushuntirib bera olmasa "Ko‘chirilgan", shuningdek, quyidagi bandlardan biri bajarilmagan bo‘lsa, hisobot berish uchun nazorat ro‘yxatidagi maxsus nomli bayroqlardan foydalan. Muammollarni keltirib chiqargan sabablarni aniqlash va keyingi tekshiruvlarda ularni oldini olish maqasadida loyihani ko‘rib chiqishni davom ettirish tavsiya etiladi,  faqat ko‘chirish holatlardan tashqari.
+
+quick_actions:
+  - EMPTY_WORK
+  - INVALID_COMPILATION
+  - CODE_STYLE
+  - LEAKS
+  - CRASH
+  - CHEATING
+  - FORBIDDEN_FUNCTION
+language: uz
+comment: ""
+name: C. Day 06
+sections:
+  - kind: "1"
+    name: Asosiy qism
+    description: ""
+    questions:
+      - name: 1-qism. Kod.
+        description: >-
+          - Dastur kodi dekompozitsiyalangan, funksiyalar ajratilgan, “grafika” (“holat”ga qarab) va o‘yin mantig‘i alohida qayta ishlangan.
+
+          - Kodning takrorlanuvchi qismlari yo'q, hammasi funksiyalarga ajratilgan.
+
+          - Har bir funksiyadan faqat bitta chiqish nuqtasi mavjud.
+
+          - Har bir sikldan faqat bitta chiqish nuqtasi mavjud (yoki sikl sarlavhasi orqali yoki break operatori yordamida).
+
+          - Funksiyalar “qatlamlar”ga ajratilgan: “hisoblash” funksiyalari kiritish/chiqarish funksiyalarini bajarmaydi va aksincha.
+
+          - Dinamik xotira ishlatilmagan
+
+          - Massivlar ishlatilmaydi
+
+          - Dasturning boshlang’ich kodi ClangFormat yordamida uslubga moslik uchun tekshirilgan
+
+          - Dasturning boshlang’ich kodi cppcheck yordamida statik tahlil uchun tekshirilgan
+        rating: '6'
+      - name: 2-qism. Ishlayapti!
+        description: >-
+          - src/pong.c faylini yaratish gcc kompilyatori yordamida xatosiz yakunlangan.
+
+          - Dastur boshlanadi.
+
+          - Dastur ishlaydi.
+
+          - O'yinda belgilarga asoslangan grafiklardan foydalanilgan.
+
+          - Ekranda (har qanday belgilar yordamida) “raketkalar” (uzunligi 3 belgi), “to‘p” (1 belgi) va o‘yin natijasi ko‘rsatiladi.
+
+          - a-z va k-m tugmalari mos keladigan raketkalarning harakatini vertikal ravishda boshqaradi va bo'sh joy (probel) tugmachasi (agar bosqichma-bosqich rejimi ishlatilsa) harakatni o'tkazib yuboradi.
+
+          - "To'p" o'yin maydoni ichida avtomatik yoki bosqichma-bosqich rejimda harakatlanishi mumkin.
+        rating: '6'
+      - name: 3-qism. Bu zo’r ishlayapti!
+        description: >-
+          - Raketka harakatlanayotganda o'yin maydoni chegarasidan tashqariga chiqmaydi.
+
+          - To‘p harakatlanayotganda o‘yin maydoni chegarasidan tashqariga chiqmaydi.
+
+          - O'yin to'pning raketkaning butun yuzasi bilan aloqasini to'g'ri boshqaradi.
+
+          - “To‘p” o‘zini shartli ravishda mukammal elastik to‘qnashuv qonuniga ko‘ra tutadi va “raketkalar” va yuqori va pastki devorlardan sakrab tushadi (zarba burchagi urilib qaytish burchagiga teng).
+
+          - “To‘p” maydonning chap yoki o‘ng chegarasiga o‘tganda hisob “urgan” muallif foydasiga 1 ga o‘zgaradi.
+
+          - Hisob 21 ga yetganda, o'yinchilardan biri g'olib deb e'lon qilinadi va o'yin tugaydi.
+        rating: '6'
+  - kind: "2"
+    name: Bonusli qism
+    description: ""
+    questions:
+      - name: 4-qism*. Bonus
+        description: >
+          - src/pong_interactive.c faylini yaratish gcc kompilyatori yordamida xatosiz yakunlandi.
+
+          - Dastur boshlanadi.
+
+          - Interaktiv rejim bosqichma-bosqich rejim sifatida ishlaydi.
+        rating: '5'  

@@ -1,0 +1,173 @@
+introduction: >
+  School 21 methodology only makes sense if peer-to-peer reviews are taken seriously. Please read all the guidelines carefully before starting the review.
+
+  - Please remain courteous, polite, respectful, and constructive in all communications during this review.
+
+  - Point out possible flaws in the person's work and take the time to discuss and debate them.
+
+  - Keep in mind that sometimes there may be differences in interpretation of tasks and scope of functionality. Please remain open to each other's vision.
+guidelines: >
+  - Evaluate only the files located in the src folder of the student's or group's GIT repository.
+
+  - If you have not finished the project yet, it is compulsory to read the entire instruction before starting the review. 
+
+  - Ensure to start reviewing a group project only when the team is present in full.
+
+  - Use special flags in the checklist to report, for example, "empty work" if the repository does not contain the student's (or group's) work in the src folder of the develop branch, or "cheat" in the case of cheating, or if the student (or group) is unable to explain their work at any time during the review, or if any of the items below are not met. However, except in cases of cheating, you are encouraged to continue reviewing the project to identify the problems that caused the situation so that they can be avoided in the next review.
+
+  - Double check that the GIT repository is the one corresponding to the student or group.
+
+  - Carefully check that nothing malicious has been used to fool you.
+
+  - In controversial cases, remember that the checklist determines only the general order of the check. The final decision on project evaluation remains with the reviewer.
+
+  - Check whether the feedback form is filled or not (https://new.oprosso.net/p/4cb31ec3f47a4596bc758ea1861fb624).
+
+quick_actions:
+  - EMPTY_WORK
+  - INVALID_COMPILATION
+  - CODE_STYLE
+  - LEAKS
+  - CRASH
+  - CHEAT
+  - FORBIDDEN_FUNCTION
+language: en
+name: A1
+comment: ""
+sections:
+
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Maze
+        description: >
+          - The program is developed in Java language.
+
+          - The code of the program is in the src folder.
+
+          - The program is built using Makefile with standard set of targets for GNU-programs: all, install, uninstall, clean,  dvi, dist, tests.
+
+          - Executing the "all" target leads to the correct build of the program.
+
+          - Executing the "install" target results in installing the program to some other directory.
+
+          - Executing the "uninstall" target uninstalls the program from the installation directory.
+
+          - There is no code duplication.
+
+          - Correct exception throwing is applied to the methods that imply possible errors (wrong input/output format, non-existent files, wrong size of maze and so on).
+
+          - No goto statement is used.
+
+          - The program has a graphical user interface.
+
+          - The GUI contains a button for selecting a description file and a field for displaying its name.
+
+          - The program provides the ability to load mazes from files in which they are described in the form specified in the task.
+
+          - The GUI contains a visualisation area for the maze.
+
+          - Once loaded from a file, the maze is rendered on the screen.
+
+          - The rendered maze corresponds to the description in the file.
+
+          - The rendered maze occupies the entire field allotted for rendering (check on different maze dimensions, e.g. 2 by 2, 10 by 15, 40 by 5).
+
+          - When files with maze descriptions presented in the materials are loaded into the program, the rendered mazes correspond to those in the examples.
+
+          - The program correctly displays a maze with no walls except the outer ones.
+
+          - The program correctly displays a maze completely filled with walls.
+
+          - The program correctly displays the maze with dimensions 1 by 1.
+
+          - The program correctly displays the maze with dimensions 50 by 50.
+        rating: "6"
+      - name: Generating the perfect maze
+        description: >
+          - The program allows generating the maze of a given dimension according to Eller's algorithm.
+
+          - The generated maze does not have loops and isolations.
+
+          - The generated maze is saved in the file format described in the task.
+
+          - The generated maze is rendered on the screen as in the first part.
+
+          - The program correctly generates the maze with dimensions 1 by 1.
+
+          - The program correctly generates the maze with dimensions 50 by 50.
+
+          - The program correctly generates "rectangular" mazes (e.g. 10 by 5, 19 by 20).
+
+        rating: "6"
+      - name: Solving the maze
+        description: >
+          - The program allows the user to set the starting and ending points in the maze.
+
+          - The program allows displaying the solution of the rendered maze with given starting and ending points.
+
+          - The solution is displayed as a line passing through the middle of the cells through which the solution runs.
+
+          - The color of the solution line is different from the color of the maze walls.
+
+          - The solution line does not cross the walls of the maze.
+
+          - If there are loops in the maze, the solution goes by the shortest route.
+
+          - If there are isolations, the program correctly handles the inability to find a solution (e.g., an error message).
+
+          - The program correctly handles the situation when the starting and ending points are the same.
+
+        rating: "6"
+  - kind: "2"
+    name: Bonus part
+    description: ""
+    questions:
+      - name: Cave generation
+        description: >
+          - The program allows the user to specify the file in which the initial cave is described.
+
+          - The situation when the file does not exist or the data in it is described in an invalid format is handled correctly.
+
+          - The program allows the user to set the limits of "birth" and "death" of a cell, as well as the chance for the starting initialization of the cell.
+
+          - The program allows generating mazes using a cellular automaton.
+
+          - When rendering each next step, the walls are "grouped", leaving fewer single walls / empty cells.
+
+          - The program allows displaying all subsequent steps up to the end state with the frequency of 1 step in 0.25 seconds.
+
+          - At some point, when rendering the next step, the maze stops changing.
+
+          - When the maze stops changing, there are no more cells on the field satisfying the "birth" or "death" condition (check on a few random cells).
+        rating: "6"
+      
+      - name: Reinforcement learning
+        description: >
+          - The program allows the user to specify the file in which a maze is described and to set the ending point in it.
+
+          - Q-learning method is implemented to train the agent on the selected maze configuration.
+
+          - During agent training, maze borders and walls are correctly handled (e.g. agent is not allowed to move through walls).
+
+          - Training algorithm converges for any valid maze.
+
+          - The same maze configuration is used for both agent training and testing.
+
+          - Trained agent is capable of solving the maze from arbitrary valid starting point including the case when starting and ending points are the same.
+
+          - Trained agent's solutions always represent shortest routes.
+
+          - The program allows user to repeatedly select the starting point and displays the route produced by agent for given starting point.
+
+          - Java language was used for the program development without the use of off-the-shelf reinforcement learning libraries.
+
+        rating: "6"
+      - name: Web GUI
+        description: >
+          - Web GUI (SPA or MPA) is implemented for the program using appropriate frameworks.
+          
+          - All basic functionality from Part 1 — Part 3 works as described above.
+
+        rating: "6"

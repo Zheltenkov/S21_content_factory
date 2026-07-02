@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ТЗ · ИИ-рефакторинг образовательного контента Школы 21</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --page:#f6f5f1; --surface:#ffffff; --surface-2:#faf9f6; --muted:#efeee8;
+    --border:#e4e2da; --border-strong:#d6d4ca;
+    --ink:#16191f; --ink-2:#3b3f47; --text-muted:#6c707a;
+    --accent:#0f6b4f; --accent-soft:#e6f2ec; --accent-line:#9ecdb6;
+    --crit:#b23b32; --crit-soft:#fbe9e6;
+    --major:#a86a13; --major-soft:#fbf0d9;
+    --minor:#2a5d8f; --minor-soft:#e9f1f8;
+    --info:#5c6068; --info-soft:#eeeeea;
+    --radius:14px; --shadow:0 18px 44px rgba(20,22,28,.08);
+    --serif:"Fraunces",Charter,Cambria,Georgia,serif;
+    --sans:"IBM Plex Sans",ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased}
+  .page{max-width:1040px;margin:0 auto;padding:34px 26px 72px}
+  a{color:var(--accent);text-underline-offset:3px;text-decoration-thickness:1px}
+
+  .hero{padding:42px 40px;background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .hero:before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:linear-gradient(90deg,var(--accent),#3f9c79 60%,var(--minor))}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;margin-bottom:18px;padding:6px 13px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  h1{font-family:var(--serif);font-weight:600;font-size:40px;line-height:1.08;margin:0;letter-spacing:-.01em;max-width:20ch}
+  .lead{margin:18px 0 0;max-width:74ch;color:var(--ink-2);font-size:18.5px;line-height:1.6}
+
+  .passport{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin-top:28px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .passport div{background:var(--surface);padding:13px 15px}
+  .passport span{display:block;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+  .passport strong{display:block;margin-top:3px;font-size:15px;font-weight:600}
+
+  nav.toc{margin-top:26px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  nav.toc a{display:block;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface);text-decoration:none;color:var(--ink);transition:.18s}
+  nav.toc a:hover{border-color:var(--accent-line);box-shadow:0 8px 20px rgba(20,22,28,.05);transform:translateY(-1px)}
+  nav.toc b{display:block;font-size:14.5px}
+  nav.toc small{display:block;margin-top:3px;color:var(--text-muted);font-size:12.5px}
+
+  section.s{margin-top:16px;padding:30px 30px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+  h2{font-family:var(--serif);font-weight:600;font-size:25px;letter-spacing:-.01em;margin:0;display:flex;align-items:baseline;gap:12px}
+  h2 .n{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:500;background:var(--accent-soft);padding:3px 9px;border-radius:7px;letter-spacing:0}
+  h3{font-size:16px;font-weight:700;margin:24px 0 0}
+  p{margin:11px 0 0;color:var(--ink-2)}
+  ul,ol{margin:12px 0 0;padding-left:22px;color:var(--ink-2)}
+  li+li{margin-top:7px}
+  strong{color:var(--ink)}
+  code{font-family:var(--mono);font-size:.9em;background:var(--muted);padding:2px 6px;border-radius:6px;color:var(--ink)}
+
+  table{width:100%;margin-top:18px;border-collapse:collapse;border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:14.5px}
+  th,td{padding:12px 14px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+  th{background:var(--surface-2);font-weight:600;font-size:13px;letter-spacing:.02em;color:var(--ink-2)}
+  tr:last-child td{border-bottom:0}
+  td .mono{font-family:var(--mono);font-size:13px}
+
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:700;white-space:nowrap}
+  .pill.crit{background:var(--crit-soft);color:var(--crit)}
+  .pill.major{background:var(--major-soft);color:var(--major)}
+  .pill.minor{background:var(--minor-soft);color:var(--minor)}
+  .pill.info{background:var(--info-soft);color:var(--info)}
+  .pill.tag{background:var(--accent-soft);color:var(--accent)}
+
+  .callout{margin-top:18px;padding:16px 18px 16px 18px;border:1px solid var(--border);border-left:4px solid var(--border-strong);border-radius:10px;background:var(--surface-2)}
+  .callout.good{border-left-color:var(--accent);background:var(--accent-soft)}
+  .callout.warn{border-left-color:var(--major);background:var(--major-soft)}
+  .callout b{color:var(--ink)}
+  .callout p{margin-top:6px}
+  .callout p:first-child{margin-top:0}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+  .card{padding:18px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)}
+  .card h4{margin:0 0 4px;font-size:14.5px}
+  .card p{margin-top:4px;font-size:14px}
+  .card .pill{margin-bottom:8px}
+
+  .flow{margin-top:18px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);padding:10px;overflow-x:auto}
+  .flow svg{display:block;min-width:880px;width:100%;height:auto}
+  .fbox{fill:#fff;stroke:var(--border-strong);stroke-width:1.4}
+  .fbox.acc{fill:var(--accent-soft);stroke:var(--accent-line)}
+  .fbox.out{fill:#f2efe7;stroke:#ddd9cd}
+  .ft{font-family:var(--sans);font-size:13.5px;font-weight:600;fill:var(--ink)}
+  .fs{font-family:var(--sans);font-size:11.5px;fill:var(--text-muted)}
+  .farr{stroke:var(--ink);stroke-width:1.6;fill:none;marker-end:url(#ar)}
+  .farr.acc{stroke:var(--accent);marker-end:url(#arg)}
+
+  .footer{margin-top:30px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;color:var(--text-muted);font-size:13.5px}
+  .nextlink{display:inline-flex;align-items:center;gap:9px;padding:11px 18px;border-radius:11px;background:var(--ink);color:#fff;text-decoration:none;font-weight:600;font-size:14px}
+  .nextlink:hover{background:#000}
+
+  @media(max-width:820px){
+    .page{padding:18px 13px 48px}
+    .hero{padding:26px 20px}
+    h1{font-size:30px}
+    .passport,nav.toc,.grid2{grid-template-columns:1fr 1fr}
+    table{display:block;overflow-x:auto}
+  }
+  @media(max-width:540px){ .passport,nav.toc,.grid2{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <header class="hero">
+    <div class="eyebrow"><span class="dot"></span>Техническое задание · v1.0 · черновик к согласованию</div>
+    <h1>ИИ-рефакторинг образовательного контента Школы&nbsp;21</h1>
+    <p class="lead">Инструмент, который автоматически находит устаревший и неактуальный контент в учебных материалах, оценивает критичность каждого случая и предлагает замену. На старте — самостоятельный сервис, прогоняющий контент по запросу; встраивание в Content&nbsp;Generator и автообновление — только после обкатки и подтверждённого качества.</p>
+
+    <div class="passport">
+      <div><span>Продукт</span><strong>AI Content Audit</strong></div>
+      <div><span>Заказчик</span><strong>CPO / Методология</strong></div>
+      <div><span>Тип</span><strong>Внутренний инструмент</strong></div>
+      <div><span>Статус</span><strong>На согласовании</strong></div>
+    </div>
+
+    <nav class="toc" aria-label="Оглавление">
+      <a href="#ctx"><b>1 · Контекст и проблема</b><small>зачем это нужно</small></a>
+      <a href="#goal"><b>2 · Цель и образ результата</b><small>что хочет заказчик</small></a>
+      <a href="#terms"><b>3 · Термины</b><small>ветка, единица, кейс</small></a>
+      <a href="#scope"><b>4 · Границы</b><small>что входит и что нет</small></a>
+      <a href="#flow"><b>5 · Как работает</b><small>конвейер проверки</small></a>
+      <a href="#func"><b>6 · Функциональные требования</b><small>F1–F8</small></a>
+      <a href="#result"><b>7 · Таблица результата</b><small>колонки и пример</small></a>
+      <a href="#sev"><b>8 · Шкала критичности</b><small>Crit / Major / Minor</small></a>
+      <a href="#nfr"><b>9 · Нефункциональные</b><small>наблюдаемость, стоимость</small></a>
+      <a href="#accept"><b>10 · Приёмка и качество</b><small>как проверяем</small></a>
+      <a href="#risks"><b>11 · Риски и развитие</b><small>автообновление потом</small></a>
+      <a href="#open"><b>12 · Решения и вопросы</b><small>к разработчику</small></a>
+    </nav>
+  </header>
+
+  <section class="s" id="ctx">
+    <h2><span class="n">01</span>Контекст и проблема</h2>
+    <p>В учебных материалах накопился большой объём контента, часть которого устарела: неработающие или неактуальные ссылки, упоминания старых версий технологий и инструментов, потерявшие актуальность даты и факты. По этому регулярно приходит фидбэк от студентов и кураторов. Проверять вручную — долгая и неблагодарная работа, которую невозможно держать в актуальном состоянии при таком объёме.</p>
+    <p>Аналогичную задачу заказчик уже решал ранее: контент прогонялся через ИИ, который сначала извлекал всё, что подлежит проверке (ссылки, даты, версии), а затем сверял извлечённое с внешними источниками. Этот ТЗ переносит и развивает подход для контента Школы&nbsp;21 в виде управляемого инструмента с прозрачным результатом.</p>
+    <div class="callout">
+      <p><b>Две операции инструмента.</b> <span class="pill tag">Фактчекинг</span> — подтверждаются ли факты (запускается при релизе контента, в перспективе автоматически). <span class="pill tag">Проверка актуальности</span> — что устарело и где самые большие проблемы (запускается по расписанию, ориентировочно раз в квартал, или по запросу).</p>
+    </div>
+  </section>
+
+  <section class="s" id="goal">
+    <h2><span class="n">02</span>Цель и образ результата</h2>
+    <p><strong>Цель.</strong> Понять, какой контент неактуален и где самые большие проблемы, чтобы осознанно решить — забрать в переделку или закрыть конкретные пробелы. Без ручного перебора.</p>
+    <h3>Образ результата (со стороны заказчика)</h3>
+    <ol>
+      <li>Я знаю, <strong>сколько единиц контента</strong> содержат неактуальный контент и <strong>сколько случаев неактуальности</strong> в каждой из них.</li>
+      <li>Я могу увидеть срез <strong>до единицы контента</strong> и <strong>до ветки</strong>.</li>
+      <li>У меня есть <strong>таблица результата</strong> (см. раздел&nbsp;7) с цитатой, оценкой критичности от ИИ и рекомендацией по замене — с учётом общего контекста.</li>
+      <li>В перспективе, после обкатки, — <strong>автообновление</strong> контента, когда подтвердим, что ИИ хорошо детектит и заменяет.</li>
+    </ol>
+  </section>
+
+  <section class="s" id="terms">
+    <h2><span class="n">03</span>Термины</h2>
+    <table>
+      <thead><tr><th style="width:26%">Термин</th><th>Значение</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Ветка</strong></td><td>Логическая группировка единиц контента (направление / трек / раздел программы).</td></tr>
+        <tr><td><strong>Единица контента</strong></td><td>Минимальный проверяемый объект (например, один README / урок / проект) с уникальным идентификатором.</td></tr>
+        <tr><td><strong>Кейс неактуальности</strong></td><td>Один найденный фрагмент, вызывающий сомнение: устаревшая ссылка, версия, дата или факт. В одной единице может быть несколько кейсов.</td></tr>
+        <tr><td><strong>Критичность</strong></td><td>Оценка ИИ, насколько кейс важен (см. раздел&nbsp;8).</td></tr>
+        <tr><td><strong>Прогон</strong></td><td>Единичный запуск инструмента по выбранному набору единиц / веток.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="s" id="scope">
+    <h2><span class="n">04</span>Границы работ</h2>
+    <div class="grid2">
+      <div class="card">
+        <span class="pill tag">Входит</span>
+        <h4>В первой версии делаем</h4>
+        <ul>
+          <li>Импорт контента из <strong>Markdown/README-выгрузки</strong>.</li>
+          <li>Детект: <strong>ссылки</strong>, <strong>версии и технологии</strong>, <strong>даты и факты</strong>.</li>
+          <li>Сверка с внешними источниками и оценка критичности.</li>
+          <li>Рекомендации по замене с учётом контекста.</li>
+          <li>Витрина результата + экспорт таблицы.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="pill major">Не входит на старте</span>
+        <h4>Сознательно откладываем</h4>
+        <ul>
+          <li><strong>Не встраиваем в Content&nbsp;Generator</strong> — инструмент живёт отдельно до обкатки.</li>
+          <li><strong>Не правим контент автоматически</strong> — только рекомендации. Автозамена/автообновление — позже.</li>
+          <li>Не переписываем админку и не меняем процесс публикации.</li>
+          <li>Не делаем многоязычную проверку на старте (основной язык — русский).</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout warn">
+      <p><b>Принцип внедрения.</b> Сначала — работающий прототип на выгрузке, затем доводка качества на эталонной выборке, и только в конце пути, при подтверждённом качестве, — обсуждение встраивания в общий пайплайн и автообновления.</p>
+    </div>
+  </section>
+
+  <section class="s" id="flow">
+    <h2><span class="n">05</span>Как работает: конвейер проверки</h2>
+    <p>Логика общая: агент-извлекатель выписывает из контента всё, что подлежит проверке (даты, версии библиотек, ссылки) вместе с контекстом. Дальше проверка идёт <strong>по маршрутам в зависимости от типа</strong> — это нужно, чтобы не гонять весь контент через дорогую Perplexity. После этого ИИ оценивает критичность и предлагает замену. Схема ниже обобщённая; конкретное распределение по проверяющим — в таблице маршрутизации.</p>
+    <div class="flow">
+      <svg viewBox="0 0 900 250" role="img" aria-label="Обобщённая схема конвейера проверки">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#16191f"/></marker>
+          <marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0f6b4f"/></marker>
+        </defs>
+        <rect class="fbox" x="14" y="44" width="150" height="66" rx="11"/>
+        <text class="ft" x="89" y="82" text-anchor="middle">1 · Импорт</text>
+
+        <rect class="fbox acc" x="194" y="44" width="160" height="66" rx="11"/>
+        <text class="ft" x="274" y="74" text-anchor="middle">2 · Агент-</text>
+        <text class="ft" x="274" y="93" text-anchor="middle">извлекатель</text>
+
+        <rect class="fbox" x="384" y="44" width="170" height="66" rx="11"/>
+        <text class="ft" x="469" y="74" text-anchor="middle">3 · Маршрутизация</text>
+        <text class="ft" x="469" y="93" text-anchor="middle">и проверка</text>
+
+        <rect class="fbox acc" x="584" y="44" width="150" height="66" rx="11"/>
+        <text class="ft" x="659" y="74" text-anchor="middle">4 · Оценка</text>
+        <text class="ft" x="659" y="93" text-anchor="middle">критичности</text>
+
+        <rect class="fbox acc" x="584" y="152" width="150" height="60" rx="11"/>
+        <text class="ft" x="659" y="187" text-anchor="middle">5 · Рекомендация</text>
+
+        <rect class="fbox out" x="764" y="152" width="122" height="60" rx="11"/>
+        <text class="ft" x="825" y="187" text-anchor="middle">6 · Витрина</text>
+
+        <path class="farr" d="M164 77 H190"/>
+        <path class="farr acc" d="M354 77 H380"/>
+        <path class="farr" d="M554 77 H580"/>
+        <path class="farr acc" d="M659 110 V148"/>
+        <path class="farr" d="M734 182 H760"/>
+      </svg>
+    </div>
+
+    <h3>Маршрутизация проверок (предварительно, уточняется с разработчиком)</h3>
+    <table>
+      <thead><tr><th style="width:30%">Тип сущности</th><th style="width:28%">Кто проверяет</th><th>Почему так</th></tr></thead>
+      <tbody>
+        <tr><td>Ссылки</td><td><span class="pill tag">Отдельный краулер</span></td><td>Доступность и редиректы проверяются дёшево, без LLM.</td></tr>
+        <tr><td>Версии и технологии (библиотеки, код)</td><td><span class="pill tag">Qwen Coder</span></td><td>Техническая проверка точнее и существенно дешевле Perplexity.</td></tr>
+        <tr><td>Факты</td><td><span class="pill tag">Perplexity (OpenRouter)</span></td><td>Нужны актуальные данные из веба, но это дорого — поэтому сюда уходят только факты.</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <p><b>Контроль стоимости.</b> Perplexity «прожорливая»: если кормить ей весь контент — расходы убьют проект. Поэтому через неё идут только факты, а ссылки и техническая часть проверяются более дешёвыми маршрутами. Архитектура предварительная и уточняется на 1–2 неделях.</p>
+    </div>
+  </section>
+
+  <section class="s" id="func">
+    <h2><span class="n">06</span>Функциональные требования</h2>
+    <table>
+      <thead><tr><th style="width:11%">ID</th><th style="width:27%">Требование</th><th>Описание</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">F1</td><td><strong>Импорт контента</strong></td><td>Загрузка единиц контента из Markdown/README-выгрузки. Для каждой единицы сохраняется уникальный <code>id</code>, ветка и ссылка на единицу в админке.</td></tr>
+        <tr><td class="mono">F2</td><td><strong>Агент-извлекатель</strong></td><td>Агент выписывает из текста сущности вместе с контекстом: <strong>даты</strong>, <strong>версии библиотек и технологий</strong> (Java, инструменты), <strong>ссылки</strong>, а также факты. Каждая сущность привязана к точной цитате-фрагменту и помечается типом для дальнейшей маршрутизации.</td></tr>
+        <tr><td class="mono">F3</td><td><strong>Маршрутизация и проверка по типам</strong></td><td>Извлечённое проверяется по маршрутам в зависимости от типа: <strong>ссылки — отдельным краулером</strong>, <strong>версии/технологии — Qwen Coder</strong>, <strong>факты — Perplexity (OpenRouter)</strong>. Разделение обязательно для контроля стоимости: Perplexity дорогая, через неё идут только факты.</td></tr>
+        <tr><td class="mono">F4</td><td><strong>Фактчекинг</strong></td><td>Для фактов — вердикт «подтверждается / не подтверждается / спорно» с краткой ссылкой-обоснованием.</td></tr>
+        <tr><td class="mono">F5</td><td><strong>Оценка критичности</strong></td><td>ИИ присваивает каждому кейсу уровень критичности (раздел&nbsp;8) <strong>с учётом общего контекста</strong> единицы, а не механически по факту «есть версия новее».</td></tr>
+        <tr><td class="mono">F6</td><td><strong>Рекомендация по замене</strong></td><td>ИИ предлагает замену текста / блока / ссылки. Учитывает контекст: если задание выполнимо именно на текущей версии (например, на Java&nbsp;21), это нужно явно указать в рекомендации, а не заменять вслепую.</td></tr>
+        <tr><td class="mono">F7</td><td><strong>Витрина результата</strong></td><td>Сводка: сколько единиц затронуто и сколько кейсов в каждой. Срез <strong>до ветки</strong> и <strong>до единицы</strong>. Полная таблица результата (раздел&nbsp;7).</td></tr>
+        <tr><td class="mono">F8</td><td><strong>Экспорт</strong></td><td>Выгрузка таблицы в CSV / Google&nbsp;Sheets для разбора методологами.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="s" id="result">
+    <h2><span class="n">07</span>Таблица результата</h2>
+    <p>Ключевой артефакт инструмента. Одна строка — один кейс неактуальности.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Ветка</th><th>ID единицы</th><th>Ссылка в админке</th><th>Цитата</th><th>Критичность (ИИ)</th><th>Рекомендация ИИ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Backend / Java</td>
+          <td class="mono">prj-1453</td>
+          <td class="mono">/admin/units/1453</td>
+          <td>«…в этом проекте <strong>Java&nbsp;21</strong> будет стандартом…»</td>
+          <td><span class="pill minor">Minor</span><div style="margin-top:6px;font-size:12.5px;color:var(--text-muted)">21&nbsp;(LTS) не устарела; актуальная — 26</div></td>
+          <td>Java&nbsp;21 — действующая LTS и подходит для проекта. Если нужна демонстрация новых возможностей — упомянуть Java&nbsp;26. Если задание выполнимо именно на&nbsp;21 — указать это явно, не заменять механически.</td>
+        </tr>
+        <tr>
+          <td>Web / Tooling</td>
+          <td class="mono">prj-0982</td>
+          <td class="mono">/admin/units/982</td>
+          <td>«…см. документацию по адресу <span class="mono">old-docs.example/…</span>»</td>
+          <td><span class="pill crit">Critical</span><div style="margin-top:6px;font-size:12.5px;color:var(--text-muted)">ссылка не открывается&nbsp;(404)</div></td>
+          <td>Ссылка мёртвая. Заменить на актуальный раздел документации либо удалить упоминание и переформулировать пункт.</td>
+        </tr>
+        <tr>
+          <td>Data / Libs</td>
+          <td class="mono">prj-1176</td>
+          <td class="mono">/admin/units/1176</td>
+          <td>«…используйте устаревший метод инициализации…»</td>
+          <td><span class="pill major">Major</span><div style="margin-top:6px;font-size:12.5px;color:var(--text-muted)">практика устарела</div></td>
+          <td>Подход помечен как deprecated в актуальной версии библиотеки. Обновить пример на рекомендуемый способ; приложить ссылку на актуальный гайд.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout good">
+      <p><b>Главное про рекомендацию.</b> Рекомендация всегда учитывает общий контекст единицы. «Есть версия новее» ≠ «надо менять». Если что-то можно и нужно делать именно на текущей версии — об этом прямо сообщается.</p>
+    </div>
+  </section>
+
+  <section class="s" id="sev">
+    <h2><span class="n">08</span>Шкала критичности</h2>
+    <table>
+      <thead><tr><th style="width:18%">Уровень</th><th style="width:46%">Когда присваивается</th><th>Действие</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill crit">Critical</span></td><td>Битая/мёртвая ссылка, неработающий пример или код, фактическая ошибка, удалённый/недоступный инструмент.</td><td>В переделку, в приоритете.</td></tr>
+        <tr><td><span class="pill major">Major</span></td><td>Устаревшая практика или версия, которую рекомендуется обновить.</td><td>Запланировать обновление.</td></tr>
+        <tr><td><span class="pill minor">Minor</span></td><td>Доступна более новая версия, но текущая не устарела (пример: Java&nbsp;21 при актуальной&nbsp;26).</td><td>Опционально, по контексту.</td></tr>
+        <tr><td><span class="pill info">Info</span></td><td>Наблюдение или нюанс без необходимости действий.</td><td>К сведению.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="s" id="nfr">
+    <h2><span class="n">09</span>Нефункциональные требования</h2>
+    <div class="grid2">
+      <div class="card">
+        <h4>Наблюдаемость прогона</h4>
+        <p>Статус и длительность шагов, расход и стоимость моделей, версия промпта — по аналогии с ИИ-контуром Content&nbsp;Generator. Видно, где и почему упал прогон.</p>
+      </div>
+      <div class="card">
+        <h4>Стоимость под контролем</h4>
+        <p>Perplexity дорогая, поэтому через неё идут только факты; ссылки проверяет краулер, техчасть — Qwen Coder. Стоимость прогона прозрачна и оценивается заранее. Объём первого этапа — 100–1000 единиц; запуск пакетный.</p>
+      </div>
+      <div class="card">
+        <h4>Повторяемость</h4>
+        <p>Промпты версионируются. Каждое изменение промпта проверяется на эталонном наборе (regression-набор).</p>
+      </div>
+      <div class="card">
+        <h4>Режимы запуска</h4>
+        <p>Фактчекинг — при релизе контента (в перспективе авто). Проверка актуальности — по расписанию (~раз в квартал) или по запросу.</p>
+      </div>
+      <div class="card">
+        <h4>Устойчивость</h4>
+        <p>Ретраи и обработка лимитов провайдера; промежуточные результаты сохраняются, прогон можно продолжить.</p>
+      </div>
+      <div class="card">
+        <h4>Безопасность ссылок</h4>
+        <p>Проверка ссылок не должна провоцировать переходы на небезопасные ресурсы; источники — авторитетные.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="s" id="accept">
+    <h2><span class="n">10</span>Приёмка и метрики качества</h2>
+    <p>Качество нельзя проверять только глазами. На эталонной размеченной выборке (формируется на 3-й неделе) измеряем:</p>
+    <ul>
+      <li><strong>Precision</strong> — доля верных срабатываний среди всех найденных кейсов (минимум ложных тревог).</li>
+      <li><strong>Recall по Critical</strong> — какую долю действительно критичных проблем инструмент находит.</li>
+      <li><strong>Доля ложных срабатываний</strong> — отдельно контролируется как ключевой фактор доверия.</li>
+    </ul>
+    <p>Конкретные пороги фиксируются на этапе разметки. Приёмка прототипа — корректный прогон полного объёма (100–1000), валидная таблица результата по образу из раздела&nbsp;7 и отчёт по качеству на эталонной выборке.</p>
+  </section>
+
+  <section class="s" id="risks">
+    <h2><span class="n">11</span>Риски и дальнейшее развитие</h2>
+    <table>
+      <thead><tr><th style="width:38%">Риск / тема</th><th>Как обрабатываем</th></tr></thead>
+      <tbody>
+        <tr><td>Ложные срабатывания ИИ</td><td>Эталонная выборка, метрики, regression-набор; на старте — только рекомендации, без автозамены.</td></tr>
+        <tr><td>Стоимость внешних проверок</td><td>Пакетные прогоны, контроль расхода, проверка актуальности по расписанию, а не постоянно.</td></tr>
+        <tr><td>Разнородность выгрузки / идентификаторов</td><td>Уточняется с разработчиком (раздел&nbsp;12): стабильный <code>id</code> и маппинг на ссылку в админке.</td></tr>
+        <tr><td><strong>Автообновление</strong> (цель)</td><td>Включается только после того, как подтвердим, что ИИ хорошо детектит и заменяет. До этого — ручной разбор.</td></tr>
+        <tr><td><strong>Встраивание в Content&nbsp;Generator</strong></td><td>В самом конце пути, после обкатки. Фактчекинг — кандидат на запуск при релизе автоматически.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="s" id="open">
+    <h2><span class="n">12</span>Принятые решения и вопросы к разработчику</h2>
+    <h3>Зафиксировано с продуктом</h3>
+    <table>
+      <thead><tr><th style="width:42%">Вопрос</th><th>Решение</th></tr></thead>
+      <tbody>
+        <tr><td>Формат входа для прототипа</td><td><span class="pill tag">Markdown/README-выгрузка</span></td></tr>
+        <tr><td>Что детектим в приоритете</td><td><span class="pill tag">Ссылки</span> <span class="pill tag">Версии/технологии</span> <span class="pill tag">Даты/факты</span></td></tr>
+        <tr><td>Объём для оценки сроков</td><td><span class="pill tag">100–1000 единиц</span></td></tr>
+        <tr><td>Проверка по типам (предв.)</td><td>Факты → Perplexity · Техчасть → Qwen Coder · Ссылки → краулер</td></tr>
+      </tbody>
+    </table>
+    <h3>Открытые вопросы к разработчику (закрываем на 1-й неделе)</h3>
+    <ol>
+      <li>Откуда берём <strong>выгрузку</strong> и как часто она обновляется? Формат файла/архива.</li>
+      <li>Есть ли в выгрузке <strong>стабильный уникальный id</strong> единицы и <strong>ветка</strong>? Если нет — чем заменяем.</li>
+      <li>Как строится <strong>ссылка на единицу в админке</strong> из id (шаблон URL)?</li>
+      <li>Подтверждён ли доступ к <strong>OpenRouter</strong> (ключ, лимиты, бюджет на прогон)?</li>
+      <li>Подтвердить выбранные маршруты проверки: доступ к <strong>Qwen Coder</strong> и реализацию <strong>краулера ссылок</strong>; зафиксировать, что через Perplexity идут только факты.</li>
+      <li>Кто и как формирует <strong>эталонную выборку</strong> для метрик качества?</li>
+    </ol>
+  </section>
+
+  <div class="footer">
+    <span>AI Content Audit · ТЗ v1.0 · документ к согласованию с продуктом и разработкой</span>
+    <a class="nextlink" href="Роудмап_ИИ-рефакторинг-контента.html">Открыть роудмап реализации →</a>
+  </div>
+
+</main>
+</body>
+</html>

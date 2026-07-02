@@ -1,0 +1,42 @@
+﻿/* Base product reset extracted from s21-design.css. */
+
+body.s21-product,
+body.s21-product * {
+  box-sizing: border-box;
+}
+
+body.s21-product {
+  min-height: 100vh;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  background: var(--s21-bg) !important;
+  background-image: none !important;
+  color: var(--s21-ink);
+  font-family: var(--s21-font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.s21-product::before {
+  display: none !important;
+}
+
+body.s21-product button,
+body.s21-product input,
+body.s21-product select,
+body.s21-product textarea {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+body.s21-product button {
+  cursor: pointer;
+}
+
+body.s21-product a {
+  color: inherit;
+}

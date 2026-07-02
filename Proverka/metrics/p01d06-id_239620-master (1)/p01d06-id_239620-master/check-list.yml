@@ -1,0 +1,99 @@
+introduction: >
+  The methodology of School 21 makes sense only if peer-to-peer reviews are done seriously. Please read all guidelines carefully before starting the review.
+  
+  - Please, stay courteous, polite, respectful and constructive in all communications during this review.
+
+  - Highlight possible malfunctions of the work done by the person and take the time to discuss and debate it.
+
+  - Keep in mind that sometimes there can be differences in interpretation of the tasks and the scope of features. Please, stay open-minded to the vision of the other.
+
+  - If you have not finished the project yet, it is compulsory to read the entire instruction before starting the review.
+
+guidelines: >
+  - Evaluate only the files that are in src folder on the GIT repository of the student or group.
+
+  - Ensure to start reviewing a group project only when the team is present in full.
+
+  - Use special flags in the checklist to report, for example, an “empty work” if repository does not contain the work of the student (or group) in the src folder of the develop branch, or “cheat” in case of cheating or if the student (or group) are unable to explain their work at any time during review as well as if one of the points below is not met. However, except for cheating cases, you are encouraged to continue reviewing the project to identify the problems that caused the situation in order to avoid them at the next review.
+
+  - Doublecheck that the GIT repository is the one corresponding to the student or the group.
+
+  - Meticulously check that nothing malicious has been used to mislead you.
+
+  - In controversial cases, remember that the checklist determines only the general order of the check. The final decision on project evaluation remains with the reviewer.
+
+quick_actions:
+  - EMPTY_WORK
+  - INVALID_COMPILATION
+  - CODE_STYLE
+  - LEAKS
+  - CRASH
+  - CHEATING
+  - FORBIDDEN_FUNCTION
+language: en
+name: C. Day 06
+comment: ""
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Part 1. Code.
+        description: >
+          -	The program code is decomposed, the functions are decoupled, the “graphics” (depending on the “state”) and the game logic are processed separately.
+
+          -	There are no duplicate parts of the code, everything is included in the functions.
+
+          -	There is only one exit-point from each function.
+
+          -	There is only one exit-point from each loop (either through the loop header or using the break statement).
+
+          -	Functions are separated into “layers": "calculating" functions do not perform input/output, and vice versa.
+
+          -	Dynamic memory is not used
+
+          - Arrays is not used
+
+          -	The source code of the program is checked for the style norm using ClangFormat (In case of invalid check, the flag is automatically displayed for the entire project. If this point cannot be fulfilled, this fact is not observed during the assessment.).
+
+          -	The source code of the program is checked for static analysis using cppcheck (In case of invalid check, the flag is automatically displayed for the entire project. If this point cannot be fulfilled, this fact is not observed during the assessment.).
+
+          - There are no cumbersome functions (more than 42 lines, excluding main).
+
+        rating: "6"
+      - name: Part 2. It works!.
+        description: >
+          -	The game uses symbol-based graphics.
+
+          -	The screen displays (using any symbols) “rackets“ (3 characters long), a "ball" (1 character), and the game score.
+
+          -	The a-z and k-m keys control the movement of the corresponding rackets vertically and the space bar (if the step-by-step option is used) skips the action.
+
+          -	The "ball" can move within the playing field either in an automatic or in a step-by-step mode.
+
+        rating: "6"
+      - name: Part 3. It`s work fine!
+        description: >
+          -	The racket does not go beyond the boundaries of the playing field when moving.
+
+          -	The ball does not go beyond the boundaries of the playing field when moving.
+
+          -	The game correctly handles the contact of the ball with the entire surface of the racket.
+
+          -	The "ball" behaves conditionally according to the law of perfectly elastic collision and bounces off the "rackets" and the upper and lower walls (the angle of impact is equal to the angle of rebound).
+
+          -	When the "ball" passes into the left or right border of the field, the score changes in favor of the "scoring" player by 1. 
+          
+          -	When the score reaches 21, one of the players is announced the winner and the game ends.
+
+        rating: "6"   
+  - kind: "2"
+    name: Bonus part
+    description: ""
+    questions:
+      - name: Part 4*. Bonus
+        description: >
+          -	The interactive mode works as step-by-step mode.
+
+          - All restrictions from README are met.
+        rating: "5"       

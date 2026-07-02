@@ -1,0 +1,89 @@
+introduction: >-
+  - School 21 methodology only makes sense if peer-to-peer reviews are taken seriously. Please read all the guidelines carefully before starting the review.
+
+  - Please remain courteous, polite, respectful, and constructive in all communications during this review.
+
+  - Point out possible flaws in the person's work and take the time to discuss and debate them.
+
+  - Keep in mind that sometimes there may be differences in interpretation of tasks and scope of functionality. Please remain open to each other's vision.
+guidelines: >
+  - Evaluate only the files located in the src folder of the student's or group's GIT repository.
+
+  - If you have not finished the project yet, it is compulsory to read the entire instruction before starting the review. 
+
+  - Ensure to start reviewing a group project only when the team is present in full.
+
+  - Use special flags in the checklist to report, for example, "empty work" if the repository does not contain the student's (or group's) work in the src folder of the develop branch, or "cheat" in the case of cheating, or if the student (or group) is unable to explain their work at any time during the review, or if any of the items below are not met. However, except in cases of cheating, you are encouraged to continue reviewing the project to identify the problems that caused the situation so that they can be avoided in the next review.
+
+  - Double check that the GIT repository is the one corresponding to the student or group.
+
+  - Carefully check that nothing malicious has been used to fool you.
+
+  - In controversial cases, remember that the checklist determines only the general order of the check. The final decision on project evaluation remains with the reviewer.
+quick_actions:
+  - EMPTY_WORK
+  - INVALID_COMPILATION
+  - LEAKS
+  - CRASH
+  - FORBIDDEN_FUNCTION
+  - CHEAT
+language: en
+name: Java. T04. Backend
+comment: ""
+sections:
+  - kind: "1"
+    name: Preliminary
+    description: ""
+    questions:
+      - name: "Respect the rules:"
+        description: >
+          - The repository you are reviewing must belong to the peer (or group).
+          
+          - The peer can provide clarifications about the work at any time during the evaluation.
+          
+          - All general rules apply throughout the entire assessment.
+        rating: "5"
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: "Task 1. Adding a Database"
+        description: |-
+          - PostgreSQL database connection is described in application.properties.
+          - The storage class has been removed.
+          - Special annotations have been added to classes that need to be stored in the database.
+          - Repositories use CrudRepository as the parent interface.
+        rating: "6"
+      - name: "Task 2. Adding Authorization"
+        description: |-
+          - Users have been added, each with a UUID, login, and password.
+          - User support has been implemented across all layers.
+          - A SignUpRequest model has been created, containing the login and password.
+          - An authorization service has been created, using UserService.
+            - The authorization service has a registration method that takes SignUpRequest and returns whether registration was successful.
+            - The authorization service has an authorization method that receives a login and password in the header as base64(login:password) and returns whether authorization was successful.
+          - An authorization controller has been created.
+            - This controller has an endpoint to register a user.
+            - This controller has an endpoint to authorize a user.
+          - An AuthFilter class has been created that inherits from GenericFilterBean and implements the doFilter method.
+            - Within doFilter, the login and password are validated. If the validation is successful, the request is processed. If the validation fails, a 401 status code is appended to the response and the request isn't processed.
+          - A Spring Configuration has been created.
+            - In the Spring Configuration, a Bean is described to obtain the SecurityFilterChain.
+            - Access to the registration and authorization endpoints is allowed without authorization; all other endpoints require authorization.
+            - AuthFilter is used as the filter in the Spring configuration.
+        rating: "6"
+      - name: "Task 3. Adding Game Logic Between Two Players"
+        description: |-
+          - A state of "Waiting for players" has been added for the current game.
+          - A state of "Player turn (UUID)" has been added for the current game.
+          - A state of "Draw" has been added for the current game.
+          - A state of "Win (UUID)" has been added for the current game.
+          - Information about the tokens with which the users will play has been added to the current game.
+          - The game-ending logic has been improved using these states.
+          - An endpoint has been added to create a new game with either a user or a computer.
+          - An endpoint has been added to get the available current games.
+          - An endpoint has been added to allow a user to join a game.
+          - The endpoint for updating the current game has been improved to account for playing against another user or the computer.
+          - An endpoint has been added to get the current game.
+          - An endpoint has been added to get user information by UUID.
+        rating: "6"

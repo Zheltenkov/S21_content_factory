@@ -1,0 +1,109 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ---- Virtual environments ----
+venv/
+.venv/
+ENV/
+
+# ---- Environment / secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Databases / data dumps ----
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+dump.rdb
+
+# ---- Caches / type-check / lint ----
+.coverage
+htmlcov/
+.pytest_cache/
+pytest-cache-files-*/
+.pytest_eval_tmp/
+.pytest_tmp/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.ipynb_checkpoints
+.python-version
+
+# ---- Runtime artifacts / outputs ----
+*.log
+logs/
+*.tmp
+*.temp
+temp/
+tmp/
+.tmp/
+.tmp_script_tests/
+.tmp_prodcheck_pytest/
+tmp_pytest_parent/
+test_tmp/
+test_cache/
+test_runtime/
+uploads/
+output/
+reports/
+materials/
+data/generated/
+*.zip
+
+# Spravochnik viewer/runtime logs & backup dumps
+viewer/server.log
+viewer/server.err
+artifacts/viewer_*_stdout.log
+artifacts/viewer_*_stderr.log
+artifacts/*_backup*.sqlite
+artifacts/*.before_unified_*.sqlite
+artifacts/llm_usage.jsonl
+artifacts/local-skill-names.json
+
+# ---- Vector / RAG stores ----
+chroma_db/
+.chroma/
+.rag_index/
+.curriculum_cache/
+
+# ---- Editors / OS / tooling ----
+.vscode/
+.idea/
+.cursor/
+.serena/
+.gitrepo/
+.playwright-mcp/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+__MACOSX/
+._*
+
+# ---- Alembic ----
+alembic.ini.bak

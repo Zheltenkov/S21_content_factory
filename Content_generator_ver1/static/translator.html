@@ -1,0 +1,461 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Перевод документов - Школа 21</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        window.MathJax = window.MathJax || {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            chtml: { displayAlign: 'center', displayIndent: '0', scale: 1.18 },
+            svg: { displayAlign: 'center', displayIndent: '0', scale: 1.18 },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <link rel="stylesheet" href="/static/css/styles.css?v=20260518-diagram-labels">
+    <link rel="stylesheet" href="/static/css/s21-tokens.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-base.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-forms.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-buttons.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-badges.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-markdown.css?v=20260520-methodology-diagram-stability">
+    <link rel="stylesheet" href="/static/css/s21-design.css?v=20260514-split">
+    <link rel="stylesheet" href="/static/css/s21-dashboard.css?v=20260514-header-fix">
+    <link rel="stylesheet" href="/static/css/s21-workflow.css?v=20260514-split3">
+    <link rel="stylesheet" href="/static/css/s21-translation.css?v=20260517-compare-width">
+    <script src="/static/js/modules/modelSelector.js?v=20260514-header-fix"></script>
+    <script src="/static/js/utils/pagePrefetch.js?v=20260518-page-prefetch-lite" defer></script>
+    <script src="/static/js/utils/sanitize.js"></script>
+    <script src="/static/js/utils/toast.js?v=20260508-polish-ui"></script>
+    <script src="/static/js/utils/modal.js?v=20260508-polish-ui"></script>
+    <script src="/static/js/utils/loading.js?v=20260508-polish-ui"></script>
+    <script src="/static/js/utils/validation.js?v=20260508-polish-ui"></script>
+</head>
+<body class="s21-product page-translate">
+    <header class="dashboard-header dashboard-header--menu translate-topbar">
+        <a class="dashboard-brand" href="/app" aria-label="Главная" hidden>
+            <span>
+                <span id="translationBrandMark" class="dashboard-brand-mark">ПЕРЕВОД ДОКУМЕНТА · RU → EN</span>
+                <span id="translationBrandSub" class="dashboard-brand-sub">учебных проектов</span>
+            </span>
+        </a>
+
+        <nav class="dashboard-nav" aria-label="Основные разделы">
+            <a href="/app">Главная</a>
+            <a href="/app/generate">Генерация</a>
+            <a href="/app/auditor">Аудитор</a>
+            <a href="/app/translate" class="active">Перевод</a>
+            <a href="/app/curriculum">УП</a>
+            <a href="/app/spravochnik">Справочник</a>
+            <a href="/app/instruction">Инструкция</a>
+        </nav>
+
+        <div class="dashboard-header-actions">
+            <div class="dashboard-model-picker" data-selected-model="polza">
+                <button class="dashboard-model-button" type="button" aria-label="Выбрать модель ИИ" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDashboardModelMenu(this)" title="Модель ИИ">
+                    <span aria-hidden="true">ИИ</span>
+                </button>
+                <div class="dashboard-model-menu" role="listbox" aria-label="Модель ИИ" hidden>
+                    <button type="button" role="option" data-model="polza" aria-selected="true" onclick="setDashboardModel(this.dataset.model)">polza</button>
+                    <button type="button" role="option" data-model="deepseek" aria-selected="false" onclick="setDashboardModel(this.dataset.model)">deepseek</button>
+                    <button type="button" role="option" data-model="gigachat" aria-selected="false" onclick="setDashboardModel(this.dataset.model)">gigachat</button>
+                </div>
+            </div>
+            <button class="dashboard-user" type="button" onclick="handleLogout()" title="Выйти">
+                <span class="dashboard-user-avatar" id="translationUserInitials">U</span>
+                <span id="translationUserName">Пользователь</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="s21-subbar translate-subbar">
+        <div class="translate-subbar-path">
+            <a href="/app">← Главное меню</a>
+            <span class="sep">/</span>
+            <strong id="translationSubbarTitle">Перевод</strong>
+        </div>
+        <div class="translate-source-switch" role="tablist" aria-label="Тип перевода">
+            <label class="translate-source-option active" id="translationSourceDocumentLabel">
+                <input type="radio" name="translationModeSource" value="document" id="translationSourceDocument" checked onchange="toggleTranslationSourceMode()">
+                <span>▤ Документ</span>
+            </label>
+            <label class="translate-source-option" id="translationSourceVideoLabel">
+                <input type="radio" name="translationModeSource" value="video" id="translationSourceVideo" onchange="toggleTranslationSourceMode()">
+                <span>▱ Видео</span>
+            </label>
+        </div>
+    </div>
+
+    <main class="translate-shell">
+        <div id="translationStatus" class="s21-status-slot translate-status-slot"></div>
+        <div id="translationProgressContainer" class="s21-progress-panel translate-progress-panel" style="display: none;">
+            <div id="translationProgressPhase" class="s21-progress-label"></div>
+            <div class="s21-progress-track">
+                <div id="translationProgressBar" class="s21-progress-fill"></div>
+            </div>
+        </div>
+
+        <section id="translationDocumentScreen" class="translate-document-screen">
+            <div class="translate-document-toolbar">
+                <div class="translate-field wide">
+                    <label>Источник</label>
+                    <div class="translate-file-pill" onclick="if (event.target.tagName !== 'INPUT') document.getElementById('translationFile').click()">
+                        <input type="file" id="translationFile" accept=".md,.markdown,.txt,.html,.htm,.docx,.pdf" onclick="event.stopPropagation()" onchange="handleTranslationFileSelect(event)">
+                        <span class="translate-file-icon">▤</span>
+                        <strong id="translationSourceFileTitle">Загрузить README или документ</strong>
+                        <small id="translationFileName">Документ для перевода</small>
+                        <button type="button" aria-label="Очистить файл" onclick="event.stopPropagation(); clearTranslationFile()">×</button>
+                    </div>
+                    <p class="translate-file-hint">TXT, Markdown, HTML, DOCX, PDF. До 25 MB.</p>
+                    <textarea id="translationInput" class="translate-hidden-input" rows="8" placeholder="Вставьте текст документа вручную"></textarea>
+                </div>
+
+                <div class="translate-field">
+                    <label for="translationMode">Режим</label>
+                    <select id="translationMode">
+                        <option value="literal">Дословный</option>
+                        <option value="combined">Дословный + читаемость</option>
+                    </select>
+                </div>
+
+                <div class="translate-field">
+                    <label for="translationLanguage">Целевой язык</label>
+                    <select id="translationLanguage" onchange="refreshTranslationChrome()">
+                        <option value="ru">RU · Русский</option>
+                        <option value="en" selected>EN · Английский</option>
+                        <option value="kg">KG · Кыргызский</option>
+                        <option value="uz">UZ · Узбекский</option>
+                        <option value="tg">TG · Таджикский</option>
+                    </select>
+                </div>
+
+                <div class="translate-actions">
+                    <button class="btn btn-secondary" type="button" onclick="clearTranslationForm()">Очистить</button>
+                    <button class="btn" type="button" onclick="translateReadme()">◎ Перевести</button>
+                </div>
+            </div>
+
+            <div id="translationNoResults" class="translate-empty-state">
+                <div class="translate-empty-icon">▤</div>
+                <h2>Загрузите README или документ</h2>
+                <p>После перевода здесь появится оригинал и результат в режиме сравнения.</p>
+            </div>
+
+            <section id="translationResultsArea" class="translate-compare-card" style="display: none;">
+                <div class="s21-translation-summary" aria-label="Сводка перевода">
+                    <div>
+                        <div class="s21-summary-label">Режим</div>
+                        <div class="s21-summary-value" id="translationSummaryMode">Документ</div>
+                    </div>
+                    <div>
+                        <div class="s21-summary-label">Язык</div>
+                        <div class="s21-summary-value" id="translationSummaryLanguage">RU → EN</div>
+                    </div>
+                    <div>
+                        <div class="s21-summary-label">Статус</div>
+                        <div class="s21-summary-value" id="translationSummaryStatus">Готово</div>
+                    </div>
+                </div>
+
+                <div class="tabs translate-mobile-tabs" aria-label="Переключение предпросмотра">
+                    <button class="tab active" id="translationTabOriginalBtn" onclick="switchTranslationTab('original')">Оригинал</button>
+                    <button class="tab" id="translationTabTranslatedBtn" onclick="switchTranslationTab('translated')">Перевод</button>
+                </div>
+
+                <div class="s21-translation-split translate-document-compare">
+                    <article id="translationTabOriginal" class="tab-content active s21-translation-pane translate-document-pane">
+                        <div class="s21-pane-head">
+                            <span class="badge">RU · ОРИГИНАЛ</span>
+                            <span id="translationOriginalMeta">4 218 слов · 25 КБ</span>
+                        </div>
+                        <div id="translationOriginalContent" class="markdown-preview"></div>
+                    </article>
+
+                    <article id="translationTabTranslated" class="tab-content s21-translation-pane translate-document-pane">
+                        <div class="s21-pane-head">
+                            <span class="badge success" id="translationTargetLanguageBadge">✓ EN · ПЕРЕВОД</span>
+                            <div class="translate-pane-actions">
+                                <span id="translationTranslatedMeta">4 102 слов</span>
+                                <button class="btn btn-secondary btn-sm" type="button" onclick="downloadTranslatedMarkdown()" id="downloadTranslatedMarkdownBtn">↓ Скачать</button>
+                            </div>
+                        </div>
+                        <div id="translationTranslatedContent" class="markdown-preview"></div>
+                    </article>
+                </div>
+
+                <footer class="translate-compare-footer">
+                    <span>Результат: <strong>Markdown</strong> · <strong>текст документа</strong> · <strong>режим сравнения</strong></span>
+                    <div>
+                        <button class="btn btn-secondary btn-sm" type="button">Сравнить</button>
+                        <button class="btn btn-secondary btn-sm" type="button" onclick="copyTranslatedMarkdown()">Копировать</button>
+                    </div>
+                </footer>
+            </section>
+        </section>
+
+        <section id="translationVideoScreen" class="translate-video-screen" style="display: none;">
+            <div class="translate-video-layout">
+                <div>
+                    <div class="translate-video-card" onclick="if (event.target.tagName !== 'INPUT') document.getElementById('translationVideoFile').click()">
+                        <input type="file" id="translationVideoFile" accept=".mp4,.webm,.mov,.avi,.mkv,.m4v" onclick="event.stopPropagation()" onchange="handleTranslationVideoSelect(event)">
+                        <div class="translate-video-preview">
+                            <span id="translationVideoPreviewName">Выберите видео</span>
+                            <div class="translate-video-play">▶</div>
+                            <div class="translate-video-subtitle">Субтитры появятся после обработки</div>
+                        </div>
+                        <div class="translate-video-meta">
+                            <strong id="translationVideoTitle">Видео не выбрано</strong>
+                            <span id="translationVideoFileName">До 500 MB</span>
+                        </div>
+                        <div id="translationUploadProgressContainer" class="s21-progress-panel s21-upload-progress" style="display: none;">
+                            <div id="translationUploadProgressLabel" class="s21-progress-label">Загрузка видео: 0%</div>
+                            <div class="s21-progress-track">
+                                <div id="translationUploadProgressBar" class="s21-progress-fill"></div>
+                            </div>
+                        </div>
+                        <div id="translationVideoProgress" class="translate-video-progress" hidden aria-live="polite">
+                            <div class="translate-video-progress-row">
+                                <span id="translationVideoProgressLabel">Ожидает запуска</span>
+                                <span id="translationVideoProgressPct">0 %</span>
+                            </div>
+                            <div class="s21-progress-track">
+                                <div id="translationVideoProgressBar" class="s21-progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="translate-video-hint">MP4, WebM, MOV, AVI, MKV. До 500 MB.</p>
+                </div>
+
+                <aside class="translate-video-options">
+                    <h2>Параметры перевода</h2>
+                    <p>Что получить</p>
+                    <label class="translate-check">
+                        <input type="checkbox" id="translationWantVideo" checked onchange="updateTranslationOutputMode()">
+                        <span>Видео с субтитрами</span>
+                    </label>
+                    <label class="translate-check">
+                        <input type="checkbox" id="translationWantSubtitles" checked onchange="updateTranslationOutputMode()">
+                        <span>Файлы субтитров (VTT, SRT, ASS)</span>
+                    </label>
+                    <label class="translate-check">
+                        <input type="checkbox" id="translationWantTranscript" onchange="updateTranslationOutputMode()">
+                        <span>Только транскрипт (.txt)</span>
+                    </label>
+
+                    <label class="translate-video-label" for="translationOutputMode">Результат</label>
+                    <select id="translationOutputMode" class="translate-hidden-select" aria-label="Результат перевода видео">
+                        <option value="burned_video">Видео с вжёженными субтитрами</option>
+                        <option value="subtitles_only">Файлы субтитров VTT/SRT/ASS</option>
+                        <option value="both" selected>Все вместе</option>
+                    </select>
+
+                    <label class="translate-video-label" for="translationLanguageMirror">Целевой язык</label>
+                    <select id="translationLanguageMirror" onchange="syncTranslationLanguageFromMirror()">
+                        <option value="ru">RU · Русский</option>
+                        <option value="en" selected>EN · Английский</option>
+                        <option value="kg">KG · Кыргызский</option>
+                        <option value="uz">UZ · Узбекский</option>
+                        <option value="tg">TG · Таджикский</option>
+                    </select>
+
+                    <button class="btn translate-video-submit" type="button" onclick="translateReadme()">◎ Перевести видео</button>
+                </aside>
+            </div>
+            <section id="translationVideoResultPanel" class="translate-video-result-panel" hidden aria-live="polite">
+                <div class="translate-video-result-head">
+                    <span class="badge success">✓ Видео готово</span>
+                    <strong id="translationVideoResultTitle">Субтитры и файлы перевода готовы</strong>
+                </div>
+                <p id="translationVideoResultHint">Скачайте нужные файлы здесь. Кнопки появляются после завершения обработки видео.</p>
+                <div class="translate-video-download-links" id="translationVideoInlineDownloadLinks"></div>
+            </section>
+        </section>
+    </main>
+
+    <script src="/static/js/modules/markdownRendering.js?v=20260520-methodology-diagram-stability"></script>
+    <script src="/static/js/modules/generationRunView.js?v=20260514-split"></script>
+    <script src="/static/js/modules/generationPolling.js?v=20260514-split"></script>
+    <script src="/static/js/modules/generationPersistence.js?v=20260514-split"></script>
+    <script src="/static/js/modules/curriculumForm.js?v=20260514-split"></script>
+    <script src="/static/js/modules/generationResultTabs.js?v=20260514-split"></script>
+    <script src="/static/js/modules/generationFormState.js?v=20260514-model-switch"></script>
+    <script src="/static/js/modules/metricsView.js?v=20260514-split"></script>
+    <script src="/static/js/utils/authSession.js?v=20260702-auth-cookie-sync"></script>
+    <script src="/static/js/modules/translationPage.js?v=20260520-docx-output"></script>
+    <script src="/static/js/main.js?v=20260518-diagram-compact"></script>
+    <script>
+        (function () {
+            if (!window.ContentGenAuth?.ensureAuthPresent?.()) {
+                return;
+            }
+            window.ContentGenAuth.ensureValidSession();
+            hydrateTranslationUser();
+            toggleTranslationSourceMode();
+        })();
+
+        function goToModeSelection() {
+            window.location.href = '/app';
+        }
+
+        function hydrateTranslationUser() {
+            let user = null;
+            try {
+                user = JSON.parse(localStorage.getItem('user_info') || localStorage.getItem('user') || 'null');
+            } catch {
+                user = null;
+            }
+            const rawName = (
+                user && (user.full_name || user.name || user.email || user.username)
+            ) || localStorage.getItem('username') || localStorage.getItem('email');
+            const displayName = rawName || 'Пользователь';
+            const initials = String(displayName)
+                .split(/[\s.@_-]+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map(part => part[0])
+                .join('')
+                .toUpperCase() || 'U';
+            const nameEl = document.getElementById('translationUserName');
+            const initialsEl = document.getElementById('translationUserInitials');
+            if (nameEl) nameEl.textContent = displayName;
+            if (initialsEl) initialsEl.textContent = initials;
+        }
+
+        function refreshTranslationChrome() {
+            const language = (document.getElementById('translationLanguage')?.value || 'en').toUpperCase();
+            const isVideo = !!document.getElementById('translationSourceVideo')?.checked;
+            const badge = document.getElementById('translationBrandBadge');
+            const mark = document.getElementById('translationBrandMark');
+            const title = document.getElementById('translationSubbarTitle');
+            const targetBadge = document.getElementById('translationTargetLanguageBadge');
+            const summaryLanguage = document.getElementById('translationSummaryLanguage');
+            if (badge) badge.setAttribute('data-step', isVideo ? '05.2' : '05.1');
+            if (mark) mark.textContent = isVideo ? 'ПЕРЕВОД ВИДЕО' : `ПЕРЕВОД ДОКУМЕНТА · RU → ${language}`;
+            if (title) title.textContent = isVideo ? 'Перевод · Видео' : 'Перевод';
+            if (targetBadge) targetBadge.textContent = `✓ ${language} · ПЕРЕВОД`;
+            if (summaryLanguage) summaryLanguage.textContent = `RU → ${language}`;
+            const mirror = document.getElementById('translationLanguageMirror');
+            if (mirror && mirror.value !== document.getElementById('translationLanguage')?.value) {
+                mirror.value = document.getElementById('translationLanguage')?.value || 'en';
+            }
+        }
+
+        function switchTranslationTab(tab) {
+            const originalBtn = document.getElementById('translationTabOriginalBtn');
+            const translatedBtn = document.getElementById('translationTabTranslatedBtn');
+            const originalTab = document.getElementById('translationTabOriginal');
+            const translatedTab = document.getElementById('translationTabTranslated');
+            if (!originalBtn || !translatedBtn || !originalTab || !translatedTab) return;
+            const original = tab === 'original';
+            originalBtn.classList.toggle('active', original);
+            translatedBtn.classList.toggle('active', !original);
+            originalTab.classList.toggle('active', original);
+            translatedTab.classList.toggle('active', !original);
+        }
+
+        function toggleTranslationSourceMode() {
+            const docBlock = document.getElementById('translationDocumentScreen');
+            const videoBlock = document.getElementById('translationVideoScreen');
+            const docRadio = document.getElementById('translationSourceDocument');
+            const docLabel = document.getElementById('translationSourceDocumentLabel');
+            const videoLabel = document.getElementById('translationSourceVideoLabel');
+            const isDoc = !!docRadio?.checked;
+            if (docBlock) docBlock.style.display = isDoc ? 'block' : 'none';
+            if (videoBlock) videoBlock.style.display = isDoc ? 'none' : 'block';
+            if (docLabel) docLabel.classList.toggle('active', isDoc);
+            if (videoLabel) videoLabel.classList.toggle('active', !isDoc);
+            refreshTranslationChrome();
+        }
+
+        function handleTranslationVideoSelect(event) {
+            const input = event && event.target;
+            const label = document.getElementById('translationVideoFileName');
+            const title = document.getElementById('translationVideoTitle');
+            const preview = document.getElementById('translationVideoPreviewName');
+            const file = input?.files?.[0];
+            if (!file) {
+                if (label) label.textContent = '';
+                return;
+            }
+            const sizeMb = Math.max(1, Math.round(file.size / 1024 / 1024));
+            if (title) title.textContent = file.name;
+            if (preview) preview.textContent = file.name;
+            if (label) label.textContent = `${sizeMb} МБ · загружен`;
+            window.resetTranslationUploadProgress?.();
+            window.resetTranslationVideoProgress?.(true);
+            window.resetTranslationVideoResultPanel?.();
+        }
+
+        function updateTranslationOutputMode() {
+            const output = document.getElementById('translationOutputMode');
+            const video = !!document.getElementById('translationWantVideo')?.checked;
+            const subtitles = !!document.getElementById('translationWantSubtitles')?.checked;
+            const transcript = !!document.getElementById('translationWantTranscript')?.checked;
+            if (!output) return;
+            if (video && subtitles) output.value = 'both';
+            else if (video) output.value = 'burned_video';
+            else output.value = 'subtitles_only';
+            if (transcript && !video && !subtitles) output.value = 'subtitles_only';
+        }
+
+        function syncTranslationLanguageFromMirror() {
+            const source = document.getElementById('translationLanguageMirror');
+            const target = document.getElementById('translationLanguage');
+            if (source && target) target.value = source.value;
+            refreshTranslationChrome();
+        }
+
+        function clearTranslationFile() {
+            const fileInput = document.getElementById('translationFile');
+            const fileName = document.getElementById('translationFileName');
+            const title = document.getElementById('translationSourceFileTitle');
+            const input = document.getElementById('translationInput');
+            if (fileInput) fileInput.value = '';
+            if (fileName) fileName.textContent = 'Документ для перевода';
+            if (title) title.textContent = 'Загрузить README или документ';
+            if (input) input.value = '';
+            if (window.resetTranslationState) window.resetTranslationState();
+        }
+
+        function clearTranslationForm() {
+            clearTranslationFile();
+            const videoInput = document.getElementById('translationVideoFile');
+            const videoFileName = document.getElementById('translationVideoFileName');
+            const videoTitle = document.getElementById('translationVideoTitle');
+            const videoPreview = document.getElementById('translationVideoPreviewName');
+            const status = document.getElementById('translationStatus');
+            if (videoInput) videoInput.value = '';
+            if (videoFileName) videoFileName.textContent = 'До 500 MB';
+            if (videoTitle) videoTitle.textContent = 'Видео не выбрано';
+            if (videoPreview) videoPreview.textContent = 'Выберите видео';
+            if (status) status.innerHTML = '';
+            if (window.resetTranslationState) window.resetTranslationState();
+            window.resetTranslationVideoResultPanel?.();
+        }
+
+        function copyTranslatedMarkdown() {
+            const text = window.translationTranslatedMarkdown || document.getElementById('translationTranslatedContent')?.innerText || '';
+            if (!text.trim()) {
+                alert('Нет переведенного текста для копирования.');
+                return;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                if (window.toast) window.toast.success('Перевод скопирован');
+            }).catch(() => alert('Не удалось скопировать текст.'));
+        }
+    </script>
+</body>
+</html>
+

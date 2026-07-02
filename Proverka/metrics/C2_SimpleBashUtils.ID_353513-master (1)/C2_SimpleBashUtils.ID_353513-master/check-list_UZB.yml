@@ -1,0 +1,175 @@
+introduction: >
+  School 21 metodologiyasi qachonki tenga-teng tekshiruvlar jiddiy ravishda olib borilsagina o’z ma’nosiga ega bo’ladi. Iltimos tekshiruvni boshlashdan oldin barcha ko’rsatmalarni diqqat bilan o’qing. 
+  
+  - Iltimos, tekshiruv davomida suhbatlashayotganda xushmuomala, muloyim bo’ling va bir biringizni xurmat qiling.
+  
+  - Shaxs bajargan loyihaning mavjud bo’lgan kamchiliklarini ko’rsating va ularni muhokama qilishga vaqt ajrating.
+  
+  - Yodda tutingki, ba'zida vazifalarni talqin qilishda va funksiyalar ko'lamida farqlar bo'lishi mumkin. Iltimos, boshqalarning qarashlariga ochiq munosabatda bo'ling.
+
+guidelines: >
+  - Faqat talaba yoki jamoaning GIT omboridagi src papkasidagi fayllarni baholang.
+  
+  - Agar loyihani hali tugatmagan bo'lsangiz, tekshirishni boshlashdan oldin to'liq yo'riqnomani o'qib chiqishingiz shart.
+  
+  - Jamoa loyihasini ko'rib chiqishni faqat jamoa to'liq tarkibda ishtirok etganda boshlashni ta'minlang.
+  
+  - Quyidagilar haqida xabar berish uchun nazorat roʻyxatidagi maxsus bayroqchalardan foydalaning, masalan, agar omborda develop tarmog’ining src papkasida talaba (yoki jamoa)ning ishi boʻlmasa, “boʻsh loyiha” yoki ko’chirilgan taqdirda yoki agar talaba (yoki jamoa) ko'rib chiqish paytida istalgan vaqtda o'z ishini tushuntira olmasa, shuningdek, quyidagi bandlardan biri bajarilmasa, “ko’chirilgan” bayroqchasidan foydalaning. Biroq, ko’chirish holatlaridan tashqari, keyingi ko'rib chiqishda ularning oldini olish uchun vaziyatni keltirib chiqargan muammolarni aniqlash uchun loyihani ko'rib chiqishni davom ettirish tavsiya etiladi.
+  
+  - GIT ombori talaba yoki jamoa omboriga mos kelishini ikki marta tekshiring.
+  
+  - Sizni chalg’itish uchun hech qanday zararli narsa ishlatilmaganligini diqqat bilan tekshiring.
+  
+  - Bahsli holatlarda, nazorat ro'yxati faqat tekshirishning umumiy tartibini belgilashini unutmang. Loyihani baholash bo'yicha yakuniy qaror tekshiruvchida qoladi. 
+  
+  - Fikr-mulohazalar shakli to'ldirilgan yoki to'ldirilmaganligini tekshiring (https://new.oprosso.net/p/4cb31ec3f47a4596bc758ea1861fb624). 
+
+quick_actions:
+  - EMPTY_WORK
+  - INVALID_COMPILATION
+  - CODE_STYLE
+  - LEAKS
+  - CRASH
+  - CHEAT
+  - FORBIDDEN_FUNCTION
+language: uz
+name: C3
+comment: ""
+sections:
+
+  - kind: "1"
+    name: Asosiy qism
+    description: ""
+    questions:
+      - name: Part_1.CAT
+        description: >
+          - cat dasturi muvaffaqiyatli ravishda yig’iladi.
+          
+          - Testlar muvaffaqiyatli ravishda ishga tushadi.
+          
+          - Testlar bayroqlarning barcha variantlarini (shu jumladan, GNU versiyalarini) va ularga kiritilgan qiymatlarni o'z ichiga oladi. 
+          
+          - Dastur C11 standartidagi C tilida gcc kompilyatori yordamida ishlab chiqilgan.
+          
+          - Dastur kodi src papkasida joylashgan.
+          
+          - Dastur s21_cat maqsadli Makefile bilan yig’ilgan.
+          
+          - Dastur ishlaydi.
+          
+          - Dastur tuzilmaviy dasturlash tamoyillari asosida ishlab chiqilgan: dastur fayllar va funksiyalarga ajratilgan, yuqoridan pastga dizaynidan foydalanilgan. Biznes mantig'i va io-topshiriqlar turli funksiyalarga bo'lingan.
+          
+          - Kod takrorlanishlari mavjud emas.
+          
+          - Barcha dastur tuzilmalarida (funksiyalar va sikllar) bitta kirish va bitta chiqish mavjud. Xatoli vaziyatlarni hal qilish uchun funksiyalar boshida bir nechta chiqishlarga ruxsat berilgan holatlar bundan mustasno.
+          
+          - goto iborasi ishlatilmagan.
+          
+          - Integratsiya testlari ishlab chiqilgan dasturlar natijalarini operatsion tizim tomonidan taqdim etilgan standart natijalar bilan taqqoslaydigan dasturlarni to'liq qamrab oladi.
+          
+          - Utilitalarning umumiy kodi barcha dasturlar tomonidan ishlatiladigan maxsus modulga joylashtirilgan.
+          
+          - Kod dekompozitsiyalangan.
+
+          - Dastur bayroqlar bilan va bayroqlarsiz ishlashni qo'llab-quvvatlaydi.
+
+        rating: "6"
+      - name: Part_2.GREP
+        description: >
+          - grep dasturi muvaffaqiyatli ravishda yig’iladi.
+          
+          - Testlar muvaffaqiyatli ravishda ishga tushadi. 
+          
+          - Testlar bayroqlarning barcha variantlarini va ularga kiritilgan qiymatlarni o'z ichiga oladi: -e, -i, -v, -c, -I, -n.
+          
+          - Dastur C11 standartidagi C tilida gcc kompilyatori yordamida ishlab chiqilgan.
+          
+          - Dastur kodi src papkasida joylashgan.
+          
+          - Dastur s21_grep maqsadli Makefile bilan yig’ilgan.
+          
+          - Dastur ishlaydi.
+          
+          - Dastur tuzilmaviy dasturlash tamoyillari asosida ishlab chiqilgan: dastur fayllar va funksiyalarga ajratilgan, yuqoridan pastga dizaynidan foydalanilgan. Biznes mantig'i va io-topshiriqlar turli funksiyalarga bo'lingan.
+          
+          - Kod takrorlanishlari mavjud emas.
+          
+          - Barcha dastur tuzilmalarida (funksiyalar va sikllar) bitta kirish va bitta chiqish mavjud. Xatoli vaziyatlarni hal qilish uchun funksiyalar boshida bir nechta chiqishlarga ruxsat berilgan holatlar bundan mustasno.
+          
+          - goto iborasi ishlatilmagan.
+          
+          - Integratsiya testlari ishlab chiqilgan dasturlar natijalarini operatsion tizim tomonidan taqdim etilgan standart natijalar bilan taqqoslaydigan dasturlarni to'liq qamrab oladi.
+          
+          - Utilitalarning umumiy kodi barcha dasturlar tomonidan ishlatiladigan maxsus modulga joylashtirilgan.
+          
+          - Kod dekompozitsiyalangan.
+
+          - Dastur bayroqlar bilan va bayroqlarsiz ishlashni qo'llab-quvvatlaydi.
+
+        rating: "6"
+  - kind: "2"
+    name: Bonus part
+    description: ""
+    questions:
+      - name: Part_3.GREP
+        description: >
+          - grep dasturi muvaffaqiyatli ravishda yig’iladi.
+          
+          - Testlar muvaffaqiyatli ravishda ishga tushadi. 
+          
+          - Testlar bayroqlarning barcha variantlarini va ularga kiritilgan qiymatlarni o'z ichiga oladi: -h, -s, -f, -o.
+          
+          - Dastur C11 standartidagi C tilida gcc kompilyatori yordamida ishlab chiqilgan.
+          
+          - Dastur kodi src papkasida joylashgan.
+          
+          - Dastur s21_grep maqsadli Makefile bilan yig’ilgan.
+          
+          - Dastur ishlaydi.
+          
+          - Dastur tuzilmaviy dasturlash tamoyillari asosida ishlab chiqilgan: dastur fayllar va funksiyalarga ajratilgan, yuqoridan pastga dizaynidan foydalanilgan. 
+          
+          - Kod takrorlanishlari mavjud emas.
+          
+          - Barcha dastur tuzilmalarida (funksiyalar va sikllar) bitta kirish va bitta chiqish mavjud. Xatoli vaziyatlarni hal qilish uchun funksiyalar boshida bir nechta chiqishlarga ruxsat berilgan holatlar bundan mustasno.
+          
+          - goto iborasi ishlatilmagan.
+          
+          - Integratsiya testlari ishlab chiqilgan dasturlar natijalarini operatsion tizim tomonidan taqdim etilgan standart natijalar bilan taqqoslaydigan dasturlarni to'liq qamrab oladi.
+          
+          - Utilitalarning umumiy kodi barcha dasturlar tomonidan ishlatiladigan maxsus modulga joylashtirilgan.
+          
+          - Kod dekompozitsiyalangan.
+
+        rating: "6"
+      - name: Part_4.GREP
+        description: >
+          - grep dasturi muvaffaqiyatli ravishda yig’iladi.
+          
+          - Testlar muvaffaqiyatli ravishda ishga tushadi. 
+          
+          - Testlar bayroqlarning barcha variantlarini, ularning juft kombinatsiyalarini va ularga kiritilgan qiymatlarni o'z ichiga oladi.
+          
+          - Dastur C11 standartidagi C tilida gcc kompilyatori yordamida ishlab chiqilgan.
+          
+          - Dastur kodi src papkasida joylashgan.
+          
+          - Dastur s21_grep maqsadli Makefile bilan yig’ilgan.
+          
+          - Dastur ishlaydi.
+          
+          - Dastur tuzilmaviy dasturlash tamoyillari asosida ishlab chiqilgan: dastur fayllar va funksiyalarga ajratilgan, yuqoridan pastga dizaynidan foydalanilgan. 
+          
+          - Kod takrorlanishlari mavjud emas.
+          
+          - Barcha dastur tuzilmalarida (funksiyalar va sikllar) bitta kirish va bitta chiqish mavjud. Xatoli vaziyatlarni hal qilish uchun funksiyalar boshida bir nechta chiqishlarga ruxsat berilgan holatlar bundan mustasno.
+          
+          - goto iborasi ishlatilmagan.
+          
+          - Integratsiya testlari ishlab chiqilgan dasturlar natijalarini operatsion tizim tomonidan taqdim etilgan standart natijalar bilan taqqoslaydigan dasturlarni to'liq qamrab oladi.
+          
+          - Utilitalarning umumiy kodi barcha dasturlar tomonidan ishlatiladigan maxsus modulga joylashtirilgan.
+          
+          - Kod dekompozitsiyalangan.
+
+        rating: "6"

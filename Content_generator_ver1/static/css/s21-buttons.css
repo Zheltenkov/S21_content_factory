@@ -1,0 +1,115 @@
+﻿/* Buttons, actions, badges and chips extracted from s21-design.css. */
+
+body.s21-product .btn {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: auto;
+  padding: 10px 16px !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--s21-radius-sm) !important;
+  background: var(--s21-surface) !important;
+  color: var(--s21-ink) !important;
+  box-shadow: none !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: none !important;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+body.s21-product .btn:hover {
+  transform: none !important;
+  background: var(--s21-surface-muted) !important;
+}
+
+body.s21-product .btn-primary,
+body.s21-product #generateBtn,
+body.s21-product #checkBtn,
+body.s21-product #improveReadmeBtn,
+body.s21-product .btn:not(.btn-secondary):not(.btn-danger):not(.btn-ghost):not(.btn-soft) {
+  background: var(--s21-accent) !important;
+  border-color: transparent !important;
+  color: var(--s21-accent-text) !important;
+  font-weight: 600 !important;
+}
+
+body.s21-product .btn-primary:hover,
+body.s21-product #generateBtn:hover,
+body.s21-product #checkBtn:hover,
+body.s21-product #improveReadmeBtn:hover {
+  background: var(--s21-accent-hover) !important;
+  color: #fff !important;
+}
+
+body.s21-product .btn-secondary,
+body.s21-product .btn-soft {
+  background: var(--s21-surface) !important;
+  border-color: var(--s21-border-strong) !important;
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .btn-danger,
+body.s21-product #cancelGenerationBtn {
+  background: var(--s21-surface) !important;
+  border-color: var(--s21-border-strong) !important;
+  color: var(--s21-danger) !important;
+}
+
+body.s21-product .btn-danger:hover,
+body.s21-product #cancelGenerationBtn:hover {
+  background: var(--s21-danger-bg) !important;
+  border-color: var(--s21-danger) !important;
+}
+
+body.s21-product .btn-lg {
+  min-height: 46px;
+  padding: 13px 22px !important;
+  border-radius: var(--s21-radius-md) !important;
+  font-size: 14.5px !important;
+}
+
+body.s21-product .btn-sm {
+  min-height: 32px;
+  padding: 7px 11px !important;
+  font-size: 12.5px !important;
+}
+
+body.s21-product .s21-full-width {
+  width: 100% !important;
+}
+
+body.s21-product .btn-group,
+body.s21-product .btn-group-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.s21-inline-actions {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.s21-inline-actions.center {
+  justify-content: center;
+}
+
+.s21-inline-actions.end {
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+body.s21-product .form-actions #generateBtn,
+body.s21-product .form-actions #cancelGenerationBtn,
+body.s21-product #checkBtn {
+  width: 100%;
+}
+

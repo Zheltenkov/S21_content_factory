@@ -1,0 +1,21 @@
+name: dataset_generator
+version: "1.0.0"
+updated_at: "2025-01-30"
+llm:
+  temperature: 0.7
+  max_tokens: 4000
+prompts:
+  system:
+    type: file
+    path: content_gen/prompts/dataset_generator/system.md
+  user_template:
+    type: file
+    path: content_gen/prompts/dataset_generator/user_template.md
+options:
+  min_rows: 50
+  max_rows: 100
+  supported_formats:
+    - csv
+    - json
+    - txt
+

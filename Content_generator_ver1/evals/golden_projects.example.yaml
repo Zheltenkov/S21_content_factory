@@ -1,0 +1,52 @@
+name: educational-projects-golden
+version: example-v1
+metadata:
+  owner: content-quality
+  description: Minimal example; production set should contain 20-50 projects.
+cases:
+  - id: pjm-risk-plan
+    title: План и стратегия митигирования рисков
+    tags: [pjm, risk, no_code]
+    seed:
+      language: ru
+      project_type: individual
+      direction: Project Manager
+      thematic_block: Блок 3. Управление проектными рисками
+      title_seed: План и стратегия митигирования рисков
+      project_description: Студент оценивает риски проекта и собирает план митигирования.
+      learning_outcomes:
+        - Оценивать риск с использованием количественных и качественных метрик
+        - Работать с понятием риск-аппетита в проектной среде
+      required_tools:
+        - Google Sheets
+        - Miro
+    expectations:
+      required_chapters: [1, 2, 3]
+      required_task_count: 3
+      required_task_titles:
+        - Карта рисков
+        - План митигирования
+      required_tools:
+        - Google Sheets
+        - Miro
+      allowed_tools:
+        - Google Sheets
+        - Miro
+        - Git
+      forbidden_tools:
+        - Python
+        - Docker
+      required_criteria_ids:
+        - "2.2.1"
+        - "2.4.1"
+        - "2.5.1"
+        - "2.5.6"
+      rubric_thresholds:
+        min_score_ratio: 0.8
+        min_structure_pass_rate: 0.9
+        min_practice_atomicity: 0.8
+        min_didactics_compliance: 0.8
+        max_hallucinated_tools: 0
+        max_fallback_count: 3
+        max_fallback_policy_violations: 0
+        max_retry_count: 5

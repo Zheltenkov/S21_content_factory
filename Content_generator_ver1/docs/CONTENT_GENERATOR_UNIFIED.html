@@ -1,0 +1,1580 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Generator - техническое описание ИИ-контура</title>
+  <style>
+    :root {
+      --page: #f7f7f5;
+      --surface: #ffffff;
+      --muted: #f3f3f0;
+      --border: #e6e5e0;
+      --ink: #0f1419;
+      --text-muted: #6b6f78;
+      --success: #2f7a4d;
+      --success-soft: #e7f4ec;
+      --warn: #a76a14;
+      --warn-soft: #fff3dc;
+      --danger: #b54a3b;
+      --danger-soft: #f9e9e6;
+      --info: #2a5d8f;
+      --info-soft: #eaf1f8;
+      --radius: 14px;
+      --shadow: 0 16px 42px rgba(15, 20, 25, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.56;
+    }
+
+    a {
+      color: var(--ink);
+      text-decoration-color: var(--success);
+      text-underline-offset: 3px;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 28px 64px;
+    }
+
+    .hero {
+      padding: 40px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: var(--success-soft);
+      color: var(--success);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 860px;
+      font-size: 44px;
+      font-weight: 700;
+    }
+
+    h2 {
+      margin-top: 40px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    h3 {
+      margin-top: 24px;
+      font-size: 19px;
+      font-weight: 700;
+    }
+
+    p {
+      margin: 10px 0 0;
+    }
+
+    .lead {
+      max-width: 900px;
+      margin-top: 16px;
+      color: var(--text-muted);
+      font-size: 20px;
+    }
+
+    .toc {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 24px;
+    }
+
+    .toc a {
+      display: block;
+      min-height: 74px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      text-decoration: none;
+      box-shadow: 0 6px 18px rgba(15, 20, 25, 0.04);
+    }
+
+    .toc strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .toc span {
+      display: block;
+      margin-top: 4px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .section {
+      margin-top: 18px;
+      padding: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .card {
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    .card strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .callout {
+      margin-top: 18px;
+      padding: 16px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--muted);
+    }
+
+    .callout.good {
+      border-color: #b7dfc5;
+      background: var(--success-soft);
+    }
+
+    .callout.warn {
+      border-color: #efd49c;
+      background: var(--warn-soft);
+    }
+
+    .callout.danger {
+      border-color: #edc4bd;
+      background: var(--danger-soft);
+    }
+
+    ol,
+    ul {
+      margin: 12px 0 0;
+      padding-left: 24px;
+    }
+
+    li + li {
+      margin-top: 6px;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 16px;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    th,
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--muted);
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: var(--muted);
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    .mono {
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 13px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .status.good {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .status.warn {
+      background: var(--warn-soft);
+      color: var(--warn);
+    }
+
+    .status.danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .diagram-wrap {
+      margin-top: 18px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: 0 8px 24px rgba(15, 20, 25, 0.04);
+    }
+
+    .overview-figure {
+      margin: 24px 0 0;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .overview-figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+    }
+
+    .overview-figure figcaption {
+      margin-top: 10px;
+      color: var(--text-muted);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .ai-map {
+      display: block;
+      min-width: 1040px;
+      width: 100%;
+      height: auto;
+    }
+
+    .map-box {
+      fill: #ffffff;
+      stroke: #d8d8d2;
+      stroke-width: 1.5;
+      rx: 10;
+    }
+
+    .map-box.accent {
+      fill: #e7f4ec;
+      stroke: #9bd4b1;
+    }
+
+    .map-box.control {
+      fill: #f3f3f0;
+      stroke: #d6d5cf;
+    }
+
+    .map-title {
+      fill: var(--ink);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .map-note {
+      fill: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .map-arrow {
+      stroke: #0f1419;
+      stroke-width: 2;
+      fill: none;
+      marker-end: url(#arrow);
+    }
+
+    .map-feedback {
+      stroke: var(--success);
+      stroke-width: 2;
+      fill: none;
+      stroke-dasharray: 6 5;
+      marker-end: url(#arrow-green);
+    }
+
+    .footer {
+      margin-top: 32px;
+      color: var(--text-muted);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    @media (max-width: 860px) {
+      .page {
+        padding: 20px 14px 42px;
+      }
+
+      .hero {
+        padding: 26px;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+
+      .toc,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="eyebrow">Техническая документация</div>
+      <h1>Content Generator: внутренняя ИИ-модель генерации, проверки и перевода</h1>
+      <p class="lead">
+        Документ описывает не интерфейс, а принцип работы ИИ-контура: как сервис превращает учебный план
+        и методические параметры в README, чек-лист, проверку качества, точечные правки и перевод.
+      </p>
+    </header>
+
+    <figure class="overview-figure">
+      <img src="assets/agentflow_architecture.png" alt="Архитектура AgentFlow-системы генерации контента">
+      <figcaption>
+        Общая карта AgentFlow: оркестратор, узлы генерации, LLM-слой, хранилище, проверки, методологические решения и финальные артефакты.
+      </figcaption>
+    </figure>
+
+    <nav class="toc" aria-label="Оглавление">
+      <a href="#goal"><strong>1. Цель ИИ-контура</strong><span>Что должна гарантировать система</span></a>
+      <a href="#principles"><strong>2. Архитектурные принципы</strong><span>Контракты, состояние, проверки</span></a>
+      <a href="#diagram"><strong>3. Схема работы</strong><span>Визуальная карта ИИ-контура</span></a>
+      <a href="#inputs"><strong>4. Входной контракт</strong><span>Какие данные принимает ИИ</span></a>
+      <a href="#state"><strong>5. Общее состояние</strong><span>Как шаги передают данные друг другу</span></a>
+      <a href="#generation"><strong>6. Цепочка генерации</strong><span>Как собирается учебный проект</span></a>
+      <a href="#roles"><strong>7. AgentFlow и роли ИИ</strong><span>Оркестратор, узлы и агенты</span></a>
+      <a href="#model-call"><strong>8. Вызов модели</strong><span>Маршрутизация, повторы, бюджет</span></a>
+      <a href="#prompts"><strong>9. Подсказки модели</strong><span>Как строится инструкция для ИИ</span></a>
+      <a href="#schemas"><strong>10. Структурированный ответ</strong><span>Схемы и типизированные объекты</span></a>
+      <a href="#validation"><strong>11. Проверки и исправления</strong><span>Что делает код, а не модель</span></a>
+      <a href="#methodology"><strong>12. Методологический режим</strong><span>Ручное решение в контрольных точках</span></a>
+      <a href="#regeneration"><strong>13. Точечная правка</strong><span>Как меняется выбранный раздел</span></a>
+      <a href="#checklist"><strong>14. Чек-лист</strong><span>Как создается check-list.yml</span></a>
+      <a href="#rubric"><strong>15. Проверка README</strong><span>39 критериев и отчет качества</span></a>
+      <a href="#translation"><strong>16. Перевод</strong><span>Документы, видео и защищенные блоки</span></a>
+      <a href="#observability"><strong>17. Наблюдаемость</strong><span>Трассировка, стоимость, качество</span></a>
+      <a href="#failures"><strong>18. Устойчивость и восстановление</strong><span>Как сохраняется управляемость запуска</span></a>
+      <a href="#evals"><strong>19. Наборы проверок</strong><span>Как контролировать качество ИИ</span></a>
+    </nav>
+
+    <section id="goal" class="section">
+      <h2>1. Цель ИИ-контура</h2>
+      <p>
+        ИИ-контур Content Generator должен создавать учебный проект не как свободный текст,
+        а как управляемый набор артефактов с проверяемой структурой.
+      </p>
+
+      <div class="grid">
+        <div class="card">
+          <strong>Генерация</strong>
+          Из входных параметров и учебного плана собирается `README.md` с аннотацией,
+          введением, теорией, практикой, заключением и навигацией.
+        </div>
+        <div class="card">
+          <strong>Проверка</strong>
+          Проверка критериев итогового README покрывает структуру, теорию, практику,
+          проверяемость, связность и завершенность.
+        </div>
+        <div class="card">
+          <strong>Точечная правка</strong>
+          Методолог может изменить конкретный раздел без полной пересборки проекта.
+        </div>
+        <div class="card">
+          <strong>Перевод</strong>
+          Документы и видео переводятся с сохранением таблиц, формул, кода,
+          диаграмм, субтитров и письменности выбранного языка.
+        </div>
+      </div>
+
+      <div class="callout good">
+        Главная инженерная идея: языковая модель пишет содержательные фрагменты,
+        а код управляет последовательностью шагов, схемами данных, применением правок,
+        проверками, восстановлением и отчетами.
+      </div>
+    </section>
+
+    <section id="principles" class="section">
+      <h2>2. Архитектурные принципы</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Принцип</th>
+            <th>Как реализован</th>
+            <th>Зачем нужен</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Управляемая последовательность</td>
+            <td>Генерация идет по заранее описанным шагам: контекст, план задач, название, структура, теория, практика, проверка, сборка.</td>
+            <td>Делает запуск воспроизводимым и позволяет восстановить состояние после нештатной остановки.</td>
+          </tr>
+          <tr>
+            <td>Контракт на каждом шаге</td>
+            <td>Для шага определены входы, выходы, роль модели, проверки и политика повторной попытки.</td>
+            <td>Нельзя незаметно добавить шаг или поле, которое сломает соседние части.</td>
+          </tr>
+          <tr>
+            <td>Структурированный ответ</td>
+            <td>Там, где важна форма данных, ответ модели приводится к Pydantic-схеме или аналогичному типизированному объекту.</td>
+            <td>Ошибки структуры ловятся кодом, а не методологом в финальном тексте.</td>
+          </tr>
+          <tr>
+            <td>Детерминированное применение правок</td>
+            <td>Модель предлагает содержимое, но замена раздела, обновление ссылок и пересчет критериев выполняются кодом.</td>
+            <td>Правка выбранного раздела не должна случайно менять соседние разделы.</td>
+          </tr>
+          <tr>
+            <td>Проверки после генерации</td>
+            <td>README проверяется по структуре, главам, практике, сторителлингу и заключению.</td>
+            <td>Качество видно в отчете, а не оценивается “на глаз”.</td>
+          </tr>
+          <tr>
+            <td>Наблюдаемость</td>
+            <td>Для каждого шага сохраняются статус, длительность, ошибки, расход модели и краткий результат.</td>
+            <td>Можно понять, где возникла ошибка, сколько стоил запуск и что ухудшилось.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="diagram" class="section">
+      <h2>3. Схема работы ИИ-контура</h2>
+      <p>
+        Схема показывает основной поток данных: входной контракт нормализуется, затем проходит через
+        последовательные роли ИИ, детерминированные проверки, методологические решения и финальную сборку.
+        Зеленая пунктирная линия показывает обратную связь от проверок и правок к выбранному фрагменту.
+      </p>
+
+      <div class="diagram-wrap" aria-label="Схема работы ИИ-контура Content Generator">
+        <svg class="ai-map" viewBox="0 0 1120 650" role="img" aria-labelledby="map-title map-desc">
+          <title id="map-title">Схема работы ИИ-контура Content Generator</title>
+          <desc id="map-desc">Входные данные превращаются в состояние проекта, затем проходят генерацию, проверку, ручную правку, перевод и финальную сборку.</desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f1419"></path>
+            </marker>
+            <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f7a4d"></path>
+            </marker>
+          </defs>
+
+          <rect class="map-box" x="40" y="42" width="190" height="78" rx="10"></rect>
+          <text class="map-title" x="62" y="74">Входной контракт</text>
+          <text class="map-note" x="62" y="96">учебный план, параметры,</text>
+          <text class="map-note" x="62" y="112">сторителлинг, материалы</text>
+
+          <rect class="map-box control" x="290" y="42" width="190" height="78" rx="10"></rect>
+          <text class="map-title" x="312" y="74">Нормализация</text>
+          <text class="map-note" x="312" y="96">очистка входа и сбор</text>
+          <text class="map-note" x="312" y="112">проектного состояния</text>
+
+          <rect class="map-box accent" x="540" y="42" width="190" height="78" rx="10"></rect>
+          <text class="map-title" x="562" y="74">Общее состояние</text>
+          <text class="map-note" x="562" y="96">единый объект данных</text>
+          <text class="map-note" x="562" y="112">для всех шагов</text>
+
+          <rect class="map-box" x="790" y="42" width="230" height="78" rx="10"></rect>
+          <text class="map-title" x="812" y="74">Маршрутизация моделей</text>
+          <text class="map-note" x="812" y="96">роль, модель, лимит,</text>
+          <text class="map-note" x="812" y="112">повторная попытка</text>
+
+          <path class="map-arrow" d="M230 81 H286"></path>
+          <path class="map-arrow" d="M480 81 H536"></path>
+          <path class="map-arrow" d="M730 81 H786"></path>
+
+          <rect class="map-box" x="60" y="190" width="170" height="76" rx="10"></rect>
+          <text class="map-title" x="82" y="220">План задач</text>
+          <text class="map-note" x="82" y="242">сложность, цепочка,</text>
+          <text class="map-note" x="82" y="258">ожидаемые итоги</text>
+
+          <rect class="map-box" x="270" y="190" width="170" height="76" rx="10"></rect>
+          <text class="map-title" x="292" y="220">Название</text>
+          <text class="map-note" x="292" y="242">аннотация и смысловой</text>
+          <text class="map-note" x="292" y="258">вход в проект</text>
+
+          <rect class="map-box" x="480" y="190" width="170" height="76" rx="10"></rect>
+          <text class="map-title" x="502" y="220">Структура</text>
+          <text class="map-note" x="502" y="242">главы, содержание,</text>
+          <text class="map-note" x="502" y="258">первая глава</text>
+
+          <rect class="map-box" x="690" y="190" width="170" height="76" rx="10"></rect>
+          <text class="map-title" x="712" y="220">Теория</text>
+          <text class="map-note" x="712" y="242">разделы, таблицы,</text>
+          <text class="map-note" x="712" y="258">диаграммы, примеры</text>
+
+          <rect class="map-box" x="900" y="190" width="170" height="76" rx="10"></rect>
+          <text class="map-title" x="922" y="220">Практика</text>
+          <text class="map-note" x="922" y="242">задания, файлы,</text>
+          <text class="map-note" x="922" y="258">формат сдачи</text>
+
+          <path class="map-arrow" d="M635 120 C635 150 145 150 145 186"></path>
+          <path class="map-arrow" d="M230 228 H266"></path>
+          <path class="map-arrow" d="M440 228 H476"></path>
+          <path class="map-arrow" d="M650 228 H686"></path>
+          <path class="map-arrow" d="M860 228 H896"></path>
+
+          <rect class="map-box control" x="170" y="340" width="200" height="80" rx="10"></rect>
+          <text class="map-title" x="192" y="372">Структурный ответ</text>
+          <text class="map-note" x="192" y="394">схемы, списки задач,</text>
+          <text class="map-note" x="192" y="410">разделы и патчи</text>
+
+          <rect class="map-box control" x="460" y="340" width="200" height="80" rx="10"></rect>
+          <text class="map-title" x="482" y="372">Валидация</text>
+          <text class="map-note" x="482" y="394">структура, ссылки,</text>
+          <text class="map-note" x="482" y="410">критерии, формат</text>
+
+          <rect class="map-box accent" x="750" y="340" width="220" height="80" rx="10"></rect>
+          <text class="map-title" x="772" y="372">Решение методолога</text>
+          <text class="map-note" x="772" y="394">продолжить, сравнить,</text>
+          <text class="map-note" x="772" y="410">принять или исправить</text>
+
+          <path class="map-arrow" d="M985 266 C985 310 270 300 270 336"></path>
+          <path class="map-arrow" d="M370 380 H456"></path>
+          <path class="map-arrow" d="M660 380 H746"></path>
+          <path class="map-feedback" d="M750 420 C650 510 330 510 270 424"></path>
+
+          <rect class="map-box" x="90" y="515" width="210" height="78" rx="10"></rect>
+          <text class="map-title" x="112" y="547">README и чек-лист</text>
+          <text class="map-note" x="112" y="569">финальная сборка</text>
+          <text class="map-note" x="112" y="585">учебного проекта</text>
+
+          <rect class="map-box" x="360" y="515" width="210" height="78" rx="10"></rect>
+          <text class="map-title" x="382" y="547">Отчет качества</text>
+          <text class="map-note" x="382" y="569">39 критериев, статусы,</text>
+          <text class="map-note" x="382" y="585">замечания</text>
+
+          <rect class="map-box" x="630" y="515" width="210" height="78" rx="10"></rect>
+          <text class="map-title" x="652" y="547">Перевод</text>
+          <text class="map-note" x="652" y="569">документы, видео,</text>
+          <text class="map-note" x="652" y="585">субтитры</text>
+
+          <rect class="map-box" x="900" y="515" width="170" height="78" rx="10"></rect>
+          <text class="map-title" x="922" y="547">Архив</text>
+          <text class="map-note" x="922" y="569">файлы проекта</text>
+          <text class="map-note" x="922" y="585">и метаданные</text>
+
+          <path class="map-arrow" d="M860 420 C860 485 195 480 195 511"></path>
+          <path class="map-arrow" d="M860 420 C860 485 465 480 465 511"></path>
+          <path class="map-arrow" d="M860 420 C860 485 735 480 735 511"></path>
+          <path class="map-arrow" d="M840 554 H896"></path>
+        </svg>
+      </div>
+    </section>
+
+    <section id="inputs" class="section">
+      <h2>4. Входной контракт ИИ</h2>
+      <p>
+        Сервис не отправляет модели “сырой экран формы”. Сначала входные данные приводятся
+        к единому проектному описанию.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Группа данных</th>
+            <th>Смысл</th>
+            <th>Как используется</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Учебный план</td>
+            <td>Строки программы, соседние проекты, тематический блок, ожидаемые результаты.</td>
+            <td>Определяет место проекта в программе и ограничения содержания.</td>
+          </tr>
+          <tr>
+            <td>Параметры проекта</td>
+            <td>Тип проекта, уровень аудитории, направление, название, описание, инструменты.</td>
+            <td>Влияют на глубину объяснений, стиль задач и формат артефактов.</td>
+          </tr>
+          <tr>
+            <td>Сторителлинг</td>
+            <td>Рабочая ситуация, SJM, роль, кейс или сквозная история.</td>
+            <td>Связывает практику, теорию и критерии в единую линию.</td>
+          </tr>
+          <tr>
+            <td>Методические правила</td>
+            <td>Структура README, шаблон задания, p2p-проверяемость, тональность Школы 21.</td>
+            <td>Ограничивают модель и задают формат итогового материала.</td>
+          </tr>
+          <tr>
+            <td>Дополнительные материалы</td>
+            <td>Файлы, фрагменты, примеры и опорные источники.</td>
+            <td>Используются как контекст, но не должны превращаться в готовое решение для студента.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        Инженерное ограничение: описание проекта должно быть отделено от вспомогательных заметок.
+        Это снижает вероятность повторов и случайного переноса служебного текста в главы README.
+      </div>
+    </section>
+
+    <section id="state" class="section">
+      <h2>5. Общее состояние проекта</h2>
+      <p>
+        Каждый шаг генерации читает и дополняет общее состояние проекта. Это состояние хранит не только Markdown,
+        но и структурные данные, которые нужны следующим шагам.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Данные состояния</th>
+            <th>Что содержат</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Описание проекта</td>
+            <td>Нормализованные входные параметры, уровень аудитории, тип проекта, язык и сценарная рамка.</td>
+          </tr>
+          <tr>
+            <td>Анализ контекста</td>
+            <td>Краткое понимание места проекта в программе и связей с соседними проектами.</td>
+          </tr>
+          <tr>
+            <td>План практики</td>
+            <td>Количество задач, сложность, цепочка артефактов и ожидаемые результаты.</td>
+          </tr>
+          <tr>
+            <td>Скелет README</td>
+            <td>Название, аннотация, главы, оглавление и будущие разделы.</td>
+          </tr>
+          <tr>
+            <td>Теоретические части</td>
+            <td>Разделы главы 2, их темы, объем, примеры, таблицы и диаграммы.</td>
+          </tr>
+          <tr>
+            <td>Практические задачи</td>
+            <td>Задания, пути файлов, формат сдачи, проверяемые признаки и связи между задачами.</td>
+          </tr>
+          <tr>
+            <td>Проверка качества</td>
+            <td>Оценка по критериям, предупреждения, непройденные пункты и рекомендации.</td>
+          </tr>
+          <tr>
+            <td>Отчет и архив</td>
+            <td>Финальный README, чек-лист, дополнительные файлы, метаданные запуска и сводка.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="generation" class="section">
+      <h2>6. Цепочка генерации учебного проекта</h2>
+      <p>
+        Генерация состоит из линейной цепочки шагов. Русский язык является базовым,
+        поэтому перевод как отдельный шаг выполняется только при необходимости.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Шаг</th>
+            <th>Роль шага</th>
+            <th>Вход</th>
+            <th>Выход</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Подготовка контекста</td>
+            <td>Собрать чистое описание проекта из формы, учебного плана и материалов.</td>
+            <td>Параметры проекта, CSV, файлы.</td>
+            <td>Нормализованное описание и сводка контекста.</td>
+          </tr>
+          <tr>
+            <td>Планирование практики</td>
+            <td>Решить, сколько задач нужно и как они связаны.</td>
+            <td>Описание проекта, уровень аудитории, сторителлинг.</td>
+            <td>План задач, цепочка артефактов, ожидаемые результаты.</td>
+          </tr>
+          <tr>
+            <td>Название и аннотация</td>
+            <td>Создать короткий вход в проект.</td>
+            <td>Описание проекта и контекст.</td>
+            <td>Название и аннотация.</td>
+          </tr>
+          <tr>
+            <td>Структура README</td>
+            <td>Создать главы, оглавление и первую главу.</td>
+            <td>Название, аннотация, план практики.</td>
+            <td>Черновой README и структурная карта разделов.</td>
+          </tr>
+          <tr>
+            <td>Теория</td>
+            <td>Написать главу 2 с примерами, таблицами и диаграммами.</td>
+            <td>Черновой README, план практики, сторителлинг.</td>
+            <td>Теоретические разделы и обновленный README.</td>
+          </tr>
+          <tr>
+            <td>Практика</td>
+            <td>Написать задания и формат сдачи.</td>
+            <td>README с теорией, план задач, цепочка артефактов.</td>
+            <td>Глава 3, материалы, задачи и замечания проверяющего.</td>
+          </tr>
+          <tr>
+            <td>Глобальная редактура</td>
+            <td>Выравнять стиль, убрать повторы и случайные вставки.</td>
+            <td>Полный README.</td>
+            <td>Отредактированный README.</td>
+          </tr>
+          <tr>
+            <td>Оценка качества</td>
+            <td>Посчитать критерии и подготовить отчет.</td>
+            <td>Итоговый README.</td>
+            <td>Оценка, предупреждения, непройденные критерии.</td>
+          </tr>
+          <tr>
+            <td>Перевод</td>
+            <td>Перевести результат, если выбран не русский язык.</td>
+            <td>README и целевой язык.</td>
+            <td>Переведенный Markdown с сохранением структуры.</td>
+          </tr>
+          <tr>
+            <td>Сборка результата</td>
+            <td>Собрать итоговые файлы.</td>
+            <td>README, задачи, критерии, материалы.</td>
+            <td>`README.md`, `check-list.yml`, отчет и архив.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="roles" class="section">
+      <h2>7. AgentFlow и роли ИИ</h2>
+      <p>
+        Генератор устроен как AgentFlow-система: есть оркестратор, исполняющий граф шагов,
+        и набор специализированных ИИ-ролей. Это не чат, который “пишет весь проект сразу”,
+        а управляемый контур выполнения, где каждый шаг имеет входной контракт, ожидаемый результат,
+        правила проверки и способ восстановления.
+      </p>
+
+      <div class="callout good">
+        Современность реализации в том, что модель не управляет приложением напрямую.
+        Она выполняет ограниченную интеллектуальную работу внутри узла, а код отвечает за состояние,
+        маршрутизацию, сохранение, применение изменений, проверку и финальную сборку.
+      </div>
+
+      <h3>Как устроен один агентный узел</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Часть узла</th>
+            <th>Что делает</th>
+            <th>Зачем это нужно</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Входной контракт</td>
+            <td>Берет только нужные поля состояния: контекст проекта, план задач, текущий README, выбранный раздел или отчет проверки.</td>
+            <td>Модель не получает лишний шум и меньше переносит служебный текст в результат.</td>
+          </tr>
+          <tr>
+            <td>Роль и политика</td>
+            <td>Фиксирует, кем является модель на этом шаге: планировщик, автор теории, редактор, критик, переводчик.</td>
+            <td>Одна и та же LLM работает в разных режимах, но с разными ограничениями и критериями успеха.</td>
+          </tr>
+          <tr>
+            <td>Prompt-пакет</td>
+            <td>Собирается из системных правил, данных проекта, методических правил, текущей цели и запретов.</td>
+            <td>Инструкция получается воспроизводимой и объяснимой, а не собирается вручную в каждом вызове.</td>
+          </tr>
+          <tr>
+            <td>Структурированный выход</td>
+            <td>Для критичных шагов агент возвращает не произвольный текст, а объект: план, список разделов, typed patch, отчет критериев.</td>
+            <td>Результат можно валидировать кодом и безопасно передать следующему узлу.</td>
+          </tr>
+          <tr>
+            <td>Проверка и repair</td>
+            <td>После ответа запускаются validators, rubric checks и при необходимости узкая попытка исправления.</td>
+            <td>Ошибки формата и структуры ловятся до того, как попадут в финальный README.</td>
+          </tr>
+          <tr>
+            <td>Контрольная точка</td>
+            <td>Успешный результат сохраняется вместе с метаданными шага и краткой сводкой.</td>
+            <td>Запуск можно восстановить, продолжить или показать методологу на контрольной точке.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Основные роли</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Роль</th>
+            <th>Зона ответственности</th>
+            <th>Контракт результата</th>
+            <th>Контроль качества</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ContextAgent</td>
+            <td>Понимает место проекта в программе, вытаскивает смысл учебного плана и собирает рабочий контекст.</td>
+            <td>Краткое описание проекта, учебный фокус, связи с соседними проектами, сценарная рамка.</td>
+            <td>Проверка полноты входных параметров и отделение фактов от вспомогательных заметок.</td>
+          </tr>
+          <tr>
+            <td>PlanningAgent</td>
+            <td>Проектирует практическую часть: число задач, зависимость артефактов, сложность и проверяемые результаты.</td>
+            <td>Типизированный план задач с путями файлов, expected outcome и цепочкой артефактов.</td>
+            <td>Проверка связей задач, уровня аудитории, p2p-проверяемости и соответствия сценарной рамке.</td>
+          </tr>
+          <tr>
+            <td>OutlineAgent</td>
+            <td>Создает название, аннотацию, оглавление, первую главу и каркас будущего README.</td>
+            <td>Markdown-каркас с обязательными заголовками и навигацией.</td>
+            <td>Проверка Markdown-ссылок, структуры глав, названий и отсутствия готового решения.</td>
+          </tr>
+          <tr>
+            <td>TheoryAgent</td>
+            <td>Пишет главу 2: объяснения, таблицы, Mermaid-диаграммы, примеры и переходы к практике.</td>
+            <td>Список теоретических разделов с объемом, связью с задачами и визуальными блоками.</td>
+            <td>Проверка объема, смысловой точности заголовков, единого фокуса и корректности диаграмм.</td>
+          </tr>
+          <tr>
+            <td>PracticeAgent</td>
+            <td>Формирует задания, ожидаемые результаты, формат сдачи, материалы и критерии практики.</td>
+            <td>Глава 3 с заданиями, путями артефактов, observable outcomes и связями между задачами.</td>
+            <td>Проверка шаблона задания, явного результата, отсутствия готовых ответов и целостности путей.</td>
+          </tr>
+          <tr>
+            <td>CriticAgent</td>
+            <td>Смотрит на результат как методологический проверяющий и переводит замечания в критерии качества.</td>
+            <td>Rubric report: пройдено, предупреждение, не пройдено, пояснение и область исправления.</td>
+            <td>Детерминированные проверки структуры дополняются содержательной оценкой текста.</td>
+          </tr>
+          <tr>
+            <td>RepairAgent</td>
+            <td>Исправляет выбранный раздел или общий дефект без полной пересборки проекта.</td>
+            <td>Typed patch с областью применения, операцией и новым содержанием.</td>
+            <td>Патч применяется кодом, затем пересчитываются содержание, критерии и отчет изменений.</td>
+          </tr>
+          <tr>
+            <td>TranslatorAgent</td>
+            <td>Переводит документы, Markdown, таблицы, формулы, диаграммы, субтитры и видео-текст.</td>
+            <td>Переведенный материал с сохранением структуры, защищенных блоков и письменности языка.</td>
+            <td>Защита кода/формул/таблиц, проверка структуры и повторная обработка спорных фрагментов.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Что делает систему особенно сильной</h3>
+      <div class="grid">
+        <div class="card">
+          <strong>Schema-first генерация</strong>
+          Сначала определяется форма результата, затем модель заполняет ее содержанием.
+          Это снижает хаотичные ответы и упрощает автоматическую проверку.
+        </div>
+        <div class="card">
+          <strong>Детерминированное применение правок</strong>
+          Модель не переписывает весь документ. Она возвращает ограниченный patch,
+          а код применяет его к выбранной области и пересобирает зависимые части.
+        </div>
+        <div class="card">
+          <strong>Human-in-the-loop</strong>
+          В методологическом режиме цепочка работы останавливается на контрольных точках.
+          Методолог видит результат, сравнение, критерии и может дать точную правку.
+        </div>
+        <div class="card">
+          <strong>Наблюдаемый контур вызовов модели</strong>
+          Для вызовов фиксируются роль, модель, длительность, статус, попытки, стоимость,
+          входной контекст и артефакты проверки.
+        </div>
+        <div class="card">
+          <strong>Модельный fallback</strong>
+          LLM-слой отделен от бизнес-логики: можно переключать модели, задавать резервные маршруты
+          и сравнивать провайдеров по качеству, времени и цене.
+        </div>
+        <div class="card">
+          <strong>Eval-driven улучшения</strong>
+          Ошибки генерации превращаются в проверочные кейсы, чтобы новые промпты,
+          модели и правки цепочки работы не ломали уже исправленное поведение.
+        </div>
+      </div>
+
+      <h3>Цикл работы AgentFlow</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Стадия</th>
+            <th>Действие</th>
+            <th>Результат</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1. Подготовить</td>
+            <td>Оркестратор выбирает узел, собирает контекст и prompt-пакет.</td>
+            <td>Готовый запрос к роли ИИ с понятными ограничениями.</td>
+          </tr>
+          <tr>
+            <td>2. Сгенерировать</td>
+            <td>LLM-слой вызывает подходящую модель и получает текст или структурированный объект.</td>
+            <td>Первичный результат узла.</td>
+          </tr>
+          <tr>
+            <td>3. Проверить</td>
+            <td>Код валидирует схему, Markdown, ссылки, критерии и связь с текущим состоянием.</td>
+            <td>Принятый результат, предупреждение или запрос на исправление.</td>
+          </tr>
+          <tr>
+            <td>4. Сохранить</td>
+            <td>Успешный результат записывается в состояние запуска и журнал выполнения.</td>
+            <td>Контрольная точка, к которой можно вернуться.</td>
+          </tr>
+          <tr>
+            <td>5. Передать дальше</td>
+            <td>Следующий узел получает уже проверенные данные, а не сырой ответ модели.</td>
+            <td>Последовательная и воспроизводимая цепочка работы.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="model-call" class="section">
+      <h2>8. Вызов языковой модели</h2>
+      <p>
+        Вызов модели отделен от бизнес-логики. Код выбирает модель по роли задачи,
+        передает подготовленные данные, проверяет ответ и решает, нужна ли повторная попытка.
+      </p>
+
+      <h3>Маршрутизация моделей</h3>
+      <ul>
+        <li>Для каждой роли задан список допустимых моделей.</li>
+        <li>Если основная модель недоступна, можно использовать резервную.</li>
+        <li>Ошибки лимита, токена и тайм-аута должны превращаться в понятное сообщение.</li>
+        <li>Расход токенов и длительность сохраняются для анализа стоимости.</li>
+      </ul>
+
+      <h3>Политика повторных попыток</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Ситуация</th>
+            <th>Поведение</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Ответ не соответствует схеме</td>
+            <td>Запускается попытка исправления или повторный запрос с указанием нарушения.</td>
+          </tr>
+          <tr>
+            <td>Модель не ответила вовремя</td>
+            <td>Шаг помечается как временно неуспешный, пользователь видит понятный статус.</td>
+          </tr>
+          <tr>
+            <td>Лимит модели исчерпан</td>
+            <td>Используется резервная модель или показывается сообщение о недоступности выбранного ИИ.</td>
+          </tr>
+          <tr>
+            <td>Ответ ухудшил критерии</td>
+            <td>Результат не применяется автоматически; методолог получает отчет ухудшений.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="prompts" class="section">
+      <h2>9. Подсказки модели</h2>
+      <p>
+        Подсказка модели собирается из нескольких слоев. В ней не должно быть случайной смеси всех данных:
+        каждый слой отвечает за свой смысл.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Слой</th>
+            <th>Что содержит</th>
+            <th>Почему отдельно</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Системные правила</td>
+            <td>Роль модели, запреты, формат ответа, тональность и ограничения.</td>
+            <td>Не меняются от проекта к проекту и задают границы поведения.</td>
+          </tr>
+          <tr>
+            <td>Данные проекта</td>
+            <td>Название, описание, уровень аудитории, тема, инструменты и сторителлинг.</td>
+            <td>Определяют содержание конкретного проекта.</td>
+          </tr>
+          <tr>
+            <td>Методические правила</td>
+            <td>Структура README, шаблон задания, требования к проверяемости.</td>
+            <td>Ограничивают форму результата.</td>
+          </tr>
+          <tr>
+            <td>Контекст предыдущих шагов</td>
+            <td>План задач, уже созданные разделы, связи между артефактами.</td>
+            <td>Сохраняет целостность между главами.</td>
+          </tr>
+          <tr>
+            <td>Локальная инструкция</td>
+            <td>Что нужно сделать на текущем шаге.</td>
+            <td>Сужает задачу модели и уменьшает случайные изменения.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        Важное правило: если логику можно надежно выполнить кодом, ее не нужно прятать в подсказку модели.
+        Модель пишет смысловой текст, код применяет структуру и проверяет результат.
+      </div>
+    </section>
+
+    <section id="schemas" class="section">
+      <h2>10. Структурированный ответ и схемы</h2>
+      <p>
+        Для критичных шагов модель должна возвращать не произвольный текст, а структуру,
+        которую можно проверить и сохранить.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Объект</th>
+            <th>Что фиксирует</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Описание проекта</td>
+            <td>Единый набор входных параметров после очистки и нормализации.</td>
+          </tr>
+          <tr>
+            <td>План задач</td>
+            <td>Количество задач, уровень сложности, связи и ожидаемые артефакты.</td>
+          </tr>
+          <tr>
+            <td>Карта структуры</td>
+            <td>Главы, разделы, заголовки, содержание и обязательные блоки.</td>
+          </tr>
+          <tr>
+            <td>Теоретическая часть</td>
+            <td>Список разделов главы 2, их темы, объем и связь с практикой.</td>
+          </tr>
+          <tr>
+            <td>Практическая задача</td>
+            <td>Название, ситуация, ожидаемый результат, формат сдачи и путь файла.</td>
+          </tr>
+          <tr>
+            <td>Точечная правка</td>
+            <td>Область изменения, операция, новый текст, структурные зависимости.</td>
+          </tr>
+          <tr>
+            <td>Отчет проверки</td>
+            <td>Статус критерия, комментарий, доказательство и рекомендация.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="validation" class="section">
+      <h2>11. Проверки и безопасные исправления</h2>
+      <p>
+        Проверки делятся на два типа: структурные и смысловые. Структурные проверки должны быть максимально
+        детерминированными, смысловые могут использовать модель или правила, но всегда возвращают отчет.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Проверка</th>
+            <th>Пример</th>
+            <th>Кто исправляет</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Структура README</td>
+            <td>Есть заголовок, содержание, главы 1-3, заключение.</td>
+            <td>Код может восстановить часть структуры или показать ошибку.</td>
+          </tr>
+          <tr>
+            <td>Ссылки Markdown</td>
+            <td>Оглавление ведет на реальные заголовки.</td>
+            <td>Код пересчитывает ссылки после изменения структуры.</td>
+          </tr>
+          <tr>
+            <td>Формат заданий</td>
+            <td>Есть “Что нужно сделать”, “Что должно получиться”, “Формат сдачи”.</td>
+            <td>Модель переписывает содержимое, код проверяет наличие блоков.</td>
+          </tr>
+          <tr>
+            <td>Проверяемость результата</td>
+            <td>Результат можно увидеть, открыть, сравнить или проверить другим студентом.</td>
+            <td>Модель улучшает формулировку, критерий фиксирует замечание.</td>
+          </tr>
+          <tr>
+            <td>Единый фокус</td>
+            <td>Теория и практика не уходят в чужой кейс.</td>
+            <td>Критерий дает предупреждение, методолог уточняет правку.</td>
+          </tr>
+          <tr>
+            <td>Диаграммы</td>
+            <td>Синтаксис Mermaid корректен, текст читается, блок не ломает README.</td>
+            <td>Код санитизирует очевидные проблемы, модель может перегенерировать упрощенную схему.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="methodology" class="section">
+      <h2>12. Методологический режим</h2>
+      <p>
+        Методологический режим добавляет ручные решения в ключевых контрольных точках.
+        Он не меняет принцип генерации: каждый этап по-прежнему имеет вход, выход и проверку.
+      </p>
+      <p>
+        Контрольная точка - это сохраненный момент генерации, где методолог видит промежуточный результат
+        и выбирает дальнейшее действие.
+      </p>
+
+      <h3>Что сохраняется на контрольной точке</h3>
+      <ul>
+        <li>Название текущего этапа.</li>
+        <li>Содержимое для проверки.</li>
+        <li>Краткое объяснение, что именно нужно проверить.</li>
+        <li>Доступные области правки.</li>
+        <li>История решений методолога.</li>
+        <li>Подготовленное сравнение изменений, если правка уже создана.</li>
+      </ul>
+
+      <h3>Решения методолога</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Решение</th>
+            <th>Что делает система</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Продолжить</td>
+            <td>Фиксирует текущий результат и запускает следующий шаг.</td>
+          </tr>
+          <tr>
+            <td>Редактировать</td>
+            <td>Связывает сообщение методолога с выбранной областью и строит правку.</td>
+          </tr>
+          <tr>
+            <td>Сравнить</td>
+            <td>Показывает исходный и измененный вариант до применения.</td>
+          </tr>
+          <tr>
+            <td>Принять</td>
+            <td>Применяет подготовленную правку и обновляет состояние проекта.</td>
+          </tr>
+          <tr>
+            <td>Остановить</td>
+            <td>Завершает запуск без потери уже сохраненной истории.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="regeneration" class="section">
+      <h2>13. Точечная правка готового README</h2>
+      <p>
+        Точечная правка устроена как “от схемы к применению”: сначала фиксируется область изменения,
+        затем строится новый фрагмент, потом код применяет его к документу и пересчитывает проверки.
+      </p>
+
+      <ol>
+        <li>Пользователь выбирает один или несколько разделов README.</li>
+        <li>Для каждого раздела задает “что исправить” и “что сохранить”.</li>
+        <li>Общая правка добавляется как дополнительное ограничение ко всем выбранным разделам.</li>
+        <li>Модель генерирует новый вариант только для разрешенной области.</li>
+        <li>Код заменяет, добавляет или удаляет блоки в Markdown.</li>
+        <li>Содержание, номера и ссылки обновляются, если изменилась структура.</li>
+        <li>Критерии пересчитываются после применения.</li>
+        <li>Если качество ухудшилось, пользователь видит предупреждение и список ухудшений.</li>
+      </ol>
+
+      <div class="callout good">
+        Если методолог просит добавить или удалить главу, изменение содержания, номеров и ссылок считается разрешенной
+        структурной зависимостью. Это не нарушение области правки.
+      </div>
+    </section>
+
+    <section id="checklist" class="section">
+      <h2>14. Генерация check-list.yml</h2>
+      <p>
+        Чек-лист строится из финального README и практических задач. Источник истины -
+        принятый итоговый документ, а не промежуточный черновик.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Шаг</th>
+            <th>Что извлекается</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Разбор практики</td>
+            <td>Задания, ожидаемые результаты, формат сдачи и пути файлов.</td>
+          </tr>
+          <tr>
+            <td>Построение проверок</td>
+            <td>Наблюдаемые признаки, которые проверяющий студент может подтвердить.</td>
+          </tr>
+          <tr>
+            <td>Согласование с README</td>
+            <td>Проверки должны соответствовать формулировкам заданий и не требовать лишнего.</td>
+          </tr>
+          <tr>
+            <td>Сериализация</td>
+            <td>Итог сохраняется как `check-list.yml` и попадает в архив результата.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="rubric" class="section">
+      <h2>15. Проверка README по критериям</h2>
+      <p>
+        Проверка нужна не для автоматического запрета генерации, а для управляемой доработки.
+        Методолог видит, что именно ухудшилось и какие правки нужны.
+      </p>
+
+      <h3>Группы критериев</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Группа</th>
+            <th>Что проверяет</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Структура документа</td>
+            <td>Заголовок, содержание, главы, заключение и ссылки.</td>
+          </tr>
+          <tr>
+            <td>Глава 1</td>
+            <td>Введение, инструкция и понятный вход в проект.</td>
+          </tr>
+          <tr>
+            <td>Глава 2</td>
+            <td>Теория, объем разделов, определения, примеры и связь с проектом.</td>
+          </tr>
+          <tr>
+            <td>Глава 3</td>
+            <td>Практические задания, ожидаемые результаты, артефакты и проверяемость.</td>
+          </tr>
+          <tr>
+            <td>Сторителлинг</td>
+            <td>Единый нарративный фокус между введением, теорией и практикой.</td>
+          </tr>
+          <tr>
+            <td>Финальное завершение</td>
+            <td>Заключение завершает текущий проект без анонса следующего.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Статусы</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Статус</th>
+            <th>Значение</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="status good">Пройден</span></td>
+            <td>Критерий выполнен.</td>
+          </tr>
+          <tr>
+            <td><span class="status warn">Предупреждение</span></td>
+            <td>Есть замечание по качеству, но это не повод автоматически откатывать результат.</td>
+          </tr>
+          <tr>
+            <td><span class="status danger">Не пройден</span></td>
+            <td>Нарушение мешает принять README без правки.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="translation" class="section">
+      <h2>16. Перевод документов и видео</h2>
+      <p>
+        Переводчик работает как отдельная последовательность обработки: извлечение текста,
+        защита структурных блоков, перевод, проверка, восстановление структуры и выдача результата.
+      </p>
+
+      <h3>Документы</h3>
+      <ol>
+        <li>Из файла извлекается текст и структура.</li>
+        <li>Markdown, таблицы, формулы, код, пути файлов и диаграммы помечаются как защищенные блоки.</li>
+        <li>Текст разбивается на части по разделам, а не по случайной длине.</li>
+        <li>Модель переводит только разрешенные текстовые фрагменты.</li>
+        <li>Код проверяет, что структура не повреждена.</li>
+        <li>Для таджикского, кыргызского и узбекского проверяется письменность.</li>
+      </ol>
+
+      <h3>Видео</h3>
+      <ol>
+        <li>Из видео извлекается аудио.</li>
+        <li>Речь превращается в текстовые сегменты.</li>
+        <li>Сегменты переводятся с сохранением временных меток.</li>
+        <li>Формируются субтитры VTT, SRT и ASS.</li>
+        <li>При необходимости собирается видео с встроенными субтитрами.</li>
+      </ol>
+
+      <h3>Письменность языков</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Язык</th>
+            <th>Ожидаемая письменность</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Таджикский</td>
+            <td>Кириллица.</td>
+          </tr>
+          <tr>
+            <td>Узбекский</td>
+            <td>Латиница.</td>
+          </tr>
+          <tr>
+            <td>Кыргызский</td>
+            <td>Кириллица.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="observability" class="section">
+      <h2>17. Наблюдаемость ИИ-контура</h2>
+      <p>
+        Для production-качества важно видеть не только финальный текст, но и путь его получения.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Сигнал</th>
+            <th>Для чего нужен</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Статус шага</td>
+            <td>Понять, где находится запуск и на каком шаге возникла ошибка.</td>
+          </tr>
+          <tr>
+            <td>Длительность шага</td>
+            <td>Находить медленные участки генерации и перевода.</td>
+          </tr>
+          <tr>
+            <td>Расход модели</td>
+            <td>Считать стоимость запуска и сравнивать модели.</td>
+          </tr>
+          <tr>
+            <td>Версия подсказки</td>
+            <td>Понимать, какая инструкция модели дала конкретный результат.</td>
+          </tr>
+          <tr>
+            <td>Отчет критериев</td>
+            <td>Сравнивать качество до и после правки.</td>
+          </tr>
+          <tr>
+            <td>Отчет точечной правки</td>
+            <td>Видеть выбранную область, примененное изменение и новые предупреждения.</td>
+          </tr>
+          <tr>
+            <td>Журнал перевода</td>
+            <td>Понимать, где завис документ или видео, и какой фрагмент не прошел проверку.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="failures" class="section">
+      <h2>18. Ошибки и восстановление</h2>
+      <p>
+        Запуск должен оставаться управляемым даже при нештатной ситуации: уже созданные данные
+        сохраняются, статус шага понятен, а новый результат применяется только после проверки.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Ситуация</th>
+            <th>Что фиксируется</th>
+            <th>Поведение системы</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Модель вернула не ту структуру</td>
+            <td>Нарушение схемы ответа.</td>
+            <td>Ответ отклоняется, запускается исправление или повторная попытка.</td>
+          </tr>
+          <tr>
+            <td>Процесс остановился на контрольной точке</td>
+            <td>Сохраненное состояние последнего успешного шага.</td>
+            <td>Состояние сохраняется и может быть восстановлено.</td>
+          </tr>
+          <tr>
+            <td>Правка ухудшила критерии</td>
+            <td>Список критериев, которые получили худший статус.</td>
+            <td>Показывается предупреждение, результат не применяется без решения человека.</td>
+          </tr>
+          <tr>
+            <td>Диаграмма не читается</td>
+            <td>Сообщение рендера или слишком плотная схема.</td>
+            <td>Показывается понятная ошибка, доступен исходный блок и повторная генерация схемы.</td>
+          </tr>
+          <tr>
+            <td>Перевод завис</td>
+            <td>Статус задачи, последний обработанный фрагмент и сообщение модели.</td>
+            <td>Статус задачи сохраняется, ошибка переводится в понятное сообщение.</td>
+          </tr>
+          <tr>
+            <td>Недоступна выбранная модель</td>
+            <td>Код ответа провайдера и роль, для которой не удалось получить результат.</td>
+            <td>Используется резервная модель или выводится понятное сообщение о лимите.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="evals" class="section">
+      <h2>19. Наборы проверок качества ИИ</h2>
+      <p>
+        Качество ИИ-контура нельзя проверять только ручным просмотром. Нужны регулярные наборы примеров,
+        которые фиксируют регрессии в генерации, проверке, точечных правках и переводе.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Набор</th>
+            <th>Что должен ловить</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Точечная правка</td>
+            <td>Правка одной секции не портит соседние секции, содержание и ссылки.</td>
+          </tr>
+          <tr>
+            <td>Изменение структуры</td>
+            <td>Добавление или удаление главы обновляет содержание, номера и критерии.</td>
+          </tr>
+          <tr>
+            <td>Качество README</td>
+            <td>После генерации есть обязательные главы, заключение, проверяемые задания и единый фокус.</td>
+          </tr>
+          <tr>
+            <td>Диаграммы</td>
+            <td>Схемы читаются, не ломают Markdown и не становятся слишком крупными.</td>
+          </tr>
+          <tr>
+            <td>Перевод</td>
+            <td>Таблицы, формулы, код, диаграммы, субтитры и письменность языка сохраняются.</td>
+          </tr>
+          <tr>
+            <td>Стоимость и время</td>
+            <td>Разные модели сравниваются по качеству, длительности, расходу и управляемости.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout good">
+        Минимальный production-подход: каждая исправленная ошибка превращается в regression case,
+        а каждое изменение подсказки модели проверяется на наборе проектов.
+      </div>
+    </section>
+
+    <p class="footer">
+      Документ предназначен для публикации в базе знаний как техническое описание внутренней ИИ-модели Content Generator.
+    </p>
+  </main>
+</body>
+</html>

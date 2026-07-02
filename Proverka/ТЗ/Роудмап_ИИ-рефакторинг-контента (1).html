@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Роудмап · ИИ-рефакторинг образовательного контента</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --page:#f6f5f1; --surface:#ffffff; --surface-2:#faf9f6; --muted:#efeee8;
+    --border:#e4e2da; --border-strong:#d6d4ca;
+    --ink:#16191f; --ink-2:#3b3f47; --text-muted:#6c707a;
+    --accent:#0f6b4f; --accent-soft:#e6f2ec; --accent-line:#9ecdb6;
+    --crit:#b23b32; --major:#a86a13; --minor:#2a5d8f; --info:#5c6068;
+    --radius:14px; --shadow:0 18px 44px rgba(20,22,28,.08);
+    --serif:"Fraunces",Charter,Cambria,Georgia,serif;
+    --sans:"IBM Plex Sans",ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased}
+  .page{max-width:1040px;margin:0 auto;padding:34px 26px 72px}
+  a{color:var(--accent)}
+
+  .hero{padding:42px 40px;background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .hero:before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:linear-gradient(90deg,var(--accent),#3f9c79 60%,var(--minor))}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;margin-bottom:18px;padding:6px 13px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  h1{font-family:var(--serif);font-weight:600;font-size:40px;line-height:1.08;margin:0;letter-spacing:-.01em;max-width:20ch}
+  .lead{margin:18px 0 0;max-width:74ch;color:var(--ink-2);font-size:18.5px}
+  .today{margin-top:22px;display:inline-flex;align-items:center;gap:10px;padding:9px 15px;border:1px dashed var(--accent-line);border-radius:11px;background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:14px}
+
+  /* Gantt overview */
+  .gantt{margin-top:18px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);padding:10px;overflow-x:auto}
+  .gantt svg{display:block;min-width:840px;width:100%;height:auto}
+  .gt{font-family:var(--sans);font-size:12.5px;fill:var(--ink);font-weight:600}
+  .gw{font-family:var(--mono);font-size:11px;fill:var(--text-muted)}
+  .bar{rx:6}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:12.5px;color:var(--text-muted)}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .sw{width:13px;height:13px;border-radius:4px;display:inline-block}
+
+  h2.sec{font-family:var(--serif);font-weight:600;font-size:26px;margin:40px 0 0;letter-spacing:-.01em}
+  .timeline{margin-top:18px;position:relative;padding-left:30px}
+  .timeline:before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--border-strong)}
+  .week{position:relative;margin-top:16px}
+  .week:first-child{margin-top:0}
+  .week .node{position:absolute;left:-29px;top:24px;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--accent)}
+  .week.phase-now .node{border-color:var(--accent);background:var(--accent)}
+  .week.phase-build .node{border-color:var(--minor)}
+  .week.phase-scale .node{border-color:var(--major)}
+  .week.phase-final .node{border-color:var(--ink)}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;box-shadow:0 8px 22px rgba(20,22,28,.04)}
+  .whead{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 14px}
+  .wnum{font-family:var(--mono);font-size:13px;font-weight:500;color:#fff;background:var(--ink);padding:3px 10px;border-radius:7px}
+  .wdates{font-family:var(--mono);font-size:13px;color:var(--text-muted)}
+  .phase-pill{margin-left:auto;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 11px;border-radius:999px}
+  .ph-now{background:var(--accent-soft);color:var(--accent)}
+  .ph-build{background:#e9f1f8;color:var(--minor)}
+  .ph-scale{background:#fbf0d9;color:var(--major)}
+  .ph-final{background:#ecebe6;color:var(--ink)}
+  .wtitle{font-family:var(--serif);font-weight:600;font-size:20px;margin:12px 0 0;letter-spacing:-.01em}
+
+  .result{margin-top:14px;padding:13px 16px;border-radius:11px;background:var(--accent-soft);border:1px solid var(--accent-line)}
+  .result .lbl{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--accent)}
+  .result p{margin:4px 0 0;color:var(--ink);font-weight:500}
+
+  .scope{margin:14px 0 0;padding-left:20px;color:var(--ink-2)}
+  .scope li+li{margin-top:6px}
+  .limits{margin-top:13px;display:flex;flex-wrap:wrap;gap:8px}
+  .limit{font-size:12.5px;color:var(--major);background:#fbf0d9;border:1px solid #ecd9ab;padding:4px 10px;border-radius:999px}
+  .limit.ok{color:var(--accent);background:var(--accent-soft);border-color:var(--accent-line)}
+
+  .footer{margin-top:34px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;color:var(--text-muted);font-size:13.5px}
+  .nextlink{display:inline-flex;align-items:center;gap:9px;padding:11px 18px;border-radius:11px;background:var(--ink);color:#fff;text-decoration:none;font-weight:600;font-size:14px}
+  .nextlink:hover{background:#000}
+
+  @media(max-width:820px){
+    .page{padding:18px 13px 48px}
+    .hero{padding:26px 20px}
+    h1{font-size:30px}
+    .phase-pill{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <header class="hero">
+    <div class="eyebrow"><span class="dot"></span>Роудмап реализации · результат каждую неделю</div>
+    <h1>ИИ-рефакторинг контента: путь от прототипа до инструмента</h1>
+    <p class="lead">Сначала — быстрый работающий прототип на выгрузке, затем доводка качества и масштабирование, и только в самом конце — встраивание в Content&nbsp;Generator и автообновление. Каждая неделя завершается ощутимым результатом.</p>
+    <div class="today">📅 Сегодня — среда, 3 июня 2026. Текущая неделя короткая.</div>
+
+    <div class="gantt">
+      <svg viewBox="0 0 840 250" role="img" aria-label="Обзор этапов по неделям">
+        <!-- week grid -->
+        <g>
+          <text class="gw" x="150" y="22">Н1</text>
+          <text class="gw" x="235" y="22">Н2</text>
+          <text class="gw" x="320" y="22">Н3</text>
+          <text class="gw" x="405" y="22">Н4</text>
+          <text class="gw" x="490" y="22">Н5</text>
+          <text class="gw" x="575" y="22">Н6</text>
+          <text class="gw" x="660" y="22">Н7</text>
+          <text class="gw" x="745" y="22">Н8</text>
+        </g>
+        <line x1="145" y1="30" x2="145" y2="245" stroke="#e4e2da"/>
+        <line x1="230" y1="30" x2="230" y2="245" stroke="#e4e2da"/>
+        <line x1="315" y1="30" x2="315" y2="245" stroke="#e4e2da"/>
+        <line x1="400" y1="30" x2="400" y2="245" stroke="#e4e2da"/>
+        <line x1="485" y1="30" x2="485" y2="245" stroke="#e4e2da"/>
+        <line x1="570" y1="30" x2="570" y2="245" stroke="#e4e2da"/>
+        <line x1="655" y1="30" x2="655" y2="245" stroke="#e4e2da"/>
+        <line x1="740" y1="30" x2="740" y2="245" stroke="#e4e2da"/>
+
+        <!-- bars -->
+        <text class="gt" x="6" y="55">Согласование ТЗ</text>
+        <rect class="bar" x="145" y="44" width="80" height="16" rx="6" fill="#0f6b4f"/>
+
+        <text class="gt" x="6" y="83">Прототип</text>
+        <rect class="bar" x="230" y="72" width="80" height="16" rx="6" fill="#2a5d8f"/>
+
+        <text class="gt" x="6" y="111">Критичность + рекоменд.</text>
+        <rect class="bar" x="315" y="100" width="80" height="16" rx="6" fill="#2a5d8f"/>
+
+        <text class="gt" x="6" y="139">Витрина + экспорт</text>
+        <rect class="bar" x="400" y="128" width="80" height="16" rx="6" fill="#2a5d8f"/>
+
+        <text class="gt" x="6" y="167">Полный прогон + качество</text>
+        <rect class="bar" x="485" y="156" width="80" height="16" rx="6" fill="#a86a13"/>
+
+        <text class="gt" x="6" y="195">Пилот с методологами</text>
+        <rect class="bar" x="570" y="184" width="80" height="16" rx="6" fill="#a86a13"/>
+
+        <text class="gt" x="6" y="223">Самостоятельный инструмент</text>
+        <rect class="bar" x="655" y="212" width="80" height="16" rx="6" fill="#16191f"/>
+
+        <text class="gt" x="6" y="245" fill="#6c707a">Встраивание / автообновление</text>
+        <rect class="bar" x="740" y="234" width="80" height="14" rx="6" fill="#16191f" opacity="0.55"/>
+      </svg>
+      <div class="legend">
+        <span><i class="sw" style="background:#0f6b4f"></i>Старт</span>
+        <span><i class="sw" style="background:#2a5d8f"></i>Прототип и доводка</span>
+        <span><i class="sw" style="background:#a86a13"></i>Масштаб и пилот</span>
+        <span><i class="sw" style="background:#16191f"></i>Самостоятельный инструмент → встраивание</span>
+      </div>
+    </div>
+  </header>
+
+  <h2 class="sec">Понедельный план</h2>
+  <div class="timeline">
+
+    <!-- WEEK 1 -->
+    <div class="week phase-now">
+      <span class="node"></span>
+      <div class="card">
+        <div class="whead">
+          <span class="wnum">Неделя 1</span>
+          <span class="wdates">3 → 7 июня · короткая</span>
+          <span class="phase-pill ph-now">Старт</span>
+        </div>
+        <h3 class="wtitle">Согласование ТЗ и вход в работу</h3>
+        <div class="result">
+          <span class="lbl">Результат недели</span>
+          <p>ТЗ согласовано с продуктом, вопросы разработчика заданы, ответы получены — берём в работу.</p>
+        </div>
+        <ul class="scope">
+          <li>Финализировать ТЗ с продуктом, зафиксировать образ результата и шкалу критичности.</li>
+          <li>Закрыть открытые вопросы к разработчику: формат выгрузки, уникальный id и ветка, шаблон ссылки в админке, доступ к OpenRouter/Qwen Coder и реализация краулера ссылок.</li>
+          <li>Договориться, кто и как формирует эталонную выборку для метрик.</li>
+        </ul>
+        <div class="limits"><span class="limit ok">Кода ещё нет — только договорённости</span></div>
+      </div>
+    </div>
+
+    <!-- WEEK 2 -->
+    <div class="week phase-build">
+      <span class="node"></span>
+      <div class="card">
+        <div class="whead">
+          <span class="wnum">Неделя 2</span>
+          <span class="wdates">8 → 14 июня</span>
+          <span class="phase-pill ph-build">Прототип</span>
+        </div>
+        <h3 class="wtitle">Первый работающий прототип</h3>
+        <div class="result">
+          <span class="lbl">Результат недели</span>
+          <p>Что-то, что уже работает: на 10–20 README прогоняется извлечение (даты, версии, ссылки + контекст) и проверка по маршрутам — ссылки краулером, факты в Perplexity, техчасть в Qwen Coder. На выходе — черновая таблица результата. С ограничениями.</p>
+        </div>
+        <ul class="scope">
+          <li>Импорт Markdown/README-выгрузки, привязка id и ветки к единице.</li>
+          <li>Агент-извлекатель: даты, версии библиотек, ссылки + контекст, с цитатами и типом сущности.</li>
+          <li>Маршрутизация проверок по типам: ссылки — краулером, факты — Perplexity, техчасть — Qwen Coder (чтобы не гонять всё через дорогую Perplexity).</li>
+          <li>Черновая таблица: ветка, id, цитата, сырой вердикт.</li>
+        </ul>
+        <div class="limits">
+          <span class="limit">Запуск вручную, без UI</span>
+          <span class="limit">Критичность ещё грубая</span>
+          <span class="limit">Только малая выборка</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- WEEK 3 -->
+    <div class="week phase-build">
+      <span class="node"></span>
+      <div class="card">
+        <div class="whead">
+          <span class="wnum">Неделя 3</span>
+          <span class="wdates">15 → 21 июня</span>
+          <span class="phase-pill ph-build">Доводка</span>
+        </div>
+        <h3 class="wtitle">Критичность и рекомендации</h3>
+        <div class="result">
+          <span class="lbl">Результат недели</span>
+          <p>Каждый кейс получает уровень критичности (Crit/Major/Minor/Info) и рекомендацию по замене с учётом контекста. Размечена эталонная выборка (~30–50 единиц) для измерения качества.</p>
+        </div>
+        <ul class="scope">
+          <li>Оценка критичности с учётом контекста единицы (пример «Java 21 vs 26»).</li>
+          <li>Рекомендация по замене текста/блока/ссылки; если задание выполнимо на текущей версии — указывать явно.</li>
+          <li>Разметка эталонной выборки как точки отсчёта качества.</li>
+        </ul>
+        <div class="limits"><span class="limit">Метрики пока не финальные</span><span class="limit">UI всё ещё нет</span></div>
+      </div>
+    </div>
+
+    <!-- WEEK 4 -->
+    <div class="week phase-build">
+      <span class="node"></span>
+      <div class="card">
+        <div class="whead">
+          <span class="wnum">Неделя 4</span>
+          <span class="wdates">22 → 28 июня</span>
+          <span class="phase-pill ph-build">Витрина</span>
+        </div>
+        <h3 class="wtitle">Срезы и таблица результата</h3>
+        <div class="result">
+          <span class="lbl">Результат недели</span>
+          <p>Сводка «сколько единиц и сколько кейсов», срез до ветки и до единицы, полная таблица результата со всеми колонками из ТЗ и экспорт в CSV/Google&nbsp;Sheets.</p>
+        </div>
+        <ul class="scope">
+          <li>Витрина: счётчики затронутых единиц и кейсов по критичности.</li>
+          <li>Срез до ветки и до единицы контента.</li>
+          <li>Полная таблица: ветка · id · ссылка в админке · цитата · критичность · рекомендация.</li>
+          <li>Экспорт результата.</li>
+        </ul>
+        <div class="limits"><span class="limit ok">Заказчик впервые видит результат «как просил»</span></div>
+      </div>
+    </div>
+
+    <!-- WEEK 5 -->
+    <div class="week phase-scale">
+      <span class="node"></span>
+      <div class="card">
+        <div class="whead">
+          <span class="wnum">Неделя 5</span>
+          <span class="wdates">29 июня → 5 июля</span>
+          <span class="phase-pill ph-scale">Масштаб</span>
+        </div>
+        <h3 class="wtitle">Полный прогон и качество</h3>
+        <div class="result">
+          <span class="lbl">Результат недели</span>
+          <p>Прогон на полном объёме (100–1000 единиц) проходит стабильно. Есть отчёт по качеству: precision, recall по Critical, доля ложных срабатываний. Стоимость прогона известна.</p>
+        </div>
+        <ul class="scope">
+          <li>Стабилизация: ретраи, обработка лимитов провайдера, продолжение прерванного прогона.</li>
+          <li>Контроль стоимости и времени прогона.</li>
+          <li>Отчёт по метрикам на эталонной выборке, фиксация порогов приёмки.</li>
+        </ul>
+        <div class="limits"><span class="limit">Возможны точечные ложные срабатывания</span></div>
+      </div>
+    </div>
+
+    <!-- WEEK 6 -->
+    <div class="week phase-scale">
+      <span class="node"></span>
+      <div class="card">
+        <div class="whead">
+          <span class="wnum">Неделя 6</span>
+          <span class="wdates">6 → 12 июля</span>
+          <span class="phase-pill ph-scale">Пилот</span>
+        </div>
+        <h3 class="wtitle">Пилот с методологами</h3>
+        <div class="result">
+          <span class="lbl">Результат недели</span>
+          <p>1–2 ветки разобраны методологами по таблице инструмента, собран фидбэк, промпты донастроены. Сформирован regression-набор из исправленных ошибок.</p>
+        </div>
+        <ul class="scope">
+          <li>Пилотный разбор на реальных ветках, обратная связь по полезности и ложным тревогам.</li>
+          <li>Донастройка промптов и порогов критичности.</li>
+          <li>Regression-набор: каждая исправленная ошибка превращается в кейс проверки.</li>
+        </ul>
+        <div class="limits"><span class="limit ok">Качество подтверждается на реальных данных</span></div>
+      </div>
+    </div>
+
+    <!-- WEEK 7 -->
+    <div class="week phase-final">
+      <span class="node"></span>
+      <div class="card">
+        <div class="whead">
+          <span class="wnum">Неделя 7</span>
+          <span class="wdates">13 → 19 июля</span>
+          <span class="phase-pill ph-final">Инструмент</span>
+        </div>
+        <h3 class="wtitle">Самостоятельный инструмент</h3>
+        <div class="result">
+          <span class="lbl">Результат недели</span>
+          <p>Стабильный самостоятельный инструмент с регламентом запуска: проверка актуальности по расписанию (~раз в квартал) и фактчекинг при релизе. Есть документация.</p>
+        </div>
+        <ul class="scope">
+          <li>Регламент и режимы запуска (по расписанию и по запросу).</li>
+          <li>Документация: как запускать, как читать результат, как заводить исправления.</li>
+          <li>Наблюдаемость прогона: статусы, стоимость, версия промпта.</li>
+        </ul>
+        <div class="limits"><span class="limit ok">Приносит пользу автономно, вне Content Generator</span></div>
+      </div>
+    </div>
+
+    <!-- WEEK 8 -->
+    <div class="week phase-final">
+      <span class="node"></span>
+      <div class="card">
+        <div class="whead">
+          <span class="wnum">Неделя 8</span>
+          <span class="wdates">20 → 26 июля</span>
+          <span class="phase-pill ph-final">Встраивание</span>
+        </div>
+        <h3 class="wtitle">Решение о встраивании и автообновлении</h3>
+        <div class="result">
+          <span class="lbl">Результат недели</span>
+          <p>На подтверждённом качестве — решение и план: встраивание в Content&nbsp;Generator (фактчекинг при релизе автоматически) и поэтапное включение автообновления. Не раньше этого этапа.</p>
+        </div>
+        <ul class="scope">
+          <li>Оценка готовности по метрикам: достаточно ли точно ИИ детектит и заменяет.</li>
+          <li>План интеграции в общий пайплайн и автозапуска фактчекинга при релизе.</li>
+          <li>Дорожная карта автообновления контента — поэтапно, с человеком в контуре до полного доверия.</li>
+        </ul>
+        <div class="limits"><span class="limit ok">Встраивание — только в самом конце пути</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <span>AI Content Audit · роудмап реализации · 8 недель, результат каждую неделю</span>
+    <a class="nextlink" href="ТЗ_ИИ-рефакторинг-контента.html">← Вернуться к ТЗ</a>
+  </div>
+
+</main>
+</body>
+</html>

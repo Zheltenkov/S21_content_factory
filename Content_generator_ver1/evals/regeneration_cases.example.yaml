@@ -1,0 +1,53 @@
+name: regeneration-regressions-example
+version: example-v1
+metadata:
+  owner: content-quality
+  description: Minimal scoped regeneration regression set. Production set should cover 20-50 real regeneration requests.
+defaults:
+  max_unscoped_changed_sections: 0
+  max_validation_errors: 0
+  max_failed_patches: 0
+  max_heading_count_delta: 0
+  max_rubric_total_drop: 0
+  max_new_failed_criteria: 0
+  max_passed_to_failed_criteria: 0
+  require_selected_section_change: true
+  require_outline_stable: true
+cases:
+  - id: pjm-negotiation-section-21
+    title: Точечная правка примера в разделе 2.1
+    tags: [pjm, regeneration, scoped-edit]
+    selected_section_titles:
+      - 2.1. Как выбрать стратегию разговора
+    protected_section_titles:
+      - 2.2. Как удержать границу
+      - Глава 3. Практический блок
+    comments: |
+      Правка 1: 2.1. Как выбрать стратегию разговора
+      Диапазон строк: 9-10
+      Что исправить: Замени пример на переговоры с заказчиком.
+      Что оставить: Заголовок, структуру главы и соседние разделы.
+    original_markdown: |
+      # Эффективные переговоры
+
+      Аннотация проекта.
+
+      ## Глава 1. Введение и инструкция
+
+      Рабочий контекст не должен меняться при точечной правке.
+
+      ## Глава 2. Теоретический блок
+
+      ### 2.1. Как выбрать стратегию разговора
+
+      Старый пример про переговоры.
+
+      ### 2.2. Как удержать границу
+
+      Соседний раздел стабилен.
+
+      ## Глава 3. Практический блок
+
+      ### Задание 1. Снять картину переговоров
+
+      Собери факты и ограничения.

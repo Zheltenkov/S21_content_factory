@@ -1,0 +1,753 @@
+﻿/* Markdown, preview and diagram styles extracted from s21-design.css. */
+
+body.s21-product .markdown-preview,
+body.s21-product .methodology-markdown-preview {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 24px !important;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--s21-surface) !important;
+  border: 1px solid var(--s21-border) !important;
+  border-radius: 0 0 var(--s21-radius-lg) var(--s21-radius-lg) !important;
+  color: var(--s21-ink-2) !important;
+  box-shadow: none !important;
+}
+
+body.s21-product .markdown-preview *,
+body.s21-product .methodology-markdown-preview * {
+  box-sizing: border-box;
+}
+
+body.s21-product .markdown-preview > *,
+body.s21-product .methodology-markdown-preview > * {
+  max-width: 100%;
+  min-width: 0;
+}
+
+body.s21-product .markdown-preview,
+body.s21-product .markdown-preview p,
+body.s21-product .markdown-preview li,
+body.s21-product .markdown-preview ul,
+body.s21-product .markdown-preview ol,
+body.s21-product .markdown-preview blockquote,
+body.s21-product .methodology-markdown-preview,
+body.s21-product .methodology-markdown-preview p,
+body.s21-product .methodology-markdown-preview li,
+body.s21-product .methodology-markdown-preview ul,
+body.s21-product .methodology-markdown-preview ol,
+body.s21-product .methodology-markdown-preview blockquote {
+  color: var(--s21-ink-2) !important;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+body.s21-product .markdown-preview h1,
+body.s21-product .markdown-preview h2,
+body.s21-product .markdown-preview h3,
+body.s21-product .markdown-preview h4,
+body.s21-product .methodology-markdown-preview h1,
+body.s21-product .methodology-markdown-preview h2,
+body.s21-product .methodology-markdown-preview h3,
+body.s21-product .methodology-markdown-preview h4 {
+  color: var(--s21-ink) !important;
+  letter-spacing: 0;
+  border-color: var(--s21-border) !important;
+}
+
+body.s21-product .markdown-preview p span,
+body.s21-product .markdown-preview p em,
+body.s21-product .markdown-preview p strong,
+body.s21-product .markdown-preview li span,
+body.s21-product .markdown-preview li em,
+body.s21-product .markdown-preview li strong,
+body.s21-product .methodology-markdown-preview p span,
+body.s21-product .methodology-markdown-preview p em,
+body.s21-product .methodology-markdown-preview p strong,
+body.s21-product .methodology-markdown-preview li span,
+body.s21-product .methodology-markdown-preview li em,
+body.s21-product .methodology-markdown-preview li strong {
+  color: inherit !important;
+}
+
+body.s21-product .markdown-preview a {
+  color: var(--s21-dark) !important;
+  text-decoration-color: var(--s21-accent);
+}
+
+body.s21-product .markdown-preview code,
+body.s21-product .markdown-preview :not(pre) > code,
+body.s21-product .generated-data-path,
+body.s21-product .path-token,
+body.s21-product .methodology-artifact-list code.path-token {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 6px;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  white-space: normal;
+  background: var(--s21-surface-muted) !important;
+  border: 1px solid var(--s21-border) !important;
+  border-radius: 5px !important;
+  color: var(--s21-ink) !important;
+  font-family: var(--s21-font-mono);
+  font-size: 0.9em;
+}
+
+body.s21-product .markdown-preview pre,
+body.s21-product .generated-data-preview,
+body.s21-product .methodology-artifact-pre,
+body.s21-product .methodology-markdown-fallback,
+body.s21-product .methodology-diff-preview {
+  background: var(--s21-surface-2) !important;
+  border: 1px solid var(--s21-border) !important;
+  border-radius: var(--s21-radius-md) !important;
+  color: var(--s21-ink-2) !important;
+  box-shadow: none !important;
+}
+
+body.s21-product table,
+body.s21-product .markdown-preview table {
+  border-collapse: collapse;
+  background: var(--s21-surface) !important;
+}
+
+body.s21-product table {
+  width: 100%;
+}
+
+body.s21-product .markdown-preview .table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 1.35rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+}
+
+body.s21-product .markdown-preview > table,
+body.s21-product .methodology-markdown-preview > table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+body.s21-product .markdown-preview table {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  table-layout: auto;
+}
+
+body.s21-product th,
+body.s21-product td,
+body.s21-product .markdown-preview table th,
+body.s21-product .markdown-preview table td {
+  border: 1px solid var(--s21-border) !important;
+  color: var(--s21-ink-2) !important;
+}
+
+body.s21-product .markdown-preview table th,
+body.s21-product .markdown-preview table td {
+  min-width: 160px;
+  padding: 12px 14px;
+  vertical-align: top;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+body.s21-product .markdown-preview table th:first-child,
+body.s21-product .markdown-preview table td:first-child {
+  min-width: 220px;
+}
+
+body.s21-product .markdown-preview table th *,
+body.s21-product .markdown-preview table td * {
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+body.s21-product th,
+body.s21-product .markdown-preview table th {
+  background: var(--s21-surface-2) !important;
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .markdown-preview .table-caption,
+body.s21-product .markdown-preview .diagram-caption {
+  margin-top: 0.85rem !important;
+  margin-bottom: 1.6rem !important;
+  color: var(--s21-muted) !important;
+  font-style: italic !important;
+  text-align: center !important;
+}
+
+body.s21-product .markdown-preview .contains-task-list,
+body.s21-product .methodology-markdown-preview .contains-task-list {
+  list-style: none;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+body.s21-product .markdown-preview li.task-list-item,
+body.s21-product .methodology-markdown-preview li.task-list-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  list-style: none;
+  margin: 0.65rem 0;
+  padding-left: 0 !important;
+}
+
+body.s21-product .markdown-preview li.task-list-item::marker,
+body.s21-product .methodology-markdown-preview li.task-list-item::marker {
+  content: "";
+}
+
+body.s21-product .markdown-preview li.task-list-item input[type="checkbox"],
+body.s21-product .methodology-markdown-preview li.task-list-item input[type="checkbox"] {
+  grid-column: 1;
+  grid-row: 1;
+  width: 16px !important;
+  min-width: 16px !important;
+  max-width: 16px !important;
+  height: 16px !important;
+  min-height: 16px !important;
+  max-height: 16px !important;
+  margin: 0.25rem 0 0 !important;
+  padding: 0 !important;
+  accent-color: var(--s21-accent);
+}
+
+body.s21-product .markdown-preview li.task-list-item > *:not(input),
+body.s21-product .methodology-markdown-preview li.task-list-item > *:not(input) {
+  grid-column: 2;
+  min-width: 0;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+body.s21-product .markdown-preview li.task-list-item > .task-list-content,
+body.s21-product .methodology-markdown-preview li.task-list-item > .task-list-content {
+  grid-column: 2;
+  min-width: 0;
+  display: block;
+  line-height: 1.55;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+body.s21-product .markdown-preview li.task-list-item > .task-list-content > p,
+body.s21-product .methodology-markdown-preview li.task-list-item > .task-list-content > p {
+  margin: 0;
+}
+
+body.s21-product .markdown-preview li.task-list-item > .task-list-content code,
+body.s21-product .methodology-markdown-preview li.task-list-item > .task-list-content code {
+  display: inline;
+  max-width: 100%;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
+body.s21-product .markdown-preview li.task-list-item > p,
+body.s21-product .markdown-preview li.task-list-item > div,
+body.s21-product .markdown-preview li.task-list-item > ul,
+body.s21-product .markdown-preview li.task-list-item > ol,
+body.s21-product .methodology-markdown-preview li.task-list-item > p,
+body.s21-product .methodology-markdown-preview li.task-list-item > div,
+body.s21-product .methodology-markdown-preview li.task-list-item > ul,
+body.s21-product .methodology-markdown-preview li.task-list-item > ol {
+  grid-column: 2;
+  margin-top: 0;
+}
+
+body.s21-product .markdown-preview figure.diagram-figure {
+  width: 100% !important;
+  max-width: 960px !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  margin: 1.45rem auto 2rem !important;
+}
+
+body.s21-product .markdown-preview figure.diagram-figure .mermaid-diagram,
+body.s21-product .markdown-preview figure.diagram-figure .diagram-image-surface,
+body.s21-product .markdown-preview .mermaid-diagram,
+body.s21-product .markdown-preview .diagram-image-surface,
+body.s21-product .markdown-preview .mermaid {
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  width: 100% !important;
+  max-width: min(var(--diagram-box-width, 920px), 100%) !important;
+  min-width: 0 !important;
+  min-height: min(var(--diagram-min-height, 220px), 520px) !important;
+  max-height: min(560px, calc(100vh - 260px)) !important;
+  margin: 0 auto !important;
+  padding: 1rem !important;
+  overflow: auto !important;
+  background: var(--s21-surface-2) !important;
+  border: 1px solid var(--s21-border) !important;
+  border-radius: var(--s21-radius-sm) !important;
+  box-shadow: none !important;
+  text-align: center !important;
+  scrollbar-gutter: stable;
+}
+
+body.s21-product .markdown-preview figure.diagram-figure .mermaid-diagram[data-diagram-overflow="scroll"],
+body.s21-product .markdown-preview .mermaid-diagram[data-diagram-overflow="scroll"],
+body.s21-product .markdown-preview .mermaid[data-diagram-overflow="scroll"] {
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+}
+
+body.s21-product .markdown-preview figure.diagram-figure .mermaid-diagram[data-diagram-size="compact"],
+body.s21-product .markdown-preview .mermaid-diagram[data-diagram-size="compact"],
+body.s21-product .markdown-preview .mermaid[data-diagram-size="compact"] {
+  max-width: 720px !important;
+}
+
+body.s21-product .methodology-markdown-preview figure.diagram-figure {
+  max-width: min(960px, 100%) !important;
+}
+
+body.s21-product .methodology-markdown-preview.markdown-preview figure.diagram-figure .mermaid-diagram,
+body.s21-product .methodology-markdown-preview.markdown-preview .mermaid-diagram,
+body.s21-product .methodology-markdown-preview.markdown-preview .mermaid,
+body.s21-product .methodology-markdown-preview.markdown-preview figure.diagram-figure .diagram-image-surface,
+body.s21-product .methodology-markdown-preview.markdown-preview .diagram-image-surface {
+  max-width: min(var(--diagram-box-width, 900px), 100%) !important;
+  max-height: min(600px, calc(100vh - 260px)) !important;
+  overflow: auto !important;
+}
+
+body.s21-product .methodology-markdown-preview.markdown-preview .mermaid-diagram[data-diagram-overflow="scroll"],
+body.s21-product .methodology-markdown-preview.markdown-preview .mermaid[data-diagram-overflow="scroll"],
+body.s21-product .methodology-markdown-preview.markdown-preview .mermaid-diagram[data-diagram-size="tall"],
+body.s21-product .methodology-markdown-preview.markdown-preview .mermaid[data-diagram-size="tall"] {
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+}
+
+body.s21-product .markdown-preview figure.diagram-figure .mermaid-diagram,
+body.s21-product .markdown-preview figure.diagram-figure .diagram-image-surface,
+body.s21-product .markdown-preview .mermaid-diagram,
+body.s21-product .markdown-preview .diagram-image-surface,
+body.s21-product .markdown-preview .mermaid {
+  position: relative !important;
+  background: var(--s21-surface-2) !important;
+  border-color: var(--s21-border) !important;
+}
+
+body.s21-product .markdown-preview .diagram-zoomable {
+  cursor: zoom-in !important;
+}
+
+body.s21-product .markdown-preview .diagram-zoom-control {
+  width: 34px;
+  height: 34px;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--s21-accent);
+  border-radius: 999px;
+  background: var(--s21-accent-soft);
+  color: var(--s21-success);
+  font-family: var(--s21-font-sans);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 6px 18px rgba(15, 20, 25, 0.12);
+  cursor: zoom-in;
+}
+
+body.s21-product .markdown-preview .diagram-zoom-control:hover,
+body.s21-product .markdown-preview .diagram-zoom-control:focus-visible {
+  outline: none;
+  background: var(--s21-accent);
+  color: var(--s21-dark);
+}
+
+body.s21-product .markdown-preview figure.diagram-figure .mermaid-diagram svg,
+body.s21-product .markdown-preview figure.diagram-figure .diagram-image-surface img,
+body.s21-product .markdown-preview .mermaid-diagram svg,
+body.s21-product .markdown-preview .diagram-image-surface img,
+body.s21-product .markdown-preview .mermaid svg {
+  flex: 0 0 auto !important;
+  width: var(--diagram-width, 720px) !important;
+  max-width: 100% !important;
+  height: auto !important;
+  margin: 0 auto !important;
+  display: block !important;
+  object-fit: contain !important;
+}
+
+body.s21-product .markdown-preview figure.diagram-figure .diagram-image-surface img,
+body.s21-product .markdown-preview .diagram-image-surface img {
+  width: min(920px, 100%) !important;
+  max-width: 100% !important;
+  max-height: 560px !important;
+}
+
+body.s21-product .methodology-markdown-preview.markdown-preview figure.diagram-figure .diagram-image-surface img,
+body.s21-product .methodology-markdown-preview.markdown-preview .diagram-image-surface img {
+  width: min(900px, 100%) !important;
+  max-height: min(600px, calc(100vh - 260px)) !important;
+}
+
+body.s21-product .markdown-preview figure.diagram-figure .mermaid-diagram[data-diagram-overflow="scroll"] svg,
+body.s21-product .markdown-preview .mermaid-diagram[data-diagram-overflow="scroll"] svg,
+body.s21-product .markdown-preview .mermaid[data-diagram-overflow="scroll"] svg {
+  max-width: none !important;
+}
+
+body.s21-product .methodology-markdown-preview.markdown-preview .mermaid-diagram[data-diagram-context="methodology"] svg,
+body.s21-product .methodology-markdown-preview.markdown-preview .mermaid[data-diagram-context="methodology"] svg {
+  max-width: none !important;
+}
+
+body.s21-product .markdown-preview .mermaid .node rect,
+body.s21-product .markdown-preview .mermaid .node polygon,
+body.s21-product .markdown-preview .mermaid .node circle,
+body.s21-product .markdown-preview .mermaid .node ellipse,
+body.s21-product .markdown-preview .mermaid .node path,
+body.s21-product .markdown-preview .mermaid .label-container,
+body.s21-product .markdown-preview .mermaid .actor,
+body.s21-product .markdown-preview .mermaid .task,
+body.s21-product .markdown-preview .mermaid .section,
+body.s21-product .markdown-preview .mermaid .cluster rect,
+body.s21-product .markdown-preview .mermaid-diagram .node rect,
+body.s21-product .markdown-preview .mermaid-diagram .node polygon,
+body.s21-product .markdown-preview .mermaid-diagram .node circle,
+body.s21-product .markdown-preview .mermaid-diagram .node ellipse,
+body.s21-product .markdown-preview .mermaid-diagram .node path,
+body.s21-product .markdown-preview .mermaid-diagram .label-container,
+body.s21-product .markdown-preview .mermaid-diagram .actor,
+body.s21-product .markdown-preview .mermaid-diagram .task,
+body.s21-product .markdown-preview .mermaid-diagram .section,
+body.s21-product .markdown-preview .mermaid-diagram .cluster rect {
+  fill: var(--s21-surface) !important;
+  stroke: var(--s21-border-strong) !important;
+  stroke-width: 1.35px !important;
+  filter: none !important;
+}
+
+body.s21-product .markdown-preview .mermaid .flowchart-link,
+body.s21-product .markdown-preview .mermaid .edgePath path,
+body.s21-product .markdown-preview .mermaid path.relation,
+body.s21-product .markdown-preview .mermaid .messageLine0,
+body.s21-product .markdown-preview .mermaid .messageLine1,
+body.s21-product .markdown-preview .mermaid-diagram .flowchart-link,
+body.s21-product .markdown-preview .mermaid-diagram .edgePath path,
+body.s21-product .markdown-preview .mermaid-diagram path.relation,
+body.s21-product .markdown-preview .mermaid-diagram .messageLine0,
+body.s21-product .markdown-preview .mermaid-diagram .messageLine1 {
+  stroke: var(--s21-ink) !important;
+  stroke-width: 1.45px !important;
+  vector-effect: non-scaling-stroke !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  fill: none !important;
+  opacity: 1 !important;
+}
+
+body.s21-product .markdown-preview .mermaid marker path,
+body.s21-product .markdown-preview .mermaid-diagram marker path {
+  fill: var(--s21-ink) !important;
+  stroke: var(--s21-ink) !important;
+  stroke-width: 1px !important;
+  opacity: 1 !important;
+}
+
+body.s21-product .markdown-preview .mermaid .nodeLabel,
+body.s21-product .markdown-preview .mermaid .flowchart-label,
+body.s21-product .markdown-preview .mermaid .edgeLabel,
+body.s21-product .markdown-preview .mermaid .label,
+body.s21-product .markdown-preview .mermaid .actor,
+body.s21-product .markdown-preview .mermaid .messageText,
+body.s21-product .markdown-preview .mermaid .cluster-label,
+body.s21-product .markdown-preview .mermaid foreignObject div,
+body.s21-product .markdown-preview .mermaid foreignObject span,
+body.s21-product .markdown-preview .mermaid-diagram .nodeLabel,
+body.s21-product .markdown-preview .mermaid-diagram .flowchart-label,
+body.s21-product .markdown-preview .mermaid-diagram .edgeLabel,
+body.s21-product .markdown-preview .mermaid-diagram .label,
+body.s21-product .markdown-preview .mermaid-diagram .actor,
+body.s21-product .markdown-preview .mermaid-diagram .messageText,
+body.s21-product .markdown-preview .mermaid-diagram .cluster-label,
+body.s21-product .markdown-preview .mermaid-diagram foreignObject div,
+body.s21-product .markdown-preview .mermaid-diagram foreignObject span {
+  color: var(--s21-ink) !important;
+  fill: var(--s21-ink) !important;
+  font-size: var(--diagram-font-size, 14px) !important;
+  font-weight: 600 !important;
+  line-height: 1.22 !important;
+  text-align: center !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  hyphens: none !important;
+}
+
+body.s21-product .markdown-preview .mermaid foreignObject,
+body.s21-product .markdown-preview .mermaid-diagram foreignObject,
+body.s21-product .diagram-lightbox-media foreignObject {
+  overflow: visible !important;
+}
+
+body.s21-product .markdown-preview .mermaid foreignObject div,
+body.s21-product .markdown-preview .mermaid foreignObject span,
+body.s21-product .markdown-preview .mermaid-diagram foreignObject div,
+body.s21-product .markdown-preview .mermaid-diagram foreignObject span,
+body.s21-product .diagram-lightbox-media foreignObject div,
+body.s21-product .diagram-lightbox-media foreignObject span {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 6px !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  hyphens: none !important;
+}
+
+body.s21-product .markdown-preview .mermaid .nodeLabel p,
+body.s21-product .markdown-preview .mermaid .flowchart-label p,
+body.s21-product .markdown-preview .mermaid .label p,
+body.s21-product .markdown-preview .mermaid-diagram .nodeLabel p,
+body.s21-product .markdown-preview .mermaid-diagram .flowchart-label p,
+body.s21-product .markdown-preview .mermaid-diagram .label p,
+body.s21-product .diagram-lightbox-media .nodeLabel p,
+body.s21-product .diagram-lightbox-media .flowchart-label p,
+body.s21-product .diagram-lightbox-media .label p {
+  margin: 0 !important;
+  text-align: center !important;
+  line-height: 1.22 !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  hyphens: none !important;
+}
+
+body.diagram-lightbox-open {
+  overflow: hidden;
+}
+
+body.s21-product .diagram-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 20, 25, 0.72);
+}
+
+body.s21-product .diagram-lightbox[hidden] {
+  display: none !important;
+}
+
+body.s21-product .diagram-lightbox-surface {
+  width: min(1120px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--s21-border);
+  border-radius: var(--s21-radius-md);
+  background: var(--s21-surface);
+  box-shadow: 0 28px 80px rgba(15, 20, 25, 0.28);
+}
+
+body.s21-product .diagram-lightbox-close {
+  width: 36px;
+  height: 36px;
+  position: sticky;
+  top: 0;
+  justify-self: end;
+  z-index: 2;
+  border: 1px solid var(--s21-border);
+  border-radius: 999px;
+  background: var(--s21-surface);
+  color: var(--s21-ink);
+  font-family: var(--s21-font-sans);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+body.s21-product .diagram-lightbox-content {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  place-items: center;
+}
+
+body.s21-product .diagram-lightbox-media {
+  width: var(--diagram-lightbox-media-width, 806px) !important;
+  max-width: calc(100vw - 96px) !important;
+  max-height: calc(100vh - 160px) !important;
+  height: auto !important;
+}
+
+body.s21-product .diagram-lightbox-content img.diagram-lightbox-media {
+  width: var(--diagram-lightbox-media-width, 806px) !important;
+  min-width: 0;
+  max-height: calc(100vh - 160px) !important;
+}
+
+body.s21-product .diagram-lightbox-media .node rect,
+body.s21-product .diagram-lightbox-media .node polygon,
+body.s21-product .diagram-lightbox-media .node circle,
+body.s21-product .diagram-lightbox-media .node ellipse,
+body.s21-product .diagram-lightbox-media .node path,
+body.s21-product .diagram-lightbox-media .label-container,
+body.s21-product .diagram-lightbox-media .actor,
+body.s21-product .diagram-lightbox-media .task,
+body.s21-product .diagram-lightbox-media .section,
+body.s21-product .diagram-lightbox-media .cluster rect {
+  fill: var(--s21-surface) !important;
+  stroke: var(--s21-border-strong) !important;
+  stroke-width: 1.35px !important;
+  filter: none !important;
+}
+
+body.s21-product .diagram-lightbox-media .flowchart-link,
+body.s21-product .diagram-lightbox-media .edgePath path,
+body.s21-product .diagram-lightbox-media path.relation,
+body.s21-product .diagram-lightbox-media .messageLine0,
+body.s21-product .diagram-lightbox-media .messageLine1 {
+  stroke: var(--s21-ink) !important;
+  stroke-width: 1.25px !important;
+  vector-effect: non-scaling-stroke !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  fill: none !important;
+  opacity: 1 !important;
+}
+
+body.s21-product .diagram-lightbox-media marker path {
+  fill: var(--s21-ink) !important;
+  stroke: var(--s21-ink) !important;
+  stroke-width: 1px !important;
+  opacity: 1 !important;
+}
+
+body.s21-product .diagram-lightbox-media .nodeLabel,
+body.s21-product .diagram-lightbox-media .flowchart-label,
+body.s21-product .diagram-lightbox-media .edgeLabel,
+body.s21-product .diagram-lightbox-media .label,
+body.s21-product .diagram-lightbox-media .actor,
+body.s21-product .diagram-lightbox-media .messageText,
+body.s21-product .diagram-lightbox-media .cluster-label,
+body.s21-product .diagram-lightbox-media foreignObject div,
+body.s21-product .diagram-lightbox-media foreignObject span {
+  color: var(--s21-ink) !important;
+  fill: var(--s21-ink) !important;
+  font-size: var(--diagram-font-size, 14px) !important;
+  font-weight: 600 !important;
+  line-height: 1.22 !important;
+  text-align: center !important;
+}
+
+body.s21-product .diagram-lightbox-caption {
+  color: var(--s21-muted);
+  font-family: var(--s21-font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+body.s21-product .markdown-preview .mermaid .edgeLabel,
+body.s21-product .markdown-preview .mermaid .edgeLabel p,
+body.s21-product .markdown-preview .mermaid-diagram .edgeLabel,
+body.s21-product .markdown-preview .mermaid-diagram .edgeLabel p,
+body.s21-product .diagram-lightbox-media .edgeLabel,
+body.s21-product .diagram-lightbox-media .edgeLabel p,
+body.s21-product .markdown-preview .mermaid .labelBkg,
+body.s21-product .markdown-preview .mermaid-diagram .labelBkg {
+  background: var(--s21-surface) !important;
+  fill: var(--s21-surface) !important;
+  color: var(--s21-ink) !important;
+}
+
+body.s21-product .markdown-preview .mermaid .edgeLabel,
+body.s21-product .markdown-preview .mermaid .edgeLabel *,
+body.s21-product .markdown-preview .mermaid-diagram .edgeLabel,
+body.s21-product .markdown-preview .mermaid-diagram .edgeLabel *,
+body.s21-product .diagram-lightbox-media .edgeLabel,
+body.s21-product .diagram-lightbox-media .edgeLabel * {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  hyphens: none !important;
+}
+
+body.s21-product .markdown-preview .mermaid .edgeLabel foreignObject,
+body.s21-product .markdown-preview .mermaid-diagram .edgeLabel foreignObject,
+body.s21-product .diagram-lightbox-media .edgeLabel foreignObject {
+  overflow: visible !important;
+}
+
+body.s21-product .markdown-preview .mermaid .edgeLabel div,
+body.s21-product .markdown-preview .mermaid .edgeLabel span,
+body.s21-product .markdown-preview .mermaid .edgeLabel p,
+body.s21-product .markdown-preview .mermaid-diagram .edgeLabel div,
+body.s21-product .markdown-preview .mermaid-diagram .edgeLabel span,
+body.s21-product .markdown-preview .mermaid-diagram .edgeLabel p,
+body.s21-product .diagram-lightbox-media .edgeLabel div,
+body.s21-product .diagram-lightbox-media .edgeLabel span,
+body.s21-product .diagram-lightbox-media .edgeLabel p {
+  width: auto !important;
+  min-width: max-content !important;
+  padding-inline: 4px !important;
+}
+
+body.s21-product .markdown-preview mjx-container,
+body.s21-product .methodology-markdown-preview mjx-container,
+body.s21-product .markdown-preview .MathJax,
+body.s21-product .methodology-markdown-preview .MathJax,
+body.s21-product .markdown-preview .MathJax *,
+body.s21-product .methodology-markdown-preview .MathJax * {
+  color: var(--s21-ink) !important;
+  opacity: 1 !important;
+}
+
+body.s21-product .markdown-preview mjx-container svg,
+body.s21-product .methodology-markdown-preview mjx-container svg {
+  max-width: 100%;
+  color: var(--s21-ink) !important;
+  opacity: 1 !important;
+}
+
+body.s21-product .markdown-preview mjx-container svg path,
+body.s21-product .methodology-markdown-preview mjx-container svg path,
+body.s21-product .markdown-preview mjx-container svg use,
+body.s21-product .methodology-markdown-preview mjx-container svg use {
+  fill: var(--s21-ink) !important;
+  stroke: var(--s21-ink) !important;
+  opacity: 1 !important;
+}
+
+@media (max-width: 820px) {
+  body.s21-product .markdown-preview,
+  body.s21-product .methodology-markdown-preview {
+    padding: 18px !important;
+  }
+}

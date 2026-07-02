@@ -1,0 +1,271 @@
+version: 1
+contracts:
+  context:
+    node_id: context
+    role: context_builder
+    input_schema: []
+    output_schema: [seed, context_meta, context_analysis, context_bundle, similar_projects, warnings]
+    prompt_id: context.config
+    prompt_version: "1.0.0"
+    model_role: planner
+    validators:
+      - ProjectSeed schema
+      - ProjectContextMeta schema
+      - ContextAnalysisResult schema
+      - curriculum input preflight
+    repair_policy: deterministic normalization; warnings for incomplete curriculum fields; no LLM repair
+    fallback_policy: build ProjectSeed from submitted form/CSV fields; keep missing optional context as warnings
+    fallback_events:
+      - fallback_type: minimal_project_seed
+        quality_risk: medium
+        visible_to_user: true
+        reason: structured project metadata is unavailable
+    observability_tags: [workflow, context, deterministic, curriculum, seed]
+
+  task_planning:
+    node_id: task_planning
+    role: planning
+    input_schema: [seed, context_meta, context_analysis]
+    output_schema: [seed, task_plan, story_map_contract, practice_plan_contract, artifact_chain_plan, evidence_specs, warnings]
+    prompt_id: task_planner.config
+    prompt_version: "1.0.0"
+    model_role: planner
+    validators:
+      - TaskPlan schema
+      - StoryMapContract schema
+      - PracticePlanContract schema
+      - ArtifactChainPlan schema
+    repair_policy: clamp tasks_count and task_complexity to supported thresholds; rebuild planning contracts deterministically
+    fallback_policy: default task plan from audience level and THRESHOLDS when planning fails
+    fallback_events:
+      - fallback_type: default_task_plan
+        quality_risk: medium
+        visible_to_user: true
+        reason: planner failed or returned unusable task plan
+      - fallback_type: practice_plan_contract_unavailable
+        quality_risk: medium
+        visible_to_user: true
+        reason: planning contract builder failed
+    observability_tags: [workflow, planning, deterministic, contracts, fallback_tracked]
+
+  title_annotation:
+    node_id: title_annotation
+    role: title_annotation_generator
+    input_schema: [seed, context_meta]
+    output_schema: [title, annotation]
+    prompt_id: title_annotation.system_base+title_annotation.user_template
+    prompt_version: "1.0.0"
+    model_role: planner
+    validators:
+      - Annotation schema
+      - title uniqueness/length checks
+      - annotation component checks
+    repair_policy: retry through TitleAnnotationAgent regenerate prompts for invalid title/annotation
+    fallback_policy: deterministic title from ProjectSeed.title_seed and annotation from project description
+    fallback_events:
+      - fallback_type: title_annotation_deterministic_fallback
+        quality_risk: low
+        visible_to_user: false
+        reason: generated title or annotation failed validation
+      - fallback_type: llm_provider_route_fallback
+        quality_risk: low
+        visible_to_user: false
+        reason: primary provider/model failed and gateway selected another route
+    observability_tags: [workflow, generation, title, annotation, llm]
+
+  skeleton:
+    node_id: skeleton
+    role: readme_structure_generator
+    input_schema: [seed, context_meta, title, annotation, story_map_contract, practice_plan_contract]
+    output_schema: [markdown, title, annotation, intro_section, blueprint, warnings, issues]
+    prompt_id: intro_rules.system+intro_rules.user_template
+    prompt_version: "1.0.0"
+    model_role: planner
+    validators:
+      - StructuralPreflight
+      - IntroSection schema
+      - ProjectBlueprint schema
+      - ReadmeDocument parse
+    repair_policy: regenerate fixable structural issues once; methodology repair may restore blueprint from markdown
+    fallback_policy: deterministic SkeletonAgent chapter scaffold with title/annotation carried from previous node
+    fallback_events:
+      - fallback_type: deterministic_skeleton_scaffold
+        quality_risk: medium
+        visible_to_user: true
+        reason: skeleton generation failed or produced invalid structure
+      - fallback_type: llm_provider_route_fallback
+        quality_risk: low
+        visible_to_user: false
+        reason: primary provider/model failed and gateway selected another route
+    observability_tags: [workflow, generation, skeleton, intro, structure, llm]
+
+  theory:
+    node_id: theory
+    role: theory_generator
+    input_schema: [seed, context_meta, markdown, story_map_contract, practice_plan_contract, artifact_chain_plan, section_contexts]
+    output_schema: [markdown, theory_parts, warnings, issues]
+    prompt_id: theory.system+theory.user_template
+    prompt_version: "1.0.0"
+    model_role: theory
+    validators:
+      - TheoryPart schema
+      - TheoryValidator
+      - ReadmeDocument section parse
+      - theory completeness checks
+    repair_policy: parse/repair theory parts, run completeness enhancement for missing support, normalize markdown blocks
+    fallback_policy: keep existing skeleton section and emit hard issue if generation/validation cannot recover
+    fallback_events:
+      - fallback_type: theory_generation_unrecoverable
+        quality_risk: high
+        visible_to_user: true
+        reason: theory generation could not recover a valid chapter
+      - fallback_type: empty_enhancement_plan
+        quality_risk: medium
+        visible_to_user: false
+        reason: enhancement planner returned no actionable theory plan
+      - fallback_type: enhancement_plan_json_parse_error
+        quality_risk: medium
+        visible_to_user: false
+        reason: enhancement planner output could not be parsed
+      - fallback_type: llm_provider_route_fallback
+        quality_risk: low
+        visible_to_user: false
+        reason: primary provider/model failed and gateway selected another route
+    observability_tags: [workflow, generation, theory, chapter2, llm, typed_document]
+
+  practice:
+    node_id: practice
+    role: practice_generator
+    input_schema: [seed, markdown, story_map_contract, practice_plan_contract, artifact_chain_plan, section_contexts]
+    output_schema: [markdown, practice_tasks, warnings, issues, practice_critic_issues, artifact_chain_plan, evidence_specs, dataset_files, section_contexts]
+    prompt_id: practice.system+practice.user_template
+    prompt_version: "1.0.0"
+    model_role: practice
+    validators:
+      - PracticeTask schema
+      - PracticeValidator
+      - PracticeCritic structured issues
+      - ArtifactChainPlan consistency
+    repair_policy: materialize tasks from markdown, run critic-guided repair, rebuild artifact/evidence context
+    fallback_policy: keep previous README and surface hard practice issues; deterministic materializer preserves recoverable tasks
+    fallback_events:
+      - fallback_type: practice_critic_json_object_recovery
+        quality_risk: low
+        visible_to_user: false
+        reason: practice critic structured output needed JSON object recovery
+      - fallback_type: practice_generation_unrecoverable
+        quality_risk: high
+        visible_to_user: true
+        reason: practice generation could not recover valid tasks
+      - fallback_type: llm_provider_route_fallback
+        quality_risk: low
+        visible_to_user: false
+        reason: primary provider/model failed and gateway selected another route
+    observability_tags: [workflow, generation, practice, chapter3, critic, llm, typed_document]
+
+  global_quality:
+    node_id: global_quality
+    role: quality_pass
+    input_schema: [seed, markdown]
+    output_schema: [markdown]
+    prompt_id: content_editor.system+content_editor.coherence_template
+    prompt_version: "1.0.0"
+    model_role: critic
+    validators:
+      - ReadmeDocument parse
+      - StyleGuardAgent
+      - TOC integrity
+      - final section presence
+    repair_policy: content coherence pass, TOC rebuild, style rewrite, markdown display normalization
+    fallback_policy: return normalized input markdown if editor/style pass fails; record fallback trace
+    fallback_events:
+      - fallback_type: style_guard_markdown_boundary
+        quality_risk: low
+        visible_to_user: false
+        reason: typed style guard was unavailable and markdown-boundary guard was used
+      - fallback_type: quality_markdown_passthrough
+        quality_risk: medium
+        visible_to_user: true
+        reason: quality editor failed and normalized input markdown was preserved
+      - fallback_type: llm_provider_route_fallback
+        quality_risk: low
+        visible_to_user: false
+        reason: primary provider/model failed and gateway selected another route
+    observability_tags: [workflow, quality, coherence, style, toc, llm]
+
+  evaluation:
+    node_id: evaluation
+    role: rubric_evaluator
+    input_schema: [seed, markdown]
+    output_schema: [rubric_json, issues]
+    prompt_id: rubric.scorer
+    prompt_version: "1.0.0"
+    model_role: critic
+    validators:
+      - IntroValidator
+      - TheoryValidator
+      - PracticeValidator
+      - RubricScorer
+    repair_policy: no content mutation; serialize issues for methodology review and result report
+    fallback_policy: deterministic validators remain authoritative if rubric LLM scoring is unavailable
+    fallback_events:
+      - fallback_type: rubric_llm_unavailable
+        quality_risk: low
+        visible_to_user: false
+        reason: rubric LLM scoring failed and deterministic validators remained authoritative
+      - fallback_type: llm_provider_route_fallback
+        quality_risk: low
+        visible_to_user: false
+        reason: primary provider/model failed and gateway selected another route
+    observability_tags: [workflow, evaluation, rubric, validators, scoring]
+
+  translate:
+    node_id: translate
+    role: translation
+    input_schema: [seed, markdown]
+    output_schema: [markdown, translated_markdown]
+    prompt_id: translator.system+translator.user_template
+    prompt_version: "1.0.0"
+    model_role: translator
+    validators:
+      - protected block integrity
+      - heading/table/code preservation
+      - target language gate
+    repair_policy: retry untranslated sections and restore protected Mermaid/table/formula/code blocks
+    fallback_policy: skip when target_language is ru; keep original markdown if translation cannot be safely produced
+    fallback_events:
+      - fallback_type: missing_target_language
+        quality_risk: low
+        visible_to_user: true
+        reason: target language is absent and ru was used
+      - fallback_type: translation_unavailable
+        quality_risk: medium
+        visible_to_user: true
+        reason: translation failed validation and original markdown was preserved
+      - fallback_type: llm_provider_route_fallback
+        quality_risk: low
+        visible_to_user: false
+        reason: primary provider/model failed and gateway selected another route
+    observability_tags: [workflow, translation, markdown_boundary, llm]
+
+  finalize:
+    node_id: finalize
+    role: result_assembly
+    input_schema: [seed, markdown, context_meta, context_analysis, context_bundle, title, annotation, intro_section, theory_parts, practice_tasks, blueprint, rubric_json, task_plan, story_map_contract, practice_plan_contract, artifact_chain_plan, evidence_specs, translated_markdown]
+    output_schema: [result, assets, project_spec, section_contexts]
+    prompt_id: finalize.config
+    prompt_version: "1.0.0"
+    model_role: critic
+    validators:
+      - OrchestratorResult schema
+      - ProjectSpec schema
+      - ReadmeDocument parse
+      - archive asset completeness
+    repair_policy: assemble only; recover typed TheoryPart/PracticeTask from markdown for report compatibility
+    fallback_policy: attach fallback structures/assets when optional typed artifacts are absent; fail if result cannot be assembled
+    fallback_events:
+      - fallback_type: missing_optional_typed_artifacts
+        quality_risk: low
+        visible_to_user: false
+        reason: final assembly recovered optional report artifacts from markdown
+    observability_tags: [workflow, finalize, export, deterministic, archive]

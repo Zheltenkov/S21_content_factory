@@ -1,0 +1,8 @@
+.env
+__pycache__/
+.pytest_cache/
+pytest-cache-files-*/
+test_tmp/
+tmp_pytest_parent/
+.tmp/
+reports/

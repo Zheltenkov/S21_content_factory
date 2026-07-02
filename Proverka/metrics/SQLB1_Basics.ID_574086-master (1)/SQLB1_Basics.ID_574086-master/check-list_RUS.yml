@@ -1,0 +1,323 @@
+introduction: >
+  -  Проверка — это не формальность, а часть твоего обучения. Здесь можно
+  обменяться опытом, обсудить сложные моменты и даже придумать новые подходы к
+  решению задач.
+
+  - Проверяя проекты других участников, ты не просто ставишь "галочки" — ты изучаешь разные варианты решений и расширяешь необходимую специалисту насмотренность. 
+
+  - Даже если твой проект еще не готов — ты можешь проводить проверку. Те, чьи работы ты проверяешь, могут выступить в роли ментора и объяснить свою логику. Это поможет им лучше понять свою работу, а тебе — разобраться в теме.
+
+  - Критика — это здорово, но главное — предложить способы улучшения. Так ты сделаешь проект лучше и поможешь коллеге расти - а это очень важный навык для работы в команде.
+
+  - После проверки заданий по чек-листу выбери 2-3 вопроса из списка ниже, которые ты хочешь обсудить во время встречи. 
+
+  1. Про сложности:
+
+  "Что в этом проекте было самым сложным для тебя? 
+  Каким образом это удалось решить? Может, какой-то неочевидный способ?"   
+
+  2. Про успехи:
+
+  "А что, наоборот, получилось хорошо? Почему именно это? Как этот подход можно использовать в других проектах?"
+
+  3. Про улучшения:
+
+  "Если бы сейчас пришлось снова сделать этот проект, что можно было бы сделать по-другому? Почему?"   
+
+  4. Про поиск информации:
+  
+  "Где тебе приходилось искать ответы на возникающие вопросы? Какой ресурс или способ оказался самым полезным? Как ты убеждаешься в том, что информация из выбранного источника точная?"
+
+  - Используй по максимуму эту встречу как возможность глубже разобраться в теме и найти новые подходы к решениям.
+guidelines: >-
+  - Подлежат оцениванию только те файлы, которые выложены в GIT-репозиторий в
+  папку src.
+
+  - Убедись в том, что репозиторий является репозиторием участника или группы, которых ты проверяешь.
+
+  - Если ты еще работаешь над проектом, и он не готов, обязательно перечитай его еще раз перед проверкой. 
+    
+  - В конце чек-листа есть специальные флаги: EMPTY WORK, если репозиторий пустой или решение запушено не в папку src ветки develop, либо ветка develop отсутствует; CHEAT, если ты видишь признаки того, что участник не самостоятельно выполнил работу (например, не может объяснить решение). В случае применения одного из флагов в конце чек-листа проект будет провален. Однако, кроме случаев плагиата, рекомендуем все равно продолжить проверку и попытаться вместе выяснить проблему, которая привела к неработающему решению.
+quick_actions:
+  - EMPTY_WORK
+  - CHEAT
+  - FORBIDDEN_FUNCTION
+language: ru
+name: Day00
+comment: ""
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Задание 00
+        description: >
+          Проверь наличие файла day00_ex00.sql
+
+          -  SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT name,
+                       age
+                FROM person
+                WHERE address = 'Kazan';
+
+          - Результат приведен ниже (исходный порядок должен быть таким же, как указано ниже)
+
+                "Kate"	    "33"
+                "Denis"	    "13"
+                "Elvira"    "45"
+
+        rating: "5"
+
+      - name: Задание 01
+        description: >
+          Проверь наличие файла day00_ex01.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT name,
+                       age
+                FROM person
+                WHERE address = 'Kazan'
+                  AND gender = 'female'
+                ORDER BY name;
+
+          - Результат приведен ниже (исходный порядок должен быть таким же, как указано ниже)
+
+                "Elvira"	"45"
+                "Kate"      "33"
+
+        rating: "5"
+
+      - name: Задание 02
+        description: >
+          Проверь наличие файла day00_ex02.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT name,
+                       rating
+                FROM pizzeria
+                WHERE rating >= 3.5
+                  AND rating <= 5
+                ORDER BY rating;
+
+          Результат приведен ниже (исходный порядок должен быть таким же, как указано ниже)
+
+                "DinoPizza"	    "4.2"
+                "Dominos"         "4.3"
+                "Pizza Hut"	    "4.6"
+                "Papa Johns"      "4.9"
+
+          - SQL-скрипт выглядит так, как показано ниже (для использования ключевого слова BETWEEN).
+
+                SELECT name,
+                       rating
+                FROM pizzeria
+                WHERE rating BETWEEN 3.5 AND 5
+                ORDER BY rating;
+
+          Результат приведен ниже (исходный порядок должен быть таким же, как указано ниже).
+
+                "DinoPizza"   "4.2"
+                "Dominos"	    "4.3"
+                "Pizza Hut"	 "4.6"
+                "Papa Johns"	"4.9"
+
+        rating: "5"
+
+      - name: Задание 03
+        description: >
+          Проверь наличие файла day00_ex03.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT DISTINCT person_id
+                FROM person_visits
+                WHERE visit_date BETWEEN '2022-01-06' AND '2022-01-09'
+                  OR pizzeria_id = 2
+                ORDER BY person_id DESC;
+
+          - Результат приведен ниже (исходный порядок должен быть таким же, как указано ниже).
+
+                9
+                8
+                7
+                6
+                5
+                4
+                2
+
+        rating: "5"
+
+      - name: Задание 04
+        description: >
+          Проверь наличие файла day00_ex04.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT name|| ' (age:'||age::varchar||',gender:'''||gender ||''',address:'''|| address || ''')' AS person_information
+                FROM person
+                ORDER BY person_information;
+
+          - Второй вариант решения выглядит следующим образом.
+
+                SELECT concat(name, ' (age:', age::varchar, ',gender:''', gender, ''',address:''', address, ''')') AS person_information
+                FROM person
+                ORDER BY person_information;
+
+          - Результат приведен ниже (исходный порядок должен быть таким же, как указано ниже).
+
+                  Andrey    (age:21,gender:'male',address:'Moscow')
+                  Anna      (age:16,gender:'female',address:'Moscow')
+                  Denis     (age:13,gender:'male',address:'Kazan')
+                  Dmitriy   (age:18,gender:'male',address:'Samara')
+                  Elvira    (age:45,gender:'female',address:'Kazan')
+                  Irina     (age:21,gender:'female',address:'Saint-Petersburg')
+                  Kate      (age:33,gender:'female',address:'Kazan')
+                  Nataly    (age:30,gender:'female',address:'Novosibirsk')
+                  Peter     (age:24,gender:'male',address:'Saint-Petersburg')
+
+        rating: "5"
+
+      - name: Задание 05
+        description: >
+          Проверь наличие файла day00_ex05.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                 SELECT
+                  (SELECT name
+                  FROM person p
+                  WHERE p.id = po.person_id) AS name
+                 FROM person_order po
+                 WHERE (menu_id = 13
+                      OR menu_id = 14
+                      OR menu_id = 18)
+                  AND order_date = '2022-01-07';
+
+          - Результат приведен ниже (исходный порядок должен быть таким же, как указано ниже).
+
+                 "Denis"
+                 "Nataly"
+
+        rating: "5"
+
+
+      - name: Задание 06
+        description: >
+          Проверь наличие файла day00_ex06.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                  SELECT
+                    (SELECT name
+                    FROM person p
+                    WHERE p.id = po.person_id) AS name,
+
+                    (SELECT name
+                    FROM person p
+                    WHERE p.id = po.person_id) = 'Denis' AS check_name
+                  FROM person_order po
+                  WHERE (menu_id = 13
+                        OR menu_id = 14
+                        OR menu_id = 18)
+                    AND order_date = '2022-01-07';
+
+          - Результат приведен ниже (исходный порядок должен быть таким же, как указано ниже).
+
+                  Denis     true
+                  Nataly    false
+
+        rating: "5"
+
+      - name: Задание 07
+        description: >
+          Проверь наличие файла day00_ex07.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                 SELECT id,
+                        name,
+                        CASE
+                            WHEN age BETWEEN 10 AND 20 THEN 'interval #1'
+                            WHEN age > 20
+                                  AND age < 24 THEN 'interval #2'
+                            ELSE 'interval #3'
+                        END AS interval_info
+                 FROM person
+                 ORDER BY 3;
+
+          - Результат приведен ниже (исходный порядок должен быть таким же, как указано ниже).
+
+                "1"	    "Anna"	    "interval #1"
+                "4"	    "Denis"	    "interval #1"
+                "9"	    "Dmitriy"   "interval #1"
+                "6"	    "Irina"	    "interval #2"
+                "2"	    "Andrey"    "interval #2"
+                "8"	    "Nataly"    "interval #3"
+                "5"	    "Elvira"    "interval #3"
+                "7"	    "Peter"	    "interval #3"
+                "3"	    "Kate"	    "interval #3"
+
+        rating: "5"
+
+      - name: Задание 08
+        description: >
+          Проверь наличие файла day00_ex08.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT *
+                FROM person_order
+                WHERE id % 2 =0
+                ORDER BY id;
+
+          - Результат приведен ниже (исходный порядок должен быть таким же, как указано ниже).
+
+                "2"     "1"	 "2"   "2022-01-01"
+                "4"     "2"	 "9"	  "2022-01-01"
+                "6"     "4"	 "16"  "2022-01-07"
+                "8"     "4"	 "18"  "2022-01-07"
+                "10"	"4"	  "7"   "2022-01-08"
+                "12"	"5"	  "7"   "2022-01-09"
+                "14"	"7"	  "3"   "2022-01-03"
+                "16"	"7"	  "4"   "2022-01-05"
+                "18"	"8"	  "14"  "2022-01-07"
+                "20"	"9"	  "6"	 "2022-01-10"
+
+        rating: "5"
+
+      - name: Задание 09
+        description: >
+          Проверь наличие файла day00_ex09.sql
+
+          - SQL-скрипт выглядит так, как показано ниже.
+
+                SELECT
+                  (SELECT name
+                  FROM person p
+                  WHERE p.id = pv.person_id) AS person_name,
+
+                  (SELECT name
+                  FROM pizzeria p
+                  WHERE p.id = pv.pizzeria_id) AS pizzeria_name
+                FROM
+                  (SELECT *
+                  FROM person_visits pv
+                  WHERE visit_date BETWEEN '2022-01-07' AND '2022-01-09') AS pv
+                ORDER BY 1 ASC,
+                         2 DESC;
+
+          - Результат приведен ниже (исходный порядок должен быть таким же, как указано ниже).
+
+                 "Denis"      "DinoPizza"
+                 "Denis"	  "Best Pizza"
+                 "Dmitriy"    "Papa Johns"
+                 "Dmitriy"    "Best Pizza"
+                 "Elvira"	  "Dominos"
+                 "Elvira"	  "DinoPizza"
+                 "Irina"	  "Dominos"
+                 "Nataly"	  "Papa Johns"
+
+        rating: "5"

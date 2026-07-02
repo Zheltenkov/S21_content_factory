@@ -1,0 +1,162 @@
+introduction: >
+
+  School 21 metodologiyasi qachonki tenga-teng tekshiruvlar jiddiy ravishda olib borilsagina o’z ma’nosiga ega bo’ladi. Iltimos tekshiruvni boshlashdan oldin barcha ko’rsatmalarni diqqat bilan o’qing. 
+
+  - Iltimos, baholash davomidagi barcha muloqotlarda xushmuomala, muloyim, odobli va konstruktiv (ijobiy yondashuvda) bo‘l.
+
+  - Shaxs tomonidan bajarilgan ishning kamchiliklarini ta’kidlab o‘t va uni muhokama, munozara qilish uchun vaqt ajrat.
+  
+  - Shuni yodda tut, ba’zida vazifalarni talqin qilishda va xususiyatlar ko‘lamida farqlar bo‘lishi mumkin. Iltimos, boshqalarning qarashlarini to‘g‘ri qabul qil.
+
+  - Agar sen hali loyihani tugatmagan bo‘lsang, baholashni boshlashdan oldin ko‘rsatmalarni to‘liq o‘qib chiqishing shart.
+
+guidelines: >
+
+  - Faqat talaba yoki jamoaning GIT omboridagi src papkasidagi fayllarni baholang.
+
+  - Jamoa loyihasini ko'rib chiqishni faqat jamoa to'liq tarkibda ishtirok etganda boshlashni ta'minlang.
+
+  - Quyidagilar haqida xabar berish uchun nazorat roʻyxatidagi maxsus bayroqchalardan foydalaning, masalan, agar omborda develop tarmog’ining src papkasida talaba (yoki jamoa)ning ishi boʻlmasa, “boʻsh loyiha” yoki ko’chirilgan taqdirda yoki agar talaba (yoki jamoa) ko'rib chiqish paytida istalgan vaqtda o'z ishini tushuntira olmasa, shuningdek, quyidagi bandlardan biri bajarilmasa, “ko’chirilgan”. Biroq, ko’chirish holatlaridan tashqari, keyingi ko'rib chiqishda ularning oldini olish uchun vaziyatni keltirib chiqargan muammolarni aniqlash uchun loyihani ko'rib chiqishni davom ettirish tavsiya etiladi.
+
+  - GIT ombori talaba yoki jamoa omboriga mos kelishini ikki marta tekshiring.
+
+  - Sizni chalg’itish uchun hech qanday zararli narsa ishlatilmaganligini diqqat bilan tekshiring.
+
+  - Bahsli holatlarda, nazorat ro'yxati faqat tekshirishning umumiy tartibini belgilashini unutmang. Loyihani baholash bo'yicha yakuniy qaror tekshiruvchida qoladi.mbordagi develop tamog‘ining src papkasida ishtirokchi (yoki jamoa) ishi bo‘lmasa - "bo‘sh loyiha" yoki loyiha ko‘chirilgan taqdirda yoki agar ishtirokchi (yoki jamoa) tekshiruv paytida o‘z ishini tushuntirib bera olmasa "Ko‘chirilgan", shuningdek, quyidagi bandlardan biri bajarilmagan bo‘lsa, hisobot berish uchun nazorat ro‘yxatidagi maxsus nomli bayroqlardan foydalan. Muammollarni keltirib chiqargan sabablarni aniqlash va keyingi tekshiruvlarda ularni oldini olish maqasadida loyihani ko‘rib chiqishni davom ettirish tavsiya etiladi,  faqat ko‘chirish holatlardan tashqari.
+
+quick_actions:
+  - EMPTY_WORK
+  - INVALID_COMPILATION
+  - CODE_STYLE
+  - LEAKS
+  - CRASH
+  - CHEATING
+  - FORBIDDEN_FUNCTION
+language: uz
+comment: ""
+name: C. Day 08
+sections:
+  - kind: "1"
+    name: Asosiy qism
+    description: ""
+    questions:
+      - name: Quest 1. 
+        description: >-
+          - src/maxmin.c fayli xatolarsiz tuzilgan
+
+          - maxmin funksiyasi kodda mavjud va “main”da chaqiriladi
+
+          - Funksiyadan bir nechta qiymatlarni qaytarish ko'rsatkichni o'tkazish orqali amalga oshirilgan
+
+          - Dastur kiritilgan 3 ta raqamning eng katta va eng kichik qiymatini topadi va raqamlari teng bo'lgan vaziyatlarni to'g'ri hal qiladi.
+
+          - Dinamik xotira ishlatilmagan
+
+          - 1-Sinov ishi 
+            Kirish: 
+              1 2 3 
+            Chiqish: 
+              3 1
+
+          - 2-Sinov ishi 
+            Kirish: 
+              9 5 1 
+            Chiqish: 
+              9 1
+
+          - 3-Sinov ishi 
+            Kirish: 
+              1 5 2 
+            Chiqish: 
+              5 1
+
+          - Dasturning manba kodi clang- format yordamida uslub normasi uchun tekshirilgan
+        rating: '6'
+      - name: Quest 2.
+        description: >-
+          - src/squaring.c fayli xatolarsiz tuzilgan
+
+          - Kirish/chiqish va qayta ishlash uchun alohida funksiyalar mavjud
+
+          - Funksiyalar “main”dan oldin, yaratilishi  “main”dan keyin e'lon qilinadi
+
+          - Massiv ko'rsatkich orqali uzatilgan
+
+          - Dastur 0, 1 va 11+ elementli massiv bilan vaziyatni to'g'ri boshqaradi.
+
+          - Dastur musbat va manfiy sonlar bilan to'g'ri ishlaydi.
+
+          - Dinamik xotira ishlatilmagan
+
+          - 1-Sinov ishi 
+            Kirish: 
+              3 1 2 3 
+            Chiqish: 
+              1 4 9
+
+          - Dasturning manba kodi clang- format yordamida uslub normasi uchun tekshirilgan
+        rating: '6'
+      - name: Quest 3.
+        description: >-
+          - src/stat.c fayli xatolarsiz tuzilgan
+
+          - Massiv ko'rsatkich orqali uzatiladi
+
+          - Kirish/chiqish va qayta ishlash uchun alohida funksiyalar mavjud
+
+          - Bir xil turdagi funksiyalar uchun argumentlar tartibi bir xil
+
+          - Qiymat qaytaruvchi funksiyalar orasida bitta chiqish nuqtasi mavjud
+
+          - Dastur 0, 1,  2, 3 va 11+ elementlar massivi bilan vaziyatni to'g'ri boshqaradi.
+
+          - Dastur butunlay 0 elementdan iborat massiv bilan vaziyatni to'g'ri hal qiladi.
+
+          - Dastur butunlay bir xil elementlardan tashkil topgan massiv bilan vaziyatni to'g'ri hal qiladi.
+
+          - Dastur ma'lumotlar to'plami uchun ekstremumlarni (max va min), kutilgan qiymatni va farqni to'g'ri aniqlaydi.
+
+          - Dinamik xotira ishlatilmaydi
+
+          - 1-Sinov ishi 
+            Kirish: 
+              4 1 2 3 4 
+            Chiqish: 
+              12 3 4 4 1 2.500000 1.250000
+
+          - Dasturning manba kodi clang- formati yordamida uslub normasi uchun tekshirilgan
+        rating: '6'
+      - name: Quest 4.
+        description: >-
+          - src/search.c fayli xatosiz tuzilgan
+
+          - Massiv ko'rsatkich orqali uzatiladi
+
+          - Kirish/chiqish va qayta ishlash uchun alohida funksiyalar mavjud
+
+          - Qiymat qaytaruvchi funksiyalar orasida bitta chiqish mavjud
+
+          - Dastur 0,1, 2, 3 va 31+ elementlar massivi bilan vaziyatni to'g'ri boshqaradi.
+
+          - Dastur butunlay 0 elementdan iborat massiv bilan vaziyatni to'g'ri hal qiladi.
+
+          - Dastur butunlay bir xil elementlardan tashkil topgan massiv bilan vaziyatni to'g'ri hal qiladi.
+
+          - Dastur shartlarga javob beradigan (juft, kutilgan qiymatdan katta yoki unga teng, uch sigma qoidasiga bo'ysunuvchi va 0 ga teng bo’lmagan) elementning birinchi paydo bo'lishini to'g'ri topadi.
+
+          - Dinamik xotira ishlatilmaydi
+
+          - 1-Sinov ishi 
+            Kirish: 
+              4 1 2 3 4 
+            Chiqish: 
+              4
+
+          - 2-Sinov ishi 
+            Kirish: 
+              2 0 0 
+            Chiqish: 
+              0 
+
+          - Dasturning manba kodi clang- format yordamida uslub normasi uchun tekshirilgan
+        rating: '6'

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Генератор · UX/UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Inter', system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#0d2018">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#0d2018"/>
+    <g transform="translate(450, 250)">
+      <rect width="300" height="300" rx="48" fill="#0d2018" stroke="#2ed18a" stroke-width="3"/>
+      <g fill="#2ed18a" transform="translate(60, 80)">
+        <!-- "21" mark -->
+        <rect x="0"   y="0"   width="36" height="36" rx="6"/>
+        <rect x="48"  y="0"   width="36" height="36" rx="6"/>
+        <rect x="96"  y="0"   width="36" height="36" rx="6" opacity="0.4"/>
+        <rect x="48"  y="48"  width="36" height="36" rx="6"/>
+        <rect x="96"  y="48"  width="36" height="36" rx="6"/>
+        <rect x="0"   y="96"  width="36" height="36" rx="6"/>
+        <rect x="48"  y="96"  width="36" height="36" rx="6" opacity="0.4"/>
+        <rect x="96"  y="96"  width="36" height="36" rx="6"/>
+        <rect x="0"   y="144" width="36" height="36" rx="6"/>
+        <rect x="48"  y="144" width="36" height="36" rx="6"/>
+        <rect x="96"  y="144" width="36" height="36" rx="6"/>
+        <rect x="144" y="144" width="36" height="36" rx="6" opacity="0.4"/>
+      </g>
+    </g>
+    <text x="600" y="620" text-anchor="middle" fill="#2ed18a" font-family="Inter, sans-serif" font-size="32" font-weight="600" letter-spacing="-0.5">Генератор</text>
+    <text x="600" y="660" text-anchor="middle" fill="#2ed18a" opacity="0.5" font-family="Inter, sans-serif" font-size="18">учебных проектов</text>
+  </svg>
+</template>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="parts/atoms.jsx"></script>
+<script type="text/babel" src="parts/auth.jsx"></script>
+<script type="text/babel" src="parts/menu.jsx"></script>
+<script type="text/babel" src="parts/generator.jsx"></script>
+<script type="text/babel" src="parts/progress.jsx"></script>
+<script type="text/babel" src="parts/extras.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const App = () => (
+  <DesignCanvas title="Генератор учебных проектов" subtitle="UX/UI · светлая тема, нейтральная база, ink-акцент · Inter">
+
+    <DCSection id="brand" title="01 · Авторизация" subtitle="Логин, регистрация, восстановление пароля. Левая колонка — брендовый шторм с лёгким декором; правая — компактная форма.">
+      <DCArtboard id="login" label="Вход" width={1200} height={760}><Login/></DCArtboard>
+      <DCArtboard id="login-err" label="Вход · ошибка + loading" width={1200} height={760}><LoginError/></DCArtboard>
+      <DCArtboard id="register" label="Регистрация" width={1200} height={760}><Register/></DCArtboard>
+      <DCArtboard id="forgot" label="Восстановление пароля · отправлено" width={1200} height={760}><Forgot/></DCArtboard>
+    </DCSection>
+
+    <DCSection id="menu" title="02 · Главное меню" subtitle="Выбор режима работы. Три равновысотные карточки + список недавних запусков.">
+      <DCArtboard id="main" label="Главная · выбор режима" width={1440} height={1080}><MainMenu/></DCArtboard>
+    </DCSection>
+
+    <DCSection id="gen" title="03 · Генерация README" subtitle="Двухколоночный layout: форма слева (с секционным разбиением, accordion и sticky-CTA), результаты справа.">
+      <DCArtboard id="form" label="Форма параметров · empty state справа" width={1440} height={980}><Generator/></DCArtboard>
+      <DCArtboard id="progress" label="Прогресс пайплайна · 5/10 · live log" width={1440} height={980}><Progress/></DCArtboard>
+      <DCArtboard id="results" label="Результаты · итоговый README + TOC" width={1440} height={980}><Results/></DCArtboard>
+      <DCArtboard id="metrics" label="Метрики · 36 из 39 критериев" width={1440} height={980}><Metrics/></DCArtboard>
+    </DCSection>
+
+    <DCSection id="check" title="04 · Проверка README" subtitle="Загрузка README.md и разбор по 39 критериям. Чипы-фильтры, группировка по разделам, приоритеты.">
+      <DCArtboard id="checker" label="Проверка README · 68 % · ниже порога" width={1440} height={980}><Checker/></DCArtboard>
+      <DCArtboard id="modal" label="Модалка «Улучшение README» · шаг 1/4" width={1200} height={780}><ImproveModal/></DCArtboard>
+    </DCSection>
+
+    <DCSection id="tr" title="05 · Перевод" subtitle="Document mode: split-view оригинал/перевод. Video mode: загрузка с прогрессом + параметры субтитров.">
+      <DCArtboard id="tr-doc" label="Перевод документа · RU → EN" width={1440} height={900}><Translator/></DCArtboard>
+      <DCArtboard id="tr-vid" label="Перевод видео · 72 % распознавание" width={1440} height={900}><TranslatorVideo/></DCArtboard>
+    </DCSection>
+
+    <DCSection id="ds" title="06 · Дизайн-система" subtitle="Палитра, типографика, компоненты, статусы, радиусы. Один акцентный цвет — ink #0f1419.">
+      <DCArtboard id="ds-board" label="Tokens · components · states" width={1280} height={1280}><DesignSystem/></DCArtboard>
+    </DCSection>
+
+  </DesignCanvas>
+);
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

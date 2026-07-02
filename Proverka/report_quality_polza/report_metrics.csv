@@ -1,0 +1,12 @@
+﻿metric,value
+gold_defects,67
+recall,0.433
+precision,0.063
+f1,0.109
+overview_recall,1.000
+predicted_in_scope,466
+true_positive,29
+extra_candidates,434
+findings_total,1001
+candidates_per_defect,6.960
+actionable_extra,329

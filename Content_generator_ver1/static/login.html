@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-store">
+    <title>Вход - Генератор учебных проектов</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/auth-light.css?v=20260513-fluid-auth">
+</head>
+<body class="auth-login">
+    <main class="auth-shell" aria-labelledby="loginTitle">
+        <section class="auth-brand-panel" aria-label="Генератор учебных проектов">
+            <div class="auth-brand-row">
+                <span class="auth-logo-mark">21</span>
+                <span>
+                    <strong>Генератор</strong>
+                    <small>учебных проектов</small>
+                </span>
+            </div>
+            <div class="auth-brand-copy">
+                <span class="auth-product-chip">• ГЕНЕРАТОР КОНТЕНТА</span>
+                <h1>Создавайте, проверяйте и переводите README в единой среде.</h1>
+                <p>Полный методологический пайплайн для авторов учебных проектов: от паспорта программы до готового документа со всеми критериями качества.</p>
+            </div>
+            <span class="auth-deco auth-deco-1"></span>
+            <span class="auth-deco auth-deco-2"></span>
+            <span class="auth-deco auth-deco-3"></span>
+            <span class="auth-deco auth-deco-4"></span>
+        </section>
+
+        <section class="auth-form-panel">
+            <div class="login-container">
+                <div class="login-header">
+                    <h1 id="loginTitle">С возвращением</h1>
+                    <p>Войдите в свой аккаунт, чтобы продолжить работу</p>
+                </div>
+                
+                <div id="errorMsg" class="error-msg"></div>
+                
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            required 
+                            autocomplete="email"
+                            placeholder="m.kravtsova@school21.ru"
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="auth-label-row">
+                            <label for="password">Пароль</label>
+                            <a href="/forgot-password">Забыли пароль?</a>
+                        </div>
+                        <div class="auth-password-field">
+                            <input 
+                                type="password" 
+                                id="password" 
+                                name="password" 
+                                required
+                                autocomplete="current-password"
+                                placeholder="Введите пароль"
+                            >
+                            <button type="button" class="auth-eye-button" onclick="togglePasswordVisibility()" aria-label="Показать или скрыть пароль">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M2.2 12s3.6-6 9.8-6 9.8 6 9.8 6-3.6 6-9.8 6-9.8-6-9.8-6Z"></path>
+                                    <circle cx="12" cy="12" r="2.7"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <label class="auth-remember">
+                        <input type="checkbox" id="rememberDevice" checked>
+                        <span>Запомнить меня на этом устройстве</span>
+                    </label>
+                    
+                    <button type="submit" class="btn" id="loginBtn">Войти <span aria-hidden="true">→</span></button>
+
+                </form>
+                
+                <div class="auth-create-account">
+                    <span>Нет аккаунта?</span>
+                    <a href="/register" id="createAccountLink">Создать аккаунт</a>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <script>
+        const API_BASE = window.location.origin;
+        const API_URL = `${API_BASE}/api/v1`;
+        const UNREGISTERED_LOGIN_MESSAGE = 'Вы не зарегестрированы используйте домен школы 21';
+        const createAccountLink = document.getElementById('createAccountLink');
+
+        if (createAccountLink) {
+            createAccountLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                window.location.assign('/register');
+            });
+        }
+        
+        // Проверяем, есть ли уже сохраненный токен
+        const savedToken = localStorage.getItem('auth_token');
+        if (savedToken) {
+            // Если токен есть, перенаправляем на главную страницу
+            // app.html сам проверит валидность токена и перенаправит обратно, если нужно
+            window.location.replace('/app');
+        }
+        
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const btn = document.getElementById('loginBtn');
+            const errorMsg = document.getElementById('errorMsg');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            
+            if (!emailInput) {
+                showError('Поле email не найдено');
+                return;
+            }
+            
+            if (!passwordInput) {
+                showError('Поле пароля не найдено');
+                return;
+            }
+            
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            
+            if (!email) {
+                showError('Пожалуйста, введите email');
+                return;
+            }
+            
+            if (!password) {
+                showError('Пожалуйста, введите пароль');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = 'Вход...';
+            errorMsg.classList.remove('show');
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+                
+                if (!response.ok) {
+                    let errorDetail = 'Ошибка входа';
+                    try {
+                        const errorData = await response.json();
+                        errorDetail = getErrorMessage(errorData, response.status);
+                        console.error('Ошибка от сервера:', errorData);
+                    } catch (e) {
+                        // Если не удалось распарсить JSON, используем статус
+                        errorDetail = `Ошибка ${response.status}: ${response.statusText}`;
+                        console.error('Не удалось распарсить ответ сервера:', e);
+                    }
+                    throw new Error(errorDetail);
+                }
+                
+                const data = await response.json();
+                console.log('Ответ от сервера:', data);
+                
+                // Проверяем, что данные получены
+                if (!data || !data.access_token) {
+                    console.error('Неполные данные от сервера:', data);
+                    throw new Error('Не получен токен доступа от сервера');
+                }
+                
+                // Сохраняем токен в localStorage
+                try {
+                    localStorage.setItem('auth_token', data.access_token);
+                    localStorage.setItem('user_id', data.user_id || '');
+                    localStorage.setItem('username', data.username || email);
+                    localStorage.setItem('email', email);
+                    localStorage.setItem('session_id', (data.session_id || '').toString());
+                    console.log('Данные сохранены в localStorage');
+                } catch (storageError) {
+                    console.error('Ошибка сохранения в localStorage:', storageError);
+                    throw new Error('Не удалось сохранить данные авторизации. Проверьте настройки браузера.');
+                }
+                
+                // Небольшая задержка перед перенаправлением для гарантии сохранения
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Перенаправляем на главную страницу приложения
+                // Используем replace вместо href, чтобы избежать проблем с историей
+                console.log('Перенаправление на /app');
+                window.location.replace('/app');
+                
+            } catch (error) {
+                console.error('Ошибка входа:', error);
+                let errorMessage = 'Ошибка при входе. Попробуйте еще раз.';
+                
+                if (error.message) {
+                    errorMessage = error.message;
+                } else if (error instanceof TypeError && error.message.includes('fetch')) {
+                    errorMessage = 'Ошибка подключения к серверу. Проверьте, что сервер запущен.';
+                } else if (error.name === 'NetworkError' || error.message.includes('Failed to fetch')) {
+                    errorMessage = 'Не удалось подключиться к серверу. Проверьте подключение к интернету.';
+                }
+                
+                showError(errorMessage);
+                btn.disabled = false;
+                btn.textContent = 'Войти';
+            }
+        }
+
+        function getErrorMessage(errorData, status) {
+            const source = errorData?.detail ?? errorData?.message ?? errorData;
+
+            if (typeof source === 'string' && source.trim()) {
+                return source;
+            }
+
+            if (Array.isArray(source)) {
+                const messages = source
+                    .map(item => item?.msg || item?.message || item?.detail)
+                    .filter(Boolean);
+                if (messages.length > 0) {
+                    return messages.join('; ');
+                }
+            }
+
+            if (source && typeof source === 'object') {
+                const nested = source.message || source.detail || source.error;
+                if (typeof nested === 'string' && nested.trim()) {
+                    return nested;
+                }
+            }
+
+            if (status === 401) {
+                return UNREGISTERED_LOGIN_MESSAGE;
+            }
+
+            return `Ошибка ${status}`;
+        }
+        
+        function showError(message) {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.textContent = message;
+            errorMsg.classList.add('show');
+        }
+
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('password');
+            if (!passwordInput) return;
+            passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+        }
+    </script>
+</body>
+</html>
+
+

@@ -1,0 +1,20 @@
+name: theory_completeness
+version: "1.0.0"
+updated_at: "2025-01-15"
+
+llm:
+  temperature: 0.3
+  max_tokens: 6000
+
+prompts:
+  system:
+    type: file
+    path: content_gen/prompts/theory_completeness/system.md
+  user_template:
+    type: file
+    path: content_gen/prompts/theory_completeness/user_template.md
+
+options:
+  max_retries: 2
+  enable_only_for_improvement: true
+

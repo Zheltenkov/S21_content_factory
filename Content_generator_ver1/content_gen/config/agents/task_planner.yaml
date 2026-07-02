@@ -1,0 +1,41 @@
+name: task_planner
+version: "1.0.0"
+updated_at: "2025-01-05"
+options:
+  level_keywords:
+    base:
+      - base
+      - beginner
+      - novice
+      - intro
+      - junior
+      - новичок
+      - базовый
+      - старт
+    middle:
+      - middle
+      - intermediate
+      - mid
+      - experienced
+      - опытный
+      - средний
+    advanced:
+      - advanced
+      - expert
+      - senior
+      - углубленный
+      - продвинутый
+      - эксперт
+      - senior  
+      - seniority
+  level_config:
+    base:
+      tasks: 6
+      complexity: easy
+    middle:
+      tasks: 5
+      complexity: medium
+    advanced:
+      tasks: 3
+      complexity: hard
+  rationale_template: "История трека (order={order}) => уровень {context_level}; Уровень аудитории => {audience_level}; Финальный уровень => {final_level}"

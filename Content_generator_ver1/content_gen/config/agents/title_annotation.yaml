@@ -1,0 +1,22 @@
+name: title_annotation
+version: "1.0.0"
+updated_at: "2025-01-05"
+llm:
+  temperature: 0.15
+  max_tokens: 5000
+prompts:
+  system_base:
+    type: file
+    path: content_gen/prompts/title_annotation/system_base.md
+  user_template:
+    type: file
+    path: content_gen/prompts/title_annotation/user_template.md
+  regenerate_annotation:
+    type: file
+    path: content_gen/prompts/title_annotation/regenerate_annotation.md
+  regenerate_title:
+    type: file
+    path: content_gen/prompts/title_annotation/regenerate_title.md
+options:
+  enforce_annotation_components: true
+

@@ -1,0 +1,500 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проверка README - Школа 21</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        window.MathJax = window.MathJax || {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            chtml: {
+                displayAlign: 'center',
+                displayIndent: '0',
+                scale: 1.18
+            },
+            svg: {
+                displayAlign: 'center',
+                displayIndent: '0',
+                scale: 1.18
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <link rel="stylesheet" href="/static/css/styles.css?v=20260518-diagram-labels">
+    <link rel="stylesheet" href="/static/css/s21-tokens.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-base.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-forms.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-buttons.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-badges.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-markdown.css?v=20260520-methodology-diagram-stability">
+    <link rel="stylesheet" href="/static/css/s21-design.css?v=20260514-split">
+    <link rel="stylesheet" href="/static/css/s21-dashboard.css?v=20260514-header-fix">
+    <link rel="stylesheet" href="/static/css/s21-workflow.css?v=20260514-split3">
+    <link rel="stylesheet" href="/static/css/s21-metrics.css?v=20260514-split3">
+    <link rel="stylesheet" href="/static/css/s21-checker.css?v=20260518-diagram-polish">
+    <script src="/static/js/modules/modelSelector.js?v=20260514-header-fix"></script>
+    <script src="/static/js/utils/pagePrefetch.js?v=20260518-page-prefetch-lite" defer></script>
+</head>
+<body class="s21-product page-checker">
+    <header class="dashboard-header dashboard-header--menu checker-topbar">
+        <a class="dashboard-brand" href="/app" aria-label="Главная" hidden>
+            <span>
+                <span id="checkerBrandMark" class="dashboard-brand-mark">ПРОВЕРКА</span>
+                <span id="checkerBrandSub" class="dashboard-brand-sub">39 критериев · v 2.4</span>
+            </span>
+        </a>
+
+        <nav class="dashboard-nav" aria-label="Основные разделы">
+            <a href="/app">Главная</a>
+            <a href="/app/generate">Генерация</a>
+            <a href="/app/auditor" class="active">Аудитор</a>
+            <a href="/app/translate">Перевод</a>
+            <a href="/app/curriculum">УП</a>
+            <a href="/app/spravochnik">Справочник</a>
+            <a href="/app/instruction">Инструкция</a>
+        </nav>
+
+        <div class="dashboard-header-actions">
+            <div class="dashboard-model-picker" data-selected-model="polza">
+                <button class="dashboard-model-button" type="button" aria-label="Выбрать модель ИИ" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDashboardModelMenu(this)" title="Модель ИИ">
+                    <span aria-hidden="true">ИИ</span>
+                </button>
+                <div class="dashboard-model-menu" role="listbox" aria-label="Модель ИИ" hidden>
+                    <button type="button" role="option" data-model="polza" aria-selected="true" onclick="setDashboardModel(this.dataset.model)">polza</button>
+                    <button type="button" role="option" data-model="deepseek" aria-selected="false" onclick="setDashboardModel(this.dataset.model)">deepseek</button>
+                    <button type="button" role="option" data-model="gigachat" aria-selected="false" onclick="setDashboardModel(this.dataset.model)">gigachat</button>
+                </div>
+            </div>
+            <button class="dashboard-user" type="button" onclick="handleLogout()" title="Выйти">
+                <span class="dashboard-user-avatar" id="checkerUserInitials">МК</span>
+                <span id="checkerUserName">M. Кравцова</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="s21-subbar checker-subbar">
+        <a href="/app">← Главное меню</a>
+        <span class="sep">/</span>
+        <strong id="checkerSubbarTitle">Проверка README</strong>
+        <span id="checkerSubbarStatus" class="badge info" style="display: none;">ОЖИДАЕТ README</span>
+        <div id="checkerSubbarRight" class="right"></div>
+    </div>
+
+    <div class="container">
+        <div class="two-columns checker-layout">
+            <!-- Левая колонка: ввод -->
+            <div class="column checker-input-panel">
+                <section id="checkerInputForm">
+                    <h2>Проверка README</h2>
+                    <p class="s21-page-hint">Загрузите README.md и получите разбор по 39 критериям.</p>
+
+                    <div class="file-upload checker-file-card" onclick="if (event.target.tagName !== 'INPUT') document.getElementById('readmeFile').click()">
+                        <input type="file" id="readmeFile" accept=".md" onclick="event.stopPropagation()" onchange="handleReadmeFileSelect(event)">
+                        <span class="generator-upload-icon"></span>
+                        <span>
+                            <strong id="checkerReadmeUploadTitle">Загрузить README.md</strong>
+                            <small id="readmeFileNameChecker">Markdown-файл для проверки</small>
+                        </span>
+                        <button type="button" class="checker-file-remove" onclick="event.stopPropagation(); clearCheckerFile()">×</button>
+                    </div>
+
+                    <div class="expander checker-expander">
+                        <div class="expander-header" onclick="toggleExpander('checkerLoExpander')">
+                            <span>Образовательные результаты</span>
+                            <span class="badge">ОПЦИОНАЛЬНО</span>
+                            <span>⌃</span>
+                        </div>
+                        <div class="expander-content" id="checkerLoExpander">
+                            <div class="form-group">
+                                <label>Образовательные результаты</label>
+                                <textarea id="learningOutcomes" rows="5" placeholder="Понимать модели атак на сетевую инфраструктуру&#10;Уметь анализировать pcap-логи&#10;Знать принципы firewall и IDS"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="expander checker-expander">
+                        <div class="expander-header" onclick="toggleExpander('checkerCurriculumExpander')">
+                            <span>Учебный план для улучшения</span>
+                            <span class="badge">ОПЦИОНАЛЬНО</span>
+                            <span>⌄</span>
+                        </div>
+                        <div class="expander-content" id="checkerCurriculumExpander">
+                            <p class="s21-field-hint">Если загрузите УП и выберете проект, при улучшении README данные подтянутся из учебного плана. Иначе они будут извлечены из README.</p>
+                            <div class="file-upload s21-accent-upload checker-file-card small" onclick="if (event.target.tagName !== 'INPUT') document.getElementById('checkerCurriculumFile').click()">
+                                <input type="file" id="checkerCurriculumFile" accept=".csv" onclick="event.stopPropagation()" onchange="handleCheckerCurriculumUpload(event)">
+                                <span class="generator-upload-icon"></span>
+                                <span>
+                                    <strong>Загрузить CSV учебного плана</strong>
+                                    <small id="checkerCurriculumFileName" class="s21-upload-status">Для точного контекста улучшения</small>
+                                </span>
+                            </div>
+                            <div class="form-group" id="checkerCurriculumBlockGroup" style="display: none;">
+                                <label>Тематический блок</label>
+                                <select id="checkerCurriculumBlock" onchange="onCheckerCurriculumBlockChange()">
+                                    <option value="">— Выберите блок —</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="checkerCurriculumProjectGroup" style="display: none;">
+                                <label>Проект в блоке</label>
+                                <select id="checkerCurriculumProject" onchange="onCheckerCurriculumProjectChange()">
+                                    <option value="">— Выберите проект —</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="checker-actions">
+                        <button class="btn btn-secondary" onclick="clearCheckerResults()">Очистить результат</button>
+                        <button class="btn" id="checkBtn" onclick="checkReadme()">✓ Проверить README</button>
+                    </div>
+                </section>
+
+                <section id="checkerRunSnapshot" class="generation-run-snapshot" style="display: none;" aria-label="Параметры запуска улучшения">
+                    <div class="generator-panel-heading compact">
+                        <h2>Параметры запуска</h2>
+                        <p class="s21-page-hint">Зафиксированы перед генерацией улучшенного README</p>
+                    </div>
+                    <div class="generation-run-params-table">
+                        <div><span>README</span><strong id="checkerRunParamReadme">—</strong></div>
+                        <div><span>Название</span><strong id="checkerRunParamTitle">—</strong></div>
+                        <div><span>Тематический блок</span><strong id="checkerRunParamBlock">—</strong></div>
+                        <div><span>Тип</span><strong id="checkerRunParamType">—</strong></div>
+                        <div><span>Язык</span><strong id="checkerRunParamLanguage">RU · Русский</strong></div>
+                        <div><span>Кол-во задач</span><strong id="checkerRunParamTasks">—</strong></div>
+                        <div><span>Методология</span><strong id="checkerRunParamMethodology">Обычный режим</strong></div>
+                    </div>
+                    <div class="generation-run-note">
+                        <strong>Генерация может занять до 15 минут.</strong>
+                        <span>Процесс использует тот же pipeline, что и основной генератор.</span>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Правая колонка: результаты -->
+            <div class="column checker-result-panel">
+                <div id="noResults" class="checker-empty-state">
+                    <div class="generator-empty-orbit"><span></span></div>
+                    <h3>Результаты появятся здесь</h3>
+                    <p>Загрузите README слева и запустите проверку. После проверки можно улучшить документ.</p>
+                </div>
+
+                <div id="resultsArea" style="display: none;">
+                    <section id="checkerScorePanel" class="s21-checker-score-panel checker-score-hero" aria-label="Сводка проверки">
+                        <div class="s21-score-ring" id="checkerScoreRing">
+                            <span id="checkerScorePercent">—</span>
+                        </div>
+                        <div class="s21-checker-score-copy">
+                            <div class="checker-score-badge" id="checkerThresholdBadge">ОЦЕНКА README</div>
+                            <div class="s21-summary-value">Оценка README: <span id="checkerScoreValue">—</span></div>
+                            <div class="s21-summary-note" id="checkerScoreStatus">Загрузите README для оценки</div>
+                            <div id="improveReadmeSection" class="checker-score-actions" style="display: none;">
+                                <button class="btn" id="improveReadmeBtn" onclick="startImprovement()">↗ Улучшить README</button>
+                                <button class="btn btn-secondary" onclick="showTab('report', document.querySelector('.checker-result-tabs .tab:nth-child(2)'))">Только отчёт</button>
+                            </div>
+                            <div id="improveReadmeWarning" class="checker-improve-note" style="display: none;">
+                                Ниже порога 70 %. Рекомендуется улучшить README.
+                            </div>
+                        </div>
+                    </section>
+
+                    <div id="warningsArea"></div>
+
+                    <!-- Секция отображения процесса генерации улучшенного README -->
+                    <div id="improvementGenerationProgress" class="s21-progress-panel" style="display: none;">
+                        <div class="s21-progress-header">
+                            <div class="spinner"></div>
+                            <p class="s21-progress-title">Генерация улучшенного README...</p>
+                        </div>
+                        <div class="s21-progress-row">
+                            <p>
+                                <strong>Время работы:</strong> <span id="improvementTimer">00:00</span>
+                            </p>
+                        </div>
+                        <div class="s21-progress-row">
+                            <p>
+                                <strong>Текущий агент:</strong> <span id="improvementCurrentAgent">Инициализация...</span>
+                            </p>
+                        </div>
+                        <div class="warnings s21-compact-warning">
+                            <p>
+                                <strong>Внимание:</strong> Генерация может занимать до 15 минут. Пожалуйста, не закрывайте страницу.
+                            </p>
+                        </div>
+                    </div>
+
+                    <section class="checker-result-card">
+                        <div class="generation-final-tabsbar checker-tabsbar">
+                            <div class="tabs checker-result-tabs">
+                                <button class="tab active" onclick="showTab('metrics', this)">Критерии <span class="count">39</span></button>
+                                <button class="tab" onclick="showTab('report', this)">Статистика текста</button>
+                                <button class="tab" onclick="showTab('readme', this)">Исходный README</button>
+                                <button class="tab" id="improvedReadmeTab" onclick="showTab('improvedReadme', this)" style="display: none;">Улучшенный README <span class="badge">beta</span></button>
+                            </div>
+                        </div>
+
+                        <div id="metrics" class="tab-content active checker-tab-body">
+                            <div id="checkerMetricsVersionSwitcher" class="s21-version-switcher" style="display: none;">
+                                <div class="tabs">
+                                    <button class="tab active" id="checkerMetricsTabOriginal" onclick="switchCheckerMetricsVersion('original', this)">Исходный README</button>
+                                    <button class="tab" id="checkerMetricsTabImproved" onclick="switchCheckerMetricsVersion('improved', this)">Улучшенный README</button>
+                                </div>
+                            </div>
+                            <div id="checkerMetricsOriginal" class="report-version-content" style="display: block;"></div>
+                            <div id="checkerMetricsImproved" class="report-version-content" style="display: none;"></div>
+                        </div>
+
+                        <div id="report" class="tab-content checker-tab-body">
+                            <div id="checkerReport" class="report-version-content"></div>
+                        </div>
+
+                        <div id="readme" class="tab-content checker-tab-body">
+                            <div id="readmePreview" class="markdown-preview result-markdown"></div>
+                        </div>
+
+                        <div id="improvedReadme" class="tab-content checker-tab-body">
+                            <div id="improvedReadmePreview" class="markdown-preview result-markdown"></div>
+                            <div class="s21-preview-actions">
+                                <button class="btn" onclick="downloadImprovedReadme()">Скачать улучшенный README</button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <section id="checkerImprovementRunView" class="generation-run-view checker-improvement-run" style="display: none;" aria-label="Генерация улучшенного README">
+                    <div class="generation-run-head">
+                        <div class="generation-run-ring" id="checkerRunRing" style="--run-progress: 12%;">
+                            <span id="checkerRunPercent">12%</span>
+                        </div>
+                        <div class="generation-run-title-block">
+                            <div class="generation-run-kicker">ЭТАП <span id="checkerRunStageIndex">01</span> ИЗ 10</div>
+                            <h2 id="checkerRunTitle">Генерация улучшенного README</h2>
+                            <p id="checkerRunSubtitle">Создаём задания и пересобираем документ по критериям проверки.</p>
+                        </div>
+                        <div class="generation-run-time">
+                            <span>Время</span>
+                            <strong id="checkerRunTimer">00:00</strong>
+                            <small id="checkerRunRemaining">осталось ~ 6–15 мин</small>
+                        </div>
+                    </div>
+
+                    <div class="generation-pipeline-card">
+                        <ol id="checkerRunTimeline" class="generation-pipeline-list">
+                            <li class="generation-pipeline-step now"><span>01</span><div><strong>Анализ README</strong><small>Извлекаем структуру, цели и ограничения</small></div><em>в работе</em></li>
+                            <li class="generation-pipeline-step pending"><span>02</span><div><strong>Уточнение параметров</strong><small>Проверяем seed для генерации</small></div><em>ожидает</em></li>
+                            <li class="generation-pipeline-step pending"><span>03</span><div><strong>План практики</strong><small>Собираем задачи и критерии сдачи</small></div><em>ожидает</em></li>
+                            <li class="generation-pipeline-step pending"><span>04</span><div><strong>Теория и примеры</strong><small>Достраиваем недостающие блоки</small></div><em>ожидает</em></li>
+                            <li class="generation-pipeline-step pending"><span>05</span><div><strong>Проверка качества</strong><small>Прогоняем критерии и исправления</small></div><em>ожидает</em></li>
+                            <li class="generation-pipeline-step pending"><span>06</span><div><strong>Сборка результата</strong><small>Готовим README и архив</small></div><em>ожидает</em></li>
+                        </ol>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/modules/markdownRendering.js?v=20260520-methodology-diagram-stability"></script>
+    <script src="/static/js/modules/generationRunView.js?v=20260514-split"></script>
+    <script src="/static/js/modules/generationPolling.js?v=20260514-split"></script>
+    <script src="/static/js/modules/generationPersistence.js?v=20260514-split"></script>
+    <script src="/static/js/modules/curriculumForm.js?v=20260514-split"></script>
+    <script src="/static/js/modules/generationResultTabs.js?v=20260514-split"></script>
+    <script src="/static/js/modules/generationFormState.js?v=20260514-model-switch"></script>
+    <script src="/static/js/modules/metricsView.js?v=20260518-checker-filter-state"></script>
+    <script src="/static/js/modules/translationPage.js?v=20260514-video-progress"></script>
+    <script src="/static/js/utils/authSession.js?v=20260702-auth-cookie-sync"></script>
+    <script src="/static/js/main.js?v=20260518-diagram-compact"></script>
+    <script src="/static/js/modules/checkerReadmePreview.js?v=20260518-checker-diagram-fit"></script>
+    <script src="/static/js/modules/checkerDiffView.js?v=20260514-split"></script>
+    <script src="/static/js/modules/checkerMetricsSwitch.js?v=20260514-split"></script>
+    <script src="/static/js/modules/checkerCurriculumState.js?v=20260514-split2"></script>
+    <script src="/static/js/modules/checkerImprovementModal.js?v=20260514-split2"></script>
+    <script src="/static/js/modules/checkerImprovementRun.js?v=20260514-model-switch"></script>
+    <script src="/static/js/modules/checkerPage.js?v=20260514-split"></script>
+    
+    <!-- Модальное окно для редактирования извлеченных данных -->
+    <div id="improvementModal" class="modal checker-improvement-overlay" style="display: none;">
+        <div class="modal-content s21-improvement-modal checker-improvement-modal">
+            <div class="modal-header">
+                <div class="checker-modal-icon">↗</div>
+                <div>
+                    <h2>Улучшение README</h2>
+                    <p>Мы извлекли данные из README. Проверьте их перед генерацией улучшенной версии.</p>
+                </div>
+                <span class="close" onclick="closeImprovementModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="improvementLoading" class="s21-loading-state" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Извлечение данных из README...</p>
+                </div>
+                
+                <div id="improvementEditor" style="display: none;">
+                    <div class="checker-improvement-stepper" aria-label="Шаги улучшения README">
+                        <div class="checker-step active"><span>1</span><span>Основное</span></div>
+                        <div class="checker-step"><span>2</span><span>Параметры проекта</span></div>
+                        <div class="checker-step"><span>3</span><span>Результаты и навыки</span></div>
+                        <div class="checker-step"><span>4</span><span>Бонус и репозиторий</span></div>
+                    </div>
+                    <form id="improvementForm" class="checker-modal-grid">
+                        <div class="form-group wide">
+                            <label>Название проекта *</label>
+                            <input type="text" id="improveTitleSeed" required>
+                        </div>
+                        
+                        <div class="form-group wide">
+                            <label>Описание проекта *</label>
+                            <textarea id="improveDescription" rows="3" required></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Язык *</label>
+                            <select id="improveLanguage" required>
+                                <option value="ru">Русский</option>
+                                <option value="en">English</option>
+                                <option value="kg">Кыргызча</option>
+                                <option value="uz">O'zbek</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Тематический блок *</label>
+                            <select id="improveThematicBlock" required>
+                                <option value="">Выберите тематический блок</option>
+                            </select>
+                            <small id="thematicBlockHint" class="s21-field-hint"></small>
+                        </div>
+                        
+                        <div class="expander" id="improveAddBlockExpander" style="display: none;">
+                            <div class="expander-header" onclick="toggleExpander('improveAddBlockExpander')">
+                                <span>Добавить новый тематический блок</span>
+                                <span>▼</span>
+                            </div>
+                            <div class="expander-content">
+                                <div class="form-group">
+                                    <label>Название тематического блока</label>
+                                    <input type="text" id="improveNewBlockName" placeholder="Например: Машинное обучение">
+                                </div>
+                                <div class="form-group">
+                                    <label>Кодовое обозначение (сокращенное на латинице)</label>
+                                    <input type="text" id="improveNewBlockCode" placeholder="Например: ML">
+                                </div>
+                                <button type="button" class="btn" onclick="addImprovementThematicBlock()">Добавить тематический блок</button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Уровень аудитории *</label>
+                            <input type="text" id="improveAudienceLevel" placeholder="Например: базовый, продвинутый, начальный" required>
+                            <small class="s21-field-hint">Укажите уровень аудитории в свободной форме. Будет оценен агентом.</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Тип проекта *</label>
+                            <select id="improveProjectType" required onchange="toggleImproveGroupSize()">
+                                <option value="individual">Индивидуальный</option>
+                                <option value="group">Групповой</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="improveGroupSizeGroup" style="display: none;">
+                            <label>Количество человек в группе *</label>
+                            <input type="number" id="improveGroupSize" min="2" max="10" value="2">
+                            <small class="s21-field-hint">Количество человек в группе (от 2 до 10)</small>
+                        </div>
+
+                        <label class="toggle-field generator-toggle-card checker-methodology-toggle" for="improveMethodologyHumanReview">
+                            <input type="checkbox" id="improveMethodologyHumanReview">
+                            <span>
+                                <strong>Методологический режим</strong>
+                                <small>Останавливать генерацию улучшенного README на контрольных точках для подтверждения методологом</small>
+                            </span>
+                        </label>
+                        
+                        <div class="form-group wide">
+                            <label>Образовательные результаты (по одному в строке)</label>
+                            <textarea id="improveLearningOutcomes" rows="5" placeholder="Что студент должен научиться делать?"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Навыки (через запятую)</label>
+                            <input type="text" id="improveSkills" placeholder="Навык 1, Навык 2, ...">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Инструменты (через запятую)</label>
+                            <input type="text" id="improveRequiredTools" placeholder="Python, Docker, Git, ...">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Количество задач (2-8)</label>
+                            <input type="number" id="improveTasksCount" min="2" max="8">
+                            <small class="s21-field-hint">Если не указано, будет определено автоматически</small>
+                        </div>
+                        
+                        <!-- Дополнительный учебный контекст -->
+                        <div class="form-group wide">
+                            <label>Дополнительный учебный контекст</label>
+                            <textarea id="improveZUN" rows="6" placeholder="Опишите результаты обучения, навыки, темы или ограничения, которые важно учесть в проекте."></textarea>
+                            <small class="s21-field-hint">Если заполнено, будет использовано как дополнительная информация при генерации</small>
+                        </div>
+                        
+                        <!-- Бонусное задание -->
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="improveGenerateBonus" onchange="toggleImproveBonusWish()">
+                            <label for="improveGenerateBonus">Генерировать бонусное задание</label>
+                        </div>
+                        
+                        <div class="form-group wide" id="improveBonusWishGroup" style="display: none;">
+                            <label>Дополнение к бонусному заданию</label>
+                            <textarea id="improveBonusWish" rows="3" placeholder="Опишите дополнительные требования к бонусному заданию"></textarea>
+                        </div>
+                        
+                        <!-- Настройка репозитория -->
+                        <div class="expander">
+                            <div class="expander-header" onclick="toggleExpander('improveRepoExpander')">
+                                <span>Настройка репозитория</span>
+                                <span>▼</span>
+                            </div>
+                            <div class="expander-content" id="improveRepoExpander">
+                                <div class="form-group">
+                                    <label>Базовый URL репозитория</label>
+                                    <input type="text" id="improveRepoBaseUrl" placeholder="https://github.com/school21/project-name">
+                                </div>
+                                <div class="form-group">
+                                    <label>Шаблон пути в репозитории</label>
+                                    <input type="text" id="improveRepoPathTemplate" placeholder="repo/part-03/task-{num:02d}/README.md" value="repo/part-03/task-{num:02d}/README.md">
+                                    <small class="s21-field-hint">Шаблон пути для задач в репозитории. Используйте {num:02d} для номера задачи.</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="improvementWarnings" class="s21-warning-slot"></div>
+                        
+                        <div class="checker-modal-footer">
+                            <span class="checker-modal-step-label">Шаг 1 из 4</span>
+                            <span></span>
+                            <button type="button" class="btn btn-secondary" onclick="closeImprovementModal()">Отмена</button>
+                            <button type="submit" class="btn">
+                                Далее →
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

@@ -1,0 +1,19 @@
+name: structure_extractor
+version: "1.0.0"
+updated_at: "2024-01-01"
+
+llm:
+  temperature: 0.1
+  max_tokens: 2000
+
+prompts:
+  system:
+    type: file
+    path: content_gen/prompts/reverse_extraction/structure_extractor/system.md
+  user_template:
+    type: file
+    path: content_gen/prompts/reverse_extraction/structure_extractor/user_template.md
+
+options:
+  max_retries: 2
+

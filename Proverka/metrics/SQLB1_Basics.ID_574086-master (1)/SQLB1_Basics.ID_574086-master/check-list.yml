@@ -1,0 +1,306 @@
+introduction: >
+  School 21 methodology only makes sense if peer-to-peer reviews are taken seriously. Please read all the guidelines carefully before starting the review.
+
+  - Please remain courteous, polite, respectful, and constructive in all communications during this review.
+
+  - Point out possible flaws in the person's work and take the time to discuss and debate them.
+
+  - Keep in mind that sometimes there may be differences in interpretation of tasks and scope of functionality. Please remain open to each other's vision.
+guidelines: >
+  - Evaluate only the files located in the src folder of the student's or group's GIT repository.
+
+  - Double check that the GIT repository is the one corresponding to the student or group.
+
+  - Carefully check that nothing malicious has been used to fool you.
+
+  - If you have not finished the project yet, it is compulsory to read the entire instruction before starting the review. 
+
+  - Ensure to start reviewing a group project only when the team is present in full.
+
+  - Use special flags in the checklist to report, for example, "empty work" if the repository does not contain the student's (or group's) work in the src folder of the develop branch, or "cheat" in the case of cheating, or if the student (or group) is unable to explain their work at any time during the review, or if any of the items below are not met. However, except in cases of cheating, you are encouraged to continue reviewing the project to identify the problems that caused the situation so that they can be avoided in the next review.
+
+  - In controversial cases, remember that the checklist determines only the general order of the check. The final decision on project evaluation remains with the reviewer.
+
+quick_actions:
+  - EMPTY_WORK
+  - CHEAT
+  - FORBIDDEN_FUNCTION
+language: en
+name: Day00
+comment: ""
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Exercise 00
+        description: >
+          Checks for the file day00_ex00.sql
+
+          - The SQL script looks like below.
+
+                SELECT name,
+                       age
+                FROM person
+                WHERE address = 'Kazan';
+
+          - The result is below (raw ordering should be the same like on a screen below)
+
+                "Kate"	    "33"
+                "Denis"	    "13"
+                "Elvira"    "45"
+
+        rating: "5"
+
+      - name: Exercise 01
+        description: >
+          Checks for the file day00_ex01.sql
+
+          - The SQL script looks like below.
+
+                SELECT name,
+                       age
+                FROM person
+                WHERE address = 'Kazan'
+                  AND gender = 'female'
+                ORDER BY name;
+
+          - The result is below (raw ordering should be the same like below)
+
+                "Elvira"	"45"
+                "Kate"      "33"
+
+        rating: "5"
+
+      - name: Exercise 02
+        description: >
+          Checks for the file day00_ex02.sql
+
+          - The SQL script looks like below.
+
+                SELECT name,
+                       rating
+                FROM pizzeria
+                WHERE rating >= 3.5
+                  AND rating <= 5
+                ORDER BY rating;
+
+          The result is below (raw ordering should be the same like below)
+
+                "DinoPizza"	    "4.2"
+                "Dominos"         "4.3"
+                "Pizza Hut"	    "4.6"
+                "Papa Johns"      "4.9"
+
+          - The SQL script looks like below (to use BETWEEN keyword).
+
+                SELECT name,
+                       rating
+                FROM pizzeria
+                WHERE rating BETWEEN 3.5 AND 5
+                ORDER BY rating;
+
+          The result is below (raw ordering should be the same like on a screen below)
+
+                "DinoPizza"   "4.2"
+                "Dominos"	    "4.3"
+                "Pizza Hut"	 "4.6"
+                "Papa Johns"	"4.9"
+
+        rating: "5"
+
+      - name: Exercise 03
+        description: >
+          Checks for the file day00_ex03.sql
+
+          - The SQL script looks like below.
+
+                SELECT DISTINCT person_id
+                FROM person_visits
+                WHERE visit_date BETWEEN '2022-01-06' AND '2022-01-09'
+                  OR pizzeria_id = 2
+                ORDER BY person_id DESC;
+
+          - The result is below (raw ordering should be the same like below)
+
+                9
+                8
+                7
+                6
+                5
+                4
+                2
+
+        rating: "5"
+
+      - name: Exercise 04
+        description: >
+          Checks for the file day00_ex04.sql
+
+          - The SQL script looks like below.
+
+                SELECT name|| ' (age:'||age::varchar||',gender:'''||gender ||''',address:'''|| address || ''')' AS person_information
+                FROM person
+                ORDER BY person_information;
+
+          - The 2nd case of the solution looks like below.
+
+                SELECT concat(name, ' (age:', age::varchar, ',gender:''', gender, ''',address:''', address, ''')') AS person_information
+                FROM person
+                ORDER BY person_information;
+
+          - The result is below (raw ordering should be the same like below)
+
+                  Andrey    (age:21,gender:'male',address:'Moscow')
+                  Anna      (age:16,gender:'female',address:'Moscow')
+                  Denis     (age:13,gender:'male',address:'Kazan')
+                  Dmitriy   (age:18,gender:'male',address:'Samara')
+                  Elvira    (age:45,gender:'female',address:'Kazan')
+                  Irina     (age:21,gender:'female',address:'Saint-Petersburg')
+                  Kate      (age:33,gender:'female',address:'Kazan')
+                  Nataly    (age:30,gender:'female',address:'Novosibirsk')
+                  Peter     (age:24,gender:'male',address:'Saint-Petersburg')
+
+        rating: "5"
+
+      - name: Exercise 05
+        description: >
+          Checks for the file day00_ex05.sql
+
+          - The SQL script looks like below.
+
+                 SELECT
+                  (SELECT name
+                  FROM person p
+                  WHERE p.id = po.person_id) AS name
+                 FROM person_order po
+                 WHERE (menu_id = 13
+                      OR menu_id = 14
+                      OR menu_id = 18)
+                  AND order_date = '2022-01-07';
+
+          - The result is below (raw ordering should be the same like below)
+
+                 "Denis"
+                 "Nataly"
+
+        rating: "5"
+
+
+      - name: Exercise 06
+        description: >
+          Checks for the file day00_ex06.sql
+
+          - The SQL script looks like below.
+
+                  SELECT
+                    (SELECT name
+                    FROM person p
+                    WHERE p.id = po.person_id) AS name,
+
+                    (SELECT name
+                    FROM person p
+                    WHERE p.id = po.person_id) = 'Denis' AS check_name
+                  FROM person_order po
+                  WHERE (menu_id = 13
+                        OR menu_id = 14
+                        OR menu_id = 18)
+                    AND order_date = '2022-01-07';
+
+          - The result is below (raw ordering should be the same like below)
+
+                  Denis     true
+                  Nataly    false
+
+        rating: "5"
+
+      - name: Exercise 07
+        description: >
+          Checks for the file day00_ex07.sql
+
+          - The SQL script looks like below.
+
+                 SELECT id,
+                        name,
+                        CASE
+                            WHEN age BETWEEN 10 AND 20 THEN 'interval #1'
+                            WHEN age > 20
+                                  AND age < 24 THEN 'interval #2'
+                            ELSE 'interval #3'
+                        END AS interval_info
+                 FROM person
+                 ORDER BY 3;
+
+          - The result is below (raw ordering should be the same like below)
+
+                "1"	    "Anna"	    "interval #1"
+                "4"	    "Denis"	    "interval #1"
+                "9"	    "Dmitriy"   "interval #1"
+                "6"	    "Irina"	    "interval #2"
+                "2"	    "Andrey"    "interval #2"
+                "8"	    "Nataly"    "interval #3"
+                "5"	    "Elvira"    "interval #3"
+                "7"	    "Peter"	    "interval #3"
+                "3"	    "Kate"	    "interval #3"
+
+        rating: "5"
+
+      - name: Exercise 08
+        description: >
+          Checks for the file day00_ex08.sql
+
+          - The SQL script looks like below.
+
+                SELECT *
+                FROM person_order
+                WHERE id % 2 =0
+                ORDER BY id;
+
+          - The result is below (raw ordering should be the same like below)
+
+                "2"     "1"	 "2"   "2022-01-01"
+                "4"     "2"	 "9"	  "2022-01-01"
+                "6"     "4"	 "16"  "2022-01-07"
+                "8"     "4"	 "18"  "2022-01-07"
+                "10"	"4"	  "7"   "2022-01-08"
+                "12"	"5"	  "7"   "2022-01-09"
+                "14"	"7"	  "3"   "2022-01-03"
+                "16"	"7"	  "4"   "2022-01-05"
+                "18"	"8"	  "14"  "2022-01-07"
+                "20"	"9"	  "6"	 "2022-01-10"
+
+        rating: "5"
+
+      - name: Exercise 09
+        description: >
+          Checks for the file day00_ex09.sql
+
+          - The SQL script looks like below.
+
+                SELECT
+                  (SELECT name
+                  FROM person p
+                  WHERE p.id = pv.person_id) AS person_name,
+
+                  (SELECT name
+                  FROM pizzeria p
+                  WHERE p.id = pv.pizzeria_id) AS pizzeria_name
+                FROM
+                  (SELECT *
+                  FROM person_visits pv
+                  WHERE visit_date BETWEEN '2022-01-07' AND '2022-01-09') AS pv
+                ORDER BY 1 ASC,
+                         2 DESC;
+
+          - The result is below (raw ordering should be the same like below)
+
+                 "Denis"      "DinoPizza"
+                 "Denis"	  "Best Pizza"
+                 "Dmitriy"    "Papa Johns"
+                 "Dmitriy"    "Best Pizza"
+                 "Elvira"	  "Dominos"
+                 "Elvira"	  "DinoPizza"
+                 "Irina"	  "Dominos"
+                 "Nataly"	  "Papa Johns"
+
+        rating: "5"

@@ -1,0 +1,118 @@
+﻿# Project Backend 04 — Java_Bootcamp
+
+**Summary:** In this project, you will learn how to add databases to Java web applications using Spring and work with authorization.
+
+💡 *[Click here](https://new.oprosso.net/p/4cb31ec3f47a4596bc758ea1861fb624) to share your feedback on this project.* It’s anonymous and will help our team improve the training. We recommend filling out the survey right after completing the project.
+
+## Contents**
+
+1. **Chapter I**
+   1. Instructions
+1. **Chapter II**
+   1. General Information
+   1. Authorization
+      1. Identification, Authentication, Authorization
+      1. Authorization via Login and Password
+1. **Chapter III**
+   1. Task 1. Adding a Database
+   1. Task 2. Adding Authorization
+   1. Task 3. Adding Game Logic Between Two Players
+
+## Chapter I
+
+### Instructions
+
+How to learn at “School 21”:
+
+- Here, you’ll find a unique learning experience with a lot of freedom. You’re given a task and left to find your own way to solve it, using whatever resources work best for you — whether that’s the Internet or AI tools like GigaChat. Just be mindful of information quality: verify, think critically, analyze, and compare.
+- Peer-to-peer (P2P) learning is the exchange of knowledge and experience with peers, where everyone acts as both mentor and student. This approach allows you to gain a deeper understanding of the material by learning from one another.
+- Feel free to ask for help: around you are peers who are also navigating this path for the first time. Share your own experience and ideas with others.  Join Rocket.Chat to stay updated with the latest community announcements. 
+- Your learning is meaningless if you just copy someone else’s solutions. When receiving help from others, always make sure you fully understand the “why”, “how”, and “purpose” behind the solution. Don’t be afraid to make mistakes. 
+- Does the task seem impossible? Take a break, get some fresh air and clear your mind — this has helped many people. Maybe after that, the solution will come to you naturally.
+- The learning process is just as important as the result. It’s not just about completing the task — it’s about understanding HOW to solve it. 
+
+How to work with the project:
+
+- Before starting, clone the project from GitLab into a repository with the same name.
+- All files should be created inside the _src/_ folder of the cloned repository.
+- After cloning the project, create a _develop_ branch and do all your development there. Then, push the _develop_ branch to GitLab.
+- Your directory should not contain any files other than those specified in the assignments.
+
+## Chapter II
+
+### General Information
+
+#### Authorization
+
+Authorization controls the access of legitimate users to the system's resources, granting each user exactly those privileges assigned by the administrator.
+
+#### Identification, Authentication, Authorization
+
+- **Identification** is a process by which a subject's unique identifier is established, uniquely defining the subject in the information system.
+- **Authentication** is the process of verifying authenticity. For example, verifying the user by comparing the password entered by the user with the password stored in the system.
+- **Authorization** is the granting of rights to a specific person or group to perform a specific set of actions.
+
+#### Authorization via Login and Password**
+
+This method is based on the user providing a login and password for successful identification and authentication in the system. The login/password pair is specified by the user during registration. Upon successful authorization on the server, the user is granted the rights to perform the available requests.
+
+The client sends a request to the server and receives an "Unauthorized" response with information about the authorization procedure. After successful authorization, each subsequent client request automatically includes an "Authorization" header (forming the authorization header), which carries the client's credentials for server authentication.
+
+There are also other authorization methods.
+
+**Topics to study**:
+
+- Web application;
+- Login-password (basic auth) authorization;
+- PostgreSQL;
+- ASP.NET.
+
+## Chapter III
+
+**Project: Tic-Tac-Toe**
+
+Use the server-side project from the previous week (T03).
+
+### Task 1. Adding a Database
+
+- Describe the PostgreSQL database connection in application.properties.
+- Eliminate the storage-class approach (i.e., get rid of the in-memory storage class).
+- Add special annotations to the classes that need to be stored in the database.
+- In your repositories, use CrudRepository as the parent interface.
+
+### Task 2. Adding Authorization
+
+- Add users, each with a UUID, login, and password.
+- Provide user support across all layers.
+- Create a SignUpRequest model that contains a login and password.
+- Create an authorization service that uses UserService:
+  - a registration method that takes a SignUpRequest and returns a registration success status;
+  - an authorization method that takes the login and password in the header as base64(login:password) and returns the user's UUID.
+- Create an authorization controller with the following endpoints:
+  - for user registration,
+  - for user authorization.
+- Create a class AuthFilter extending GenericFilterBean and implement the doFilter method:
+  - Validate the login and password.
+  - If the validation is successful, proceed with the request.
+  - If the validation fails, add the 401 status code to the response and do not proceed with the request.
+- Create a Spring Configuration class where:
+  - You define a Bean for obtaining SecurityFilterChain.
+  - Allow access without authorization to the registration and authorization endpoints.
+  - All other endpoints require authorization.
+  - Use AuthFilter as a filter.
+
+### Task 3. Adding Game Logic Between Two Players
+
+- Add states for the current game:
+  - Waiting for players;
+  - Turn of the player with the UUID;
+  - Draw;
+  - Win by the player with the UUID.
+- Add information about the tokens (X/O) that users will use in the current game.
+- Improve the game-ending logic using these states.
+- Add an endpoint to create a new game with a user or with a computer.
+- Add an endpoint to get the available current games.
+- Add an endpoint for a user to join a game.
+- Enhance the endpoint for updating the current game to account for playing against another user or against the computer.
+- Add an endpoint to get the current game.
+- Add an endpoint to get user information by UUID.

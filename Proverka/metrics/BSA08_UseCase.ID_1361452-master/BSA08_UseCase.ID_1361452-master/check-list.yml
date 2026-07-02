@@ -1,0 +1,119 @@
+introduction: >
+   - The School 21 methodology can lead to high eduse caseational results only if peer-to-peer assessment is done as responsibly as possible. Please read the instruse casetions carefully before starting the check.
+
+   - Be friendly and polite. Be respectful of the other person and the work they have done. Be construse casetive when giving feedback.
+
+   - When reviewing the work, notice for yourself any incorrect or possibly controversial moments. Discuss them with the author of the solution.
+
+   - Try to be open to a different opinion or way of interpreting the task. It is possible that both your approach and the approach of another may be correct.    
+  
+   - If you haven't finished the project yourself, be sure to read it completely before reviewing it.
+
+guidelines: >
+  - Evaluate only the files that are in the GIT repository of the student or group.
+
+  -	Start reviewing a group project only when all team members are present.
+
+  -	Use the special flags in the end of the checklist, for example, "EMPTY_WORK", if the repository does not contain the student's (or group's) work in the src directory of the develop branch, or "CHEAT" in the case of plagiarism or if the student (or anyone from the group being reviewed) cannot explain their decision at any time during the review. Also, the "CHEAT" flag is applicable if the following two points are not fulfilled. If one of the flags at the end of the checklist applies, the project will be considered a failure. However, except for a case of cheating, you are encouraged to continue reviewing the project and try to work with another student to figure out the problem that led to the failed solution.  
+  
+  -	Doublecheck that the GIT repository is the one corresponding to the student or the group. 
+  
+  -	Meticulously check that nothing malicious has been used to mislead you.
+  
+  -	In controversial cases, keep in mind that the checklist only defines the general order of the review. The final decision remains with the reviewer.
+
+quick_actions:
+  - EMPTY_WORK
+  - CHEAT
+
+language: en
+comment: ""
+name: BSA08_UseCase
+sections:
+  - kind: "1"
+    name: Main part
+    description: ""
+    questions:
+      - name: Exercise 00 — Description of Use Cases
+        description: |-
+          For task 1, the interaction with the system is described in the use case form, the purpose of which is to keep the system up-to-date with the master service schedule, without regard to free and occupied slots.
+          - In case of uncertainty in the task conditions, an additional condition is added, specified in the "Assumptions" section.
+          - The main actor (whose business goal the system in use case is intended to solve and who is the initiator of the interaction with the system) is identified.
+          - The purpose of the use case is specified: the business goal that the system will fulfil with the use case, the business need of the main actor.
+          - The unique identifier of the use case is specified.
+          - The name of the use case is specified (a short unique title describing the main action or purpose of the action in the format: <verb> + <noun> + <complement>).
+          - The role of the Actor interacting with the system within the use case is defined and its interest (need) is specified.
+          - At least 2 other stakeholders for whom the result of the use case is important are specified. Their interests are specified too.
+          - A precondition of the use case is specified: one or more conditions that must be true before the use case is executed. If there is no precondition, its absence is explicitly stated.
+          - The use case trigger is specified: the event that triggers the use case (action, temporary event, change of state).
+          - Postconditions (conditions that must be true when the use case terminates) are specified:
+            - minimum guarantees: conditions that must be true at any completion of the use case;
+            - success guarantees: conditions that must be true upon successful completion of the use case.
+          - The answers are in the file `ex00_<produse caset prefix>_use case.docx`.
+
+        rating: "6"
+
+      - name: Exercise 01 — Description of Use Case Flows
+        description: |-
+          For task 1, a functional interaction is described in the form of a use case that provides an up-to-date schedule of master services in the system, without taking into account occupied and free slots (use case described in ex.00).
+          - Simple short sentences in the format:
+            - <participant or system> <action to be performed> <conditions and/or constraints>
+            - (subject - predicate - complements).
+          - Business (subject area concepts) rather than technical concepts have been applied in describing steps.
+          - Data transferred in a single time interval from one source in one direction is transferred in a single step.
+          - Use case level is maintained throughout the description up to the 5th level of nesting. If further nesting is necessary, it is moved to a new use case.
+          - Branching is minimised in the description: "The system confirms..." rather than "The system checks..." is used. (To avoid writing "If... then...").
+          - Complex interactions are reduced to 4 transaction steps, e.g.:
+            - Stakeholder enters request, transmits data;
+            - The system confirms the correctness of the input;
+            - The system modifies the ....;
+            - The system outputs the result ...
+          - If there are additional materials (description of user interface, prototypes, business rules, other), they are placed separately from the use case. They are indicated in the use case by a link in the Additional field.
+          - An end-to-end numerical numbering of the steps of the main scenario is used.
+          - The alternative scenario is numbered with a letter in reference to the step of the main scenario.
+          - Alternative scenario steps are numbered indicating:
+            - the step number of the main scenario;
+            - the letter of the branch from the main scenario step (alternative scenario letter);
+            - the number of the step within the alternative scenario.
+          - The answers are in the file `ex00_<product prefix>_use case.docx`.
+
+
+        rating: "6"
+
+      - name: Exercise 02 — Description  of Use Cases
+        description: |-
+          For task 1, the use case describes the interaction with the system in the part of client's selection of master services and booking of selected slots.
+          - Use cases are described in accordance with requirements 1-11 ex.00.
+          - A separate use Case(s) is identified with an include or extend relationship.
+          - The relationship type(s) for each identified use case are specified.
+          - The answers are in the file `ex02_<product prefix>_use case.docx`
+
+        rating: "6"
+
+      - name: Exercise 03 — Description of Use Case Flows
+        description: |-
+          For task 1, the basic and alternative flows of functional interaction between the client and the system for service selection and slot booking are described.
+          - The use case flows are described in accordance with requirements 1-11 of ex.01.
+          - The identified use case flows are described.
+          - The answers are in the file `ex02_<product prefix>_use case.docx`
+
+        rating: "6"
+
+      - name: Exercise 04 — Description of Use Cases
+        description: |-
+          For task 1, the use case describes the interaction of a master with the system in the part of viewing the schedule, services booked by clients and clients' feedback on the performed works.
+          - The use cases are described in accordance with requirements 1-11 ex.00.
+          - A separate use case(s) is Identified with an include or extend relationship.
+          - The relationship type(s) for each identified use case are specified.
+          - The answers are in the file `ex04_<product prefix>_use case.docx`
+
+        rating: "6"
+
+      - name: Exercise 05 — Description of Use Case Flows
+        description: |-
+          For task 1, the basic and alternative flows of functional interaction between the wizard and the system are described for viewing the services booked by clients of their schedule and client feedback on the work performed.
+          - The use case flows for requirements 1-11 ex.01 are described.
+          - The flows of the identified use case(s) are described.
+          - The answers are in the file `ex04_<product prefix>_use case.docx`
+
+        rating: "6"

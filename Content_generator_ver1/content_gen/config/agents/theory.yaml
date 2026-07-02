@@ -1,0 +1,16 @@
+name: theory
+version: "1.0.0"
+updated_at: "2025-01-05"
+llm:
+  temperature: 0.25
+  max_tokens: 5000
+prompts:
+  system:
+    type: file
+    path: content_gen/prompts/theory/system.md
+  user_template:
+    type: file
+    path: content_gen/prompts/theory/user_template.md
+options:
+  enforce_readability_index: true
+

@@ -1,0 +1,19 @@
+name: practice
+version: "1.0.0"
+updated_at: "2025-01-05"
+llm:
+  temperature: 0.3
+  max_tokens: 5000
+prompts:
+  system:
+    type: file
+    path: content_gen/prompts/practice/system.md
+  user_template:
+    type: file
+    path: content_gen/prompts/practice/user_template.md
+  bonus_template:
+    type: file
+    path: content_gen/prompts/practice/bonus_template.md
+options:
+  enable_data_specificity_requirements: true
+

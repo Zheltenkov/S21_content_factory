@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Генератор · UX/UI · PDF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #f4f5f1; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+
+  .print-page {
+    width: 1440px;
+    background: #fff;
+    margin: 0 auto 32px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    overflow: hidden;
+    position: relative;
+    page-break-after: always;
+    break-after: page;
+  }
+  .print-page > .frame { width: 100%; height: 100%; }
+  .print-page .label {
+    position: absolute; top: 16px; left: 24px; z-index: 100;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #6a7268; background: rgba(255,255,255,.8); backdrop-filter: blur(4px);
+    padding: 4px 8px; border-radius: 4px;
+  }
+
+  /* Cover page */
+  .cover {
+    width: 1440px; height: 810px;
+    background: linear-gradient(155deg, #0d2018 0%, #102f22 38%, #18996a 100%);
+    color: #fff; position: relative; overflow: hidden;
+    margin: 0 auto 32px; page-break-after: always; break-after: page;
+    padding: 80px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .cover::before {
+    content:''; position: absolute; top: -200px; left: -100px; width: 500px; height: 500px;
+    border-radius: 50%; background: radial-gradient(circle, rgba(46,209,138,.55), transparent 65%);
+    filter: blur(10px);
+  }
+  .cover::after {
+    content:''; position: absolute; bottom: -200px; right: -150px; width: 600px; height: 600px;
+    border-radius: 50%; background: radial-gradient(circle, rgba(46,209,138,.35), transparent 70%);
+  }
+  .cover-content { position: relative; z-index: 1; }
+  .cover .mark {
+    width: 64px; height: 64px; border-radius: 16px;
+    background: rgba(13,32,24,.6); border: 1.5px solid rgba(46,209,138,.4);
+    display: grid; place-items: center; color: #2ed18a;
+    font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 26px;
+    letter-spacing: -0.04em;
+  }
+  .cover h1 {
+    font-size: 88px; font-weight: 600; letter-spacing: -0.04em; line-height: 1.0;
+    margin: 32px 0 0; max-width: 900px;
+  }
+  .cover .sub {
+    font-size: 22px; opacity: .7; max-width: 640px; margin-top: 24px; line-height: 1.5;
+  }
+  .cover-meta {
+    position: relative; z-index: 1; display: flex; gap: 60px;
+    font-size: 14px; opacity: .5; font-family: 'JetBrains Mono', monospace;
+  }
+  .cover-meta b { display: block; color: #2ed18a; opacity: 1; font-weight: 600; font-size: 13px; margin-bottom: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+  /* Section divider */
+  .divider {
+    width: 1440px; height: 810px;
+    background: #f4f5f1;
+    margin: 0 auto 32px; page-break-after: always; break-after: page;
+    padding: 100px;
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .divider .num {
+    font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600;
+    color: #2ed18a; letter-spacing: 0.1em;
+  }
+  .divider h2 {
+    font-size: 84px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.05;
+    margin: 16px 0 24px; color: #16201d; max-width: 1100px;
+  }
+  .divider .desc {
+    font-size: 20px; color: #6a7268; max-width: 720px; line-height: 1.5;
+  }
+  .divider .corner {
+    position: absolute; bottom: 80px; right: 100px;
+    display: grid; grid-template-columns: repeat(4, 36px); gap: 4px;
+  }
+  .divider .corner i { width: 36px; height: 36px; background: #16201d; border-radius: 6px; }
+  .divider .corner i:nth-child(2) { background: #2ed18a; }
+  .divider .corner i:nth-child(5) { opacity: .15; }
+  .divider .corner i:nth-child(7) { background: #2ed18a; opacity: .4; }
+
+  @page { size: 1440px 810px; margin: 0; }
+
+  @media print {
+    body { background: #fff; }
+    .print-page, .cover, .divider { margin: 0; box-shadow: none; }
+    .print-page { width: 1440px; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="parts/atoms.jsx"></script>
+<script type="text/babel" src="parts/auth.jsx"></script>
+<script type="text/babel" src="parts/menu.jsx"></script>
+<script type="text/babel" src="parts/generator.jsx"></script>
+<script type="text/babel" src="parts/progress.jsx"></script>
+<script type="text/babel" src="parts/extras.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+
+// Frame wrapper — sized exactly to the original artboard, scaled to page width
+const Page = ({ width, height, label, children }) => {
+  const pageW = 1440;
+  const scale = pageW / width;
+  return (
+    <div className="print-page" style={{ width: pageW, height: height * scale }}>
+      <span className="label">{label}</span>
+      <div style={{ width, height, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const Cover = () => (
+  <div className="cover">
+    <div className="cover-content">
+      <div className="mark">21</div>
+      <div style={{ marginTop: 64, fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 600, letterSpacing: '0.1em', color: '#2ed18a', textTransform: 'uppercase' }}>UX / UI · 2026</div>
+      <h1>Генератор<br/>учебных проектов</h1>
+      <p className="sub">Полный пайплайн для авторов курсов: генерация README, проверка по 39 критериям, перевод. С чатом методолога на контрольных точках.</p>
+    </div>
+    <div className="cover-meta">
+      <div><b>Версия</b>v 2.4 · build 318</div>
+      <div><b>Платформа</b>Веб · 1440 px</div>
+      <div><b>Тема</b>Light · Mint accent</div>
+      <div><b>Шрифты</b>Inter · JetBrains Mono</div>
+    </div>
+  </div>
+);
+
+const Divider = ({ num, title, desc }) => (
+  <div className="divider">
+    <div className="num">{num}</div>
+    <h2>{title}</h2>
+    <p className="desc">{desc}</p>
+    <div className="corner">
+      <i/><i/><i/><i/>
+      <i/><i/><i/><i/>
+    </div>
+  </div>
+);
+
+const App = () => (
+  <>
+    <Cover/>
+
+    <Divider num="01" title="Авторизация" desc="Логин, регистрация, восстановление пароля. Левая колонка — брендовый блок с зелёным glow-градиентом; правая — компактная форма."/>
+    <Page width={1200} height={760} label="01.1 · Вход"><Login/></Page>
+    <Page width={1200} height={760} label="01.2 · Вход · ошибка + loading"><LoginError/></Page>
+    <Page width={1200} height={760} label="01.3 · Регистрация"><Register/></Page>
+    <Page width={1200} height={760} label="01.4 · Восстановление пароля"><Forgot/></Page>
+
+    <Divider num="02" title="Главное меню" desc="Выбор режима работы. Три равновысотные карточки + список недавних запусков с метрикой и тегами."/>
+    <Page width={1440} height={1080} label="02 · Главная"><MainMenu/></Page>
+
+    <Divider num="03" title="Генерация README" desc="Двухколоночный layout: форма слева (с секционным разбиением, accordion и sticky-CTA), live-прогресс и результаты — справа. На контрольных точках открывается чат методолога."/>
+    <Page width={1440} height={980} label="03.1 · Форма параметров"><Generator/></Page>
+    <Page width={1440} height={980} label="03.2 · Прогресс пайплайна · 5/10 + чат методолога"><Progress/></Page>
+    <Page width={1440} height={980} label="03.3 · Результаты · README + TOC"><Results/></Page>
+    <Page width={1440} height={980} label="03.4 · Метрики · 36 из 39 критериев"><Metrics/></Page>
+
+    <Divider num="04" title="Проверка README" desc="Загрузка README.md и разбор по 39 критериям. Чипы-фильтры, группировка по разделам, приоритеты, модалка улучшения."/>
+    <Page width={1440} height={980} label="04.1 · Проверка · 68 % · ниже порога"><Checker/></Page>
+    <Page width={1200} height={780} label="04.2 · Модалка «Улучшение README»"><ImproveModal/></Page>
+
+    <Divider num="05" title="Перевод" desc="Document mode — split-view оригинал/перевод. Video mode — загрузка с прогрессом распознавания и параметры субтитров."/>
+    <Page width={1440} height={900} label="05.1 · Перевод документа · RU → EN"><Translator/></Page>
+    <Page width={1440} height={900} label="05.2 · Перевод видео · 72 %"><TranslatorVideo/></Page>
+
+    <Divider num="06" title="Дизайн-система" desc="Палитра, типографика, компоненты, статусы, радиусы. Mint-green акцент #2ed18a поверх тёмного near-black."/>
+    <Page width={1280} height={1280} label="06 · Tokens · components · states"><DesignSystem/></Page>
+  </>
+);
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+
+// Auto-print after fonts + JSX render settle
+(async () => {
+  try { await document.fonts.ready; } catch (e) {}
+  setTimeout(() => window.print(), 1200);
+})();
+</script>
+</body>
+</html>
