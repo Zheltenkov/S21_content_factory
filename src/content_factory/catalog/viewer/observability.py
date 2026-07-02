@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from spravochnik_intake.pipeline import config as intake_config
-from spravochnik_intake.pipeline.prompt_versions import prompt_version_for_stage
+from content_factory.catalog.pipeline import config as intake_config
+from content_factory.catalog.pipeline.prompt_versions import prompt_version_for_stage
 
 STAGE_LABELS: dict[str, str] = {
     "decompose": "Декомпозиция",

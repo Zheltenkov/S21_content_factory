@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from content_factory.api.db.models import SpravochnikCatalogEntity, utc_now_naive
 from content_factory.api.db.session import SessionLocal
-from content_factory.api.integrations.project_paths import ensure_import_path, spravochnik_root, spravochnik_sqlite_path
+from content_factory.api.integrations.project_paths import spravochnik_sqlite_path
 from content_factory.generation.models.curriculum import CurriculumPlan, CurriculumProject, ThematicBlock
 
 logger = logging.getLogger("content_factory.api.integrations.spravochnik_curriculum_sync")
@@ -378,8 +378,7 @@ def _upsert_curriculum_entity(db: Session, plan_payload: Mapping[str, object]) -
 def _load_spravochnik_plan_payloads(sqlite_path: Path, limit: int) -> list[Mapping[str, object]]:
     """Load full UP payloads from the Spravochnik runtime SQLite database."""
 
-    ensure_import_path(spravochnik_root())
-    from viewer.app import ensure_intake_runtime_schema, get_curriculum_plan, list_curriculum_plans
+    from content_factory.catalog.viewer.app import ensure_intake_runtime_schema, get_curriculum_plan, list_curriculum_plans
 
     with sqlite3.connect(sqlite_path) as conn:
         conn.row_factory = sqlite3.Row

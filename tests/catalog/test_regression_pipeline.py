@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from spravochnik_intake.pipeline import (
+from content_factory.catalog.pipeline import (
     config,
     llm,
     stage_atomize,
@@ -24,12 +24,12 @@ from spravochnik_intake.pipeline import (
     storage,
     up_template_consilium,
 )
-from spravochnik_intake.pipeline.catalog_repo import CatalogRepo
-from spravochnik_intake.pipeline.curriculum import PlanNode, ProjectBlueprint, SkillOccurrence
-from spravochnik_intake.pipeline.curriculum import planner as curriculum_planner
-from spravochnik_intake.pipeline.models import IndicatorSpec, SkillCandidate
-from spravochnik_intake.pipeline.skill_names import canonicalize_skill_name, looks_like_genitive_fragment
-from viewer.app import (
+from content_factory.catalog.pipeline.catalog_repo import CatalogRepo
+from content_factory.catalog.pipeline.curriculum import PlanNode, ProjectBlueprint, SkillOccurrence
+from content_factory.catalog.pipeline.curriculum import planner as curriculum_planner
+from content_factory.catalog.pipeline.models import IndicatorSpec, SkillCandidate
+from content_factory.catalog.pipeline.skill_names import canonicalize_skill_name, looks_like_genitive_fragment
+from content_factory.catalog.viewer.app import (
     apply_candidate_decision,
     apply_brief_catalog_decisions,
     build_candidate_recommended_action,
@@ -62,9 +62,9 @@ from viewer.app import (
     update_review_status,
     update_intake_job,
 )
-from viewer.migrations import apply_runtime_migrations
-from viewer.observability import build_decision_rationale, build_job_observability
-from viewer.route_zones import detect_route_zone, get_secondary_nav, show_secondary_nav
+from content_factory.catalog.viewer.migrations import apply_runtime_migrations
+from content_factory.catalog.viewer.observability import build_decision_rationale, build_job_observability
+from content_factory.catalog.viewer.route_zones import detect_route_zone, get_secondary_nav, show_secondary_nav
 
 RUNTIME_DIR = PROJECT_ROOT / "test_runtime"
 RUNTIME_DIR.mkdir(exist_ok=True)
@@ -894,7 +894,9 @@ def test_runtime_migration_ledger_is_recorded() -> None:
         assert row["status"] == "applied"
         assert len(row["checksum"]) == 64
 
-        results = apply_runtime_migrations(conn, PROJECT_ROOT / "spravochnik_intake" / "sql" / "new_tables.sql")
+        from content_factory.catalog.viewer.app import INTAKE_SCHEMA_SQL
+
+        results = apply_runtime_migrations(conn, INTAKE_SCHEMA_SQL)
         assert results[0].migration_id == "intake_runtime_schema"
         assert results[0].applied is True
     finally:

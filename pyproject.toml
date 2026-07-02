@@ -55,6 +55,10 @@ content_factory = [
     "audit/*.json",
     "audit/*.jpg",
     "audit/templates/**/*",
+    "catalog/sql/*.sql",
+    "catalog/viewer/templates/**/*",
+    "catalog/viewer/static/**/*",
+    "catalog/artifacts/*.json",
 ]
 
 # ---------------------------------------------------------------------------

@@ -33,19 +33,19 @@ STATIC_DIR = BASE_DIR / "static"
 PROJECT_ROOT = BASE_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-from viewer.migrations import apply_runtime_migrations, migrate_review_queue_entity_types
-from viewer.observability import (
+from content_factory.catalog.viewer.migrations import apply_runtime_migrations, migrate_review_queue_entity_types
+from content_factory.catalog.viewer.observability import (
     build_decision_rationale,
     build_intake_quality_metrics,
     build_job_observability,
     load_llm_usage_summary,
 )
-from viewer.route_zones import detect_route_zone, get_main_nav, get_secondary_nav, show_secondary_nav
+from content_factory.catalog.viewer.route_zones import detect_route_zone, get_main_nav, get_secondary_nav, show_secondary_nav
 
 DEFAULT_DB = BASE_DIR.parent / "artifacts" / "skills_catalog.sqlite"
 DEFAULT_SUMMARY = BASE_DIR.parent / "artifacts" / "catalog_summary.json"
 DEFAULT_COMPARE_REPORT = BASE_DIR.parent / "artifacts" / "live_catalog_comparison.json"
-INTAKE_SCHEMA_SQL = BASE_DIR.parent / "spravochnik_intake" / "sql" / "new_tables.sql"
+INTAKE_SCHEMA_SQL = BASE_DIR.parent / "sql" / "new_tables.sql"
 CATALOG_ADMIN_SCHEMA_READY: set[str] = set()
 INTAKE_SCHEMA_READY: set[str] = set()
 INTAKE_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="intake")
@@ -1681,8 +1681,8 @@ def update_jobs_catalog_payload(
 
 def apply_brief_catalog_decisions(conn: sqlite3.Connection, brief_id: int) -> dict[str, object]:
     """Apply accepted skill decisions to the canonical catalog as a batch step."""
-    from spravochnik_intake.pipeline import llm as intake_llm
-    from spravochnik_intake.pipeline import storage as intake_storage
+    from content_factory.catalog.pipeline import llm as intake_llm
+    from content_factory.catalog.pipeline import storage as intake_storage
 
     clear_brief_dag_artifacts(conn, brief_id)
     clear_brief_curriculum_plan_artifacts(conn, brief_id)
@@ -1759,7 +1759,7 @@ def hydrate_job_result_payload(conn: sqlite3.Connection, result: dict[str, objec
     brief_id = result.get("brief_id")
     if not isinstance(brief_id, int) or not isinstance(result.get("candidates"), list):
         return result
-    from spravochnik_intake.pipeline import config as intake_config
+    from content_factory.catalog.pipeline import config as intake_config
 
     suggestion_rows = conn.execute(
         """
@@ -2232,7 +2232,7 @@ def apply_candidate_decision(
     target_decision: str,
     resolution_note: str | None = None,
 ) -> int | None:
-    from spravochnik_intake.pipeline import storage
+    from content_factory.catalog.pipeline import storage
 
     row = conn.execute(
         """
@@ -2298,7 +2298,7 @@ def apply_candidate_decision(
 
 
 def load_accepted_skill_candidates(conn: sqlite3.Connection, brief_id: int):
-    from spravochnik_intake.pipeline.models import IndicatorSpec, SkillCandidate
+    from content_factory.catalog.pipeline.models import IndicatorSpec, SkillCandidate
 
     rows = conn.execute(
         """
@@ -2381,8 +2381,8 @@ def load_brief_spec_for_plan(conn: sqlite3.Connection, brief_id: int) -> dict[st
     ).fetchone()
     if not row:
         return {}
-    from spravochnik_intake.pipeline import stage_brief_to_catalog
-    from spravochnik_intake.pipeline import storage as intake_storage
+    from content_factory.catalog.pipeline import stage_brief_to_catalog
+    from content_factory.catalog.pipeline import storage as intake_storage
 
     spec = {
         "role": row["role"],
@@ -2400,7 +2400,7 @@ def build_curriculum_plan_for_brief(
     candidates: list[object] | None = None,
     dag_payload: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    from spravochnik_intake.pipeline import stage_dag_to_up, storage
+    from content_factory.catalog.pipeline import stage_dag_to_up, storage
 
     clear_brief_curriculum_plan_artifacts(conn, brief_id)
     accepted_candidates, _tmp_to_db = load_accepted_skill_candidates(conn, brief_id)
@@ -2432,8 +2432,8 @@ def build_curriculum_plan_for_brief(
 
 
 def build_dag_for_brief(conn: sqlite3.Connection, brief_id: int) -> dict[str, object]:
-    from spravochnik_intake.pipeline import llm as intake_llm
-    from spravochnik_intake.pipeline import stage_catalog_to_dag, storage
+    from content_factory.catalog.pipeline import llm as intake_llm
+    from content_factory.catalog.pipeline import stage_catalog_to_dag, storage
 
     catalog_state = get_brief_catalog_apply_state(conn, brief_id)
     if not bool(catalog_state.get("catalog_applied")):
@@ -2831,10 +2831,10 @@ def run_intake_pipeline(
     intake_job_id: int | None = None,
     progress_callback: Callable[[str, str], None] | None = None,
 ) -> dict[str, object]:
-    from spravochnik_intake.pipeline import llm as intake_llm
-    from spravochnik_intake.pipeline import stage_brief_to_catalog, stage_normalize, storage
-    from spravochnik_intake.pipeline import config as intake_config
-    from spravochnik_intake.pipeline.catalog_repo import CatalogRepo
+    from content_factory.catalog.pipeline import llm as intake_llm
+    from content_factory.catalog.pipeline import stage_brief_to_catalog, stage_normalize, storage
+    from content_factory.catalog.pipeline import config as intake_config
+    from content_factory.catalog.pipeline.catalog_repo import CatalogRepo
 
     ensure_intake_runtime_schema(conn, db_path)
 
@@ -3164,8 +3164,8 @@ def refresh_catalog_skill_complexity(conn: sqlite3.Connection, skill_id: int, co
 
 
 def update_review_status(conn: sqlite3.Connection, review_id: int, new_status: str, resolution_note: str) -> None:
-    from spravochnik_intake.pipeline import competency_catalog
-    from spravochnik_intake.pipeline import storage
+    from content_factory.catalog.pipeline import competency_catalog
+    from content_factory.catalog.pipeline import storage
 
     repair_intake_review_links(conn)
     review_row = conn.execute(
@@ -3415,7 +3415,7 @@ def build_curriculum_plan_payload_from_rows(
     plan_meta: dict[str, object],
     rows: list[dict[str, object]],
 ) -> dict[str, object]:
-    from spravochnik_intake.pipeline.stage_dag_to_up import CSV_PRIMARY_HEADER, CSV_SECONDARY_HEADER
+    from content_factory.catalog.pipeline.stage_dag_to_up import CSV_PRIMARY_HEADER, CSV_SECONDARY_HEADER
 
     payload = {}
     if isinstance(plan_meta.get("payload_json"), str) and plan_meta.get("payload_json"):
@@ -3916,8 +3916,8 @@ def cleanup_empty_curriculum_plans(conn: sqlite3.Connection) -> int:
 
 def clear_intake_workspace(conn: sqlite3.Connection) -> dict[str, int]:
     """Clear transient intake artifacts while keeping canonical catalog tables intact."""
-    from spravochnik_intake.pipeline import competency_catalog
-    from spravochnik_intake.pipeline import storage as intake_storage
+    from content_factory.catalog.pipeline import competency_catalog
+    from content_factory.catalog.pipeline import storage as intake_storage
 
     stats: dict[str, int] = {}
     intake_competency_ids: set[int] = set()
@@ -5321,7 +5321,7 @@ def list_canonical_directory_additions(
     existing_group_names: set[str],
 ) -> list[dict[str, object]]:
     """Return accepted canonical competencies that are not part of the imported live hierarchy yet."""
-    from spravochnik_intake.pipeline import competency_catalog
+    from content_factory.catalog.pipeline import competency_catalog
 
     required_tables = ("profile", "profile_competency", "competency", "competency_skill", "skill")
     if not all(table_exists(conn, name) for name in required_tables):
@@ -5684,7 +5684,7 @@ def list_profiles(conn: sqlite3.Connection, include_service: bool = False) -> li
 
 
 def list_candidate_competencies(conn: sqlite3.Connection) -> list[dict[str, object]]:
-    from spravochnik_intake.pipeline import competency_catalog
+    from content_factory.catalog.pipeline import competency_catalog
 
     if not all(table_exists(conn, name) for name in ("profile", "profile_competency", "competency")):
         return []
@@ -5936,7 +5936,7 @@ def rename_candidate_competency(conn: sqlite3.Connection, competency_id: int, ne
 
 
 def ensure_service_profile_competency(conn: sqlite3.Connection, target_competency_id: int) -> int | None:
-    from spravochnik_intake.pipeline import competency_catalog
+    from content_factory.catalog.pipeline import competency_catalog
 
     context = competency_catalog.ensure_catalog_context(conn)
     if context is None:
@@ -6170,7 +6170,7 @@ def resolve_candidate_competency(
     action: str,
     resolution_note: str = "",
 ) -> dict[str, object]:
-    from spravochnik_intake.pipeline import competency_catalog
+    from content_factory.catalog.pipeline import competency_catalog
 
     if action == "accept":
         result = competency_catalog.resolve_competency_candidate(conn, competency_id=competency_id, accepted=True)
@@ -6601,7 +6601,7 @@ def create_app(db_path: Path, summary_path: Path):
                 catalog_conn.close()
 
         if path == "/catalog-admin/artifact-templates" and method == "GET":
-            from spravochnik_intake.pipeline import storage as intake_storage
+            from content_factory.catalog.pipeline import storage as intake_storage
 
             catalog_conn = open_db(db_path)
             try:
@@ -6635,7 +6635,7 @@ def create_app(db_path: Path, summary_path: Path):
                 catalog_conn.close()
 
         if path == "/catalog-admin/artifact-templates" and method == "POST":
-            from spravochnik_intake.pipeline import storage as intake_storage
+            from content_factory.catalog.pipeline import storage as intake_storage
 
             catalog_conn = open_db(db_path)
             try:
@@ -6819,7 +6819,7 @@ def create_app(db_path: Path, summary_path: Path):
             if skill_id is None:
                 return not_found(start_response)
 
-            from spravochnik_intake.pipeline import competency_catalog
+            from content_factory.catalog.pipeline import competency_catalog
 
             catalog_conn = open_db(db_path)
             try:
@@ -7166,8 +7166,8 @@ def create_app(db_path: Path, summary_path: Path):
                     )
 
                 if len(segments) == 5 and segments[3] == "template-proposals" and segments[4] == "generate" and method == "POST":
-                    from spravochnik_intake.pipeline import storage as intake_storage
-                    from spravochnik_intake.pipeline import llm as intake_llm
+                    from content_factory.catalog.pipeline import storage as intake_storage
+                    from content_factory.catalog.pipeline import llm as intake_llm
 
                     plan_payload = get_curriculum_plan(conn, plan_id)
                     if not plan_payload:
@@ -7187,7 +7187,7 @@ def create_app(db_path: Path, summary_path: Path):
                     return redirect_response(start_response, f"/up/plans/{plan_id}/template-proposals")
 
                 if len(segments) == 4 and segments[3] == "template-proposals" and method == "GET":
-                    from spravochnik_intake.pipeline import storage as intake_storage
+                    from content_factory.catalog.pipeline import storage as intake_storage
 
                     plan_payload = get_curriculum_plan(conn, plan_id)
                     if not plan_payload:
@@ -7210,7 +7210,7 @@ def create_app(db_path: Path, summary_path: Path):
                     return html_response(start_response, html)
 
                 if len(segments) == 5 and segments[3] == "template-proposals" and method == "POST":
-                    from spravochnik_intake.pipeline import storage as intake_storage
+                    from content_factory.catalog.pipeline import storage as intake_storage
 
                     try:
                         proposal_id = int(segments[4])
@@ -7362,7 +7362,7 @@ def create_app(db_path: Path, summary_path: Path):
                     )
                     return html_response(start_response, html, status="400 Bad Request")
 
-                from spravochnik_intake.pipeline import config as intake_config
+                from content_factory.catalog.pipeline import config as intake_config
 
                 job_id = create_intake_job(
                     conn,
@@ -7474,7 +7474,7 @@ def create_app(db_path: Path, summary_path: Path):
                     target_decision = "accepted"
                     resolution_note = "Подтверждено из intake-таблицы."
                 elif action == "link":
-                    from spravochnik_intake.pipeline import storage as intake_storage
+                    from content_factory.catalog.pipeline import storage as intake_storage
 
                     link_result = intake_storage.link_suggestion_to_nearest(conn, suggestion_id)
                     if link_result.get("status") != "linked":

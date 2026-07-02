@@ -33,6 +33,8 @@ ENV/
 
 # ---- Databases / data dumps ----
 *.sql
+# but keep packaged schema DDL (source, not dumps)
+!src/content_factory/**/sql/*.sql
 *.db
 *.sqlite
 *.sqlite3

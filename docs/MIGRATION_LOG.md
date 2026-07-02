@@ -109,6 +109,28 @@ already satisfied; low integration risk.
   `platform/` — folded together with the catalog LLM client in Phase 4/6 so the unification is
   designed against both duplicates at once.
 
+## Phase 4a — Spravochnik folded in as content_factory.catalog (code)  (DONE)
+- `Spravochnik/spravochnik_intake/` → `src/content_factory/catalog/` (pipeline);
+  `Spravochnik/viewer/` → `src/content_factory/catalog/viewer/`;
+  `Spravochnik/sql/catalog_schema.sql` + `artifacts/` → into the catalog package.
+- Rewired `spravochnik_intake` → `content_factory.catalog`, `viewer` →
+  `content_factory.catalog.viewer` across src + tests; fixed the codemod's collateral hits
+  on path-segment strings (viewer `INTAKE_SCHEMA_SQL`, test schema path).
+- `.gitignore`: `*.sql` (a generator dump rule) was hiding the catalog DDL — added
+  `!src/content_factory/**/sql/*.sql` so `catalog_schema.sql` / `new_tables.sql` are tracked.
+- **Dropped the WSGI sys.path bridge:** `build_spravochnik_app` now imports the viewer directly
+  (`from content_factory.catalog.viewer.app import create_app, DEFAULT_DB, DEFAULT_SUMMARY`);
+  removed `ensure_import_path`/`spravochnik_root` from the curriculum-sync path too. `project_paths.py`
+  rewritten: dead sibling-resolution helpers gone; `spravochnik_sqlite_path/summary_path` now point at
+  `catalog/artifacts/` (env-overridable).
+- Tests `Spravochnik/tests/` → `tests/catalog/` (53). Remaining Spravochnik assets (Excel КПшки,
+  scripts, docs) → `legacy/spravochnik/`.
+- **Verification:** unified suite **916 passed** (691 + 172 + 53); app boots (83 routes) with the
+  Spravochnik mount + auditor route intact; catalog imports resolve.
+- Catalog still runs on its **SQLite** file (`catalog/artifacts/skills_catalog.sqlite`); the WSGI
+  viewer is still mounted (rewritten to FastAPI in Phase 5). The relational SQLite→Postgres merge
+  is Phase 4b.
+
 ## Open follow-ups for the user
 - **Rotate secrets:** live API keys + a deploy password were present in
   `Proverka/.env` and `Spravochnik/.env` (now git-ignored, never committed here, but

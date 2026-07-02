@@ -4,16 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+from pathlib import Path
 
 from starlette.middleware.wsgi import WSGIMiddleware
 from starlette.types import Message, Receive, Scope, Send
 
-from content_factory.api.integrations.project_paths import (
-    ensure_import_path,
-    spravochnik_root,
-    spravochnik_sqlite_path,
-    spravochnik_summary_path,
-)
 from content_factory.api.integrations.spravochnik_curriculum_sync import sync_spravochnik_curriculum_plans
 
 logger = logging.getLogger("content_factory.api.integrations.spravochnik_mount")
@@ -120,8 +116,9 @@ class PrefixRewriteASGI:
 def build_spravochnik_app(prefix: str = "/app/spravochnik") -> PrefixRewriteASGI:
     """Build the mounted Spravochnik viewer using its current WSGI app."""
 
-    ensure_import_path(spravochnik_root())
-    from viewer.app import create_app
+    from content_factory.catalog.viewer.app import DEFAULT_DB, DEFAULT_SUMMARY, create_app
 
-    wsgi_app = create_app(spravochnik_sqlite_path(), spravochnik_summary_path())
+    db_path = Path(os.getenv("SPRAVOCHNIK_SQLITE_PATH", str(DEFAULT_DB)))
+    summary_path = Path(os.getenv("SPRAVOCHNIK_SUMMARY_PATH", str(DEFAULT_SUMMARY)))
+    wsgi_app = create_app(db_path, summary_path)
     return PrefixRewriteASGI(WSGIMiddleware(wsgi_app), prefix=prefix)
