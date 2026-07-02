@@ -32,6 +32,14 @@ Run with the existing generator venv (`Content_generator_ver1/.venv`, Python 3.1
 Proverka & Spravochnik passed on the generator venv → dependency union largely
 already satisfied; low integration risk.
 
+### Env consolidation
+- Root `.env` = union of the three module `.env` files (106 unique keys, **no value
+  conflicts**; `POLZA_AI_API_KEY` shared by all three). Git-ignored.
+- Root `.env.example` = generator template + appended Audit/Catalog blocks, using the
+  **original** per-module var names for now (a single root `.env` feeds all three during
+  transition); Phase 2 unifies/namespaces them under one `Settings`.
+- Per-module `.env` files left in place (still read by each module until Phase 2 rewire).
+
 ## Open follow-ups for the user
 - **Rotate secrets:** live API keys + a deploy password were present in
   `Proverka/.env` and `Spravochnik/.env` (now git-ignored, never committed here, but
