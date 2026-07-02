@@ -131,7 +131,43 @@ already satisfied; low integration risk.
   viewer is still mounted (rewritten to FastAPI in Phase 5). The relational SQLite→Postgres merge
   is Phase 4b.
 
+## Phase 4b — catalog SQLite -> Postgres (hybrid)  (SCHEMA DONE; DATA = user step)
+Decisions: target DB = **Neon**; cutover = **hybrid** (canonical catalog in Postgres,
+intake pipeline stays on SQLite).
+
+- **Neon project created:** `s21-content-factory` (project `twilight-brook-84308101`,
+  org Zheltenkov). Default branch `main` (`br-lively-feather-aj1i8slh`); dry-run branch
+  `catalog-migration-dryrun` (`br-small-king-aje5agkp`).
+- **Catalog schema ported to Postgres** under a dedicated `catalog` schema (clean separation,
+  zero name clash with app tables): 28 tables + 2 views + 17 indexes, translated from the
+  SQLite DDL (INTEGER→integer, REAL→double precision, CURRENT_TIMESTAMP defaults dropped since
+  data carries values, refs schema-qualified). **Verified: 28 tables created on the dry-run
+  branch** via Neon MCP.
+- Source of truth in-repo: `src/content_factory/catalog/sql/catalog_schema_postgres.sql` +
+  Alembic migration `migrations/versions/014_catalog_schema.py` (down_revision 013; upgrade
+  op.execute's the DDL, downgrade drops the schema; parser verified → 49 statements).
+- **Data-migration tool:** `scripts/migrate_catalog_to_postgres.py` (psycopg2 + execute_values,
+  explicit ids, FK-safe parent-first order, single transaction, row-count self-check,
+  `--truncate` guard). Catalog data volume: **36,267 rows** across the 28 tables (largest:
+  indicator_level_cell 16,467, indicator_row 15,332, competency_skill 1,225, skill 1,199).
+- **Environment limit:** sustained Postgres connections from this sandbox to Neon drop
+  (`SSL SYSCALL error: EOF`) — reliable only for the initial handshake. Schema went in via the
+  Neon MCP (server-side); bulk data load can't run from here and inlining 4.5 MB of INSERTs
+  through MCP is not viable. **The data load is a one-command user step** (their machine reaches
+  Neon fine). See follow-ups.
+
+### Remaining in 4b (next slices)
+- Replace the lossy JSON-blob mirror (`SpravochnikCatalogEntity` + `spravochnik_curriculum_sync`)
+  with reads from the real `catalog.*` tables (generator side). Needs the data loaded to verify.
+- Cut `DATABASE_URL` over to Neon once app schema + catalog are applied there.
+
 ## Open follow-ups for the user
+- **Apply the unified schema to Neon** (from your machine, reliable network):
+  `DATABASE_URL="<neon-direct-url>?sslmode=require" alembic upgrade head`  (applies 001–014).
+- **Load the catalog data:**
+  `python scripts/migrate_catalog_to_postgres.py --sqlite src/content_factory/catalog/artifacts/skills_catalog.sqlite --pg-url "<neon-url>?sslmode=require"`
+  (prints per-table counts and a sqlite-vs-postgres row-count match check).
+- Neon connection string (has a live password — keep in the git-ignored `.env`, do not commit).
 - **Rotate secrets:** live API keys + a deploy password were present in
   `Proverka/.env` and `Spravochnik/.env` (now git-ignored, never committed here, but
   they lived in the original repos' history). Rotate them.
