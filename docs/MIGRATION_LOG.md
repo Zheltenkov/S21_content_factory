@@ -88,6 +88,27 @@ already satisfied; low integration risk.
   `os.getenv` directly and there is no second consumer yet — it lands with the audit/catalog
   config merge so it is designed against real duplication rather than speculatively.
 
+## Phase 3 — Proverka folded in as content_factory.audit  (DONE)
+- `Proverka/src/content_audit/` → `src/content_factory/audit/`; rewired `content_audit` →
+  `content_factory.audit` (46 files, all imports were absolute). `avatar-placeholder.jpg`
+  moved into the package; `web_app.AVATAR_PATH` now `__file__`-relative.
+- Tests `Proverka/tests/` → `tests/audit/` (172 tests). Added an autouse `_isolate_audit_env`
+  fixture: `api.db.session` calls `load_dotenv()` at import, so the unified root `.env` leaks
+  OpenRouter/AUTH keys into `os.environ`; the fixture clears them so the audit env/credentials
+  tests stay hermetic (they passed alone but failed in the combined run — classic env bleed).
+- **Dropped the sys.path + importlib bridge** in `api/routers/auditor.py`: `_load_auditor_web_app`
+  and the domain/env/exporters/orchestrator block now use direct `from content_factory.audit import …`;
+  removed `import importlib`, `ensure_import_path`, `proverka_src_root`; auditor `.env` read now
+  uses `WORKSPACE_ROOT/.env`.
+- Remaining Proverka assets (metrics gold corpus, adjudication/eval scripts, prompts json, docs)
+  → `legacy/proverka/`. `Proverka/` now holds only git-ignored runtime dirs.
+- **Verification:** unified suite **863 passed** (691 + 172); app boots (83 routes); audit package
+  direct-imports; auditor router no longer references importlib.
+- **Deferred to a cleanup slice:** audit still ships its own `openrouter.py` / `cache.py` / `env.py`.
+  They are OpenAI-compatible and should become a provider adapter + shared cache under
+  `platform/` — folded together with the catalog LLM client in Phase 4/6 so the unification is
+  designed against both duplicates at once.
+
 ## Open follow-ups for the user
 - **Rotate secrets:** live API keys + a deploy password were present in
   `Proverka/.env` and `Spravochnik/.env` (now git-ignored, never committed here, but

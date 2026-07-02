@@ -46,7 +46,16 @@ dependencies = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-content_factory = ["config/*.yaml", "generation/config/*.yaml", "generation/config/**/*.yaml"]
+content_factory = [
+    "config/*.yaml",
+    "generation/config/*.yaml",
+    "generation/config/**/*.yaml",
+    "generation/prompts/**/*.md",
+    "didactics/**/*",
+    "audit/*.json",
+    "audit/*.jpg",
+    "audit/templates/**/*",
+]
 
 # ---------------------------------------------------------------------------
 # Test / lint / type-check config (unified; ex Content_generator_ver1 pyproject)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import os
 import shutil
 import tarfile
@@ -23,7 +22,7 @@ from content_factory.api.db.session import get_db_session
 from content_factory.api.db.tool_runs_db import create_tool_run, get_tool_run, update_tool_run
 from content_factory.api.dependencies import get_current_user
 from content_factory.api.integrations.auth_cookie import clear_auth_cookie, validate_request_user
-from content_factory.api.integrations.project_paths import GENERATOR_ROOT, ensure_import_path, proverka_src_root
+from content_factory.api.integrations.project_paths import GENERATOR_ROOT, WORKSPACE_ROOT
 
 router = APIRouter(prefix="/auditor", tags=["auditor"])
 page_router = APIRouter(prefix="/app/auditor", include_in_schema=False, tags=["auditor-ui"])
@@ -213,8 +212,9 @@ def _resolve_input_path(input_path: str | None) -> Path:
 def _load_auditor_web_app() -> ModuleType:
     """Import the original auditor web module after its src directory is on sys.path."""
 
-    ensure_import_path(proverka_src_root())
-    return importlib.import_module("content_audit.web_app")
+    from content_factory.audit import web_app
+
+    return web_app
 
 
 def _auditor_page_state(user: dict[str, Any]) -> tuple[str, Any]:
@@ -344,13 +344,9 @@ def _run_auditor_job(
 
     try:
         _update_job(run_id, status="running", stage="audit", progress=35)
-        ensure_import_path(proverka_src_root())
-        domain = importlib.import_module("content_audit.domain")
-        env = importlib.import_module("content_audit.env")
-        exporters = importlib.import_module("content_audit.exporters")
-        orchestrator = importlib.import_module("content_audit.orchestrator")
+        from content_factory.audit import domain, env, exporters, orchestrator
 
-        env_values = env.load_env_file(GENERATOR_ROOT / ".env")
+        env_values = env.load_env_file(WORKSPACE_ROOT / ".env")
         settings = domain.AuditSettings(
             input_path=input_dir,
             output_path=output_dir,
