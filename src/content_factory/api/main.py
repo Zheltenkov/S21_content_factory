@@ -40,7 +40,6 @@ from content_factory.api.routers import (
     readme_improvement,
     readme_translate,
     regeneration,
-    spravochnik,
     thematic_blocks,
 )
 from content_factory.api.utils.logger import setup_logging
@@ -259,7 +258,6 @@ app.include_router(readme_check.router, prefix="/api/v1", tags=["readme-check"])
 app.include_router(readme_improvement.router, prefix="/api/v1", tags=["readme-improvement"])
 app.include_router(readme_translate.router, prefix="/api/v1", tags=["readme-translate"])
 app.include_router(curriculum.router, prefix="/api/v1", tags=["curriculum"])
-app.include_router(spravochnik.router, prefix="/api/v1", tags=["spravochnik"])
 
 # Limiter уже настроен в generation.py через декоратор
 

@@ -301,6 +301,28 @@ intake pipeline stays on SQLite).
   exact match**, 0 FK orphans (single transaction, parent-first, explicit ids), views queryable
   (`v_skill_usage` = 828). Canonical reads return real catalog data. **Phase 4c is now unblocked.**
 
+### Phase 4c — curriculum plans on Postgres (variant B-lite), JSON-blob bridge removed
+Chosen after mapping showed the UP tables were empty (0 plans), the JSON-blob mirror table
+didn't even exist in Postgres, and `curriculum_plan.brief_id` FK-couples to the SQLite intake
+layer (`profile_brief`). B-lite keeps authoring in the SQLite pipeline (4b hybrid) but makes the
+generator read a **real relational** Postgres mirror instead of a lossy JSON blob.
+- **4c.1** (`e378296`): migration 015 adds `catalog.curriculum_plan` + `catalog.curriculum_plan_row`
+  (faithful 19/30-col mirror; `brief_id`/`profile_id` soft refs, `plan_id` FK). Reversible.
+- **4c.2** (`ad72cdd`): `sync_spravochnik_curriculum_plans` rewritten to a faithful relational
+  upsert (plan-before-rows, DELETE+INSERT rows, stale-plan hard-delete) — no more
+  `SpravochnikCatalogEntity` JSON. Verified live: seeded plan mirrors, re-sync idempotent.
+- **4c.3** (`ec0295c`): `/curriculum/plans` + `/plans/{id}` read the relational mirror; `/plans/{id}`
+  reassembles flat rows and runs the existing `convert_…_to_generator_curriculum`. Verified via
+  TestClient. (Security review flagged the dropped `status != 'archived'` filter — false positive:
+  archived state no longer exists, plans are hard-deleted, auth unchanged, data is global catalog.)
+- **4c.4**: removed the whole dead JSON-blob bridge — `SpravochnikCatalogEntity` model,
+  `tool_runs_db.import_spravochnik_catalog` (+`_sqlite_rows`/`_row_payload`), the
+  `/api/v1/spravochnik/migration/*` router, and `extract_generator_curriculum` /
+  `CURRICULUM_PLAN_ENTITY_TYPE`. The model had no migration/table and no live consumer (the
+  canonical catalog is relational since 4b), so removal is code-only. `convert_…` kept.
+- **Verification:** 956 tests green; app boots 129 routes (the two `/spravochnik/migration`
+  endpoints gone); no residual references. **Phase 4c complete — the lossy bridge is gone.**
+
 ## Open follow-ups for the user
 - **Apply the unified schema to Neon** (from your machine, reliable network):
   `DATABASE_URL="<neon-direct-url>?sslmode=require" alembic upgrade head`  (applies 001–014).

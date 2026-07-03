@@ -18,7 +18,6 @@ from content_factory.generation.models.curriculum import CurriculumPlan, Curricu
 
 logger = logging.getLogger("content_factory.api.integrations.spravochnik_curriculum_sync")
 
-CURRICULUM_PLAN_ENTITY_TYPE = "curriculum_plan"
 _DIRECTION_NAMES = {
     "BSA": "Бизнес аналитика",
     "Cb": "Кибербезопасность",
@@ -281,22 +280,6 @@ def convert_spravochnik_plan_to_generator_curriculum(plan_payload: Mapping[str, 
     frontend_payload = plan.to_dict_for_frontend()
     frontend_payload["source_plan_id"] = plan_payload.get("id") or plan_payload.get("plan_id")
     return frontend_payload
-
-
-def extract_generator_curriculum(entity_payload: Mapping[str, object]) -> dict[str, Any] | None:
-    """Extract or rebuild the generator curriculum payload stored in the common DB."""
-
-    current_payload = entity_payload.get("generator_curriculum")
-    if isinstance(current_payload, Mapping):
-        return dict(current_payload)
-
-    spravochnik_payload = entity_payload.get("spravochnik_payload")
-    if isinstance(spravochnik_payload, Mapping):
-        return convert_spravochnik_plan_to_generator_curriculum(spravochnik_payload)
-
-    if "blocks" in entity_payload and isinstance(entity_payload.get("blocks"), list):
-        return dict(entity_payload)
-    return None
 
 
 # --------------------------------------------------------------------------- #

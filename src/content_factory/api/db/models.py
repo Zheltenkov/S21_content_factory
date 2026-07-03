@@ -482,42 +482,6 @@ class ToolRun(Base):
         }
 
 
-class SpravochnikCatalogEntity(Base):
-    """PostgreSQL mirror for catalog entities migrated from Spravochnik."""
-
-    __tablename__ = "spravochnik_catalog_entities"
-
-    id = Column(Integer, primary_key=True)
-    entity_type = Column(String(80), nullable=False)
-    source_id = Column(String(120), nullable=False)
-    title = Column(Text, nullable=True)
-    status = Column(String(30), nullable=False, default="active")
-    payload = Column(JSON, nullable=False)
-    source_updated_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
-    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("entity_type", "source_id", name="uq_spravochnik_entity_source"),
-        Index("idx_spravochnik_entities_type_status", "entity_type", "status"),
-    )
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize a migrated catalog entity."""
-
-        return {
-            "id": self.id,
-            "entity_type": self.entity_type,
-            "source_id": self.source_id,
-            "title": self.title,
-            "status": self.status,
-            "payload": self.payload,
-            "source_updated_at": self.source_updated_at.isoformat() if self.source_updated_at else None,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-        }
-
-
 class UserRun(Base):
     """Unified per-user activity feed for product dashboard rows."""
 
