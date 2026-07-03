@@ -6,9 +6,9 @@
         <p>Редактируется persisted-строка учебного плана. После сохранения обновятся сам план, CSV-выгрузка и привязанный результат intake.</p>
     </div>
     <div class="review-actions">
-        <a class="action-btn action-btn-secondary" href="/up/plans/{{ plan.id }}">Назад к УП</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ plan.id }}">Назад к УП</a>
         {% if plan.latest_job_id %}
-        <a class="action-btn action-btn-secondary" href="/intake/jobs/{{ plan.latest_job_id }}">Открыть бриф</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/intake/jobs/{{ plan.latest_job_id }}">Открыть бриф</a>
         {% endif %}
     </div>
 </section>
@@ -20,7 +20,7 @@
 {% endif %}
 
 <section class="filter-panel">
-    <form class="admin-form" method="post" action="/up/plans/{{ plan.id }}/rows/{{ row.id }}">
+    <form class="admin-form" method="post" action="{{ base }}/up/plans/{{ plan.id }}/rows/{{ row.id }}">
         <div class="form-grid-3">
             <label>
                 <span>Номер блока</span>
@@ -122,7 +122,7 @@
 
         <div class="review-actions">
             <button type="submit" class="action-btn action-btn-primary">Сохранить строку</button>
-            <a class="action-btn action-btn-secondary" href="/up/plans/{{ plan.id }}">Отмена</a>
+            <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ plan.id }}">Отмена</a>
         </div>
     </form>
 </section>

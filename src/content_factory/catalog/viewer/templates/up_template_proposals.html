@@ -7,11 +7,11 @@
         <div class="small muted">учебный план #{{ plan.id }} · бриф #{{ plan.brief_id }}</div>
     </div>
     <div class="review-actions">
-        <a class="action-btn action-btn-light" href="/up/plans/{{ plan.id }}">Назад к УП</a>
-        <form method="post" action="/up/plans/{{ plan.id }}/template-proposals/generate">
+        <a class="action-btn action-btn-light" href="{{ base }}/up/plans/{{ plan.id }}">Назад к УП</a>
+        <form method="post" action="{{ base }}/up/plans/{{ plan.id }}/template-proposals/generate">
             <button type="submit" class="action-btn action-btn-primary">Сгенерировать заново</button>
         </form>
-        <a class="action-btn action-btn-secondary" href="/catalog-admin/artifact-templates">Рабочие шаблоны</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/catalog-admin/artifact-templates">Рабочие шаблоны</a>
     </div>
 </section>
 
@@ -33,14 +33,14 @@
             <span class="workflow-step-description">Открыто: {{ open_count }}.</span>
         </span>
     </a>
-    <a class="workflow-step {% if accepted_count %}workflow-step-done{% else %}workflow-step-active{% endif %}" href="/catalog-admin/artifact-templates">
+    <a class="workflow-step {% if accepted_count %}workflow-step-done{% else %}workflow-step-active{% endif %}" href="{{ base }}/catalog-admin/artifact-templates">
         <span class="workflow-step-index">3</span>
         <span class="workflow-step-body">
             <span class="workflow-step-label">Принятие</span>
             <span class="workflow-step-description">Принято: {{ accepted_count }}, отклонено: {{ rejected_count }}.</span>
         </span>
     </a>
-    <a class="workflow-step {% if accepted_count %}workflow-step-done{% else %}workflow-step-pending{% endif %}" href="/up/plans/{{ plan.id }}">
+    <a class="workflow-step {% if accepted_count %}workflow-step-done{% else %}workflow-step-pending{% endif %}" href="{{ base }}/up/plans/{{ plan.id }}">
         <span class="workflow-step-index">4</span>
         <span class="workflow-step-body">
             <span class="workflow-step-label">Перестройка УП</span>
@@ -83,7 +83,7 @@
         <p class="small muted">{{ proposal.rationale }}</p>
         {% endif %}
 
-        <form class="admin-form" method="post" action="/up/plans/{{ plan.id }}/template-proposals/{{ proposal.id }}">
+        <form class="admin-form" method="post" action="{{ base }}/up/plans/{{ plan.id }}/template-proposals/{{ proposal.id }}">
             <div class="admin-grid">
                 <label>
                     <span>Название</span>

@@ -238,6 +238,26 @@ intake pipeline stays on SQLite).
 - **Verification:** 941 tests green (931 + 10); app boots (113 routes; 10 native intake routes
   registered before the WSGI mount). Remaining: 5.4 reviews+up, 5.5 cutover.
 
+### Phase 5.4 — reviews + curriculum-plan (УП) native FastAPI
+- `catalog/web/routers/reviews.py`: 4 routes — GET `/reviews` (filters via query params),
+  POST `/reviews` (status update, PRG preserving the active filters), POST
+  `/reviews/build-dag` + `/reviews/apply-catalog` (brief-level actions that jump to the
+  resulting intake job).
+- `catalog/web/routers/up.py`: 12 routes — index, cleanup-empty, plan detail, CSV export
+  (409 when the plan status is `invalid`), row create/edit/delete (edit re-renders 400 on
+  `ValueError`), and the artifact-template proposal workflow (generate / save / accept / reject).
+  `/rows/new` is declared before `/rows/{row_id}` so the literal segment isn't swallowed by
+  the int converter; plan detail is declared last for the same reason.
+- Prefixed all internal links in `reviews.html`, `up_index.html`, `up_detail.html`,
+  `up_row_edit.html`, `up_template_proposals.html` with `{{ base }}` — shared 1:1 with WSGI.
+- Tests: `tests/catalog/test_web_reviews_up.py` (12) — reviews render + filters, invalid-status
+  404, PRG redirect with filters; up index/cleanup redirect, missing-plan 404 (detail/csv),
+  delete redirect, row-new 404, plan detail render, CSV 409-on-invalid.
+- **Verification:** 953 tests green (941 + 12); app boots (129 routes; 16 native reviews/up
+  routes before the WSGI mount). Legacy WSGI still serves every route (shared templates,
+  `base=""`). Remaining: 5.5 cutover (drop the WSGI mount / PrefixRewrite once profiles/
+  competencies read-paths + any residual routes are all native).
+
 ## Open follow-ups for the user
 - **Apply the unified schema to Neon** (from your machine, reliable network):
   `DATABASE_URL="<neon-direct-url>?sslmode=require" alembic upgrade head`  (applies 001–014).

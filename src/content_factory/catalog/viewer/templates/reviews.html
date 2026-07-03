@@ -19,7 +19,7 @@
 </section>
 
 <section class="filter-panel">
-    <form class="filter-form" method="get" action="/reviews">
+    <form class="filter-form" method="get" action="{{ base }}/reviews">
         <input type="hidden" name="status" value="open">
         <div class="filter-note">На странице показываются только открытые вопросы. Решённые и пропущенные кейсы скрываются после обработки.</div>
         <label>
@@ -65,7 +65,7 @@
 
 {% if dag_build_options %}
 <section class="filter-panel review-pipeline-actions">
-    <form class="filter-form review-pipeline-form" method="post" action="/reviews/apply-catalog">
+    <form class="filter-form review-pipeline-form" method="post" action="{{ base }}/reviews/apply-catalog">
         <label>
             <span>Применение принятых навыков в справочник</span>
             <select name="brief_id">
@@ -81,7 +81,7 @@
         </label>
         <button type="submit" class="action-btn action-btn-primary">Применить в справочник и набор навыков</button>
     </form>
-    <form class="filter-form review-pipeline-form" method="post" action="/reviews/build-dag">
+    <form class="filter-form review-pipeline-form" method="post" action="{{ base }}/reviews/build-dag">
         <label>
             <span>Построение DAG по брифу</span>
             <select name="brief_id">
@@ -147,7 +147,7 @@
             </div>
         </div>
         <div class="decision-cell">
-            <form class="review-form" method="post" action="/reviews">
+            <form class="review-form" method="post" action="{{ base }}/reviews">
                 <input type="hidden" name="review_id" value="{{ item.id }}">
                 <input type="hidden" name="status" value="{{ status_filter }}">
                 <input type="hidden" name="severity" value="{{ severity_filter }}">

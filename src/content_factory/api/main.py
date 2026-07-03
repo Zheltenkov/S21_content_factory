@@ -23,6 +23,8 @@ from content_factory.catalog.viewer.app import STATIC_DIR as CATALOG_STATIC_DIR
 from content_factory.catalog.web.routers import catalog_admin as catalog_admin_ui
 from content_factory.catalog.web.routers import intake as catalog_intake_ui
 from content_factory.catalog.web.routers import pages as catalog_pages
+from content_factory.catalog.web.routers import reviews as catalog_reviews_ui
+from content_factory.catalog.web.routers import up as catalog_up_ui
 from content_factory.api.middleware.activity_tracking import ActivityTrackingMiddleware
 from content_factory.api.middleware.request_logging import RequestLoggingMiddleware
 from content_factory.api.routers import (
@@ -239,6 +241,8 @@ if CATALOG_STATIC_DIR.exists():
 app.include_router(catalog_pages.router)
 app.include_router(catalog_admin_ui.router)
 app.include_router(catalog_intake_ui.router)
+app.include_router(catalog_reviews_ui.router)
+app.include_router(catalog_up_ui.router)
 
 app.mount("/app/spravochnik", build_spravochnik_app(prefix="/app/spravochnik"), name="spravochnik")
 

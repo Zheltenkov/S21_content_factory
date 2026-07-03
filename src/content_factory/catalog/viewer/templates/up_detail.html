@@ -11,23 +11,23 @@
     <div class="review-actions">
         <span class="status-badge{% if plan.status != 'built' and plan.status != 'draft' %} warn{% endif %}">{{ plan.status_label }}</span>
         {% if plan.latest_job_id %}
-        <a class="action-btn action-btn-secondary" href="/intake/jobs/{{ plan.latest_job_id }}">Открыть бриф</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/intake/jobs/{{ plan.latest_job_id }}">Открыть бриф</a>
         {% endif %}
         {% if plan.row_count and plan.status != 'invalid' %}
-        <a class="action-btn action-btn-primary" href="/up/plans/{{ plan.id }}/csv">Скачать CSV</a>
+        <a class="action-btn action-btn-primary" href="{{ base }}/up/plans/{{ plan.id }}/csv">Скачать CSV</a>
         {% elif plan.row_count %}
         <span class="action-btn action-btn-light disabled">CSV заблокирован: УП невалиден</span>
         {% endif %}
-        <form method="post" action="/up/plans/{{ plan.id }}/rows/new">
+        <form method="post" action="{{ base }}/up/plans/{{ plan.id }}/rows/new">
             <button type="submit" class="action-btn">Добавить строку</button>
         </form>
         {% if plan.brief_id %}
-        <form method="post" action="/up/plans/{{ plan.id }}/template-proposals/generate">
+        <form method="post" action="{{ base }}/up/plans/{{ plan.id }}/template-proposals/generate">
             <button type="submit" class="action-btn action-btn-secondary">Пересобрать предложения шаблонов</button>
         </form>
-        <a class="action-btn action-btn-light" href="/up/plans/{{ plan.id }}/template-proposals">Шаблоны по брифу</a>
+        <a class="action-btn action-btn-light" href="{{ base }}/up/plans/{{ plan.id }}/template-proposals">Шаблоны по брифу</a>
         {% endif %}
-        <form method="post" action="/up/plans/{{ plan.id }}/delete" onsubmit="return confirm('Удалить этот УП полностью? Связанный справочник не будет затронут.');">
+        <form method="post" action="{{ base }}/up/plans/{{ plan.id }}/delete" onsubmit="return confirm('Удалить этот УП полностью? Связанный справочник не будет затронут.');">
             <button type="submit" class="action-btn action-btn-danger">Удалить УП</button>
         </form>
     </div>
@@ -192,8 +192,8 @@
                 <td></td>
                 <td class="up-actions-cell">
                     <div class="review-actions">
-                        <a class="action-btn action-btn-secondary" href="/up/plans/{{ plan.id }}/rows/{{ row.id }}">Редактировать</a>
-                        <form method="post" action="/up/plans/{{ plan.id }}/rows/{{ row.id }}/delete" onsubmit="return confirm('Удалить строку УП?');">
+                        <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ plan.id }}/rows/{{ row.id }}">Редактировать</a>
+                        <form method="post" action="{{ base }}/up/plans/{{ plan.id }}/rows/{{ row.id }}/delete" onsubmit="return confirm('Удалить строку УП?');">
                             <button type="submit" class="action-btn action-btn-danger">Удалить</button>
                         </form>
                     </div>
