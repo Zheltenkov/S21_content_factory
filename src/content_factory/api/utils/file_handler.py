@@ -1,12 +1,15 @@
 """Обработка загруженных файлов с изоляцией по user_id/request_id."""
 
 import asyncio
+import logging
 import os
 import shutil
 import tempfile
 from pathlib import Path
 
 from fastapi import UploadFile
+
+logger = logging.getLogger("content_factory.api.utils.file_handler")
 
 
 async def save_uploaded_files(
