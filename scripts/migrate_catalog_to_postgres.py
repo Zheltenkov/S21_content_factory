@@ -21,9 +21,36 @@ import argparse
 import os
 import sqlite3
 import sys
+import time
 
 import psycopg2
 from psycopg2.extras import execute_values
+
+
+def connect_with_retry(url: str, attempts: int = 8, delay: float = 4.0):
+    """Connect to Postgres, tolerating cold-start EOF drops (e.g. Neon serverless).
+
+    A freshly-woken compute often drops the first query on a new connection; we
+    verify the connection with a throwaway SELECT and retry the whole connect.
+    """
+    last: Exception | None = None
+    for i in range(attempts):
+        try:
+            conn = psycopg2.connect(url, connect_timeout=30)
+            with conn.cursor() as c:
+                c.execute("SELECT 1")
+                c.fetchone()
+            conn.rollback()
+            return conn
+        except psycopg2.Error as exc:
+            last = exc
+            try:
+                conn.close()  # type: ignore[possibly-undefined]
+            except Exception:
+                pass
+            print(f"connect attempt {i + 1}/{attempts} failed: {str(exc).splitlines()[0][:60]}", file=sys.stderr)
+            time.sleep(delay)
+    raise SystemExit(f"could not establish a stable connection after {attempts} attempts: {last}")
 
 # FK-safe order (parents first).
 TABLES = [
@@ -52,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     sq.row_factory = sqlite3.Row
     present = {t for (t,) in sq.execute("SELECT name FROM sqlite_master WHERE type='table'")}
 
-    pg = psycopg2.connect(args.pg_url, connect_timeout=30)
+    pg = connect_with_retry(args.pg_url)
     pg.autocommit = False
     src_counts: dict[str, int] = {}
     dst_counts: dict[str, int] = {}
