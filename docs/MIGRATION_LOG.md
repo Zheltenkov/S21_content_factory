@@ -258,6 +258,29 @@ intake pipeline stays on SQLite).
   `base=""`). Remaining: 5.5 cutover (drop the WSGI mount / PrefixRewrite once profiles/
   competencies read-paths + any residual routes are all native).
 
+### Phase 5.5 — cutover: WSGI mount removed
+- Audited the legacy `application()` closure: every `if path ==/startswith` route is now
+  served natively. The only residual paths were `/` (→ `/intake`) and `/favicon.ico` (204),
+  added to `pages.py` (`catalog_root` + `catalog_favicon`); `/static/*` was already a native
+  `StaticFiles` mount.
+- Verified nothing else depended on `PrefixRewriteASGI`'s HTML/JS rewriting: no catalog
+  template or static asset carries an un-prefixed absolute `/…` link (all use `{{ base }}`),
+  so removing the rewriter is safe.
+- Preserved the mount's one side effect — mirror UP data into Postgres after a successful
+  `/up` POST — as `up.py::_redirect_synced` (best-effort `sync_spravochnik_curriculum_plans`,
+  swallows errors). Wired into all 7 UP-mutating POST handlers; GET/detail never sync.
+- Removed `app.mount("/app/spravochnik", build_spravochnik_app(...))` + its import from
+  `main.py`; **deleted `api/integrations/spravochnik_mount.py`** (`PrefixRewriteASGI` /
+  `WSGIMiddleware` / `build_spravochnik_app`). The catalog UI is now 100% native FastAPI.
+- The legacy wsgiref viewer (`create_app` / `application()` / `main()`) is **kept intact** and
+  still runs standalone for parity checks:
+  `python -m content_factory.catalog.viewer.app --db <catalog.sqlite> --summary <summary.json> --port 8010`.
+- Replaced the `PrefixRewriteASGI._should_sync_curriculum` unit test with a native-router
+  contract test (`test_native_up_router_mirrors_curriculum_after_mutations`).
+- **Verification:** 953 tests green; app boots (131 routes; **no** `spravochnik` WSGI mount);
+  HTTP smoke via TestClient: `/` 303→intake, `/favicon.ico` 204, intake/competencies/reviews/
+  up/catalog-admin all 200. **Phase 5 (UI migration) complete.**
+
 ## Open follow-ups for the user
 - **Apply the unified schema to Neon** (from your machine, reliable network):
   `DATABASE_URL="<neon-direct-url>?sslmode=require" alembic upgrade head`  (applies 001–014).

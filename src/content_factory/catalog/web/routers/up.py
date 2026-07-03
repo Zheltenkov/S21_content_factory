@@ -10,6 +10,7 @@ literal segment is not swallowed by the int converter.
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -38,9 +39,36 @@ from content_factory.catalog.web.rendering import CATALOG_URL_PREFIX, render
 
 router = APIRouter(prefix=CATALOG_URL_PREFIX, tags=["catalog-ui"])
 
+logger = logging.getLogger("content_factory.catalog.web.routers.up")
+
+
+def _sync_up_curriculum() -> None:
+    """Mirror changed UP data into the shared Postgres catalog (best-effort).
+
+    Replaces the side effect the legacy ``PrefixRewriteASGI`` mount ran after every
+    successful ``/up`` POST. Kept best-effort (never blocks the UI) — the JSON-blob
+    mirror itself is slated for replacement by real ``catalog.*`` reads in Phase 4c.
+    """
+
+    try:
+        from content_factory.api.integrations.spravochnik_curriculum_sync import (
+            sync_spravochnik_curriculum_plans,
+        )
+
+        sync_spravochnik_curriculum_plans()
+    except Exception:
+        logger.exception("Failed to mirror Spravochnik curriculum plans after UP mutation")
+
 
 def _redirect(path: str) -> RedirectResponse:
     return RedirectResponse(f"{CATALOG_URL_PREFIX}{path}", status_code=303)
+
+
+def _redirect_synced(path: str) -> RedirectResponse:
+    """Redirect after a UP mutation, mirroring the change into the shared catalog."""
+
+    _sync_up_curriculum()
+    return _redirect(path)
 
 
 async def _form(request: Request) -> dict[str, str]:
@@ -73,7 +101,7 @@ def up_index(conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
 def up_cleanup_empty(conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     cleanup_empty_curriculum_plans(conn)
-    return _redirect("/up")
+    return _redirect_synced("/up")
 
 
 # --------------------------------------------------------------------------- #
@@ -83,7 +111,7 @@ def up_cleanup_empty(conn: sqlite3.Connection = Depends(get_conn)) -> RedirectRe
 def up_plan_delete(plan_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     delete_curriculum_plan(conn, plan_id)
-    return _redirect("/up")
+    return _redirect_synced("/up")
 
 
 @router.get("/up/plans/{plan_id}/csv")
@@ -121,7 +149,7 @@ def up_plan_proposals_generate(plan_id: int, conn: sqlite3.Connection = Depends(
         intake_storage.generate_curriculum_artifact_template_proposals(conn, brief_id=brief_id, plan_id=plan_id)
     finally:
         intake_llm.clear_usage_context()
-    return _redirect(f"/up/plans/{plan_id}/template-proposals")
+    return _redirect_synced(f"/up/plans/{plan_id}/template-proposals")
 
 
 @router.get("/up/plans/{plan_id}/template-proposals", response_class=HTMLResponse)
@@ -185,7 +213,7 @@ async def up_plan_proposal_post(
         conn.commit()
     elif action == "reject_proposal":
         intake_storage.reject_curriculum_artifact_template_proposal(conn, proposal_id)
-    return _redirect(f"/up/plans/{redirect_plan_id}/template-proposals")
+    return _redirect_synced(f"/up/plans/{redirect_plan_id}/template-proposals")
 
 
 # --------------------------------------------------------------------------- #
@@ -196,7 +224,7 @@ def up_plan_row_new(plan_id: int, conn: sqlite3.Connection = Depends(get_conn)) 
     ensure_intake_runtime_schema(conn, catalog_db_path())
     _require_plan(conn, plan_id)
     row_id = create_curriculum_plan_row(conn, plan_id)
-    return _redirect(f"/up/plans/{plan_id}/rows/{row_id}")
+    return _redirect_synced(f"/up/plans/{plan_id}/rows/{row_id}")
 
 
 @router.get("/up/plans/{plan_id}/rows/{row_id}", response_class=HTMLResponse)
@@ -238,14 +266,14 @@ async def up_plan_row_post(
             request_path="/up",
         )
         return HTMLResponse(html, status_code=400)
-    return _redirect(f"/up/plans/{plan_id}")
+    return _redirect_synced(f"/up/plans/{plan_id}")
 
 
 @router.post("/up/plans/{plan_id}/rows/{row_id}/delete")
 def up_plan_row_delete(plan_id: int, row_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     delete_curriculum_plan_row(conn, plan_id, row_id)
-    return _redirect(f"/up/plans/{plan_id}")
+    return _redirect_synced(f"/up/plans/{plan_id}")
 
 
 # --------------------------------------------------------------------------- #

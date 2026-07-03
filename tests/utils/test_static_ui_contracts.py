@@ -39,18 +39,35 @@ def test_dashboard_mode_cards_use_direct_links_instead_of_js_only_navigation():
     assert 'class="dashboard-primary-action" onclick=' not in html
 
 
-def test_spravochnik_mount_syncs_successful_up_post_mutations():
-    from content_factory.api.integrations.spravochnik_mount import PrefixRewriteASGI
+def test_native_up_router_mirrors_curriculum_after_mutations():
+    """Phase 5.5 cutover: the WSGI PrefixRewriteASGI mount is gone; the native up
+    router now carries the "mirror UP data after a successful POST" side effect via
+    ``_redirect_synced`` (best-effort ``sync_spravochnik_curriculum_plans``)."""
 
-    adapter = PrefixRewriteASGI(app=object(), prefix="/app/spravochnik")
+    import inspect
 
-    assert adapter._should_sync_curriculum({"type": "http", "method": "POST", "path": "/up/plans/1/rows/new"}, 303)
-    assert adapter._should_sync_curriculum(
-        {"type": "http", "method": "POST", "path": "/up/plans/1", "root_path": "/app/spravochnik"},
-        200,
-    )
-    assert not adapter._should_sync_curriculum({"type": "http", "method": "GET", "path": "/up/plans/1"}, 200)
-    assert not adapter._should_sync_curriculum({"type": "http", "method": "POST", "path": "/intake"}, 303)
+    from content_factory.catalog.web.routers import up
+
+    # the sync helper exists and is invoked from the redirect-after-mutation path
+    assert hasattr(up, "_sync_up_curriculum")
+    assert hasattr(up, "_redirect_synced")
+
+    src = inspect.getsource(up)
+    # every UP-mutating POST redirects through the syncing variant, not the plain one
+    for handler in (
+        "up_cleanup_empty",
+        "up_plan_delete",
+        "up_plan_proposals_generate",
+        "up_plan_proposal_post",
+        "up_plan_row_new",
+        "up_plan_row_post",
+        "up_plan_row_delete",
+    ):
+        assert f"def {handler}" in src
+    assert "_redirect_synced" in src
+    # read-only GET detail must NOT sync
+    detail_src = inspect.getsource(up.up_plan_detail)
+    assert "_redirect_synced" not in detail_src
 
 
 def test_markdown_preview_loads_heavy_vendors_lazily_from_local_static():

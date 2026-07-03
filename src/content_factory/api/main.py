@@ -18,7 +18,6 @@ from slowapi.util import get_remote_address
 
 from content_factory.api.db.session import get_database_status, init_db, should_auto_create_tables
 from content_factory.api.integrations.auth_cookie import ToolAuthCookieMiddleware
-from content_factory.api.integrations.spravochnik_mount import build_spravochnik_app
 from content_factory.catalog.viewer.app import STATIC_DIR as CATALOG_STATIC_DIR
 from content_factory.catalog.web.routers import catalog_admin as catalog_admin_ui
 from content_factory.catalog.web.routers import intake as catalog_intake_ui
@@ -233,9 +232,9 @@ if static_dir.exists():
 else:
     logger.warning(f"⚠️ Директория static не найдена: {static_dir.absolute()}")
 
-# Catalog UI migration (Phase 5): native FastAPI routes + static are registered BEFORE
-# the WSGI mount, so ported paths are served natively and everything else falls through
-# to the legacy WSGI viewer until its slice lands.
+# Catalog UI (Phase 5, cutover complete): the entire Spravochnik viewer is served by
+# native FastAPI routers — no WSGI mount / PrefixRewrite. The legacy wsgiref viewer stays
+# runnable standalone (``python -m content_factory.catalog.viewer.app``) for parity checks.
 if CATALOG_STATIC_DIR.exists():
     app.mount("/app/spravochnik/static", StaticFiles(directory=str(CATALOG_STATIC_DIR)), name="catalog-static")
 app.include_router(catalog_pages.router)
@@ -243,8 +242,6 @@ app.include_router(catalog_admin_ui.router)
 app.include_router(catalog_intake_ui.router)
 app.include_router(catalog_reviews_ui.router)
 app.include_router(catalog_up_ui.router)
-
-app.mount("/app/spravochnik", build_spravochnik_app(prefix="/app/spravochnik"), name="spravochnik")
 
 # Роутеры
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])

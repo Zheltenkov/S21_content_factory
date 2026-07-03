@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from content_factory.catalog.viewer.app import (
     get_competency,
@@ -23,9 +23,22 @@ from content_factory.catalog.viewer.app import (
     list_profiles,
 )
 from content_factory.catalog.web.deps import get_conn
-from content_factory.catalog.web.rendering import render
+from content_factory.catalog.web.rendering import CATALOG_URL_PREFIX, render
 
 router = APIRouter(prefix="/app/spravochnik", tags=["catalog-ui"])
+
+
+@router.get("")
+@router.get("/")
+def catalog_root() -> RedirectResponse:
+    """Catalog entry point → the intake workspace (mirrors the WSGI ``/`` redirect)."""
+
+    return RedirectResponse(f"{CATALOG_URL_PREFIX}/intake", status_code=303)
+
+
+@router.get("/favicon.ico")
+def catalog_favicon() -> Response:
+    return Response(content=b"", status_code=204, media_type="image/x-icon")
 
 
 @router.get("/competencies", response_class=HTMLResponse)
