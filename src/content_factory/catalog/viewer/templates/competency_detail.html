@@ -2,7 +2,7 @@
 {% block content %}
 <section class="hero hero-compact">
     <div>
-        <a class="back-link" href="/competencies">← Назад к справочнику</a>
+        <a class="back-link" href="{{ base }}/competencies">← Назад к справочнику</a>
         <h1>{{ competency.title }}</h1>
         {% if competency.description %}
         <p>{{ competency.description }}</p>

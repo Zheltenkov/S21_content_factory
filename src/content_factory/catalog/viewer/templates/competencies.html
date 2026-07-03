@@ -12,7 +12,7 @@
         <p>Локальный read-only viewer по данным, импортированным из Excel в SQLite.</p>
         {% endif %}
     </div>
-    <form class="search-form" method="get" action="/competencies">
+    <form class="search-form" method="get" action="{{ base }}/competencies">
         <input type="text" name="q" value="{{ query }}" placeholder="Поиск по компетенциям, skills и индикаторам">
         <div class="scope-row">
             <label><input type="radio" name="scope" value="all" {% if scope == "all" %}checked{% endif %}> Везде</label>
@@ -97,7 +97,7 @@
     <article class="entity-card">
         <div class="entity-head">
             <div>
-                <h2><a href="/competencies/{{ competency.id }}">{{ competency.title }}</a></h2>
+                <h2><a href="{{ base }}/competencies/{{ competency.id }}">{{ competency.title }}</a></h2>
                 {% if competency.description %}
                 <p class="muted">{{ competency.description }}</p>
                 {% endif %}

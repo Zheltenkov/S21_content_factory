@@ -6449,6 +6449,9 @@ def create_app(db_path: Path, summary_path: Path):
     env.filters["edge_reason_label"] = edge_reason_label
     env.filters["review_severity_label"] = review_severity_label
     env.filters["review_status_label"] = review_status_label
+    # base URL prefix is empty for the mounted WSGI app (PrefixRewriteASGI adds the
+    # /app/spravochnik prefix); the native FastAPI catalog UI sets it explicitly.
+    env.globals["base"] = ""
     startup_conn = open_db(db_path)
     try:
         ensure_intake_runtime_schema(startup_conn, db_path)

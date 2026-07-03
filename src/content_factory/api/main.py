@@ -19,6 +19,8 @@ from slowapi.util import get_remote_address
 from content_factory.api.db.session import get_database_status, init_db, should_auto_create_tables
 from content_factory.api.integrations.auth_cookie import ToolAuthCookieMiddleware
 from content_factory.api.integrations.spravochnik_mount import build_spravochnik_app
+from content_factory.catalog.viewer.app import STATIC_DIR as CATALOG_STATIC_DIR
+from content_factory.catalog.web.routers import pages as catalog_pages
 from content_factory.api.middleware.activity_tracking import ActivityTrackingMiddleware
 from content_factory.api.middleware.request_logging import RequestLoggingMiddleware
 from content_factory.api.routers import (
@@ -226,6 +228,13 @@ if static_dir.exists():
         return FileResponse(str(translator_path), headers={"Cache-Control": "no-store"})
 else:
     logger.warning(f"⚠️ Директория static не найдена: {static_dir.absolute()}")
+
+# Catalog UI migration (Phase 5): native FastAPI routes + static are registered BEFORE
+# the WSGI mount, so ported paths are served natively and everything else falls through
+# to the legacy WSGI viewer until its slice lands.
+if CATALOG_STATIC_DIR.exists():
+    app.mount("/app/spravochnik/static", StaticFiles(directory=str(CATALOG_STATIC_DIR)), name="catalog-static")
+app.include_router(catalog_pages.router)
 
 app.mount("/app/spravochnik", build_spravochnik_app(prefix="/app/spravochnik"), name="spravochnik")
 

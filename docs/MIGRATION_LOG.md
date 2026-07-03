@@ -183,6 +183,25 @@ intake pipeline stays on SQLite).
 - Replace the JSON-blob catalog mirror with real `catalog.*` reads — blocked on the Phase-4c
   data load.
 
+## Phase 5.1 — catalog UI foundation + read-only pages on FastAPI  (DONE)
+- New package `src/content_factory/catalog/web/`: `rendering.py` (module-level Jinja env
+  mirroring the viewer's `create_app` render — same templates/filters/shared context, plus a
+  `base` URL-prefix global), `deps.py` (`get_conn` per-request SQLite), `routers/pages.py`.
+- Ported the purely-GET catalog pages to native FastAPI (no POST siblings, safe to split):
+  `/competencies`, `/competencies/{id}`, `/profiles`, `/profiles/{id}` — reusing the viewer's
+  existing data functions and templates unchanged (visual parity).
+- `main.py`: native `StaticFiles` at `/app/spravochnik/static` + `include_router(pages)` are
+  registered **before** the WSGI mount, so these paths are served natively and everything else
+  falls through to the still-mounted viewer.
+- Templates: added `{{ base }}` prefix to `base.html` (nav/static/wordmark) and the 4 ported
+  pages' links; the WSGI env now sets `base=""` (PrefixRewrite still adds the prefix for mounted
+  pages) — both render paths correct.
+- Tests: `tests/catalog/test_web_pages.py` (6, TestClient, temp catalog SQLite, `DISABLE_AUTH`).
+- **Verification:** 922 tests green (916 + 6); app boots (88 routes) with native catalog pages
+  and the WSGI mount coexisting.
+- Remaining slices: 5.2 catalog-admin, 5.3 intake, 5.4 reviews+up, 5.5 cutover (remove mount).
+  Plan: [PHASE5_UI_MIGRATION_PLAN.md](PHASE5_UI_MIGRATION_PLAN.md).
+
 ## Open follow-ups for the user
 - **Apply the unified schema to Neon** (from your machine, reliable network):
   `DATABASE_URL="<neon-direct-url>?sslmode=require" alembic upgrade head`  (applies 001–014).

@@ -7,9 +7,9 @@
     </div>
     <div class="review-actions">
         {% if include_service_profiles %}
-        <a class="action-btn action-btn-secondary" href="/profiles">Скрыть служебные</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/profiles">Скрыть служебные</a>
         {% else %}
-        <a class="action-btn action-btn-secondary" href="/profiles?service=1">Показать служебные</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/profiles?service=1">Показать служебные</a>
         {% endif %}
     </div>
 </section>
@@ -19,7 +19,7 @@
     <article class="entity-card">
         <div class="entity-head">
             <div>
-                <h2><a href="/profiles/{{ profile.id }}">{{ profile.name }}</a></h2>
+                <h2><a href="{{ base }}/profiles/{{ profile.id }}">{{ profile.name }}</a></h2>
                 <p class="muted">
                     {{ profile.source_kind }}
                     {% if profile.slug == 'intake-accepted-skills' %} · служебный профиль intake{% endif %}
