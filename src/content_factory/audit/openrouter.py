@@ -13,11 +13,17 @@ class OpenRouterError(RuntimeError):
     """Ошибка обращения к OpenRouter."""
 
 
+#: Default LLM gateway for the audit module. Polza is the unified default provider
+#: across content_factory (generation, catalog, audit); it is OpenAI-compatible and
+#: proxies the same models (openai/gpt-5.4-mini, perplexity/sonar, qwen/qwen3-coder).
+DEFAULT_BASE_URL = "https://polza.ai/api/v1/chat/completions"
+
+
 class OpenRouterClient:
-    """Тонкий клиент для запросов к модели через OpenRouter."""
+    """Тонкий OpenAI-совместимый клиент. По умолчанию ходит через Polza-гейтвей."""
 
     def __init__(self, api_key: str, model: str, timeout_seconds: float = 60.0,
-                 base_url: str = "https://openrouter.ai/api/v1/chat/completions") -> None:
+                 base_url: str = DEFAULT_BASE_URL) -> None:
         self.api_key = api_key
         self.model = model
         self.timeout_seconds = timeout_seconds

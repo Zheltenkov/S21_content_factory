@@ -353,7 +353,7 @@ def _run_auditor_job(
             allow_network=allow_network,
             use_model=use_model,
             include_unknown=include_unknown,
-            openrouter_api_key=env.get_env_value(("OPENROUTER_API_KEY", "OPEN_ROUTER_API_KEY"), env_values),
+            openrouter_api_key=env.get_env_value(("POLZA_AI_API_KEY", "OPENROUTER_API_KEY", "OPEN_ROUTER_API_KEY"), env_values),
             openrouter_model=env.get_env_value(("OPENROUTER_MODEL", "OPEN_ROUTER_MODEL"), env_values),
             openrouter_fact_model=env.get_env_value(("OPENROUTER_FACT_MODEL", "OPEN_ROUTER_FACT_MODEL"), env_values),
             openrouter_tech_model=env.get_env_value(("OPENROUTER_TECH_MODEL", "OPEN_ROUTER_TECH_MODEL"), env_values),

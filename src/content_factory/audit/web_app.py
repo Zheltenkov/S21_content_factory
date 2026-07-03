@@ -291,7 +291,7 @@ def run_from_form(form: dict[str, str], state: WebState) -> AuditReport:
         model_name = get_env_value(("OPENROUTER_MODEL", "OPEN_ROUTER_MODEL"), state.env_values) or DEFAULT_MODEL
         fact_model_name = get_env_value(("OPENROUTER_FACT_MODEL", "OPEN_ROUTER_FACT_MODEL"), state.env_values) or DEFAULT_FACT_MODEL
         tech_model_name = get_env_value(("OPENROUTER_TECH_MODEL", "OPEN_ROUTER_TECH_MODEL"), state.env_values) or DEFAULT_TECH_MODEL
-        api_key = get_env_value(("OPENROUTER_API_KEY", "OPEN_ROUTER_API_KEY"), state.env_values)
+        api_key = get_env_value(("POLZA_AI_API_KEY", "OPENROUTER_API_KEY", "OPEN_ROUTER_API_KEY"), state.env_values)
         settings = AuditSettings(
             input_path=input_path,
             output_path=state.report_dir,

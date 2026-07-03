@@ -22,7 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     env_file_values = load_env_file(Path(".env"))
-    openrouter_api_key = get_env_value(("OPENROUTER_API_KEY", "OPEN_ROUTER_API_KEY"), env_file_values)
+    openrouter_api_key = get_env_value(("POLZA_AI_API_KEY", "OPENROUTER_API_KEY", "OPEN_ROUTER_API_KEY"), env_file_values)
     openrouter_model = (
         args.openrouter_model
         or get_env_value(("OPENROUTER_MODEL", "OPEN_ROUTER_MODEL"), env_file_values)

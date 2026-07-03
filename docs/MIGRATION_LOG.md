@@ -161,6 +161,28 @@ intake pipeline stays on SQLite).
   with reads from the real `catalog.*` tables (generator side). Needs the data loaded to verify.
 - Cut `DATABASE_URL` over to Neon once app schema + catalog are applied there.
 
+## Phase 6 (partial) — Polza default + root docs  (DONE)
+- **Unified default LLM provider = Polza** across all three modules. Generation and catalog
+  already defaulted to Polza (`LLM_PROVIDER=polza`, `POLZA_AI_API_KEY`); audit now does too:
+  `OpenRouterClient` default `base_url` → `https://polza.ai/api/v1/chat/completions`
+  (`DEFAULT_BASE_URL`), and `POLZA_AI_API_KEY` is the first key fallback in the auditor router,
+  `web_app`, and `cli`. Polza is OpenAI-compatible and proxies the same models
+  (gpt-5.4-mini, perplexity/sonar, qwen/qwen3-coder). Tests mock at `requests.post`/pass keys
+  explicitly, so all 172 audit tests stay green.
+- Added a **root `README.md`** documenting the unified architecture, setup, routes, and the
+  catalog data-load command (the repo had no root readme).
+- **Verification:** 916 tests green; app boots (83 routes); `audit.openrouter.DEFAULT_BASE_URL`
+  resolves to the Polza gateway.
+
+### Phase 6 remaining (deferred, larger/risky)
+- Physically merge the three LLM clients (audit `openrouter.py`, catalog `pipeline/llm.py`)
+  into one `platform/llm` OpenAI-compatible client — needs updating their test mock boundaries;
+  bounded but touches audit/catalog internals.
+- Remove dead audit `http.server` (`AuditWebHandler`/`main`) — unused in the app (only the
+  legacy console-script referenced it); safe but low priority.
+- Replace the JSON-blob catalog mirror with real `catalog.*` reads — blocked on the Phase-4c
+  data load.
+
 ## Open follow-ups for the user
 - **Apply the unified schema to Neon** (from your machine, reliable network):
   `DATABASE_URL="<neon-direct-url>?sslmode=require" alembic upgrade head`  (applies 001–014).
