@@ -23,9 +23,9 @@ class _FakeResponse:
 def test_openrouter_retries_without_response_format_after_400(monkeypatch) -> None:
     calls: list[dict] = []
 
-    def fake_post(_url, headers, json, timeout):
-        del headers, timeout
-        calls.append(dict(json))
+    def fake_post(_url, *, api_key, payload, timeout, trust_env=True, extra_headers=None):
+        del api_key, timeout, trust_env, extra_headers
+        calls.append(dict(payload))
         if len(calls) == 1:
             return _FakeResponse(400, text='{"error":"response_format is not supported"}')
         return _FakeResponse(
@@ -36,7 +36,7 @@ def test_openrouter_retries_without_response_format_after_400(monkeypatch) -> No
             },
         )
 
-    monkeypatch.setattr("content_factory.audit.openrouter.requests.post", fake_post)
+    monkeypatch.setattr("content_factory.platform.llm.transport.post_chat_completion", fake_post)
 
     result = OpenRouterClient(api_key="test-key", model="test-model").complete_json("system", "user")
 
@@ -46,11 +46,11 @@ def test_openrouter_retries_without_response_format_after_400(monkeypatch) -> No
 
 
 def test_openrouter_error_includes_provider_body(monkeypatch) -> None:
-    def fake_post(_url, headers, json, timeout):
-        del headers, json, timeout
+    def fake_post(_url, *, api_key, payload, timeout, trust_env=True, extra_headers=None):
+        del api_key, payload, timeout, trust_env, extra_headers
         return _FakeResponse(400, text='{"error":"invalid model"}')
 
-    monkeypatch.setattr("content_factory.audit.openrouter.requests.post", fake_post)
+    monkeypatch.setattr("content_factory.platform.llm.transport.post_chat_completion", fake_post)
 
     try:
         OpenRouterClient(api_key="test-key", model="bad-model").complete_json("system", "user", max_retries=0)

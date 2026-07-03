@@ -8,15 +8,14 @@ from typing import Any
 
 import requests
 
+from content_factory.platform.llm import transport
 
 class OpenRouterError(RuntimeError):
     """Ошибка обращения к OpenRouter."""
 
 
-#: Default LLM gateway for the audit module. Polza is the unified default provider
-#: across content_factory (generation, catalog, audit); it is OpenAI-compatible and
-#: proxies the same models (openai/gpt-5.4-mini, perplexity/sonar, qwen/qwen3-coder).
-DEFAULT_BASE_URL = "https://polza.ai/api/v1/chat/completions"
+#: Default LLM gateway for the audit module — the unified content_factory endpoint.
+DEFAULT_BASE_URL = transport.POLZA_CHAT_COMPLETIONS_URL
 
 
 class OpenRouterClient:
@@ -33,33 +32,28 @@ class OpenRouterClient:
     def complete_json(self, system_prompt: str, user_prompt: str, max_retries: int = 2, max_tokens: int | None = None) -> dict[str, Any]:
         """Запрашиваем у модели JSON и разбираем ответ в словарь."""
 
-        payload = {
-            "model": self.model,
-            "messages": [
+        payload = transport.build_chat_payload(
+            self.model,
+            [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "response_format": {"type": "json_object"},
-        }
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+            json_mode=True,
+            max_tokens=max_tokens,
+        )
 
         last_error: str | None = None
         for attempt in range(max_retries + 1):
             try:
-                response = requests.post(
+                response = transport.post_chat_completion(
                     self.base_url,
-                    headers=headers,
-                    json=payload,
+                    api_key=self.api_key,
+                    payload=payload,
                     timeout=self.timeout_seconds,
                 )
                 response.raise_for_status()
                 response_payload = response.json()
-                self.last_call_usage = _extract_usage(response_payload)
+                self.last_call_usage = transport.extract_usage(response_payload)
                 content = response_payload["choices"][0]["message"]["content"]
                 return _parse_json_content(content)
             except requests.HTTPError as exc:
@@ -131,29 +125,3 @@ def _extract_json_fragment(text: str) -> str:
     if start == -1 or end == -1 or end <= start:
         raise ValueError("В ответе модели нет JSON-объекта.")
     return text[start : end + 1]
-
-
-def _extract_usage(payload: dict[str, Any]) -> dict[str, int | float]:
-    """Достаём статистику токенов и стоимости из ответа провайдера, если она есть."""
-
-    usage = payload.get("usage")
-    if not isinstance(usage, dict):
-        return {}
-
-    result: dict[str, int | float] = {}
-    for source_key, target_key in (
-        ("prompt_tokens", "prompt_tokens"),
-        ("completion_tokens", "completion_tokens"),
-        ("total_tokens", "total_tokens"),
-        ("cost", "cost_usd"),
-        ("cost_usd", "cost_usd"),
-    ):
-        value = usage.get(source_key)
-        if isinstance(value, int | float):
-            result[target_key] = value
-        elif isinstance(value, str):
-            try:
-                result[target_key] = float(value)
-            except ValueError:
-                continue
-    return result

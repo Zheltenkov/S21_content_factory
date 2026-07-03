@@ -5,6 +5,8 @@ import time
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
+
+from content_factory.platform.llm import transport
 from . import config
 from .prompt_versions import prompt_version_for_stage
 
@@ -60,29 +62,24 @@ def _append_usage_log(
 
 
 def chat(model: str, messages: list[dict], json_mode: bool = False, timeout: int = 90, max_tokens: int | None = None) -> dict:
-    import requests
     if not config.LLM_API_KEY:
         raise RuntimeError("POLZA_AI_API_KEY не найден. Проверьте .env в корне проекта.")
-    payload: dict = {"model": model, "messages": messages}
-    if json_mode:
-        payload["response_format"] = {"type": "json_object"}
-    if max_tokens is not None:
-        payload["max_tokens"] = max_tokens
-    session = requests.Session()
-    session.trust_env = False
-    started_at = time.perf_counter()
-    headers = {
-        "Authorization": f"Bearer {config.LLM_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    payload = transport.build_chat_payload(model, messages, json_mode=json_mode, max_tokens=max_tokens)
+    extra_headers: dict[str, str] | None = None
     if config.LLM_PROVIDER == "openrouter":
-        headers["HTTP-Referer"] = config.OPENROUTER_HTTP_REFERER
-        headers["X-Title"] = config.OPENROUTER_APP_TITLE
-    r = session.post(
+        extra_headers = {
+            "HTTP-Referer": config.OPENROUTER_HTTP_REFERER,
+            "X-Title": config.OPENROUTER_APP_TITLE,
+        }
+    started_at = time.perf_counter()
+    # trust_env=False keeps the catalog client from picking up proxy env vars.
+    r = transport.post_chat_completion(
         config.LLM_CHAT_COMPLETIONS_URL,
-        headers=headers,
-        json=payload,
+        api_key=config.LLM_API_KEY,
+        payload=payload,
         timeout=timeout or config.REQUEST_TIMEOUT_SECONDS,
+        trust_env=False,
+        extra_headers=extra_headers,
     )
     latency_ms = (time.perf_counter() - started_at) * 1000
     r.raise_for_status()

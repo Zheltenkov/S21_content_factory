@@ -1,5 +1,6 @@
 """LLM клиент для генерации контента."""
 
+from . import transport
 from .factory import create_llm_client
 from .gateway import LLMGateway, LLMUsageBudgetTracker
 from .model_registry import ModelRegistry, ModelRoute, get_llm_provider_summary, resolve_configured_provider
@@ -16,5 +17,6 @@ __all__ = [
     "create_llm_client",
     "get_llm_provider_summary",
     "resolve_configured_provider",
+    "transport",
 ]
 
