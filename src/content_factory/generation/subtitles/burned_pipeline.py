@@ -22,6 +22,10 @@ from content_factory.generation.subtitles.pipeline import transcribe as openai_w
 from content_factory.generation.utils.translation_languages import get_translation_language_profile
 
 WHISPER_MODEL = os.getenv("WHISPER_ASR_MODEL", "large-v3-turbo")
+# OpenAI Whisper API rejects uploads over 25 MB, so larger audio is split into
+# overlapping chunks (see chunk_audio). Values match that function's docstring.
+TRANSCRIBE_MAX_AUDIO_BYTES = int(os.getenv("TRANSCRIBE_MAX_AUDIO_BYTES", str(25 * 1024 * 1024)))
+OVERLAP_SECONDS = float(os.getenv("SUBTITLE_CHUNK_OVERLAP_SECONDS", "1"))
 TRANSLATE_BATCH_SIZE = int(os.getenv("TRANSLATE_BATCH_SIZE", "60"))
 SUBTITLE_CONTEXT_WINDOW = max(0, int(os.getenv("SUBTITLE_CONTEXT_WINDOW", "1")))
 TRANSLATE_BATCH_MIN_RETRY = 5
