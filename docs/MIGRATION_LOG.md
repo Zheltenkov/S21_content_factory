@@ -281,6 +281,26 @@ intake pipeline stays on SQLite).
   HTTP smoke via TestClient: `/` 303→intake, `/favicon.ico` 204, intake/competencies/reviews/
   up/catalog-admin all 200. **Phase 5 (UI migration) complete.**
 
+### Phase 4b data load — DONE on local Docker Postgres
+- Discovered a **running local `postgres:16` container** (`content_generator_postgres`,
+  `localhost:5432/content_generator`) that `.env`'s `DATABASE_URL` already targets. Direct
+  psycopg2/SQLAlchemy connections work fine from the sandbox — the Neon SSL-EOF block was a
+  serverless-proxy artifact, not a general limit. **No Neon and no Postgres MCP needed for
+  dev/test**; Neon stays the prod target (same two commands later from a stable network).
+- `alembic upgrade head` applied migration `014` → 30 objects in the `catalog` schema
+  (28 tables + `v_skill_usage` / `v_pending_reviews` views).
+- **Fixed schema drift** in `catalog_schema_postgres.sql`: the hand-written PG DDL predated
+  three SQLite catalog-admin additions — `competency.sort_order`, `indicator_row.status`, and
+  16 `skill` management columns (`group_id` soft ref, `sort_order`, `code`, `name`,
+  `complexity_*`, `source_scale_title`, `description`, `source_skill_*`, `resolution_status`,
+  `match_note`, `is_active`, `created_at`, `updated_at`). Added them (booleans as
+  `integer CHECK (0,1)`, timestamps as `text`, matching the file's convention). Migration 014
+  reads the SQL at runtime, so `downgrade 013 && upgrade head` re-applies the fix — **anyone
+  already at `014` must re-run that cycle** (or Neon, which was never loaded, just applies it).
+- Loaded data via `scripts/migrate_catalog_to_postgres.py`: **36 267 rows, sqlite == postgres
+  exact match**, 0 FK orphans (single transaction, parent-first, explicit ids), views queryable
+  (`v_skill_usage` = 828). Canonical reads return real catalog data. **Phase 4c is now unblocked.**
+
 ## Open follow-ups for the user
 - **Apply the unified schema to Neon** (from your machine, reliable network):
   `DATABASE_URL="<neon-direct-url>?sslmode=require" alembic upgrade head`  (applies 001–014).

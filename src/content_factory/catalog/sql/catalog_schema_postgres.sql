@@ -95,7 +95,8 @@ CREATE TABLE IF NOT EXISTS catalog.competency (
     normalized_title text NOT NULL UNIQUE,
     title text NOT NULL,
     description text,
-    status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'candidate', 'deprecated'))
+    status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'candidate', 'deprecated')),
+    sort_order integer NOT NULL DEFAULT 999
 );
 
 CREATE TABLE IF NOT EXISTS catalog.typed_competency (
@@ -126,7 +127,25 @@ CREATE TABLE IF NOT EXISTS catalog.skill (
     normalized_name text NOT NULL UNIQUE,
     canonical_name text NOT NULL,
     skill_type text NOT NULL DEFAULT 'unknown' CHECK (skill_type IN ('hard', 'soft', 'domain', 'tool', 'process', 'unknown')),
-    status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'candidate', 'deprecated'))
+    status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'candidate', 'deprecated')),
+    -- Spravochnik catalog-admin management columns (soft group_id: skill_group lives in the
+    -- SQLite intake layer, so no FK here — the value is copied as a plain reference).
+    group_id integer,
+    sort_order integer NOT NULL DEFAULT 999,
+    code text,
+    name text,
+    complexity_min_band text,
+    complexity_max_band text,
+    complexity_summary text,
+    source_scale_title text,
+    description text,
+    source_skill_id integer,
+    source_skill_name text,
+    resolution_status text NOT NULL DEFAULT 'matched',
+    match_note text,
+    is_active integer NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+    created_at text,
+    updated_at text
 );
 
 CREATE TABLE IF NOT EXISTS catalog.skill_alias (
@@ -170,6 +189,7 @@ CREATE TABLE IF NOT EXISTS catalog.indicator_row (
     base_text text,
     raw_number text,
     notes text,
+    status text NOT NULL DEFAULT 'active',
     UNIQUE (competency_skill_id, source_row_number)
 );
 
