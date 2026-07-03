@@ -217,6 +217,27 @@ intake pipeline stays on SQLite).
 - **Verification:** 931 tests green (922 + 9); app boots (103 routes). Remaining: 5.3 intake,
   5.4 reviews+up, 5.5 cutover.
 
+### Phase 5.3 — intake native FastAPI
+- `catalog/web/routers/intake.py`: 10 native routes covering the full intake workspace —
+  GET `/intake` + job view `/intake/jobs/{id}`, POST `/intake` (multipart brief upload via
+  Starlette `UploadFile` → legacy `UploadedFile`, same `load_brief_text` path), the JSON
+  `/status` poll (identical field contract the inline `intake.html` JS depends on),
+  the workflow POSTs (`next-step`/`build-dag`/`apply-catalog`/`candidate-decision`, the last
+  returns JSON for `X-Requested-With: fetch`), `/plan.csv` export, and `/intake/jobs/clear`.
+  All pipeline/data logic reuses the viewer functions unchanged; only transport differs.
+- Prefixed ~24 internal links in `intake.html` with `{{ base }}` (incl. the JS `fetch()`
+  polling URL) — shared template stays 1:1 with the WSGI viewer (`base=""`).
+- Job queuing still goes through the legacy `queue_intake_job` (ThreadPoolExecutor) so the LLM
+  pipeline behaviour is untouched. Tests patch it to a no-op (no real LLM calls).
+- Tests: `tests/catalog/test_web_intake.py` (10) — empty workspace render, text-brief POST
+  (create+queue), empty-brief 400, file-upload POST, `/status` JSON contract + 404, job detail
+  render, clear redirect, plan.csv 404-without-plan + CSV export.
+- **Legacy parity:** the WSGI viewer still serves every `/intake*` route unchanged. Run it
+  standalone for side-by-side comparison:
+  `python -m content_factory.catalog.viewer.app --db <catalog.sqlite> --summary <summary.json> --port 8010`.
+- **Verification:** 941 tests green (931 + 10); app boots (113 routes; 10 native intake routes
+  registered before the WSGI mount). Remaining: 5.4 reviews+up, 5.5 cutover.
+
 ## Open follow-ups for the user
 - **Apply the unified schema to Neon** (from your machine, reliable network):
   `DATABASE_URL="<neon-direct-url>?sslmode=require" alembic upgrade head`  (applies 001–014).

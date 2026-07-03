@@ -13,15 +13,15 @@
     </div>
     {% if job %}
     <div class="review-actions">
-        <a class="action-btn action-btn-secondary" href="/intake">Новый бриф</a>
-        <a class="action-btn action-btn-secondary" href="/reviews">Открытые решения</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/intake">Новый бриф</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/reviews">Открытые решения</a>
     </div>
     {% endif %}
 </section>
 
 {% if not job %}
 <section class="filter-panel">
-    <form class="admin-form" method="post" action="/intake" enctype="multipart/form-data" id="intake-form">
+    <form class="admin-form" method="post" action="{{ base }}/intake" enctype="multipart/form-data" id="intake-form">
         <input type="hidden" name="brief_file_path" id="brief-file-path" value="{{ brief_file_path or '' }}">
         <div class="brief-compose-grid">
             <div class="brief-upload-panel">
@@ -109,11 +109,11 @@
             </div>
             <div class="review-actions">
                 {% if workspace_state.next_step["method"] == 'post' %}
-                <form method="post" action="{{ workspace_state.next_step["href"] }}">
+                <form method="post" action="{{ base }}{{ workspace_state.next_step["href"] }}">
                     <button type="submit" class="action-btn action-btn-primary" {% if workspace_state.next_step["disabled"] %}disabled{% endif %}>Выполнить следующий шаг</button>
                 </form>
                 {% else %}
-                <a class="action-btn action-btn-primary {% if workspace_state.next_step["disabled"] %}is-disabled{% endif %}" href="{{ workspace_state.next_step["href"] }}">Выполнить следующий шаг</a>
+                <a class="action-btn action-btn-primary {% if workspace_state.next_step["disabled"] %}is-disabled{% endif %}" href="{{ base }}{{ workspace_state.next_step["href"] }}">Выполнить следующий шаг</a>
                 {% endif %}
             </div>
         </section>
@@ -127,7 +127,7 @@
             </div>
             <div class="workspace-blocker-grid">
                 {% for blocker in workspace_state.blockers %}
-                <a class="workspace-blocker workspace-blocker-{{ blocker.severity }}" href="{{ blocker.href }}">
+                <a class="workspace-blocker workspace-blocker-{{ blocker.severity }}" href="{{ base }}{{ blocker.href }}">
                     <span class="workspace-blocker-count">{{ blocker.count }}</span>
                     <span class="workspace-blocker-body">
                         <strong>{{ blocker.label }}</strong>
@@ -173,7 +173,7 @@
             </div>
             <div class="catalog-summary-list">
                 {% for item in workspace_state.catalog_summary["items"] %}
-                <a class="catalog-summary-item" href="/catalog-admin/skills/{{ item.skill_id }}">
+                <a class="catalog-summary-item" href="{{ base }}/catalog-admin/skills/{{ item.skill_id }}">
                     <strong>{{ item.canonical_name }}</strong>
                     <span>{{ item.group_name or 'Без группы' }}</span>
                     {% if item.suggested_name and item.suggested_name != item.canonical_name %}<small>из: {{ item.suggested_name }}</small>{% endif %}
@@ -186,7 +186,7 @@
         {% if workflow_steps %}
         <section class="workspace-control-card workflow-stepper" aria-label="Маршрут брифа">
             {% for step in workflow_steps %}
-            <a class="workflow-step workflow-step-{{ step.status }}" href="{{ step.href }}">
+            <a class="workflow-step workflow-step-{{ step.status }}" href="{{ base }}{{ step.href }}">
                 <span class="workflow-step-index">{{ loop.index }}</span>
                 <span class="workflow-step-body">
                     <span class="workflow-step-label">{{ step.label }}</span>
@@ -200,7 +200,7 @@
         {% if recent_jobs %}
         <details class="workspace-control-card workspace-history-card">
             <summary>Последние intake-задачи ({{ recent_jobs|length }})</summary>
-            <form class="review-actions intake-history-actions" method="post" action="/intake/jobs/clear" onsubmit="return confirm('Очистить историю intake-задач, брифы, очередь review по брифам и черновики УП? Канонический справочник не будет удалён.');">
+            <form class="review-actions intake-history-actions" method="post" action="{{ base }}/intake/jobs/clear" onsubmit="return confirm('Очистить историю intake-задач, брифы, очередь review по брифам и черновики УП? Канонический справочник не будет удалён.');">
                 <button type="submit" class="action-btn action-btn-danger">Очистить историю intake</button>
             </form>
             <table class="data-table">
@@ -222,7 +222,7 @@
                         <td><span class="status-badge{% if recent.status == 'failed' %} warn{% endif %}">{{ recent.status_label }}</span></td>
                         <td>{{ recent.current_stage_label }}</td>
                         <td>{{ 'вкл' if recent.use_council else 'выкл' }}</td>
-                        <td><a href="/intake/jobs/{{ recent.id }}">Открыть</a></td>
+                        <td><a href="{{ base }}/intake/jobs/{{ recent.id }}">Открыть</a></td>
                     </tr>
                 {% endfor %}
                 </tbody>
@@ -237,7 +237,7 @@
 <section class="table-wrap">
     <details class="collapse-panel">
         <summary>Последние intake-задачи ({{ recent_jobs|length }})</summary>
-        <form class="review-actions intake-history-actions" method="post" action="/intake/jobs/clear" onsubmit="return confirm('Очистить историю intake-задач, брифы, очередь review по брифам и черновики УП? Канонический справочник не будет удалён.');">
+        <form class="review-actions intake-history-actions" method="post" action="{{ base }}/intake/jobs/clear" onsubmit="return confirm('Очистить историю intake-задач, брифы, очередь review по брифам и черновики УП? Канонический справочник не будет удалён.');">
             <button type="submit" class="action-btn action-btn-danger">Очистить историю intake</button>
         </form>
         <table class="data-table">
@@ -259,7 +259,7 @@
                     <td><span class="status-badge{% if recent.status == 'failed' %} warn{% endif %}">{{ recent.status_label }}</span></td>
                     <td>{{ recent.current_stage_label }}</td>
                     <td>{{ 'вкл' if recent.use_council else 'выкл' }}</td>
-                    <td><a href="/intake/jobs/{{ recent.id }}">Открыть</a></td>
+                    <td><a href="{{ base }}/intake/jobs/{{ recent.id }}">Открыть</a></td>
                 </tr>
             {% endfor %}
             </tbody>
@@ -283,8 +283,8 @@
         </p>
     </div>
     <div class="review-actions candidate-review-actions">
-        <a class="action-btn action-btn-secondary" href="/reviews">Открыть очередь</a>
-        <a class="action-btn action-btn-secondary" href="/catalog-admin/groups">Открыть справочник</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/reviews">Открыть очередь</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/catalog-admin/groups">Открыть справочник</a>
     </div>
 </section>
 <section class="candidate-card-workspace primary-workspace">
@@ -329,7 +329,7 @@
                         <div class="candidate-card-actions">
                             <div class="candidate-card-action-label"><span class="param-index">⑬</span>Действия</div>
                             {% if c.can_review_inline and c.suggestion_id %}
-                            <form class="candidate-action-form" method="post" action="/intake/jobs/{{ job.id }}/candidate-decision" data-candidate-action-form>
+                            <form class="candidate-action-form" method="post" action="{{ base }}/intake/jobs/{{ job.id }}/candidate-decision" data-candidate-action-form>
                                 <input type="hidden" name="suggestion_id" value="{{ c.suggestion_id }}">
                                 <button type="submit" name="candidate_action" value="accept" data-action="accept" class="action-btn action-btn-icon {% if recommended_code == 'create' %}action-btn-primary action-btn-recommended{% else %}action-btn-secondary{% endif %}" title="Добавить как новый навык" aria-label="Добавить как новый навык"{% if c.decision == 'accepted' %} disabled{% endif %}>+</button>
                                 <button type="submit" name="candidate_action" value="link" data-action="link" class="action-btn action-btn-icon {% if recommended_code == 'link' %}action-btn-primary action-btn-recommended{% else %}action-btn-secondary{% endif %}" title="Привязать к ближайшему навыку из каталога" aria-label="Привязать к ближайшему навыку из каталога"{% if not c.nearest_skill_id %} data-static-disabled="1"{% endif %}{% if c.decision == 'accepted' or not c.nearest_skill_id %} disabled{% endif %}>↔</button>
@@ -365,7 +365,7 @@
                             {% if c.nearest_name is defined and c.nearest_name %}
                             Ближайший в каталоге:
                             {% if c.nearest_skill_id %}
-                            <a href="/catalog-admin/skills/{{ c.nearest_skill_id }}" target="_blank" rel="noopener">{{ c.nearest_name }}</a>
+                            <a href="{{ base }}/catalog-admin/skills/{{ c.nearest_skill_id }}" target="_blank" rel="noopener">{{ c.nearest_name }}</a>
                             {% else %}
                             {{ c.nearest_name }}
                             {% endif %}
@@ -653,7 +653,7 @@
         <strong>Нужно проверить рёбра:</strong>
         {{ result.dag.preview_edge_count }} предложенных связей видны на карте, но не влияют на УП, пока методолог их не подтвердит.
     </div>
-    <a class="action-btn action-btn-primary" href="/reviews?status=open&entity_type=prerequisite_edge">Проверить рёбра</a>
+    <a class="action-btn action-btn-primary" href="{{ base }}/reviews?status=open&entity_type=prerequisite_edge">Проверить рёбра</a>
 </section>
 {% endif %}
 
@@ -677,7 +677,7 @@
         </div>
         <div class="review-actions">
             {% if result.dag.preview_edge_count %}
-            <a class="action-btn action-btn-primary" href="/reviews?status=open&entity_type=prerequisite_edge">Проверить рёбра</a>
+            <a class="action-btn action-btn-primary" href="{{ base }}/reviews?status=open&entity_type=prerequisite_edge">Проверить рёбра</a>
             {% endif %}
             <button type="button" class="action-btn action-btn-light" id="dag-expand-all">Развернуть группы</button>
             <button type="button" class="action-btn action-btn-light" id="dag-collapse-all">Свернуть группы</button>
@@ -813,15 +813,15 @@
     <div class="review-actions">
         {% set up_is_valid = result.curriculum_plan.status == 'built' %}
         {% if result.curriculum_plan.plan_id and up_is_valid %}
-        <a class="action-btn action-btn-primary" href="/up/plans/{{ result.curriculum_plan.plan_id }}">Открыть УП</a>
+        <a class="action-btn action-btn-primary" href="{{ base }}/up/plans/{{ result.curriculum_plan.plan_id }}">Открыть УП</a>
         {% elif result.curriculum_plan.plan_id %}
         <span class="action-btn action-btn-light disabled">Открыть УП недоступно</span>
         {% endif %}
         {% if result.curriculum_plan.plan_id and result.curriculum_plan.template_proposal_count %}
-        <a class="action-btn action-btn-secondary" href="/up/plans/{{ result.curriculum_plan.plan_id }}/template-proposals">Шаблоны УП ({{ result.curriculum_plan.template_proposal_count }})</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ result.curriculum_plan.plan_id }}/template-proposals">Шаблоны УП ({{ result.curriculum_plan.template_proposal_count }})</a>
         {% endif %}
         {% if result.curriculum_plan.rows and up_is_valid %}
-        <a class="action-btn action-btn-secondary" href="/up/plans/{{ result.curriculum_plan.plan_id }}/csv">Скачать CSV</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ result.curriculum_plan.plan_id }}/csv">Скачать CSV</a>
         {% elif result.curriculum_plan.rows %}
         <span class="action-btn action-btn-light disabled">CSV заблокирован</span>
         {% endif %}
@@ -984,7 +984,7 @@
         edge-review {{ result.persisted.prerequisite_reviews }}, строк УП {{ result.persisted.curriculum_plan_rows or 0 }},
         промоций в канон {{ result.persisted.catalog_promoted or 0 }}, откатов {{ result.persisted.catalog_reverted or 0 }}.
         Открытых записей в очереди проверки: <strong>{{ result.persisted.review_open }}</strong> →
-        <a href="/reviews">открыть очередь проверки</a>.
+        <a href="{{ base }}/reviews">открыть очередь проверки</a>.
     </div>
 </section>
 {% endif %}
@@ -1386,7 +1386,7 @@
     if (currentJobId && jobStageNode && jobProgressNode) {
         const poll = async () => {
             try {
-                const response = await fetch(`/intake/jobs/${currentJobId}/status`, { cache: "no-store" });
+                const response = await fetch(`{{ base }}/intake/jobs/${currentJobId}/status`, { cache: "no-store" });
                 const payload = await response.json();
                 jobStageNode.textContent = payload.current_stage_label || payload.current_stage || "Не указан";
                 jobProgressNode.textContent = payload.progress_note || "Задача выполняется.";

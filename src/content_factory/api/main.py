@@ -21,6 +21,7 @@ from content_factory.api.integrations.auth_cookie import ToolAuthCookieMiddlewar
 from content_factory.api.integrations.spravochnik_mount import build_spravochnik_app
 from content_factory.catalog.viewer.app import STATIC_DIR as CATALOG_STATIC_DIR
 from content_factory.catalog.web.routers import catalog_admin as catalog_admin_ui
+from content_factory.catalog.web.routers import intake as catalog_intake_ui
 from content_factory.catalog.web.routers import pages as catalog_pages
 from content_factory.api.middleware.activity_tracking import ActivityTrackingMiddleware
 from content_factory.api.middleware.request_logging import RequestLoggingMiddleware
@@ -237,6 +238,7 @@ if CATALOG_STATIC_DIR.exists():
     app.mount("/app/spravochnik/static", StaticFiles(directory=str(CATALOG_STATIC_DIR)), name="catalog-static")
 app.include_router(catalog_pages.router)
 app.include_router(catalog_admin_ui.router)
+app.include_router(catalog_intake_ui.router)
 
 app.mount("/app/spravochnik", build_spravochnik_app(prefix="/app/spravochnik"), name="spravochnik")
 
