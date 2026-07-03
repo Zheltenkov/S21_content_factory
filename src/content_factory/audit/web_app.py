@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import re
 import shutil
 import subprocess
@@ -18,7 +17,6 @@ from email import policy
 from email.parser import BytesParser
 from http.cookies import SimpleCookie
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import parse_qs, quote, unquote, urlparse
@@ -75,209 +73,6 @@ class WebState:
         """Возвращает True, если в окружении заданы статические учётные данные."""
 
         return bool(self.auth_username and self.auth_password)
-
-
-class AuditWebHandler(BaseHTTPRequestHandler):
-    """Обрабатывает страницы запуска аудита и просмотра отчёта."""
-
-    state: WebState
-
-    def do_GET(self) -> None:  # noqa: N802 - интерфейс стандартной библиотеки.
-        """Отдаём главную страницу или файл отчёта."""
-
-        route = urlparse(self.path)
-        if route.path == AVATAR_ROUTE:
-            self._send_avatar()
-            return
-        if route.path == "/favicon.ico":
-            self.send_response(HTTPStatus.NO_CONTENT)
-            self.end_headers()
-            return
-        if route.path == "/logout":
-            self._logout()
-            return
-        if route.path == "/login":
-            if self._is_authenticated():
-                self._redirect("/")
-                return
-            self._send_html(render_login_page())
-            return
-        if not self._is_authenticated():
-            self._redirect("/login")
-            return
-        if route.path == "/":
-            self._send_html(render_page(None, self.state))
-            return
-        if route.path == "/download":
-            params = parse_qs(route.query)
-            self._send_report_file(params.get("file", [""])[0])
-            return
-        self.send_error(HTTPStatus.NOT_FOUND, "Страница не найдена")
-
-    def do_POST(self) -> None:  # noqa: N802 - интерфейс стандартной библиотеки.
-        """Запускаем аудит по данным формы."""
-
-        route = urlparse(self.path)
-        if route.path == "/login":
-            self._handle_login()
-            return
-        if route.path == "/logout":
-            self._logout()
-            return
-        if not self._is_authenticated():
-            self._send_html(render_login_page("Войдите, чтобы продолжить."), status=HTTPStatus.UNAUTHORIZED)
-            return
-        if route.path != "/run":
-            self.send_error(HTTPStatus.NOT_FOUND, "Страница не найдена")
-            return
-
-        form: dict[str, str] = {}
-        try:
-            form = self._read_form()
-            report = run_from_form(form, self.state)
-            self.state.last_error = None
-            self._send_html(render_page(report, self.state, form_values=form))
-        except Exception as exc:  # noqa: BLE001 - ошибка должна быть показана пользователю.
-            self.state.last_error = str(exc)
-            self._send_html(render_page(None, self.state, form_values=form), status=HTTPStatus.BAD_REQUEST)
-
-    def log_message(self, format: str, *args: Any) -> None:
-        """Убираем шумный стандартный журнал запросов."""
-
-    def _read_form(self) -> dict[str, str]:
-        """Разбираем тело формы."""
-
-        length = int(self.headers.get("Content-Length", "0"))
-        if length > MAX_ARCHIVE_BYTES:
-            raise ValueError("Архив слишком большой для загрузки.")
-        content_type = self.headers.get("Content-Type", "")
-        body = self.rfile.read(length)
-        if content_type.lower().startswith("multipart/form-data"):
-            return _read_multipart_form(body, content_type)
-        body = body.decode("utf-8")
-        parsed = parse_qs(body, keep_blank_values=True)
-        return {key: values[0] for key, values in parsed.items()}
-
-    def _send_html(self, body: str, status: HTTPStatus = HTTPStatus.OK, headers: dict[str, str] | None = None) -> None:
-        """Отправляем HTML-страницу."""
-
-        payload = body.encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(payload)))
-        for key, value in (headers or {}).items():
-            self.send_header(key, value)
-        self.end_headers()
-        self.wfile.write(payload)
-
-    def _send_avatar(self) -> None:
-        """Отдаёт аватар для верхнего меню и страницы входа."""
-
-        if not AVATAR_PATH.exists():
-            self.send_error(HTTPStatus.NOT_FOUND, "Аватар не найден")
-            return
-        payload = AVATAR_PATH.read_bytes()
-        content_type = mimetypes.guess_type(AVATAR_PATH.name)[0] or "image/jpeg"
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Cache-Control", "public, max-age=86400")
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
-
-    def _handle_login(self) -> None:
-        """Проверяет статические учётные данные и создаёт cookie-сессию."""
-
-        form = self._read_form()
-        if credentials_match(form.get("username", ""), form.get("password", ""), self.state):
-            token = secrets.token_urlsafe(32)
-            self.state.auth_sessions.add(token)
-            self._redirect("/", cookie=_auth_cookie(token))
-            return
-        self._send_html(render_login_page("Неверный логин или пароль"), status=HTTPStatus.UNAUTHORIZED)
-
-    def _logout(self) -> None:
-        """Удаляет текущую сессию и возвращает на страницу входа."""
-
-        token = self._auth_token()
-        if token:
-            self.state.auth_sessions.discard(token)
-        self._redirect("/login", cookie=_clear_auth_cookie())
-
-    def _is_authenticated(self) -> bool:
-        """Проверяет наличие действующей статической сессии."""
-
-        if not self.state.auth_enabled:
-            return True
-        token = self._auth_token()
-        return bool(token and token in self.state.auth_sessions)
-
-    def _auth_token(self) -> str | None:
-        """Достаёт токен авторизации из cookie."""
-
-        raw_cookie = self.headers.get("Cookie", "")
-        if not raw_cookie:
-            return None
-        cookie = SimpleCookie()
-        try:
-            cookie.load(raw_cookie)
-        except Exception:  # noqa: BLE001 - битая cookie просто считается отсутствующей.
-            return None
-        morsel = cookie.get(AUTH_COOKIE_NAME)
-        return morsel.value if morsel else None
-
-    def _redirect(self, location: str, cookie: str | None = None) -> None:
-        """Отправляет редирект с опциональным Set-Cookie."""
-
-        self.send_response(HTTPStatus.SEE_OTHER)
-        self.send_header("Location", location)
-        if cookie:
-            self.send_header("Set-Cookie", cookie)
-        self.send_header("Content-Length", "0")
-        self.end_headers()
-
-    def _send_report_file(self, file_name: str) -> None:
-        """Отдаём файлы отчёта из текущей папки результатов."""
-
-        safe_names = {"report.xlsx", "report.csv", "report.json", "run_summary.json", "evaluation.json"}
-        if file_name not in safe_names:
-            self.send_error(HTTPStatus.BAD_REQUEST, "Неверное имя файла")
-            return
-        path = self.state.report_dir / file_name
-        if not path.exists():
-            self.send_error(HTTPStatus.NOT_FOUND, "Файл отчёта не найден")
-            return
-        payload = path.read_bytes()
-        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Disposition", f'attachment; filename="{path.name}"')
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
-
-
-def main(argv: list[str] | None = None) -> int:
-    """Запускает локальный веб-сервер."""
-
-    parser = argparse.ArgumentParser(description="Веб-интерфейс аудита учебного контента.")
-    parser.add_argument("--host", default="127.0.0.1", help="Адрес сервера.")
-    parser.add_argument("--port", type=int, default=8021, help="Порт сервера.")
-    parser.add_argument("--default-input", type=Path, default=None, help="Путь по умолчанию в форме.")
-    parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR, help="Папка для последних отчётов.")
-    args = parser.parse_args(argv)
-
-    env_values = load_env_file(Path(".env"))
-    state = WebState(
-        default_input=args.default_input.expanduser().resolve() if args.default_input else None,
-        report_dir=args.report_dir.expanduser().resolve(),
-        env_values=env_values,
-    )
-    AuditWebHandler.state = state
-    server = ThreadingHTTPServer((args.host, args.port), AuditWebHandler)
-    print(f"Панель отчёта: http://{args.host}:{args.port}")
-    server.serve_forever()
-    return 0
 
 
 def run_from_form(form: dict[str, str], state: WebState) -> AuditReport:
@@ -2034,7 +1829,3 @@ def _esc(value: str) -> str:
     """Экранирует текст для HTML."""
 
     return html.escape(unquote(value), quote=True)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
