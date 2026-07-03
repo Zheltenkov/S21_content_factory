@@ -5,14 +5,13 @@ from __future__ import annotations
 import logging
 import re
 import sqlite3
-from collections.abc import Iterable, Mapping, Sequence
-from datetime import datetime
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from content_factory.api.db.models import SpravochnikCatalogEntity, utc_now_naive
 from content_factory.api.db.session import SessionLocal
 from content_factory.api.integrations.project_paths import spravochnik_sqlite_path
 from content_factory.generation.models.curriculum import CurriculumPlan, CurriculumProject, ThematicBlock
@@ -300,118 +299,90 @@ def extract_generator_curriculum(entity_payload: Mapping[str, object]) -> dict[s
     return None
 
 
-def _parse_source_datetime(value: object) -> datetime | None:
-    """Parse SQLite timestamp strings for source_updated_at."""
+# --------------------------------------------------------------------------- #
+# Relational mirror (Phase 4c, B-lite): faithful copy of the SQLite UP tables
+# into catalog.curriculum_plan / catalog.curriculum_plan_row — no lossy JSON blob.
+# --------------------------------------------------------------------------- #
 
-    text = _as_text(value)
-    if not text:
-        return None
-    for candidate in (text, text.replace("Z", "+00:00")):
-        try:
-            parsed = datetime.fromisoformat(candidate)
-            return parsed.replace(tzinfo=None)
-        except ValueError:
-            continue
-    return None
-
-
-def _json_safe(value: object) -> object:
-    """Recursively convert mapping/sequence payloads into JSON-safe primitives."""
-
-    if isinstance(value, Mapping):
-        return {str(key): _json_safe(item) for key, item in value.items()}
-    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
-        return [_json_safe(item) for item in value]
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    return value
+_PLAN_COLUMNS = (
+    "id", "brief_id", "source_policy", "status", "title", "audience_level",
+    "total_blocks", "total_projects", "total_hours", "total_days", "total_xp",
+    "payload_json", "created_at", "updated_at", "profile_id", "direction",
+    "version", "author_ref", "metadata_json",
+)
+_ROW_COLUMNS = (
+    "id", "plan_id", "block_index", "row_number", "project_index_in_block",
+    "block_title", "block_goal", "project_name", "project_summary",
+    "outcomes_know", "outcomes_can", "outcomes_skills", "learning_outcomes",
+    "skills_list", "audience_level", "required_tools", "materials", "storytelling",
+    "delivery_format", "group_size", "effort_hours", "effort_days",
+    "cumulative_days", "xp", "platform_project_name", "artifact_links",
+    "completion_percent", "p2p_checks", "weighted_skills", "validation_criteria",
+)
+# ``metadata_json`` is ``jsonb`` in Postgres; cast the copied JSON text on insert.
+_PLAN_JSONB = frozenset({"metadata_json"})
 
 
-def _upsert_curriculum_entity(db: Session, plan_payload: Mapping[str, object]) -> bool:
-    """Upsert one curriculum plan mirror row."""
+def _read_sqlite_up(
+    sqlite_path: Path, limit: int
+) -> tuple[list[dict[str, object]], dict[int, list[dict[str, object]]]]:
+    """Read raw ``curriculum_plan`` + ``curriculum_plan_row`` rows from SQLite."""
 
-    source_id = _as_text(plan_payload.get("id") or plan_payload.get("plan_id"))
-    if not source_id:
-        return False
-
-    generator_curriculum = convert_spravochnik_plan_to_generator_curriculum(plan_payload)
-    mirror_payload = {
-        "source": "spravochnik_sqlite",
-        "source_plan_id": source_id,
-        "summary": plan_payload.get("summary") if isinstance(plan_payload.get("summary"), Mapping) else {},
-        "spravochnik_payload": _json_safe(plan_payload),
-        "generator_curriculum": generator_curriculum,
-    }
-    now = utc_now_naive()
-    entity = (
-        db.query(SpravochnikCatalogEntity)
-        .filter(
-            SpravochnikCatalogEntity.entity_type == CURRICULUM_PLAN_ENTITY_TYPE,
-            SpravochnikCatalogEntity.source_id == source_id,
-        )
-        .first()
-    )
-    if entity is None:
-        db.add(
-            SpravochnikCatalogEntity(
-                entity_type=CURRICULUM_PLAN_ENTITY_TYPE,
-                source_id=source_id,
-                title=_as_text(plan_payload.get("title")) or None,
-                status=_as_text(plan_payload.get("status")) or "draft",
-                payload=cast(dict[str, Any], mirror_payload),
-                source_updated_at=_parse_source_datetime(plan_payload.get("updated_at")),
-                updated_at=now,
-            )
-        )
-        return True
-
-    entity.title = _as_text(plan_payload.get("title")) or None
-    entity.status = _as_text(plan_payload.get("status")) or "draft"
-    entity.payload = cast(dict[str, Any], mirror_payload)
-    entity.source_updated_at = _parse_source_datetime(plan_payload.get("updated_at"))
-    entity.updated_at = now
-    return True
-
-
-def _load_spravochnik_plan_payloads(sqlite_path: Path, limit: int) -> list[Mapping[str, object]]:
-    """Load full UP payloads from the Spravochnik runtime SQLite database."""
-
-    from content_factory.catalog.viewer.app import ensure_intake_runtime_schema, get_curriculum_plan, list_curriculum_plans
+    from content_factory.catalog.viewer.app import ensure_intake_runtime_schema, table_exists
 
     with sqlite3.connect(sqlite_path) as conn:
         conn.row_factory = sqlite3.Row
         ensure_intake_runtime_schema(conn, sqlite_path)
-        plan_refs = list_curriculum_plans(conn, limit=limit)
-        payloads: list[Mapping[str, object]] = []
-        for plan_ref in plan_refs:
-            plan_id = _parse_int(plan_ref.get("id"))
-            if plan_id is None:
+        if not table_exists(conn, "curriculum_plan"):
+            return [], {}
+        plans = [dict(r) for r in conn.execute("SELECT * FROM curriculum_plan ORDER BY id LIMIT ?", (limit,))]
+        rows_by_plan: dict[int, list[dict[str, object]]] = {}
+        for plan in plans:
+            pid = _parse_int(plan.get("id"))
+            if pid is None:
                 continue
-            plan_payload = get_curriculum_plan(conn, plan_id)
-            if plan_payload:
-                payloads.append(plan_payload)
-        return payloads
+            rows_by_plan[pid] = [
+                dict(r)
+                for r in conn.execute("SELECT * FROM curriculum_plan_row WHERE plan_id = ? ORDER BY id", (pid,))
+            ]
+        return plans, rows_by_plan
 
 
-def _archive_stale_curriculum_entities(db: Session, active_source_ids: Iterable[str]) -> int:
-    """Mark deleted Spravochnik plans as archived in the shared mirror."""
-
-    active = set(active_source_ids)
-    stale_entities = (
-        db.query(SpravochnikCatalogEntity)
-        .filter(SpravochnikCatalogEntity.entity_type == CURRICULUM_PLAN_ENTITY_TYPE)
-        .all()
+def _upsert_plan(db: Session, plan: Mapping[str, object]) -> None:
+    cols = [c for c in _PLAN_COLUMNS if c in plan]
+    values = ", ".join(f"CAST(:{c} AS jsonb)" if c in _PLAN_JSONB else f":{c}" for c in cols)
+    updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c != "id")
+    db.execute(
+        text(
+            f"INSERT INTO catalog.curriculum_plan ({', '.join(cols)}) VALUES ({values}) "
+            f"ON CONFLICT (id) DO UPDATE SET {updates}"
+        ),
+        {c: plan.get(c) for c in cols},
     )
-    archived = 0
-    for entity in stale_entities:
-        if entity.source_id in active or entity.status == "archived":
-            continue
-        entity.status = "archived"
-        entity.updated_at = utc_now_naive()
-        archived += 1
-    return archived
+
+
+def _replace_plan_rows(db: Session, plan_id: int, rows: list[dict[str, object]]) -> None:
+    db.execute(text("DELETE FROM catalog.curriculum_plan_row WHERE plan_id = :pid"), {"pid": plan_id})
+    for row in rows:
+        cols = [c for c in _ROW_COLUMNS if c in row]
+        placeholders = ", ".join(f":{c}" for c in cols)
+        db.execute(
+            text(f"INSERT INTO catalog.curriculum_plan_row ({', '.join(cols)}) VALUES ({placeholders})"),
+            {c: row.get(c) for c in cols},
+        )
+
+
+def _delete_stale_plans(db: Session, active_ids: list[int]) -> int:
+    """Drop mirror plans (and their rows via FK cascade) no longer in SQLite."""
+
+    if active_ids:
+        res = db.execute(
+            text("DELETE FROM catalog.curriculum_plan WHERE id <> ALL(:ids)"),
+            {"ids": active_ids},
+        )
+    else:
+        res = db.execute(text("DELETE FROM catalog.curriculum_plan"))
+    return res.rowcount or 0
 
 
 def sync_spravochnik_curriculum_plans(
@@ -420,7 +391,11 @@ def sync_spravochnik_curriculum_plans(
     *,
     limit: int = 500,
 ) -> dict[str, object]:
-    """Synchronize Spravochnik UP rows to the common catalog database."""
+    """Mirror the SQLite curriculum plans into ``catalog.curriculum_plan(+_row)``.
+
+    Faithful relational copy — the generator reads the mirror tables directly
+    (no lossy JSON blob). Authoring stays in the SQLite intake pipeline (4b hybrid).
+    """
 
     if db is None:
         with SessionLocal() as session:
@@ -438,23 +413,25 @@ def sync_spravochnik_curriculum_plans(
         return result
 
     try:
-        payloads = _load_spravochnik_plan_payloads(source_path, limit)
+        plans, rows_by_plan = _read_sqlite_up(source_path, limit)
     except Exception as exc:
         logger.exception("Failed to load Spravochnik curriculum plans from %s", source_path)
         result["error"] = str(exc)
         return result
 
-    active_source_ids: list[str] = []
+    active_ids: list[int] = []
     synced = 0
-    for plan_payload in payloads:
-        source_id = _as_text(plan_payload.get("id") or plan_payload.get("plan_id"))
-        if source_id:
-            active_source_ids.append(source_id)
-        if _upsert_curriculum_entity(db, plan_payload):
-            synced += 1
+    for plan in plans:
+        pid = _parse_int(plan.get("id"))
+        if pid is None:
+            continue
+        active_ids.append(pid)
+        _upsert_plan(db, plan)  # plan before rows: rows FK the mirror plan
+        _replace_plan_rows(db, pid, rows_by_plan.get(pid, []))
+        synced += 1
 
-    result["seen"] = len(payloads)
+    result["seen"] = len(plans)
     result["synced"] = synced
-    result["archived"] = _archive_stale_curriculum_entities(db, active_source_ids)
+    result["archived"] = _delete_stale_plans(db, active_ids)
     db.commit()
     return result
