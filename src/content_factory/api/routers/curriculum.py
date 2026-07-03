@@ -13,18 +13,18 @@ import csv
 import io
 import logging
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from content_factory.api.db.models import SpravochnikCatalogEntity
 from content_factory.api.db.session import get_db_session
 from content_factory.api.dependencies import get_current_user
 from content_factory.api.integrations.spravochnik_curriculum_sync import (
-    CURRICULUM_PLAN_ENTITY_TYPE,
-    extract_generator_curriculum,
+    convert_spravochnik_plan_to_generator_curriculum,
     sync_spravochnik_curriculum_plans,
 )
 from content_factory.api.utils.file_validation import MAX_FILE_SIZE, read_upload_limited, validate_file
@@ -87,33 +87,33 @@ class BuildCurriculumContextRequest(BaseModel):
     curriculum_data: dict[str, Any]
 
 
-def _persisted_curriculum_summary(
-    entity: SpravochnikCatalogEntity,
-    curriculum_payload: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Build a compact plan summary for the generator UI selector."""
+def _mirror_plan_summary(plan: Mapping[str, Any]) -> dict[str, Any]:
+    """Compact plan summary for the generator UI selector (relational mirror row)."""
 
-    payload = entity.payload if isinstance(entity.payload, dict) else {}
-    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
-    curriculum = curriculum_payload or extract_generator_curriculum(payload) or {}
-    blocks = curriculum.get("blocks") if isinstance(curriculum.get("blocks"), list) else []
-    project_count = sum(
-        len(block.get("projects", []))
-        for block in blocks
-        if isinstance(block, dict) and isinstance(block.get("projects"), list)
-    )
+    plan_id = int(plan["id"])
     return {
-        "id": entity.id,
-        "source_id": entity.source_id,
-        "title": entity.title or curriculum.get("direction") or f"УП #{entity.source_id}",
-        "status": entity.status,
-        "direction": curriculum.get("direction"),
-        "direction_code": curriculum.get("direction_code"),
-        "blocks": len(blocks) or int(summary.get("blocks", 0) or 0),
-        "projects": project_count or int(summary.get("projects", 0) or 0),
-        "updated_at": entity.updated_at.isoformat() if entity.updated_at else None,
-        "source_updated_at": entity.source_updated_at.isoformat() if entity.source_updated_at else None,
+        "id": plan_id,
+        "source_id": str(plan_id),
+        "title": plan.get("title") or plan.get("direction") or f"УП #{plan_id}",
+        "status": plan.get("status"),
+        "direction": plan.get("direction") or None,
+        "blocks": int(plan.get("total_blocks") or 0),
+        "projects": int(plan.get("total_projects") or 0),
+        "updated_at": plan.get("updated_at"),
+        "source_updated_at": plan.get("updated_at"),
     }
+
+
+def _assemble_plan_payload(plan: Mapping[str, Any], rows: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """Rebuild the plan payload shape the generator-contract converter expects.
+
+    ``convert_spravochnik_plan_to_generator_curriculum`` regroups a flat ``rows``
+    list by ``block_index``, so the relational mirror rows feed it directly.
+    """
+
+    payload = dict(plan)
+    payload["rows"] = [dict(row) for row in rows]
+    return payload
 
 
 def _normalize_column_name(value: str) -> str:
@@ -799,18 +799,16 @@ async def list_persisted_curriculum_plans(
     отредактированные УП появлялись в генераторе без ручного импорта.
     """
     sync_result = sync_spravochnik_curriculum_plans(db)
-    entities = (
-        db.query(SpravochnikCatalogEntity)
-        .filter(
-            SpravochnikCatalogEntity.entity_type == CURRICULUM_PLAN_ENTITY_TYPE,
-            SpravochnikCatalogEntity.status != "archived",
+    plans = (
+        db.execute(
+            text("SELECT * FROM catalog.curriculum_plan ORDER BY updated_at DESC, id DESC")
         )
-        .order_by(SpravochnikCatalogEntity.updated_at.desc(), SpravochnikCatalogEntity.id.desc())
+        .mappings()
         .all()
     )
     return {
         "user_id": user.get("id"),
-        "plans": [_persisted_curriculum_summary(entity) for entity in entities],
+        "plans": [_mirror_plan_summary(dict(plan)) for plan in plans],
         "sync": sync_result,
     }
 
@@ -838,25 +836,40 @@ async def get_persisted_curriculum_plan(
     """Возвращает один УП из общей базы в контракте генератора."""
 
     sync_spravochnik_curriculum_plans(db)
-    entity = (
-        db.query(SpravochnikCatalogEntity)
-        .filter(
-            SpravochnikCatalogEntity.entity_type == CURRICULUM_PLAN_ENTITY_TYPE,
-            SpravochnikCatalogEntity.source_id == source_id,
-        )
-        .first()
-    )
-    if entity is None or entity.status == "archived":
+    try:
+        plan_id = int(source_id)
+    except (TypeError, ValueError):
         raise HTTPException(404, "Учебный план не найден в общей базе")
 
-    payload = entity.payload if isinstance(entity.payload, dict) else {}
-    curriculum = extract_generator_curriculum(payload)
-    if curriculum is None:
+    plan = (
+        db.execute(text("SELECT * FROM catalog.curriculum_plan WHERE id = :id"), {"id": plan_id})
+        .mappings()
+        .first()
+    )
+    if plan is None:
+        raise HTTPException(404, "Учебный план не найден в общей базе")
+
+    rows = (
+        db.execute(
+            text(
+                "SELECT * FROM catalog.curriculum_plan_row WHERE plan_id = :id "
+                "ORDER BY block_index, row_number, id"
+            ),
+            {"id": plan_id},
+        )
+        .mappings()
+        .all()
+    )
+    plan_dict = dict(plan)
+    curriculum = convert_spravochnik_plan_to_generator_curriculum(
+        _assemble_plan_payload(plan_dict, [dict(row) for row in rows])
+    )
+    if not curriculum or not curriculum.get("blocks"):
         raise HTTPException(422, "Учебный план сохранен без структуры блоков и проектов")
 
     return {
         "user_id": user.get("id"),
-        "plan": _persisted_curriculum_summary(entity, curriculum),
+        "plan": _mirror_plan_summary(plan_dict),
         "curriculum": curriculum,
     }
 
