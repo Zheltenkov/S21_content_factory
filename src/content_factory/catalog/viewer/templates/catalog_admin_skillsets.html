@@ -48,7 +48,7 @@
                     assessment {{ skill_set.assessment_count }}
                 </td>
                 <td class="small muted">{{ skill_set.updated_at or skill_set.created_at }}</td>
-                <td><a class="action-btn action-btn-secondary" href="/catalog-admin/skillsets/{{ skill_set.id }}">Открыть</a></td>
+                <td><a class="action-btn action-btn-secondary" href="{{ base }}/catalog-admin/skillsets/{{ skill_set.id }}">Открыть</a></td>
             </tr>
             {% endfor %}
         {% else %}

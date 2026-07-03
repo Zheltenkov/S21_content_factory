@@ -2,7 +2,7 @@
 {% block content %}
 <section class="hero hero-compact">
     <div>
-        <a class="back-link" href="/catalog-admin/groups">← Назад к группам</a>
+        <a class="back-link" href="{{ base }}/catalog-admin/groups">← Назад к группам</a>
         <h1>{{ group.name }}</h1>
         <p class="muted">{{ group.code }}</p>
     </div>
@@ -14,7 +14,7 @@
 </section>
 
 <section class="filter-panel">
-    <form class="admin-form" method="post" action="/catalog-admin/groups/{{ group.id }}">
+    <form class="admin-form" method="post" action="{{ base }}/catalog-admin/groups/{{ group.id }}">
         <input type="hidden" name="action" value="update_group">
         <div class="admin-grid">
             <label>
@@ -36,7 +36,7 @@
         </div>
         <button type="submit">Сохранить группу</button>
     </form>
-    <form class="admin-form admin-form-inline" method="post" action="/catalog-admin/groups/{{ group.id }}">
+    <form class="admin-form admin-form-inline" method="post" action="{{ base }}/catalog-admin/groups/{{ group.id }}">
         <input type="hidden" name="action" value="remove_group">
         <div class="review-actions">
             {% if group.total_skill_count == 0 %}
@@ -51,7 +51,7 @@
 </section>
 
 <section class="filter-panel">
-    <form class="admin-form" method="post" action="/catalog-admin/groups/{{ group.id }}">
+    <form class="admin-form" method="post" action="{{ base }}/catalog-admin/groups/{{ group.id }}">
         <input type="hidden" name="action" value="create_skill">
         <div class="admin-grid">
             <label>
@@ -102,7 +102,7 @@
     <article class="entity-card">
         <div class="entity-head">
             <div>
-                <h2><a href="/catalog-admin/skills/{{ skill.id }}">{{ skill.name }}</a></h2>
+                <h2><a href="{{ base }}/catalog-admin/skills/{{ skill.id }}">{{ skill.name }}</a></h2>
                 {% if skill.source_skill_name %}
                 <p class="muted">source: {{ skill.source_skill_name }}</p>
                 {% endif %}
@@ -123,7 +123,7 @@
             <span>{{ skill.match_note }}</span>
             {% endif %}
         </div>
-        <form class="admin-form admin-form-inline" method="post" action="/catalog-admin/groups/{{ group.id }}">
+        <form class="admin-form admin-form-inline" method="post" action="{{ base }}/catalog-admin/groups/{{ group.id }}">
             <input type="hidden" name="action" value="remove_skill">
             <input type="hidden" name="skill_id" value="{{ skill.id }}">
             <div class="review-actions">

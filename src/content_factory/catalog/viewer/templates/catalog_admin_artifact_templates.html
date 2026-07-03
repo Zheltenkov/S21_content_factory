@@ -8,7 +8,7 @@
 </section>
 
 <section class="filter-panel">
-    <form class="admin-form" method="post" action="/catalog-admin/artifact-templates">
+    <form class="admin-form" method="post" action="{{ base }}/catalog-admin/artifact-templates">
         <input type="hidden" name="action" value="save_template">
         {% if edit_template %}
         <input type="hidden" name="template_id" value="{{ edit_template.id }}">
@@ -17,7 +17,7 @@
         <div class="summary-head">
             <h2>{% if edit_template %}Редактирование шаблона{% else %}Новый шаблон{% endif %}</h2>
             {% if edit_template %}
-            <a class="action-btn action-btn-light" href="/catalog-admin/artifact-templates">Создать новый</a>
+            <a class="action-btn action-btn-light" href="{{ base }}/catalog-admin/artifact-templates">Создать новый</a>
             {% endif %}
         </div>
 
@@ -154,8 +154,8 @@
                 </td>
                 <td>
                     <div class="review-actions review-actions-vertical">
-                        <a class="action-btn action-btn-light" href="/catalog-admin/artifact-templates?edit={{ template.id }}">Редактировать</a>
-                        <form method="post" action="/catalog-admin/artifact-templates">
+                        <a class="action-btn action-btn-light" href="{{ base }}/catalog-admin/artifact-templates?edit={{ template.id }}">Редактировать</a>
+                        <form method="post" action="{{ base }}/catalog-admin/artifact-templates">
                             <input type="hidden" name="template_id" value="{{ template.id }}">
                             {% if template.status == 'active' %}
                             <input type="hidden" name="action" value="deprecate_template">

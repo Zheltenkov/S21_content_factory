@@ -8,7 +8,7 @@
 </section>
 
 <section class="filter-panel">
-    <form class="filter-form" method="get" action="/catalog-admin/archive">
+    <form class="filter-form" method="get" action="{{ base }}/catalog-admin/archive">
         <label>
             <span>Поиск</span>
             <input type="search" name="q" value="{{ archive_query or '' }}" placeholder="Название группы, skill, текст индикатора">
@@ -24,7 +24,7 @@
         </label>
         <button type="submit">Найти</button>
         {% if archive_query or archive_scope != "all" %}
-        <a class="action-btn action-btn-light" href="/catalog-admin/archive">Сбросить</a>
+        <a class="action-btn action-btn-light" href="{{ base }}/catalog-admin/archive">Сбросить</a>
         {% endif %}
     </form>
     <p class="muted">Из архива можно восстановить запись обратно в рабочий каталог. Для skills и индикаторов восстановление также включает родительские сущности, если они были скрыты.</p>
@@ -58,7 +58,7 @@
                 <span>{{ group.total_indicator_count }} индикаторов</span>
                 <span>sort {{ group.sort_order }}</span>
             </div>
-            <form class="admin-form admin-form-inline" method="post" action="/catalog-admin/archive">
+            <form class="admin-form admin-form-inline" method="post" action="{{ base }}/catalog-admin/archive">
                 <input type="hidden" name="action" value="restore_group">
                 <input type="hidden" name="group_id" value="{{ group.id }}">
                 <input type="hidden" name="q" value="{{ archive_query or '' }}">
@@ -101,14 +101,14 @@
                 {% endif %}
                 <span>{{ skill.resolution_status }}</span>
             </div>
-            <form class="admin-form admin-form-inline" method="post" action="/catalog-admin/archive">
+            <form class="admin-form admin-form-inline" method="post" action="{{ base }}/catalog-admin/archive">
                 <input type="hidden" name="action" value="restore_skill">
                 <input type="hidden" name="skill_id" value="{{ skill.id }}">
                 <input type="hidden" name="q" value="{{ archive_query or '' }}">
                 <input type="hidden" name="scope" value="{{ archive_scope }}">
                 <div class="review-actions">
                     <button type="submit" class="action-btn action-btn-primary">Восстановить skill</button>
-                    <a class="action-btn" href="/catalog-admin/skills/{{ skill.id }}">Открыть карточку</a>
+                    <a class="action-btn" href="{{ base }}/catalog-admin/skills/{{ skill.id }}">Открыть карточку</a>
                 </div>
             </form>
         </article>
@@ -147,14 +147,14 @@
                 <span>{{ indicator.source_profile_name }}</span>
                 {% endif %}
             </div>
-            <form class="admin-form admin-form-inline" method="post" action="/catalog-admin/archive">
+            <form class="admin-form admin-form-inline" method="post" action="{{ base }}/catalog-admin/archive">
                 <input type="hidden" name="action" value="restore_indicator">
                 <input type="hidden" name="indicator_id" value="{{ indicator.id }}">
                 <input type="hidden" name="q" value="{{ archive_query or '' }}">
                 <input type="hidden" name="scope" value="{{ archive_scope }}">
                 <div class="review-actions">
                     <button type="submit" class="action-btn action-btn-primary">Восстановить индикатор</button>
-                    <a class="action-btn" href="/catalog-admin/skills/{{ indicator.skill_id }}">Открыть skill</a>
+                    <a class="action-btn" href="{{ base }}/catalog-admin/skills/{{ indicator.skill_id }}">Открыть skill</a>
                 </div>
             </form>
         </article>

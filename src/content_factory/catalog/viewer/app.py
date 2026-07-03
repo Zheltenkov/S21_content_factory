@@ -312,9 +312,9 @@ def intake_stage_label(stage: str | None) -> str:
     return INTAKE_STAGE_LABELS.get(stage, stage)
 
 
-def open_db(db_path: Path) -> sqlite3.Connection:
+def open_db(db_path: Path, *, check_same_thread: bool = True) -> sqlite3.Connection:
     resolved = str(Path(db_path).resolve())
-    conn = sqlite3.connect(db_path, timeout=30)
+    conn = sqlite3.connect(db_path, timeout=30, check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
     conn.create_function("search_norm", 1, normalize_search_text)
     ensure_runtime_schema(conn)

@@ -2,7 +2,7 @@
 {% block content %}
 <section class="hero hero-compact">
     <div>
-        <a class="back-link" href="/catalog-admin/groups/{{ skill.group_id }}">← Назад к группе</a>
+        <a class="back-link" href="{{ base }}/catalog-admin/groups/{{ skill.group_id }}">← Назад к группе</a>
         <h1>{{ skill.name }}</h1>
         <p class="muted">{{ skill.group_name }}</p>
     </div>
@@ -21,7 +21,7 @@
 </section>
 
 <section class="filter-panel">
-    <form class="admin-form" method="post" action="/catalog-admin/skills/{{ skill.id }}">
+    <form class="admin-form" method="post" action="{{ base }}/catalog-admin/skills/{{ skill.id }}">
         <input type="hidden" name="action" value="update_skill">
         <div class="admin-grid">
             <label>
@@ -64,7 +64,7 @@
         </div>
         <button type="submit">Сохранить skill</button>
     </form>
-    <form class="admin-form admin-form-inline" method="post" action="/catalog-admin/skills/{{ skill.id }}">
+    <form class="admin-form admin-form-inline" method="post" action="{{ base }}/catalog-admin/skills/{{ skill.id }}">
         <input type="hidden" name="action" value="remove_skill">
         <div class="review-actions">
             {% if skill.total_indicator_count == 0 %}
@@ -89,7 +89,7 @@
     {% if competency_links %}
     <div class="merge-candidates">
         {% for link in competency_links %}
-        <form class="merge-row" method="post" action="/catalog-admin/skills/{{ skill.id }}" onsubmit="return confirm('Отвязать skill от этой компетенции? Индикаторные строки этой связи будут удалены, сам skill останется в каталоге.');">
+        <form class="merge-row" method="post" action="{{ base }}/catalog-admin/skills/{{ skill.id }}" onsubmit="return confirm('Отвязать skill от этой компетенции? Индикаторные строки этой связи будут удалены, сам skill останется в каталоге.');">
             <input type="hidden" name="action" value="unlink_competency">
             <input type="hidden" name="competency_skill_id" value="{{ link.competency_skill_id }}">
             <div>
@@ -109,7 +109,7 @@
     <p class="status-message warn">Skill пока не входит ни в одну competency. Для полноценного справочника его нужно связать с компетенцией.</p>
     {% endif %}
 
-    <form class="admin-form admin-form-inline" method="get" action="/catalog-admin/skills/{{ skill.id }}">
+    <form class="admin-form admin-form-inline" method="get" action="{{ base }}/catalog-admin/skills/{{ skill.id }}">
         <label>
             <span>Найти competency</span>
             <input type="text" name="competency_query" value="{{ competency_query or '' }}" placeholder="Например: Исследования и продукт">
@@ -117,7 +117,7 @@
         <button type="submit" class="action-btn">Найти</button>
     </form>
 
-    <form class="admin-form admin-form-inline" method="post" action="/catalog-admin/skills/{{ skill.id }}">
+    <form class="admin-form admin-form-inline" method="post" action="{{ base }}/catalog-admin/skills/{{ skill.id }}">
         <input type="hidden" name="action" value="link_competency">
         <label>
             <span>Название competency</span>
@@ -140,7 +140,7 @@
             {% if aliases %}
             <div class="alias-list">
                 {% for alias in aliases %}
-                <form class="alias-row" method="post" action="/catalog-admin/skills/{{ skill.id }}">
+                <form class="alias-row" method="post" action="{{ base }}/catalog-admin/skills/{{ skill.id }}">
                     <input type="hidden" name="action" value="remove_alias">
                     <input type="hidden" name="alias_id" value="{{ alias.id }}">
                     <span class="pill">{{ alias.alias }}</span>
@@ -153,7 +153,7 @@
             <p class="muted">Алиасы пока не заданы.</p>
             {% endif %}
 
-            <form class="admin-form admin-form-inline" method="post" action="/catalog-admin/skills/{{ skill.id }}">
+            <form class="admin-form admin-form-inline" method="post" action="{{ base }}/catalog-admin/skills/{{ skill.id }}">
                 <input type="hidden" name="action" value="add_alias">
                 <label>
                     <span>Новый alias</span>
@@ -165,7 +165,7 @@
 
         <div class="admin-span-2">
             <h3>Слияние дублей</h3>
-            <form class="admin-form admin-form-inline" method="get" action="/catalog-admin/skills/{{ skill.id }}">
+            <form class="admin-form admin-form-inline" method="get" action="{{ base }}/catalog-admin/skills/{{ skill.id }}">
                 <label>
                     <span>Найти целевой skill</span>
                     <input type="text" name="merge_query" value="{{ merge_query or '' }}" placeholder="SQL, Docker, Customer Discovery">
@@ -180,7 +180,7 @@
             {% if merge_candidates %}
             <div class="merge-candidates">
                 {% for candidate in merge_candidates %}
-                <form class="merge-row" method="post" action="/catalog-admin/skills/{{ skill.id }}" onsubmit="return confirm('Слить текущий skill в выбранный? Исходный skill будет архивирован.');">
+                <form class="merge-row" method="post" action="{{ base }}/catalog-admin/skills/{{ skill.id }}" onsubmit="return confirm('Слить текущий skill в выбранный? Исходный skill будет архивирован.');">
                     <input type="hidden" name="action" value="merge_skill">
                     <input type="hidden" name="target_skill_id" value="{{ candidate.id }}">
                     <div>
@@ -199,7 +199,7 @@
 </section>
 
 <section class="filter-panel">
-    <form class="admin-form" method="post" action="/catalog-admin/skills/{{ skill.id }}">
+    <form class="admin-form" method="post" action="{{ base }}/catalog-admin/skills/{{ skill.id }}">
         <input type="hidden" name="action" value="create_indicator">
         <div class="admin-grid">
             <label>
@@ -242,7 +242,7 @@
 <section class="list-grid">
     {% for indicator in indicators %}
     <article class="entity-card">
-        <form class="admin-form" method="post" action="/catalog-admin/skills/{{ skill.id }}">
+        <form class="admin-form" method="post" action="{{ base }}/catalog-admin/skills/{{ skill.id }}">
             <input type="hidden" name="action" value="update_indicator">
             <input type="hidden" name="indicator_id" value="{{ indicator.id }}">
             <div class="entity-head">

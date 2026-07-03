@@ -8,7 +8,7 @@
 </section>
 
 <section class="filter-panel">
-    <form class="admin-form" method="post" action="/catalog-admin/groups">
+    <form class="admin-form" method="post" action="{{ base }}/catalog-admin/groups">
         <input type="hidden" name="action" value="create_group">
         <div class="admin-grid admin-grid-compact">
             <label>
@@ -37,7 +37,7 @@
     <article class="entity-card">
         <div class="entity-head">
             <div>
-                <h2><a href="/catalog-admin/groups/{{ group.id }}">{{ group.name }}</a></h2>
+                <h2><a href="{{ base }}/catalog-admin/groups/{{ group.id }}">{{ group.name }}</a></h2>
                 <p class="muted">{{ group.code }}</p>
             </div>
             <span class="status-badge {% if group.status != 'active' %}warn{% endif %}">{{ group.status }}</span>
@@ -47,7 +47,7 @@
             <span>{{ group.indicator_count }} индикаторов</span>
             <span>sort {{ group.sort_order }}</span>
         </div>
-        <form class="admin-form admin-form-inline" method="post" action="/catalog-admin/groups">
+        <form class="admin-form admin-form-inline" method="post" action="{{ base }}/catalog-admin/groups">
             <input type="hidden" name="action" value="update_group">
             <input type="hidden" name="group_id" value="{{ group.id }}">
             <div class="admin-grid">
@@ -70,10 +70,10 @@
             </div>
             <div class="review-actions">
                 <button type="submit" class="action-btn action-btn-primary">Сохранить</button>
-                <a class="action-btn" href="/catalog-admin/groups/{{ group.id }}">Открыть группу</a>
+                <a class="action-btn" href="{{ base }}/catalog-admin/groups/{{ group.id }}">Открыть группу</a>
             </div>
         </form>
-        <form class="admin-form admin-form-inline" method="post" action="/catalog-admin/groups">
+        <form class="admin-form admin-form-inline" method="post" action="{{ base }}/catalog-admin/groups">
             <input type="hidden" name="action" value="remove_group">
             <input type="hidden" name="group_id" value="{{ group.id }}">
             <div class="review-actions">

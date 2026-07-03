@@ -2,7 +2,7 @@
 {% block content %}
 <section class="hero">
     <div>
-        <a class="back-link" href="/catalog-admin/skillsets">← Назад к наборам</a>
+        <a class="back-link" href="{{ base }}/catalog-admin/skillsets">← Назад к наборам</a>
         <h1>{{ skill_set.title }}</h1>
         <p>{{ skill_set.description or "Набор skills без описания." }}</p>
         <div class="small muted">

@@ -202,6 +202,21 @@ intake pipeline stays on SQLite).
 - Remaining slices: 5.2 catalog-admin, 5.3 intake, 5.4 reviews+up, 5.5 cutover (remove mount).
   Plan: [PHASE5_UI_MIGRATION_PLAN.md](PHASE5_UI_MIGRATION_PLAN.md).
 
+## Phase 5.2 — catalog-admin on FastAPI (GET pages + POST/PRG forms)  (DONE)
+- `catalog/web/routers/catalog_admin.py`: 15 native routes (GET + POST) for
+  candidate-competencies, archive, artifact-templates, skillsets(+detail), groups(+detail),
+  skills(detail). POST reads `await request.form()` (like the old `parse_post_data`),
+  dispatches on `action`, and redirects 303 (PRG) — reusing all the viewer's mutation/query
+  functions + intake `storage`/`competency_catalog`.
+- Prefixed 41 internal links across the 8 `catalog_admin_*.html` templates with `{{ base }}`.
+- `open_db` got a `check_same_thread` kwarg (default True keeps WSGI parity); `get_conn` opens
+  with `check_same_thread=False` so FastAPI's threadpool→event-loop handoff is safe for the
+  per-request SQLite connection.
+- Tests: `tests/catalog/test_web_admin.py` (9) — GET pages, root redirect, group create+detail,
+  skill create, 404.
+- **Verification:** 931 tests green (922 + 9); app boots (103 routes). Remaining: 5.3 intake,
+  5.4 reviews+up, 5.5 cutover.
+
 ## Open follow-ups for the user
 - **Apply the unified schema to Neon** (from your machine, reliable network):
   `DATABASE_URL="<neon-direct-url>?sslmode=require" alembic upgrade head`  (applies 001–014).
