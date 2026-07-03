@@ -196,18 +196,6 @@ def edge_reason_label(value: object | None) -> str:
     return ", ".join(labels) if labels else "—"
 
 
-def review_severity_label(severity: str | None) -> str:
-    if not severity:
-        return "—"
-    return REVIEW_SEVERITY_LABELS.get(severity, severity.replace("_", " "))
-
-
-def review_status_label(status: str | None) -> str:
-    if not status:
-        return "—"
-    return REVIEW_STATUS_LABELS.get(status, status.replace("_", " "))
-
-
 REVIEW_ENTITY_LABELS = {
     "skill": "Навык",
     "competency": "Компетенция",
