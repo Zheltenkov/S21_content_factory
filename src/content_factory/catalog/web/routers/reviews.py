@@ -79,7 +79,7 @@ async def reviews_post(request: Request, conn: sqlite3.Connection = Depends(get_
     try:
         review_id = int(form.get("review_id", "0"))
     except ValueError:
-        raise HTTPException(status_code=404, detail="Invalid review id")
+        raise HTTPException(status_code=404, detail="Invalid review id") from None
     new_status = form.get("new_status", "open")
     if new_status not in {"open", "resolved", "ignored"}:
         raise HTTPException(status_code=404, detail="Invalid review status")
@@ -106,7 +106,7 @@ async def reviews_build_dag(request: Request, conn: sqlite3.Connection = Depends
     try:
         brief_id = int(form.get("brief_id", "0"))
     except ValueError:
-        raise HTTPException(status_code=404, detail="Invalid brief id")
+        raise HTTPException(status_code=404, detail="Invalid brief id") from None
     build_result = build_dag_for_brief(conn, brief_id)
     latest_job_id = build_result["state"].get("latest_job_id")
     if latest_job_id:
@@ -121,7 +121,7 @@ async def reviews_apply_catalog(request: Request, conn: sqlite3.Connection = Dep
     try:
         brief_id = int(form.get("brief_id", "0"))
     except ValueError:
-        raise HTTPException(status_code=404, detail="Invalid brief id")
+        raise HTTPException(status_code=404, detail="Invalid brief id") from None
     apply_result = apply_brief_catalog_decisions(conn, brief_id)
     dag_state = apply_result.get("dag_state") if isinstance(apply_result, dict) else None
     latest_job_id = dag_state.get("latest_job_id") if isinstance(dag_state, dict) else None

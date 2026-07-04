@@ -108,7 +108,11 @@ ignore = ["E501", "B008", "C901"]
 "__init__.py" = ["F401"]
 # generation.py deliberately re-exports helpers (import X as _X) so tests can
 # patch them as module attributes; those reads are invisible to ruff.
-"src/content_factory/api/routers/generation.py" = ["F401"]
+"src/content_factory/api/routers/generation.py" = ["F401", "E402"]
+# These modules set up a module logger / constants before their internal
+# imports (organic ordering); reordering has no functional benefit.
+"src/content_factory/generation/orchestrator.py" = ["E402"]
+"src/content_factory/catalog/viewer/app.py" = ["E402"]
 
 [tool.black]
 line-length = 120

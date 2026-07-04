@@ -12,7 +12,7 @@ from content_factory.platform.llm import transport
 from . import config
 from .prompt_versions import prompt_version_for_stage
 
-_USAGE_CONTEXT: ContextVar[dict[str, object]] = ContextVar("llm_usage_context", default={})
+_USAGE_CONTEXT: ContextVar[dict[str, object] | None] = ContextVar("llm_usage_context", default=None)
 
 
 def set_usage_context(**kwargs: object) -> None:

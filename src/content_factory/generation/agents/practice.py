@@ -90,7 +90,7 @@ class PracticeAgent(BaseAgent):
         super().__init__(llm)
         self.logger = logging.getLogger("content_factory.generation.agents.practice")
         self.style = StyleGuardRepair()
-        self.code_agent: CodeExampleAgent | None = None
+        self.code_agent: CodeExampleAgent | None = None  # noqa: F823  TYPE_CHECKING import; PEP 526 attr annotation not evaluated
         if CODE_EXAMPLE_CONFIG["enable_code_tasks_in_practice"]:
             try:
                 from .code_example import CodeExampleAgent

@@ -59,7 +59,7 @@ class EnhancementPlanLLMResponse(BaseModel):
         diagrams: Literal["must", "nice_to_have", "no"] = "no"
         code_examples: Literal["must", "nice_to_have", "no"] = "no"
         reasoning: str = Field(default="", max_length=800)
-        anchor_hints: AnchorHintsData | None = None
+        anchor_hints: AnchorHintsData | None = None  # noqa: F821  sibling nested class, resolved by pydantic
 
     per_part: list[PartPlanData] = Field(
         description="План для каждой части. ОБЯЗАТЕЛЬНОЕ поле, должно содержать минимум столько элементов, сколько указано частей теории."

@@ -839,7 +839,7 @@ async def get_persisted_curriculum_plan(
     try:
         plan_id = int(source_id)
     except (TypeError, ValueError):
-        raise HTTPException(404, "Учебный план не найден в общей базе")
+        raise HTTPException(404, "Учебный план не найден в общей базе") from None
 
     plan = (
         db.execute(text("SELECT * FROM catalog.curriculum_plan WHERE id = :id"), {"id": plan_id})

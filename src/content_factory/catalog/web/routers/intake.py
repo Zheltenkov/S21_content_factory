@@ -255,7 +255,7 @@ async def intake_job_candidate_decision(
     try:
         suggestion_id = int(form_data.get("suggestion_id", "0"))
     except ValueError:
-        raise HTTPException(status_code=404, detail="Invalid suggestion id")
+        raise HTTPException(status_code=404, detail="Invalid suggestion id") from None
     action = form_data.get("candidate_action", "")
     if action not in {"accept", "link", "reject", "review"}:
         raise HTTPException(status_code=404, detail="Invalid candidate action")
