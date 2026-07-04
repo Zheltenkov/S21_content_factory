@@ -97,6 +97,16 @@
         const API_BASE = window.location.origin;
         const API_URL = `${API_BASE}/api/v1`;
         const UNREGISTERED_LOGIN_MESSAGE = 'Вы не зарегестрированы используйте домен школы 21';
+
+        // Where to land after login: honour ?next when it is a safe same-origin
+        // /app path (set by the tool-auth guard), otherwise the app home.
+        function loginRedirectTarget() {
+            try {
+                const next = new URLSearchParams(window.location.search).get('next');
+                if (next && next.startsWith('/app') && !next.startsWith('//')) return next;
+            } catch (e) { /* ignore malformed query */ }
+            return '/app';
+        }
         const createAccountLink = document.getElementById('createAccountLink');
 
         if (createAccountLink) {
@@ -111,7 +121,7 @@
         if (savedToken) {
             // Если токен есть, перенаправляем на главную страницу
             // app.html сам проверит валидность токена и перенаправит обратно, если нужно
-            window.location.replace('/app');
+            window.location.replace(loginRedirectTarget());
         }
         
         async function handleLogin(event) {
@@ -202,8 +212,8 @@
                 
                 // Перенаправляем на главную страницу приложения
                 // Используем replace вместо href, чтобы избежать проблем с историей
-                console.log('Перенаправление на /app');
-                window.location.replace('/app');
+                console.log('Перенаправление на', loginRedirectTarget());
+                window.location.replace(loginRedirectTarget());
                 
             } catch (error) {
                 console.error('Ошибка входа:', error);

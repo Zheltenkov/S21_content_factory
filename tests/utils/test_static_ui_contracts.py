@@ -1030,6 +1030,24 @@ def test_path_like_values_do_not_wrap_one_character_per_line():
     assert 'class="path-token"' in methodology_js
 
 
+def test_auth_guard_preserves_requested_page_via_next():
+    """P5: an unauthenticated hit on a protected tool redirects to login with a
+    ?next back to the page, and login honours a safe same-origin /app next."""
+
+    auth_cookie = (PKG / "api" / "integrations" / "auth_cookie.py").read_text(encoding="utf-8")
+    login_html = (ROOT / "static" / "login.html").read_text(encoding="utf-8")
+
+    # middleware carries the attempted path forward
+    assert 'RedirectResponse(f"/?next={quote(path, safe=' in auth_cookie
+    assert "from urllib.parse import quote" in auth_cookie
+
+    # login resolves ?next safely (same-origin /app only) and uses it for both redirects
+    assert "function loginRedirectTarget()" in login_html
+    assert "next.startsWith('/app') && !next.startsWith('//')" in login_html
+    assert "window.location.replace(loginRedirectTarget())" in login_html
+    assert "window.location.replace('/app')" not in login_html
+
+
 def test_curriculum_plan_picker_is_accessible_and_auto_loads():
     """P4/P5: the saved-UP picker has an associated label and loads on change
     (no second click), and the upload card is keyboard-operable."""

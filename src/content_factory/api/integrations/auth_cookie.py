@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
@@ -82,6 +83,7 @@ class ToolAuthCookieMiddleware(BaseHTTPMiddleware):
             try:
                 await validate_request_user(request)
             except HTTPException:
-                return RedirectResponse("/", status_code=303)
+                # Preserve the requested page so login can send the user back to it.
+                return RedirectResponse(f"/?next={quote(path, safe='/')}", status_code=303)
         return await call_next(request)
 
