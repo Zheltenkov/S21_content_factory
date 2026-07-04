@@ -179,7 +179,7 @@
                             <p>CSV с паспортом программы</p>
                         </div>
                     </div>
-                    <div class="file-upload s21-accent-upload generator-upload-card" onclick="if (event.target.tagName !== 'INPUT') document.getElementById('curriculumFile').click()">
+                    <div class="file-upload s21-accent-upload generator-upload-card" role="button" tabindex="0" aria-label="Загрузить CSV учебного плана" onclick="if (event.target.tagName !== 'INPUT') document.getElementById('curriculumFile').click()" onkeydown="if ((event.key === 'Enter' || event.key === ' ') && event.target.tagName !== 'INPUT') { event.preventDefault(); document.getElementById('curriculumFile').click(); }">
                         <input type="file" id="curriculumFile" accept=".csv" onclick="event.stopPropagation()" onchange="handleCurriculumUpload(event)">
                         <span class="generator-upload-icon"></span>
                         <span>
@@ -187,18 +187,12 @@
                             <small id="curriculumFileName" class="s21-upload-status">Поддерживается паспорт программы</small>
                         </span>
                     </div>
-                    <div class="generator-field-grid two">
-                        <div class="form-group">
-                            <label>УП из базы</label>
-                            <select id="persistedCurriculumPlan">
-                                <option value="">-- Выберите УП --</option>
-                            </select>
-                            <small id="persistedCurriculumPlanStatus" class="s21-upload-status"></small>
-                        </div>
-                        <div class="form-group">
-                            <label>&nbsp;</label>
-                            <button class="btn btn-secondary" type="button" onclick="loadPersistedCurriculumPlan()">Загрузить УП</button>
-                        </div>
+                    <div class="form-group">
+                        <label for="persistedCurriculumPlan">УП из базы</label>
+                        <select id="persistedCurriculumPlan" onchange="if (this.value) loadPersistedCurriculumPlan()">
+                            <option value="">-- Выберите УП --</option>
+                        </select>
+                        <small id="persistedCurriculumPlanStatus" class="s21-upload-status"></small>
                     </div>
 
                     <label class="toggle-field generator-toggle-card" for="methodologyHumanReview">

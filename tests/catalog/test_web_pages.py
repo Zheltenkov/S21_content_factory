@@ -41,7 +41,7 @@ def test_competencies_page_renders_with_prefixed_links(client: TestClient) -> No
     assert r.status_code == 200
     assert "Справочник" in r.text
     # nav + static + search form must carry the mount prefix (base global)
-    assert f'href="{_PREFIX}/static/styles.css"' in r.text
+    assert f'href="{_PREFIX}/static/styles.css?v=' in r.text
     assert f'action="{_PREFIX}/competencies"' in r.text
 
 

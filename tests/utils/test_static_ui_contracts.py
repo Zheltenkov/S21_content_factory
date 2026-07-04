@@ -1030,6 +1030,25 @@ def test_path_like_values_do_not_wrap_one_character_per_line():
     assert 'class="path-token"' in methodology_js
 
 
+def test_curriculum_plan_picker_is_accessible_and_auto_loads():
+    """P4/P5: the saved-UP picker has an associated label and loads on change
+    (no second click), and the upload card is keyboard-operable."""
+
+    html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+
+    # label is associated with the select (a11y)
+    assert '<label for="persistedCurriculumPlan">УП из базы</label>' in html
+    # selecting a plan loads it immediately — the extra "Загрузить УП" button is gone
+    assert 'id="persistedCurriculumPlan" onchange="if (this.value) loadPersistedCurriculumPlan()"' in html
+    assert ">Загрузить УП</button>" not in html
+    # no empty spacer label hack remains
+    assert "<label>&nbsp;</label>" not in html
+
+    # the curriculum upload card is reachable and operable from the keyboard
+    assert 'class="file-upload s21-accent-upload generator-upload-card" role="button" tabindex="0"' in html
+    assert "onkeydown=\"if ((event.key === 'Enter' || event.key === ' ')" in html
+
+
 def test_shared_design_tokens_are_linked_on_every_surface():
     """P1: catalog and auditor render from the same s21 design tokens as the
     generator — one palette, one source of truth."""
