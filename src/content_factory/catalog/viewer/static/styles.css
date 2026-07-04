@@ -1,31 +1,42 @@
-:root {
-    --bg: #f4f1ea;
-    --bg-top: #f7f4ed;
-    --panel: #fffdfa;
-    --panel-strong: #ffffff;
-    --panel-muted: #f1ece2;
-    --ink: #1f2a2a;
-    --ink-soft: #586469;
-    --line: #d9cfbf;
-    --accent: #0e8f6f;
-    --accent-bright: #26b28f;
-    --accent-deep: #15735a;
-    --accent-soft: #d8f2ea;
-    --warn: #b85c38;
-    --warn-soft: #fbe5dc;
-    --shadow: 0 18px 40px rgba(44, 42, 37, 0.08);
-    --shadow-sm: 0 8px 22px rgba(44, 42, 37, 0.06);
-    --glow-accent: 0 10px 26px rgba(14, 143, 111, 0.22);
-    --accent-gradient: linear-gradient(135deg, var(--accent) 0%, var(--accent-bright) 100%);
-    --radius: 20px;
-    --radius-sm: 12px;
-    --radius-pill: 999px;
-    --mono: "Consolas", "SFMono-Regular", monospace;
-    --sans: "Segoe UI", "Inter", sans-serif;
-}
+/* Palette tokens (--bg, --ink, --accent, --radius, --sans, …) are now provided
+ * by the shared design system: /static/css/s21-tokens.css + s21-aliases.css,
+ * linked before this file in base.html. Keeping the catalog on one palette with
+ * the generator and auditor. Do not re-declare them here. */
 
 * {
     box-sizing: border-box;
+}
+
+/* Cross-module ecosystem nav (shared look across generator / catalog / auditor). */
+.eco-nav {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 6px 32px;
+    background: var(--s21-dark);
+    border-bottom: 1px solid var(--s21-border-strong);
+}
+.eco-nav-link {
+    color: rgba(255, 255, 255, 0.72);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: var(--s21-radius-sm);
+    line-height: 1;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.eco-nav-link:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.10);
+}
+.eco-nav-link.active {
+    color: var(--s21-ink);
+    background: var(--s21-accent);
+}
+@media (max-width: 720px) {
+    .eco-nav { padding: 6px 16px; }
 }
 
 html,
@@ -652,7 +663,7 @@ code {
     height: 100%;
     width: 0;
     border-radius: inherit;
-    background: linear-gradient(90deg, #0e8f6f 0%, #26b28f 100%);
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-bright) 100%);
     box-shadow: 0 0 18px rgba(14, 143, 111, 0.18);
     transition: width 0.32s ease, background 0.22s ease;
 }
@@ -1548,7 +1559,7 @@ details[open] > summary .toggle-glyph::before {
     border: 1px solid rgba(217, 207, 191, 0.76);
     border-radius: var(--radius);
     background: rgba(255, 253, 250, 0.72);
-    box-shadow: 0 12px 26px rgba(44, 42, 37, 0.05);
+    box-shadow: 0 12px 26px rgba(15, 20, 25, 0.05);
 }
 
 .collapse-panel > summary {
@@ -2889,7 +2900,7 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .dag-legend-chip-syllabus {
-    color: #0e8f6f;
+    color: var(--accent);
 }
 
 .dag-legend-chip-ai {
@@ -3002,7 +3013,7 @@ details[open] > summary .toggle-glyph::before {
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 245, 237, 0.98));
     border: 1px solid rgba(217, 207, 191, 0.95);
-    box-shadow: 0 14px 28px rgba(44, 42, 37, 0.08);
+    box-shadow: 0 14px 28px rgba(15, 20, 25, 0.08);
     transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease, border-color 180ms ease;
 }
 
@@ -3045,7 +3056,7 @@ details[open] > summary .toggle-glyph::before {
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.72);
     border: 1px solid rgba(217, 207, 191, 0.82);
-    box-shadow: 0 10px 24px rgba(44, 42, 37, 0.05);
+    box-shadow: 0 10px 24px rgba(15, 20, 25, 0.05);
     overflow: hidden;
 }
 
@@ -3102,7 +3113,7 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .dag-edge-syllabus {
-    stroke: #0e8f6f;
+    stroke: var(--accent);
 }
 
 .dag-edge-ai {

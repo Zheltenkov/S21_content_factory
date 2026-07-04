@@ -1030,6 +1030,71 @@ def test_path_like_values_do_not_wrap_one_character_per_line():
     assert 'class="path-token"' in methodology_js
 
 
+def test_shared_design_tokens_are_linked_on_every_surface():
+    """P1: catalog and auditor render from the same s21 design tokens as the
+    generator — one palette, one source of truth."""
+
+    base_html = (PKG / "catalog" / "viewer" / "templates" / "base.html").read_text(encoding="utf-8")
+    catalog_css = (PKG / "catalog" / "viewer" / "static" / "styles.css").read_text(encoding="utf-8")
+    web_app = (PKG / "audit" / "web_app.py").read_text(encoding="utf-8")
+
+    # catalog links the shared tokens + alias layer before its own stylesheet
+    assert "/static/css/s21-tokens.css?v=" in base_html
+    assert "/static/css/s21-aliases.css?v=" in base_html
+    assert base_html.index("s21-tokens.css") < base_html.index("{{ base }}/static/styles.css")
+
+    # catalog no longer declares its own palette :root (tokens own it now)
+    assert "--bg: #f4f1ea" not in catalog_css
+    assert "--accent: #0e8f6f" not in catalog_css
+    # and no warm literals leaked into component rules
+    assert "#0e8f6f" not in catalog_css
+    assert "rgba(44, 42, 37" not in catalog_css
+
+    # auditor links the shared tokens and maps its vars onto them
+    assert "/static/css/s21-tokens.css?v=" in web_app
+    assert "--accent: var(--s21-accent);" in web_app
+    assert "--bg: var(--s21-bg);" in web_app
+
+    # the alias layer file exists and maps catalog/auditor names onto s21 tokens
+    aliases = (ROOT / "static" / "css" / "s21-aliases.css").read_text(encoding="utf-8")
+    assert "--accent: var(--s21-accent);" in aliases
+    assert "--ink: var(--s21-ink);" in aliases
+
+
+def test_ecosystem_nav_links_every_module_on_every_surface():
+    """P2: catalog and auditor carry the same cross-module top nav as the
+    generator, so navigation never dead-ends inside a module."""
+
+    from content_factory.audit.web_app import _render_topbar
+    from content_factory.catalog.viewer.route_zones import get_ecosystem_nav
+
+    module_hrefs = [
+        "/app",
+        "/app/generate",
+        "/app/auditor",
+        "/app/translate",
+        "/app/curriculum",
+        "/app/spravochnik",
+        "/app/instruction",
+    ]
+
+    # catalog: nav is built server-side and rendered in base.html
+    eco = get_ecosystem_nav("catalog")
+    assert [item["href"] for item in eco] == module_hrefs
+    assert sum(1 for item in eco if item["active"]) == 1
+    assert next(item for item in eco if item["href"] == "/app/spravochnik")["active"] is True
+
+    base_html = (PKG / "catalog" / "viewer" / "templates" / "base.html").read_text(encoding="utf-8")
+    assert 'class="eco-nav"' in base_html
+    assert "{% for item in ecosystem_nav %}" in base_html
+
+    # auditor: same links, Аудитор active
+    topbar = _render_topbar()
+    for href in module_hrefs:
+        assert f'href="{href}"' in topbar
+    assert '<a class="eco-nav-link active" href="/app/auditor">Аудитор</a>' in topbar
+
+
 def test_s21_brandbook_text_rules_are_enforced():
     css_dir = ROOT / "static" / "css"
     css_files = list(css_dir.glob("s21-*.css")) + [css_dir / "auth-light.css"]

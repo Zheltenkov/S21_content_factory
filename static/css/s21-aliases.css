@@ -1,0 +1,51 @@
+/* Shared token alias layer.
+ *
+ * The catalog (catalog/viewer/static/styles.css) and the auditor
+ * (audit/web_app.py) were authored with their own palette variable names
+ * (--bg, --ink, --accent, …). Rather than rewrite every rule, this file maps
+ * those names onto the canonical design tokens in s21-tokens.css, so all three
+ * surfaces (generator, catalog, auditor) render from one palette.
+ *
+ * Load order per surface: s21-tokens.css  ->  s21-aliases.css  ->  surface css.
+ */
+
+:root {
+  /* surfaces / backgrounds */
+  --bg: var(--s21-bg);
+  --bg-top: var(--s21-surface-2);
+  --panel: var(--s21-surface);
+  --panel-strong: var(--s21-surface);
+  --panel-muted: var(--s21-surface-muted);
+
+  /* ink / text */
+  --ink: var(--s21-ink);
+  --ink-soft: var(--s21-muted);
+
+  /* lines / borders */
+  --line: var(--s21-border);
+
+  /* accent */
+  --accent: var(--s21-accent);
+  --accent-bright: var(--s21-accent);
+  --accent-deep: var(--s21-accent-hover);
+  --accent-soft: var(--s21-accent-soft);
+  --accent-gradient: linear-gradient(135deg, var(--s21-accent) 0%, var(--s21-accent-hover) 100%);
+
+  /* status */
+  --warn: var(--s21-warn);
+  --warn-soft: var(--s21-warn-bg);
+
+  /* shadows */
+  --shadow: var(--s21-shadow-2);
+  --shadow-sm: var(--s21-shadow-1);
+  --glow-accent: var(--s21-shadow-2);
+
+  /* radii */
+  --radius: var(--s21-radius-xl);
+  --radius-sm: var(--s21-radius-md);
+  --radius-pill: 999px;
+
+  /* type */
+  --sans: var(--s21-font-sans);
+  --mono: var(--s21-font-mono);
+}

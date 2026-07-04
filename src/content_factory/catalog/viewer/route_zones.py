@@ -36,6 +36,38 @@ ROUTE_ZONES: tuple[RouteZone, ...] = (
 
 MAIN_NAV: tuple[NavItem, ...] = (INTAKE_NAV, CATALOG_NAV, CURRICULUM_NAV)
 
+
+@dataclass(frozen=True)
+class EcosystemNavItem:
+    """A cross-module link (absolute href) shown on every surface's top bar."""
+
+    label: str
+    href: str
+    code: str
+
+
+# The one canonical set of module links, identical on generator, catalog and
+# auditor, so the platform reads as a single ecosystem. Hrefs are absolute
+# (not under the catalog ``base`` prefix).
+ECOSYSTEM_NAV: tuple[EcosystemNavItem, ...] = (
+    EcosystemNavItem("Главная", "/app", "home"),
+    EcosystemNavItem("Генерация", "/app/generate", "generate"),
+    EcosystemNavItem("Аудитор", "/app/auditor", "auditor"),
+    EcosystemNavItem("Перевод", "/app/translate", "translate"),
+    EcosystemNavItem("УП", "/app/curriculum", "curriculum"),
+    EcosystemNavItem("Справочник", "/app/spravochnik", "catalog"),
+    EcosystemNavItem("Инструкция", "/app/instruction", "instruction"),
+)
+
+
+def get_ecosystem_nav(active_code: str = "catalog") -> list[dict[str, object]]:
+    """Cross-module nav for templates; ``active_code`` marks the current surface."""
+
+    return [
+        {"label": item.label, "href": item.href, "active": item.code == active_code}
+        for item in ECOSYSTEM_NAV
+    ]
+
 CATALOG_SECONDARY_NAV: tuple[NavItem, ...] = (
     NavItem("Skills и индикаторы", "/catalog-admin/groups", ("/catalog-admin/groups", "/catalog-admin/skills")),
     NavItem("Компетенции", "/competencies", ("/competencies",)),

@@ -31,6 +31,7 @@ from content_factory.catalog.viewer.app import (
 )
 from content_factory.catalog.viewer.route_zones import (
     detect_route_zone,
+    get_ecosystem_nav,
     get_main_nav,
     get_secondary_nav,
     show_secondary_nav,
@@ -72,6 +73,7 @@ def render(
     summary_path = summary_path or DEFAULT_SUMMARY
     summary = refresh_summary_counts(load_summary(summary_path), db_path)
     shared: dict[str, Any] = {
+        "ecosystem_nav": get_ecosystem_nav("catalog"),
         "nav": get_main_nav(),
         "secondary_nav": get_secondary_nav(request_path),
         "show_secondary_nav": show_secondary_nav(request_path),

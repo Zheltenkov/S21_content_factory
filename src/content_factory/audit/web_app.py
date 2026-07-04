@@ -490,54 +490,76 @@ def _render_head(title: str = "Аудит контента · Панель от�
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__PAGE_TITLE__</title>
+<link rel="stylesheet" href="/static/css/s21-tokens.css?v=20260704-shared-tokens">
 <style>
+/* Palette mapped onto the shared design tokens (s21-tokens.css) so the auditor
+ * renders from the same one palette as the generator and catalog. */
 :root {
-  --bg: #f4f1ea;
-  --bg-top: #f7f4ed;
-  --surface: #fffdfa;
-  --surface-strong: #ffffff;
-  --surface-muted: #f1ece2;
-  --border: #d9cfbf;
-  --border-soft: rgba(31, 42, 42, .12);
-  --border-strong: rgba(31, 42, 42, .18);
-  --text: #1f2a2a;
-  --muted: #586469;
-  --accent: #0e8f6f;
-  --accent-bright: #26b28f;
-  --accent-deep: #15735a;
-  --accent-soft: #d8f2ea;
-  --warn: #b85c38;
-  --warn-soft: #fbe5dc;
-  --info: #1d5fd0;
-  --amber: #9a6420;
-  --danger: #a33a32;
-  --danger-soft: #f8ded8;
-  --shadow-sm: 0 8px 22px rgba(31, 42, 42, .06);
-  --shadow: 0 18px 44px rgba(31, 42, 42, .09);
-  --radius: 20px;
-  --radius-md: 16px;
-  --radius-sm: 12px;
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Consolas", ui-monospace, monospace;
+  --bg: var(--s21-bg);
+  --bg-top: var(--s21-surface-2);
+  --surface: var(--s21-surface);
+  --surface-strong: var(--s21-surface);
+  --surface-muted: var(--s21-surface-muted);
+  --border: var(--s21-border);
+  --border-soft: var(--s21-grid-line);
+  --border-strong: var(--s21-border-strong);
+  --text: var(--s21-ink);
+  --muted: var(--s21-muted);
+  --accent: var(--s21-accent);
+  --accent-bright: var(--s21-accent);
+  --accent-deep: var(--s21-accent-hover);
+  --accent-soft: var(--s21-accent-soft);
+  --warn: var(--s21-warn);
+  --warn-soft: var(--s21-warn-bg);
+  --info: var(--s21-info);
+  --amber: var(--s21-warn);
+  --danger: var(--s21-danger);
+  --danger-soft: var(--s21-danger-bg);
+  --shadow-sm: var(--s21-shadow-1);
+  --shadow: var(--s21-shadow-2);
+  --radius: var(--s21-radius-xl);
+  --radius-md: var(--s21-radius-lg);
+  --radius-sm: var(--s21-radius-md);
+  --font-sans: var(--s21-font-sans);
+  --font-mono: var(--s21-font-mono);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
   min-height: 100vh;
   color: var(--text);
-  background:
-    linear-gradient(180deg, rgba(247,244,237,.96), rgba(244,241,234,.96)),
-    var(--bg);
+  background: var(--bg);
   font-family: var(--font-sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+.eco-nav {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 6px 32px;
+  background: var(--s21-dark);
+  border-bottom: 1px solid var(--s21-border-strong);
+}
+.eco-nav-link {
+  color: rgba(255, 255, 255, .72);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: background .15s ease, color .15s ease;
+}
+.eco-nav-link:hover { color: #fff; background: rgba(255, 255, 255, .10); }
+.eco-nav-link.active { color: var(--s21-ink); background: var(--s21-accent); }
 .topbar {
   position: sticky;
   top: 0;
   z-index: 20;
   backdrop-filter: blur(18px);
-  background: rgba(247, 244, 237, .86);
+  background: rgba(255, 255, 255, .86);
   border-bottom: 1px solid var(--border-soft);
 }
 .topbar-inner, .shell { max-width: 1720px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
@@ -1032,6 +1054,15 @@ def _render_topbar() -> str:
     """Возвращает верхнюю панель."""
 
     return """
+<nav class="eco-nav" aria-label="Разделы платформы">
+  <a class="eco-nav-link" href="/app">Главная</a>
+  <a class="eco-nav-link" href="/app/generate">Генерация</a>
+  <a class="eco-nav-link active" href="/app/auditor">Аудитор</a>
+  <a class="eco-nav-link" href="/app/translate">Перевод</a>
+  <a class="eco-nav-link" href="/app/curriculum">УП</a>
+  <a class="eco-nav-link" href="/app/spravochnik">Справочник</a>
+  <a class="eco-nav-link" href="/app/instruction">Инструкция</a>
+</nav>
 <header class="topbar">
   <div class="topbar-inner">
     <div class="wordmark">
