@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from .gateway import LLMGateway, LLMUsageBudgetTracker
+from .gateway import BudgetTracker, LLMGateway, LLMUsageBudgetTracker
 
 _MEMORY_BUDGET_TRACKER = LLMUsageBudgetTracker()
 
@@ -40,7 +40,7 @@ def create_llm_client(
     )
 
 
-def _create_budget_tracker() -> object:
+def _create_budget_tracker() -> BudgetTracker:
     """Create DB-backed budget tracker when the API database layer is available."""
     if os.getenv("LLM_BUDGET_DB_ENABLED", "true").strip().lower() in {"0", "false", "no", "off"}:
         return _MEMORY_BUDGET_TRACKER

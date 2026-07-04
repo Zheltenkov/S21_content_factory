@@ -2,11 +2,13 @@
 Иерархия кастомных исключений для централизованной обработки ошибок.
 """
 
+from typing import Any
+
 
 class ContentGenerationError(Exception):
     """Базовое исключение для всех ошибок генерации контента."""
 
-    def __init__(self, message: str, context: dict = None):
+    def __init__(self, message: str, context: dict[str, Any] | None = None) -> None:
         """
         Args:
             message: Сообщение об ошибке

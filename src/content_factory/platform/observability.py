@@ -7,7 +7,7 @@ import json
 import os
 import uuid
 from collections.abc import Iterable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -25,7 +25,7 @@ FALLBACK_QUALITY_RISKS = frozenset({"none", "low", "medium", "high"})
 
 def _utc_now_iso() -> str:
     """Return UTC timestamp in the legacy naive ISO format."""
-    return datetime.now(UTC).replace(tzinfo=None).isoformat()
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
 
 def stable_input_hash(payload: Any) -> str:
@@ -227,7 +227,7 @@ def normalize_fallback_trace_event(event: FallbackTraceEvent | dict[str, Any]) -
         node=node,
         fallback_type=fallback_type,
         reason=reason,
-        quality_risk=quality_risk,  # type: ignore[arg-type]
+        quality_risk=quality_risk,
         visible_to_user=bool(visible_to_user),
         input_hash=str(input_hash) if input_hash else None,
         trace=trace,

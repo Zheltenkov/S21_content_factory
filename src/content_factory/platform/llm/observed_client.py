@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel
 
@@ -98,7 +98,7 @@ class ObservedLLMClient:
             error=None,
             kwargs={**call_kwargs, **trace_kwargs},
         )
-        return response
+        return cast(str, response)
 
     def complete_structured(
         self,
@@ -146,7 +146,7 @@ class ObservedLLMClient:
             error=None,
             kwargs={**call_kwargs, **trace_kwargs},
         )
-        return response
+        return cast(BaseModel, response)
 
     def complete_batch(
         self,
@@ -193,7 +193,7 @@ class ObservedLLMClient:
                 kwargs=dict(kwargs or {}),
                 include_last_usage=False,
             )
-        return results
+        return cast(list[str], results)
 
     def _record(
         self,

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Protocol, TypeVar
+from typing import Any, Protocol, TypeVar, cast
 
 from pydantic import BaseModel, ValidationError
 
@@ -63,12 +63,15 @@ class InstructorStructuredOutputRunner:
     ) -> T:
         structured_call = getattr(model, "complete_structured", None)
         if callable(structured_call):
-            return structured_call(
-                output_model=response_model,
-                system=prompt.system,
-                user=prompt.user,
-                retries=retries,
-                **dict(prompt.kwargs),
+            return cast(
+                T,
+                structured_call(
+                    output_model=response_model,
+                    system=prompt.system,
+                    user=prompt.user,
+                    retries=retries,
+                    **dict(prompt.kwargs),
+                ),
             )
         return CompletionJSONStructuredOutputRunner().run(
             model=model,
@@ -279,7 +282,9 @@ def parse_json_model(response: Any, response_model: type[T]) -> T:
                 {
                     "type": "value_error",
                     "loc": ("__root__",),
-                    "msg": f"Не удалось распарсить JSON ответ от LLM: {exc}",
+                    # pydantic accepts "msg" at runtime but omits it from the
+                    # InitErrorDetails TypedDict (it normally derives the message).
+                    "msg": f"Не удалось распарсить JSON ответ от LLM: {exc}",  # type: ignore[typeddict-unknown-key]
                     "input": response,
                     "ctx": {"error": f"Не удалось распарсить JSON ответ от LLM: {exc}"},
                 }

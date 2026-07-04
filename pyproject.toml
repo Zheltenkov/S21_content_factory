@@ -104,7 +104,9 @@ src = ["src"]
 select = ["E", "W", "F", "I", "B", "C4", "UP"]
 # UP047: PEP 695 generic syntax (def f[T]) trips mypy 2.1.0's syntax check even at
 # python_version 3.12 — keep explicit TypeVar generics.
-ignore = ["E501", "B008", "C901", "UP047"]
+# UP017: ruff (py312) wants `datetime.UTC`, but mypy runs at python_version 3.10
+# where that alias does not exist — keep the portable `timezone.utc`.
+ignore = ["E501", "B008", "C901", "UP047", "UP017"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]

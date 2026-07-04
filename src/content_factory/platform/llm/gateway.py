@@ -10,7 +10,7 @@ import os
 import time
 from dataclasses import dataclass
 from threading import Lock
-from typing import Any, TypeVar
+from typing import Any, Protocol, TypeVar, cast
 
 from pydantic import BaseModel
 
@@ -25,6 +25,42 @@ class _CacheEntry:
     response: str
     timestamp: float
     ttl: float
+
+
+class BudgetTracker(Protocol):
+    """Structural interface for LLM spend tracking (in-memory or DB-backed).
+
+    Both :class:`LLMUsageBudgetTracker` and the API layer's
+    ``DatabaseLLMUsageBudgetTracker`` satisfy this without inheritance.
+    """
+
+    def spent(self, *, user_id: str, run_id: str, node: str | None = ..., role: str | None = ...) -> float: ...
+
+    def assert_within_budget(
+        self,
+        *,
+        user_id: str,
+        run_id: str,
+        node: str | None = ...,
+        role: str | None = ...,
+        budget_usd: float | None,
+    ) -> None: ...
+
+    def record(
+        self,
+        *,
+        user_id: str,
+        run_id: str,
+        node: str | None = ...,
+        role: str | None = ...,
+        provider: str | None = ...,
+        model: str | None = ...,
+        cost_usd: float | None,
+        prompt_tokens: int | None = ...,
+        completion_tokens: int | None = ...,
+        total_tokens: int | None = ...,
+        route: dict[str, Any] | None = ...,
+    ) -> None: ...
 
 
 class LLMUsageBudgetTracker:
@@ -131,7 +167,7 @@ class LLMGateway:
         max_retries: int | None = None,
         retry_delay: float | None = None,
         timeout_seconds: float | None = None,
-        budget_tracker: LLMUsageBudgetTracker | None = None,
+        budget_tracker: BudgetTracker | None = None,
         user_id: str | None = None,
         run_id: str | None = None,
     ) -> None:
@@ -266,7 +302,7 @@ class LLMGateway:
                 }
                 cost = self._estimate_cost(route)
                 self._last_cost_usd = cost
-                usage = self._last_token_usage or {}
+                usage: dict[str, int | None] = self._last_token_usage or {}
                 self._budget_tracker.record(
                     user_id=user_id,
                     run_id=run_id,
@@ -388,7 +424,7 @@ class LLMGateway:
                 }
                 cost = self._estimate_cost(route)
                 self._last_cost_usd = cost
-                usage = self._last_token_usage or {}
+                usage: dict[str, int | None] = self._last_token_usage or {}
                 self._budget_tracker.record(
                     user_id=user_id,
                     run_id=run_id,
@@ -587,7 +623,7 @@ class LLMGateway:
             **request_kwargs,
         )
         self._capture_litellm_metadata(raw_completion)
-        return response
+        return cast(T, response)
 
     def _capture_litellm_metadata(self, response: Any) -> None:
         """Store finish reason, usage and provider-reported cost from a LiteLLM response."""
