@@ -1,13 +1,13 @@
 """Утилиты для безопасного логирования в многопоточном окружении."""
 
 import sys
-from typing import Optional
+from typing import Any
 
 # Сохраняем оригинальный stderr для использования в потоках
 _ORIGINAL_STDERR = sys.__stderr__
 
 
-def safe_print(*args, sep: str = " ", end: str = "\n", flush: bool = False, file: Optional = None):
+def safe_print(*args, sep: str = " ", end: str = "\n", flush: bool = False, file: Any = None):
     """
     Безопасный print для использования в потоках.
     Использует оригинальный stderr, если текущий stderr недоступен (например, нет Streamlit контекста).

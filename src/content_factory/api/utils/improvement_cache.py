@@ -7,6 +7,7 @@
 
 import difflib
 from datetime import datetime, timedelta
+from typing import Any
 
 from content_factory.generation.reverse_extraction.models import ClassificationResult, PartialProjectSeed
 
@@ -94,7 +95,7 @@ def get_improved_readme(request_id: str) -> str | None:
     return _improvement_cache.get(request_id, {}).get("improved_readme")
 
 
-def generate_diff(request_id: str) -> dict[str, any] | None:
+def generate_diff(request_id: str) -> dict[str, Any] | None:
     """
     Генерирует diff между исходным и улучшенным README.
 
