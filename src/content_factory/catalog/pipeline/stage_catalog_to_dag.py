@@ -4,10 +4,12 @@
 разрыв цикла по мин. уверенности -> транзитивная редукция (networkx).
 """
 from __future__ import annotations
+
 import json
+
 import networkx as nx
-from . import config, llm
-from . import language
+
+from . import config, language, llm
 from .models import PrereqEdge, SkillCandidate
 
 

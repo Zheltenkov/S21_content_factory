@@ -1,5 +1,6 @@
 """Конфиг-как-данные: флаги, пороги, slug'и моделей. Аналог content_gen/config."""
 from __future__ import annotations
+
 import os
 from pathlib import Path
 

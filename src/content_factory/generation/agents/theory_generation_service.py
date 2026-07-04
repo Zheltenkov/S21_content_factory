@@ -35,7 +35,6 @@ from .theory_prompting import (
     determine_theory_content_type,
 )
 
-
 StyleRewrite = Callable[[str, str], str]
 
 

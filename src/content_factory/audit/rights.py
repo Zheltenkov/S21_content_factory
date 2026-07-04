@@ -15,7 +15,6 @@ from pathlib import Path
 
 from content_factory.audit.domain import ContentFile, Severity, TextLocation, Verdict
 
-
 LICENSE_DENY = {"GPL-3.0-only", "GPL-3.0-or-later", "AGPL-3.0-only", "AGPL-3.0-or-later"}
 LICENSE_REVIEW = {"CC-BY-NC-4.0", "CC-BY-NC-SA-4.0", "CC-BY-SA-4.0", "LicenseRef-Custom"}
 MANIFEST_NAMES = {

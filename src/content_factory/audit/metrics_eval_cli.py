@@ -5,7 +5,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from content_factory.audit.cli import DEFAULT_OPENROUTER_FACT_MODEL, DEFAULT_OPENROUTER_MODEL, DEFAULT_OPENROUTER_TECH_MODEL
+from content_factory.audit.cli import (
+    DEFAULT_OPENROUTER_FACT_MODEL,
+    DEFAULT_OPENROUTER_MODEL,
+    DEFAULT_OPENROUTER_TECH_MODEL,
+)
 from content_factory.audit.corpus_evaluation import evaluate_corpus_report, write_corpus_evaluation
 from content_factory.audit.domain import AuditSettings
 from content_factory.audit.env import get_env_value, load_env_file

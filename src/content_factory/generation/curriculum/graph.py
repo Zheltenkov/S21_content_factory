@@ -189,7 +189,7 @@ def _edge_weight(src: CurriculumEntry, dst: CurriculumEntry) -> tuple[float, flo
 
 
 def _validate_graph(graph: CurriculumGraph) -> None:
-    indegree = {node_id: 0 for node_id in graph.nodes}
+    indegree = dict.fromkeys(graph.nodes, 0)
     for edges in graph.adjacency.values():
         for edge in edges:
             indegree[edge.target] += 1

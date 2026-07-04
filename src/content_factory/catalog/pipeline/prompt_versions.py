@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 PROMPT_VERSION_BY_STAGE: dict[str, str] = {
     "decompose": "brief-decompose:v1",
     "draft": "draft-skills:v2",

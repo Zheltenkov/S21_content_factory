@@ -21,7 +21,6 @@ from .utils.regeneration_scope import (
     parse_regeneration_edit_scopes,
 )
 
-
 SCHEMA_VERSION = "regeneration.pipeline.v1"
 _CHANGES_JSON_RE = re.compile(r'\{[\s\S]*"changes"[\s\S]*\}')
 
@@ -49,13 +48,13 @@ class SelectedRegenerationSection(BaseModel):
     is_history: bool = False
 
     @model_validator(mode="after")
-    def _validate_line_range(self) -> "SelectedRegenerationSection":
+    def _validate_line_range(self) -> SelectedRegenerationSection:
         if self.end_line < self.start_line:
             raise ValueError("end_line must be greater than or equal to start_line")
         return self
 
     @classmethod
-    def from_scope(cls, scope: RegenerationEditScope) -> "SelectedRegenerationSection":
+    def from_scope(cls, scope: RegenerationEditScope) -> SelectedRegenerationSection:
         return cls(
             title=scope.title,
             start_line=scope.start_line,
@@ -170,7 +169,7 @@ class RegenerationValidationReport(BaseModel):
     issues: list[RegenerationValidationIssue] = Field(default_factory=list)
 
     @classmethod
-    def from_input(cls, pipeline_input: RegenerationPipelineInput) -> "RegenerationValidationReport":
+    def from_input(cls, pipeline_input: RegenerationPipelineInput) -> RegenerationValidationReport:
         return cls(
             change_intent=pipeline_input.change_intent,
             scoped=pipeline_input.is_scoped,

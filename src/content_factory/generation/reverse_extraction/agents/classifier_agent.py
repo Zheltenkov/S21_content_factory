@@ -8,9 +8,10 @@ import json
 import logging
 from pathlib import Path
 
-from ...config.loader import get_agent_config, prompt_trace_kwargs
-from ...agents.base.llm_client import LLMClientProtocol
 from content_factory.platform.llm.structured_output import StructuredLLMClient
+
+from ...agents.base.llm_client import LLMClientProtocol
+from ...config.loader import get_agent_config, prompt_trace_kwargs
 from ..models import ClassificationResult, NormalizedReadme, PartialProjectSeed
 
 logger = logging.getLogger(__name__)

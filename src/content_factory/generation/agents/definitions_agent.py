@@ -13,10 +13,10 @@ import re
 import time
 
 from ..exceptions import LLMTimeoutError
-from .base.llm_client import LLMClientProtocol
 from ..models.schemas import ProjectSeed, TheoryPart
 from ..utils.logging import safe_print
 from ..utils.text_analysis import has_term_definitions
+from .base.llm_client import LLMClientProtocol
 
 SYSTEM = """Ты — эксперт по созданию определений терминов для образовательного контента.
 Твоя задача — создавать четкие, понятные определения терминов в формате: **термин** — определение.

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterator
-
 from pathlib import Path
 
 from content_factory.api.integrations.project_paths import spravochnik_sqlite_path

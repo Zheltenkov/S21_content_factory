@@ -11,7 +11,6 @@ from urllib.parse import urlparse
 
 import yaml
 
-
 RULE_FILE_NAMES = (
     "regional_availability_ru.yml",
     "regional_availability_ru.yaml",

@@ -15,7 +15,7 @@ class AuditCache:
         self._payload = payload or {"version": 1, "items": {}}
 
     @classmethod
-    def load(cls, path: Path) -> "AuditCache":
+    def load(cls, path: Path) -> AuditCache:
         """Загружаем кэш; повреждённый файл не должен ломать аудит."""
 
         if not path.exists():

@@ -12,7 +12,6 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-
 RegenerationChangeIntent = Literal["local_section_edit", "structural_document_edit"]
 
 

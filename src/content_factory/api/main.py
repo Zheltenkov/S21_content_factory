@@ -18,12 +18,6 @@ from slowapi.util import get_remote_address
 
 from content_factory.api.db.session import get_database_status, init_db, should_auto_create_tables
 from content_factory.api.integrations.auth_cookie import ToolAuthCookieMiddleware
-from content_factory.catalog.viewer.app import STATIC_DIR as CATALOG_STATIC_DIR
-from content_factory.catalog.web.routers import catalog_admin as catalog_admin_ui
-from content_factory.catalog.web.routers import intake as catalog_intake_ui
-from content_factory.catalog.web.routers import pages as catalog_pages
-from content_factory.catalog.web.routers import reviews as catalog_reviews_ui
-from content_factory.catalog.web.routers import up as catalog_up_ui
 from content_factory.api.middleware.activity_tracking import ActivityTrackingMiddleware
 from content_factory.api.middleware.request_logging import RequestLoggingMiddleware
 from content_factory.api.routers import (
@@ -43,6 +37,12 @@ from content_factory.api.routers import (
     thematic_blocks,
 )
 from content_factory.api.utils.logger import setup_logging
+from content_factory.catalog.viewer.app import STATIC_DIR as CATALOG_STATIC_DIR
+from content_factory.catalog.web.routers import catalog_admin as catalog_admin_ui
+from content_factory.catalog.web.routers import intake as catalog_intake_ui
+from content_factory.catalog.web.routers import pages as catalog_pages
+from content_factory.catalog.web.routers import reviews as catalog_reviews_ui
+from content_factory.catalog.web.routers import up as catalog_up_ui
 
 # Настраиваем логирование
 logger = setup_logging(level=os.getenv("LOG_LEVEL", "INFO"))

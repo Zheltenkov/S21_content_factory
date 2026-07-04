@@ -7,7 +7,11 @@ import time
 from typing import Any
 
 from content_factory.generation.config.thresholds import THRESHOLDS
-from content_factory.generation.domain_contracts import LearningActivityContract, NarrativeContract, StaticInstructionLeakGuard
+from content_factory.generation.domain_contracts import (
+    LearningActivityContract,
+    NarrativeContract,
+    StaticInstructionLeakGuard,
+)
 from content_factory.generation.practice_contract import (
     extract_material_refs,
     find_non_raw_material_issues,

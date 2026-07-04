@@ -1,6 +1,8 @@
 """Контракт данных пайплайна (pydantic v2)."""
 from __future__ import annotations
+
 from typing import Literal, Optional
+
 from pydantic import BaseModel, Field
 
 BLOOM = {"remember": 1, "understand": 2, "apply": 3, "analyze": 4, "evaluate": 5, "create": 6}
@@ -26,9 +28,9 @@ class Evidence(BaseModel):
 class SkillCandidate(BaseModel):
     tmp_id: str
     name: str
-    source_name: Optional[str] = None
+    source_name: str | None = None
     group: str
-    coverage_area: Optional[str] = None
+    coverage_area: str | None = None
     indicators: list[IndicatorSpec]
     tools: list[str] = Field(default_factory=list)
     evidence_ids: list[str] = Field(default_factory=list)
@@ -36,21 +38,21 @@ class SkillCandidate(BaseModel):
     # атомизация: stage_atomize между synthesize и resolve
     entity_type: EntityType = "skill"
     atomicity: Atomicity = "unknown"
-    parent_tmp_id: Optional[str] = None
+    parent_tmp_id: str | None = None
     atomize_rationale: str = ""
     # резолв против каталога:
-    resolution: Optional[Literal["matched", "alias", "fuzzy", "new"]] = None
-    canonical_skill_id: Optional[int] = None
-    canonical_name: Optional[str] = None
-    canonical_group: Optional[str] = None
-    match_score: Optional[float] = None
-    nearest_skill_id: Optional[int] = None
-    nearest_name: Optional[str] = None
-    nearest_group: Optional[str] = None
+    resolution: Literal["matched", "alias", "fuzzy", "new"] | None = None
+    canonical_skill_id: int | None = None
+    canonical_name: str | None = None
+    canonical_group: str | None = None
+    match_score: float | None = None
+    nearest_skill_id: int | None = None
+    nearest_name: str | None = None
+    nearest_group: str | None = None
     # жюри/триаж:
-    council_agreement: Optional[float] = None
+    council_agreement: float | None = None
     council_ran: bool = False
-    decision: Optional[Literal["accepted", "needs_review", "rejected", "superseded"]] = None
+    decision: Literal["accepted", "needs_review", "rejected", "superseded"] | None = None
     reasons: list[str] = Field(default_factory=list)
 
     @property
@@ -66,7 +68,7 @@ class PrereqEdge(BaseModel):
     source: str = ""
     rationale: str = ""
     bloom_violation: bool = False
-    decision: Optional[str] = None
+    decision: str | None = None
     reasons: list[str] = Field(default_factory=list)
 
 

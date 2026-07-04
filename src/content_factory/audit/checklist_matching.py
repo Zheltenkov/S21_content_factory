@@ -8,7 +8,6 @@ from typing import Literal
 
 from content_factory.audit.text_utils import normalize_for_match
 
-
 MatchStrength = Literal["strong", "weak"]
 
 

@@ -49,7 +49,7 @@ class GenerationContext(BaseModel):
     theory_parts: list[Any] = Field(default_factory=list)
 
     @classmethod
-    def from_flow_context(cls, context: dict[str, Any]) -> "GenerationContext":
+    def from_flow_context(cls, context: dict[str, Any]) -> GenerationContext:
         """Create a typed view from the mutable flow context dict."""
         data = {key: value for key, value in context.items() if key != "state"}
         return cls(**data)

@@ -14,8 +14,7 @@ from typing import Any
 from openpyxl import load_workbook
 from pydantic import BaseModel, Field
 
-from content_factory.audit.domain import AuditReport, CRITERION_LABELS, Criterion, Finding
-
+from content_factory.audit.domain import CRITERION_LABELS, AuditReport, Criterion, Finding
 
 PROJECT_COLUMN = "Проект"
 PROBLEM_COLUMN = "Проблема"

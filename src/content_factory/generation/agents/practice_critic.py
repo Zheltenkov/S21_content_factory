@@ -10,11 +10,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..config.loader import get_agent_config, prompt_trace_kwargs
-from .base.llm_client import LLMClientProtocol
 from content_factory.platform.llm.structured_output import StructuredLLMClient
+
+from ..config.loader import get_agent_config, prompt_trace_kwargs
 from ..models.schemas import ProjectSeed
 from ..observability import FallbackTraceEvent
+from .base.llm_client import LLMClientProtocol
 
 
 class PracticeIssue(BaseModel):

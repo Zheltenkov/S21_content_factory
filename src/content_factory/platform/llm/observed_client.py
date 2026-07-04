@@ -9,7 +9,6 @@ from pydantic import BaseModel
 
 from content_factory.platform.observability import FallbackTraceEvent, LLMCallTraceEvent, LLMTraceRecorder, TokenUsage
 
-
 TRACE_ONLY_KWARGS = {
     "trace_node",
     "trace_agent",
@@ -55,7 +54,7 @@ class ObservedLLMClient:
         node: str | None = None,
         agent: str | None = None,
         prompt_version: str | None = None,
-    ) -> "ObservedLLMClient":
+    ) -> ObservedLLMClient:
         """Return a view with more specific trace metadata."""
         return ObservedLLMClient(
             self._inner,

@@ -3,18 +3,26 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 from content_factory.audit.cache import AuditCache
 from content_factory.audit.checks import CheckContext, default_checkers
 from content_factory.audit.code_similarity import build_code_similarity_index
-from content_factory.audit.domain import AuditReport, AuditSettings, ExtractedEntity, Finding, ModelUsageSummary, RunStep, RunSummary, Verdict
+from content_factory.audit.domain import (
+    AuditReport,
+    AuditSettings,
+    ExtractedEntity,
+    Finding,
+    ModelUsageSummary,
+    RunStep,
+    RunSummary,
+    Verdict,
+)
 from content_factory.audit.extraction import extract_entities
 from content_factory.audit.ingestion import discover_content_units, load_unit_files
 from content_factory.audit.openrouter import OpenRouterClient
 from content_factory.audit.postprocess import postprocess_findings
 from content_factory.audit.severity import SeverityCalibrator
-
 
 DEFAULT_FACT_MODEL = "perplexity/sonar"
 DEFAULT_TECH_MODEL = "qwen/qwen3-coder"
@@ -29,16 +37,16 @@ class AuditRunner:
     def run(self) -> AuditReport:
         """Выполняем аудит и возвращаем полный отчёт."""
 
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         warnings: list[str] = []
         steps: list[RunStep] = []
 
-        step_started = datetime.now(timezone.utc)
+        step_started = datetime.now(UTC)
         units = discover_content_units(self.settings.input_path)
         units = [load_unit_files(unit, self.settings.max_file_bytes) for unit in units]
         _finish_step(steps, "Загрузка файлов", step_started, f"Единиц: {len(units)}")
 
-        step_started = datetime.now(timezone.utc)
+        step_started = datetime.now(UTC)
         model_client, fact_model_client, tech_model_client = self._build_model_clients(warnings)
         cache = AuditCache.load(self.settings.cache_path or self.settings.output_path / "audit_cache.json")
         context = CheckContext(
@@ -60,7 +68,7 @@ class AuditRunner:
 
         all_entities: list[ExtractedEntity] = []
         all_findings: list[Finding] = []
-        step_started = datetime.now(timezone.utc)
+        step_started = datetime.now(UTC)
         for unit in units:
             # Сначала извлекаем сущности, затем маршрутизируем их по проверяющим модулям.
             entities = extract_entities(unit)
@@ -69,7 +77,7 @@ class AuditRunner:
                 all_findings.extend(checker.check(unit, entities, context))
         _finish_step(steps, "Извлечение и проверки", step_started, f"Сущностей: {len(all_entities)}")
 
-        step_started = datetime.now(timezone.utc)
+        step_started = datetime.now(UTC)
         cache.save()
         calibrated_findings = SeverityCalibrator().calibrate(all_findings)
         postprocessed_findings, postprocess_warnings = postprocess_findings(calibrated_findings)
@@ -129,7 +137,7 @@ class AuditRunner:
         by_unit = Counter(finding.unit_id for finding in findings)
         return RunSummary(
             started_at=started_at,
-            finished_at=datetime.now(timezone.utc),
+            finished_at=datetime.now(UTC),
             input_path=str(self.settings.input_path),
             units_total=len(units),
             files_total=sum(len(unit.files) for unit in units),
@@ -151,6 +159,6 @@ class AuditRunner:
 def _finish_step(steps: list[RunStep], name: str, started_at: datetime, detail: str | None = None) -> None:
     """Добавляем в сводку завершённый шаг конвейера."""
 
-    finished_at = datetime.now(timezone.utc)
+    finished_at = datetime.now(UTC)
     duration_ms = int((finished_at - started_at).total_seconds() * 1000)
     steps.append(RunStep(name=name, status="ok", started_at=started_at, finished_at=finished_at, duration_ms=duration_ms, detail=detail))

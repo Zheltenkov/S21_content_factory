@@ -26,7 +26,7 @@ class GenerationNodeExecutorBundle:
     runtime: GenerationRuntimeContainer
 
     @classmethod
-    def from_runtime(cls, runtime: GenerationRuntimeContainer) -> "GenerationNodeExecutorBundle":
+    def from_runtime(cls, runtime: GenerationRuntimeContainer) -> GenerationNodeExecutorBundle:
         """Build all node executors from the generation runtime container."""
         return cls(
             context=ContextPhaseExecutor(runtime),

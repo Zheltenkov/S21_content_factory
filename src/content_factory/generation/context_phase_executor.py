@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .agents.intent_mapper import IntentMapper
 from .agents.context_analysis import ContextAnalysisResult
+from .agents.intent_mapper import IntentMapper
 from .curriculum.models import CurriculumEntry
 from .domain_contracts import build_narrative_contract
 from .generation_runtime import GenerationRuntimeContainer

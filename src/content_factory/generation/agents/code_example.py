@@ -11,10 +11,10 @@ import json
 import re
 
 from ..config.thresholds import CODE_EXAMPLE_CONFIG
-from .base.llm_client import LLMClientProtocol
 from ..models.enhancement_models import CodeExample, CodeGenerationResult, CodeTask
 from ..models.schemas import ProjectSeed
 from ..utils.logging import safe_print
+from .base.llm_client import LLMClientProtocol
 
 SYSTEM = """Ты — эксперт по генерации образовательных примеров кода и заданий на программирование.
 Твоя задача — создавать качественные, понятные примеры кода и практические задания для студентов.

@@ -42,7 +42,7 @@ class GoldenProjectExpectations(BaseModel):
     rubric_thresholds: EvalThresholds = Field(default_factory=EvalThresholds)
 
     @model_validator(mode="after")
-    def normalize_lists(self) -> "GoldenProjectExpectations":
+    def normalize_lists(self) -> GoldenProjectExpectations:
         """Normalize textual lists while preserving input order."""
         self.required_task_titles = _unique_non_empty(self.required_task_titles)
         self.required_criteria_ids = _unique_non_empty(self.required_criteria_ids)
@@ -67,7 +67,7 @@ class GoldenProjectCase(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def normalize_case(self) -> "GoldenProjectCase":
+    def normalize_case(self) -> GoldenProjectCase:
         """Keep IDs and tags stable for joins and filtering."""
         self.id = self.id.strip()
         self.title = self.title.strip()
@@ -87,7 +87,7 @@ class GoldenDataset(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def ensure_unique_case_ids(self) -> "GoldenDataset":
+    def ensure_unique_case_ids(self) -> GoldenDataset:
         """Prevent silent joins against duplicate golden case IDs."""
         ids = [case.id for case in self.cases]
         duplicates = sorted({case_id for case_id in ids if ids.count(case_id) > 1})

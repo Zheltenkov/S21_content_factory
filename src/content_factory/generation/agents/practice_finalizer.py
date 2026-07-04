@@ -18,7 +18,6 @@ from .practice_contracts import (
     normalize_sentence,
 )
 
-
 StyleRewrite = Callable[[str, str], str]
 ArtifactLocationBuilder = Callable[..., str]
 

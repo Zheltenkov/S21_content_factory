@@ -16,7 +16,6 @@ from . import config
 from .models import IndicatorSpec, SkillCandidate
 from .skill_names import looks_like_genitive_fragment
 
-
 _ACTION_NORMALIZATION = {
     "формализация": "формулирование",
     "интеграция": "настройка",

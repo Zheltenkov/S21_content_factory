@@ -14,11 +14,11 @@ from dataclasses import dataclass
 from ..config.loader import get_agent_config, prompt_trace_kwargs
 from ..config.thresholds import THRESHOLDS
 from ..domain_contracts import semantic_overlap_ratio, semantic_tokens
-from .base.llm_client import LLMClientProtocol
-from ..utils.didactics_loader import compose_didactics_context
 from ..models.schemas import ProjectContextMeta, ProjectSeed
-from ..utils.text_analysis import count_words
 from ..repair.style_guard import StyleGuardRepair
+from ..utils.didactics_loader import compose_didactics_context
+from ..utils.text_analysis import count_words
+from .base.llm_client import LLMClientProtocol
 
 
 def _count_words(text: str, language: str = "ru") -> int:

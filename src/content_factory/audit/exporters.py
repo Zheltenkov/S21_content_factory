@@ -8,7 +8,14 @@ import zipfile
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-from content_factory.audit.domain import CRITERION_LABELS, ISSUE_KIND_LABELS, SEVERITY_LABELS, VERDICT_LABELS, AuditReport, Verdict
+from content_factory.audit.domain import (
+    CRITERION_LABELS,
+    ISSUE_KIND_LABELS,
+    SEVERITY_LABELS,
+    VERDICT_LABELS,
+    AuditReport,
+    Verdict,
+)
 from content_factory.audit.report_formatting import format_finding_explanation, format_finding_fragment
 from content_factory.audit.triage import is_fix_tier
 

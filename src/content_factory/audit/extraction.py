@@ -9,7 +9,6 @@ from urllib.parse import urlparse
 from content_factory.audit.domain import ContentUnit, EntityType, ExtractedEntity, TextLocation
 from content_factory.audit.text_utils import context_around, line_end_for_match, line_for_offset, quote_around
 
-
 URL_RE = re.compile(r"https?://[^\s\])>\"']+", re.IGNORECASE)
 MARKDOWN_IMAGE_RE = re.compile(r"!\[[^\]]*]\((?P<target>[^)\s]+)(?:\s+\"[^\"]*\")?\)")
 VERSION_RE = re.compile(

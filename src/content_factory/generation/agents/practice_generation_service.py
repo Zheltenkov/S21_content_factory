@@ -27,7 +27,6 @@ from .practice_prompting import (
     determine_practice_content_type,
 )
 
-
 StyleRewrite = Callable[[str, str], str]
 ArtifactLocationBuilder = Callable[..., str]
 

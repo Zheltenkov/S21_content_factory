@@ -1,27 +1,26 @@
 from __future__ import annotations
 
-from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
 import csv
-from difflib import SequenceMatcher
 import io
 import json
-from math import isfinite
 import mimetypes
 import re
 import sqlite3
 import sys
 import unicodedata
+import xml.etree.ElementTree as ET
 import zipfile
+from collections import defaultdict
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from difflib import SequenceMatcher
 from email.parser import BytesParser
 from email.policy import default as email_policy
+from math import isfinite
 from pathlib import Path
-from typing import Callable
 from urllib.parse import parse_qs, urlencode
-import xml.etree.ElementTree as ET
-
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -36,7 +35,12 @@ from content_factory.catalog.viewer.observability import (
     build_job_observability,
     load_llm_usage_summary,
 )
-from content_factory.catalog.viewer.route_zones import detect_route_zone, get_main_nav, get_secondary_nav, show_secondary_nav
+from content_factory.catalog.viewer.route_zones import (
+    detect_route_zone,
+    get_main_nav,
+    get_secondary_nav,
+    show_secondary_nav,
+)
 
 DEFAULT_DB = BASE_DIR.parent / "artifacts" / "skills_catalog.sqlite"
 DEFAULT_SUMMARY = BASE_DIR.parent / "artifacts" / "catalog_summary.json"
@@ -396,7 +400,7 @@ def _read_request_body(environ) -> bytes:
 
 
 def parse_multipart_form_data(raw_body: bytes, content_type: str) -> tuple[dict[str, str], dict[str, UploadedFile]]:
-    header_blob = f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8")
+    header_blob = f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode()
     message = BytesParser(policy=email_policy).parsebytes(header_blob + raw_body)
     form_data: dict[str, str] = {}
     files: dict[str, UploadedFile] = {}
@@ -2815,9 +2819,9 @@ def run_intake_pipeline(
     intake_job_id: int | None = None,
     progress_callback: Callable[[str, str], None] | None = None,
 ) -> dict[str, object]:
+    from content_factory.catalog.pipeline import config as intake_config
     from content_factory.catalog.pipeline import llm as intake_llm
     from content_factory.catalog.pipeline import stage_brief_to_catalog, stage_normalize, storage
-    from content_factory.catalog.pipeline import config as intake_config
     from content_factory.catalog.pipeline.catalog_repo import CatalogRepo
 
     ensure_intake_runtime_schema(conn, db_path)
@@ -3148,8 +3152,7 @@ def refresh_catalog_skill_complexity(conn: sqlite3.Connection, skill_id: int, co
 
 
 def update_review_status(conn: sqlite3.Connection, review_id: int, new_status: str, resolution_note: str) -> None:
-    from content_factory.catalog.pipeline import competency_catalog
-    from content_factory.catalog.pipeline import storage
+    from content_factory.catalog.pipeline import competency_catalog, storage
 
     repair_intake_review_links(conn)
     review_row = conn.execute(

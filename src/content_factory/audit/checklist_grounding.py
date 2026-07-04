@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from typing import Iterable
 
 from content_factory.audit.artifacts import ArtifactTextIndex, artifact_refs_with_extensions
 from content_factory.audit.checklist_matching import ChecklistQuestion
 from content_factory.audit.domain import Severity
-
 
 EXERCISE_HEADING_RE = re.compile(
     r"(?im)^#{1,6}\s*(?:exercise|task|quest|chapter|задани[ея]|упражнени[ея])\s*0*(\d+)\b"
@@ -591,8 +590,8 @@ def _sql_condition_semantically_described(predicate: str, readme_section: str) -
         return (
             f"same {field}" in lowered_readme
             or f"one {field}" in lowered_readme
-            or f"одинаков" in lowered_readme and field in lowered_readme
-            or f"совпада" in lowered_readme and field in lowered_readme
+            or "одинаков" in lowered_readme and field in lowered_readme
+            or "совпада" in lowered_readme and field in lowered_readme
         )
     return False
 

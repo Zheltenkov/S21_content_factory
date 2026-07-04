@@ -13,12 +13,11 @@ from content_factory.api.utils.logger import get_logger
 from content_factory.api.utils.result_cache import get_result
 from content_factory.generation.agents.content_editor import ContentEditorAgent
 from content_factory.generation.agents.regeneration import RegenerationAgent
-from content_factory.generation.regeneration_pipeline import build_regeneration_pipeline_input
-from content_factory.generation.repair.style_guard import StyleGuardRepair
-from content_factory.platform.llm.factory import create_llm_client
 from content_factory.generation.models.readme_document import ReadmeDocument
 from content_factory.generation.project_seed_provider import ProjectSeedProvider
+from content_factory.generation.regeneration_pipeline import build_regeneration_pipeline_input
 from content_factory.generation.renderers.toc import TOCRenderer
+from content_factory.generation.repair.style_guard import StyleGuardRepair
 from content_factory.generation.utils.latex_validator import build_latex_agent_hint, collect_latex_issues
 from content_factory.generation.utils.markdown_display_normalizer import (
     normalize_markdown_display_blocks,
@@ -28,6 +27,7 @@ from content_factory.generation.utils.markdown_regeneration_guard import remove_
 from content_factory.generation.utils.regeneration_scope import RegenerationChangeIntent
 from content_factory.generation.utils.rubric_export import convert_numpy_types, criteria_to_json
 from content_factory.generation.validators.rubric import RubricScorer
+from content_factory.platform.llm.factory import create_llm_client
 from content_factory.utils.token_counter import count_tokens
 
 logger = get_logger("regeneration")

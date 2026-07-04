@@ -6,11 +6,10 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from content_factory.platform.llm.factory import create_llm_client
 from content_factory.generation.methodology import (
+    MethodologistChangeRequest,
     MethodologyAssistantCommandParser,
     MethodologyAssistantParseContext,
-    MethodologistChangeRequest,
     ScopedRevisionExecutor,
 )
 from content_factory.generation.methodology.state_machine import (
@@ -18,11 +17,12 @@ from content_factory.generation.methodology.state_machine import (
     MethodologyRuntimeState,
     MethodologyStateMachine,
 )
+from content_factory.platform.llm.factory import create_llm_client
 
 from .generation_errors import GenerationServiceError
 from .generation_workflow_service import GenerationWorkflowService
-from .methodology_review_state import build_methodology_review_state
 from .methodology_review_actions import ReviewActionCommandService
+from .methodology_review_state import build_methodology_review_state
 from .methodology_scoped_revision_preview import ScopedRevisionPreviewService
 
 JsonDict = dict[str, Any]

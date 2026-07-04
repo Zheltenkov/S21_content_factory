@@ -14,12 +14,12 @@ content_gen/agents/content_editor.py
 import re
 
 from ..config.loader import get_agent_config, prompt_trace_kwargs
-from .base.llm_client import LLMClientProtocol
 from ..models.readme_document import ReadmeDocument, ReadmeSection
 from ..models.schemas import ProjectSeed, TheoryPart
+from ..utils.logging import safe_print
 from ..utils.markdown_block_contract import MarkdownBlockContract
 from ..utils.markdown_display_normalizer import normalize_markdown_display_blocks
-from ..utils.logging import safe_print
+from .base.llm_client import LLMClientProtocol
 
 SYSTEM = ""
 EDIT_TMPL = ""

@@ -7,12 +7,12 @@ POST /translate/readme, POST /translate/document или POST /translate/video в
 
 import asyncio
 import json
-import re
 import os
+import re
 import tempfile
+import threading
 import time
 import uuid
-import threading
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -29,7 +29,12 @@ from pydantic import BaseModel
 from content_factory.api.db.logging_db import write_log_async
 from content_factory.api.db.user_runs_db import upsert_user_run
 from content_factory.api.dependencies import get_current_user
-from content_factory.api.utils.file_validation import FORBIDDEN_FILENAMES, MAX_VIDEO_SIZE, read_upload_limited, validate_video_file
+from content_factory.api.utils.file_validation import (
+    FORBIDDEN_FILENAMES,
+    MAX_VIDEO_SIZE,
+    read_upload_limited,
+    validate_video_file,
+)
 from content_factory.api.utils.logger import get_logger
 from content_factory.api.utils.logging_context import set_request_id, set_user_id
 from content_factory.api.utils.result_cache import (
@@ -38,12 +43,12 @@ from content_factory.api.utils.result_cache import (
     set_translation_job,
     set_translation_phase,
 )
-from content_factory.generation.agents.translator import TranslatorAgent
-from content_factory.platform.llm.factory import create_llm_client
 from content_factory.generation.agents.base.llm_client import LLMClientProtocol
+from content_factory.generation.agents.translator import TranslatorAgent
 from content_factory.generation.models.schemas import ProjectSeed
 from content_factory.generation.subtitles.burned_pipeline import run_burned_subs_pipeline
 from content_factory.generation.utils.translation_languages import get_translation_language_profile
+from content_factory.platform.llm.factory import create_llm_client
 
 logger = get_logger("readme-translate")
 router = APIRouter()

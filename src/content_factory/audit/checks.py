@@ -7,9 +7,10 @@ import ipaddress
 import json
 import re
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import urldefrag, urljoin, urlparse
 
 import requests
@@ -17,12 +18,12 @@ import yaml
 
 from content_factory.audit.artifacts import build_artifact_text_index
 from content_factory.audit.cache import AuditCache
+from content_factory.audit.checklist_grounding import assess_checklist_grounding
 from content_factory.audit.checklist_matching import (
     assess_checklist_description_quality,
     extract_checklist_questions,
     match_checklist_to_readme,
 )
-from content_factory.audit.checklist_grounding import assess_checklist_grounding
 from content_factory.audit.dependencies import (
     CompatibilityIssue,
     DependencyCandidate,
@@ -76,7 +77,6 @@ from content_factory.audit.rights import (
     scan_project_licenses,
 )
 from content_factory.audit.text_utils import normalize_for_match
-
 
 TECH_KEYWORDS = {
     "alpine",
@@ -3867,7 +3867,7 @@ class CurriculumRelevanceChecker(BaseChecker):
         if not numbered_context.strip():
             return ""
         payload = {
-            "check_date": datetime.now(timezone.utc).date().isoformat(),
+            "check_date": datetime.now(UTC).date().isoformat(),
             "unit": unit.name,
             "language_hints": sorted(self._language_hints(unit)),
             "focus_questions": [
@@ -4180,8 +4180,8 @@ def default_checkers(
     """Возвращает набор проверок для первого рабочего прототипа."""
 
     from content_factory.audit.extra_checkers import (
-        CrossFileConsistencyChecker,
         CourseMaterialRelevanceChecker,
+        CrossFileConsistencyChecker,
     )
 
     checkers: list[BaseChecker] = [
@@ -4695,7 +4695,7 @@ def _hash_cache_key(namespace: str, value: str) -> str:
     """Создаём стабильный ключ кэша без хранения длинных утверждений в имени."""
 
     normalized = normalize_for_match(value)
-    digest = hashlib.sha1(f"{namespace}|{normalized}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha1(f"{namespace}|{normalized}".encode()).hexdigest()
     return digest
 
 
@@ -4846,7 +4846,7 @@ def _fact_check_prompt(claim: dict[str, Any]) -> str:
 
     location = claim.get("location")
     payload = {
-        "check_date": datetime.now(timezone.utc).date().isoformat(),
+        "check_date": datetime.now(UTC).date().isoformat(),
         "claim": claim.get("claim"),
         "context": claim.get("context"),
         "file_path": location.file_path if isinstance(location, TextLocation) else None,
@@ -4947,7 +4947,7 @@ def _readme_fact_check_prompt(batch: dict[str, Any]) -> str:
     """Формирует контракт проверки README-фрагмента."""
 
     payload = {
-        "check_date": datetime.now(timezone.utc).date().isoformat(),
+        "check_date": datetime.now(UTC).date().isoformat(),
         "file_path": batch["file_path"],
         "line_start": batch["line_start"],
         "line_end": batch["line_end"],
@@ -4967,7 +4967,7 @@ def _technology_check_prompt(entity: ExtractedEntity) -> str:
     """Формируем входной контракт проверки актуальности технологии."""
 
     payload = {
-        "check_date": datetime.now(timezone.utc).date().isoformat(),
+        "check_date": datetime.now(UTC).date().isoformat(),
         "candidate": entity.value,
         "entity_type": entity.entity_type.value,
         "quote": entity.quote,
@@ -4998,7 +4998,7 @@ def _cached_model_json(
     response = client.complete_json(system_prompt, user_prompt)
     context.record_model_result(client, cache_hit=False, prompt_version=prompt_version)
     record = {
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
         "model": client.model,
         "prompt_version": prompt_version,
         "usage": getattr(client, "last_call_usage", {}) or {},
@@ -5397,7 +5397,7 @@ def _external_check_error(unit: ContentUnit, checker_name: str, criterion: Crite
         [Evidence(title="Внешняя проверка", detail=str(exc))],
         "Повторить проверку после устранения ошибки провайдера или временно отключить модельный контур.",
         True,
-        checked_at=datetime.now(timezone.utc),
+        checked_at=datetime.now(UTC),
         support_status="ошибка проверки" if criterion in {Criterion.ACTUALITY, Criterion.TECHNOLOGY_FRESHNESS} else None,
     )
 

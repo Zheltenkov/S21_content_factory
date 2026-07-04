@@ -7,7 +7,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 _WORD_RE = re.compile(r"[А-Яа-яЁёA-Za-z0-9]+")
 
 _STOP_WORDS = {
@@ -191,7 +190,7 @@ class SectionContextPolicy(BaseModel):
     allows_static_instruction: bool = False
 
     @classmethod
-    def for_theory(cls) -> "SectionContextPolicy":
+    def for_theory(cls) -> SectionContextPolicy:
         """Theory may consume curriculum/narrative context, but not submission instructions."""
         return cls(
             section="theory",
@@ -223,7 +222,7 @@ class SectionContextPolicy(BaseModel):
         )
 
     @classmethod
-    def for_practice(cls) -> "SectionContextPolicy":
+    def for_practice(cls) -> SectionContextPolicy:
         """Practice may see instruction context because it must avoid duplicating it."""
         return cls(
             section="practice",
@@ -247,7 +246,7 @@ class SectionContextPolicy(BaseModel):
         )
 
     @classmethod
-    def for_dataset(cls) -> "SectionContextPolicy":
+    def for_dataset(cls) -> SectionContextPolicy:
         """Dataset generation receives raw-evidence specs, but not final markdown or static instructions."""
         return cls(
             section="dataset",
@@ -278,7 +277,7 @@ class SectionContextPolicy(BaseModel):
         )
 
     @classmethod
-    def for_finalize(cls) -> "SectionContextPolicy":
+    def for_finalize(cls) -> SectionContextPolicy:
         """Finalize may assemble generated artifacts, but should expose only report-safe context."""
         return cls(
             section="finalize",

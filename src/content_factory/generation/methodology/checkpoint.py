@@ -70,7 +70,7 @@ class HumanApprovalCheckpointPolicy:
         self.checkpoints = checkpoints or set()
 
     @classmethod
-    def from_env(cls, *, enabled_by_default: bool = False) -> "HumanApprovalCheckpointPolicy":
+    def from_env(cls, *, enabled_by_default: bool = False) -> HumanApprovalCheckpointPolicy:
         raw_value = os.getenv("METHODOLOGY_HUMAN_CHECKPOINTS")
         if raw_value is None:
             raw_value = "all" if enabled_by_default else ""

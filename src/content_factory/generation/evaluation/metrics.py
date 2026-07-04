@@ -11,7 +11,6 @@ from ..models.readme_document import ReadmeDocument, ReadmeSection
 from ..observability import fallback_trace_policy_issues
 from .models import EvalMetricBreakdown, EvalThresholds, GeneratedProjectOutput, GoldenProjectCase
 
-
 STRUCTURE_CRITERIA_PREFIXES = ("1.", "2.1", "2.2", "2.3")
 PRACTICE_CRITERIA_PREFIXES = ("2.5",)
 DIDACTICS_CRITERIA_PREFIXES = ("2.3", "2.4", "2.5", "3.", "4.")

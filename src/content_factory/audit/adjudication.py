@@ -14,9 +14,9 @@ import math
 import random
 import re
 from collections import Counter, defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
 
 Z_95 = 1.96
 VALID_VERDICTS = {"real", "style", "wrong"}

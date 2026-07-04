@@ -49,7 +49,7 @@ class NodeContract(BaseModel):
     observability_tags: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _require_operational_fields(self) -> "NodeContract":
+    def _require_operational_fields(self) -> NodeContract:
         """Fail fast when a node is documented without executable policies."""
         missing: list[str] = []
         if not self.validators:
@@ -97,7 +97,7 @@ class NodeContractLibrary(BaseModel):
     contracts: dict[str, NodeContract]
 
     @model_validator(mode="after")
-    def _contract_keys_match_node_ids(self) -> "NodeContractLibrary":
+    def _contract_keys_match_node_ids(self) -> NodeContractLibrary:
         """Keep YAML keys and embedded node IDs in sync."""
         mismatched = [
             f"{key}!={contract.node_id}"

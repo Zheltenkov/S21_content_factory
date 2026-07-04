@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-
 ACTIVE_GOAL_VERB_PATTERNS: tuple[str, ...] = (
     r"\bразработ(?:ать|ай|айте)\b",
     r"\bнастро(?:ить|й|йте)\b",

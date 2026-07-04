@@ -19,7 +19,11 @@ from content_factory.api.db.models import PasswordResetToken, User, UserSession
 from content_factory.api.db.session import get_db_session
 from content_factory.api.dependencies import get_current_user
 from content_factory.api.integrations.auth_cookie import clear_auth_cookie, request_token, set_auth_cookie
-from content_factory.api.utils.email_service import get_password_reset_email_html, get_welcome_email_html, send_email_async
+from content_factory.api.utils.email_service import (
+    get_password_reset_email_html,
+    get_welcome_email_html,
+    send_email_async,
+)
 from content_factory.api.utils.logger import get_logger
 
 

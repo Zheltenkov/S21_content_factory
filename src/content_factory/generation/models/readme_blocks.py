@@ -44,7 +44,7 @@ class ReadmeBlock(BaseModel):
         """Return the renderable Markdown source for the block."""
         return self.source
 
-    def with_section(self, title: str, path: list[str]) -> "ReadmeBlock":
+    def with_section(self, title: str, path: list[str]) -> ReadmeBlock:
         """Attach section location metadata to the extracted block."""
         return self.model_copy(
             update={

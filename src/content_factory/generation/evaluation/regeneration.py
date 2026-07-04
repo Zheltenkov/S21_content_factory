@@ -56,7 +56,7 @@ class RegenerationEvalCase(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def normalize_case(self) -> "RegenerationEvalCase":
+    def normalize_case(self) -> RegenerationEvalCase:
         self.id = self.id.strip()
         self.title = self.title.strip()
         self.selected_section_titles = _unique_non_empty(self.selected_section_titles)
@@ -92,7 +92,7 @@ class RegenerationEvalDataset(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def ensure_unique_case_ids(self) -> "RegenerationEvalDataset":
+    def ensure_unique_case_ids(self) -> RegenerationEvalDataset:
         ids = [case.id for case in self.cases]
         duplicates = sorted({case_id for case_id in ids if ids.count(case_id) > 1})
         if duplicates:

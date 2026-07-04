@@ -6,8 +6,8 @@ import hashlib
 import json
 import os
 import uuid
-from datetime import UTC, datetime
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -85,7 +85,7 @@ class NodeTraceEvent(BaseModel):
         repair_attempts: int = 0,
         output_schema: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> "NodeTraceEvent":
+    ) -> NodeTraceEvent:
         """Build a trace event from runtime execution data."""
         issue_list = [str(issue) for issue in issues or [] if str(issue)]
         if status == "error":
@@ -140,7 +140,7 @@ class FallbackTraceEvent(BaseModel):
         inputs: Any | None = None,
         trace: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> "FallbackTraceEvent":
+    ) -> FallbackTraceEvent:
         """Build a fallback trace with optional deterministic input hashing."""
         input_hash = stable_input_hash(inputs) if inputs is not None else None
         resolved_trace = trace or {}
@@ -322,7 +322,7 @@ class LLMCallTraceEvent(BaseModel):
         prompt_version: str | None = None,
         repair_attempts: int = 0,
         metadata: dict[str, Any] | None = None,
-    ) -> "LLMCallTraceEvent":
+    ) -> LLMCallTraceEvent:
         """Build a trace event from an LLM complete call."""
         issues = [error] if error else []
         output_schema = None
@@ -358,7 +358,7 @@ class LLMCallTraceEvent(BaseModel):
 class LLMTraceRecorder:
     """In-memory trace sink for one generation run."""
 
-    def __init__(self, sink: "UnifiedTraceSink | None" = None) -> None:
+    def __init__(self, sink: UnifiedTraceSink | None = None) -> None:
         self.events: list[dict[str, Any]] = []
         self.sink = sink
 
@@ -412,7 +412,7 @@ class EvalArtifact(BaseModel):
         user_id: str | None,
         trace: NodeTraceEvent,
         output_artifact: dict[str, Any] | None = None,
-    ) -> "EvalArtifact":
+    ) -> EvalArtifact:
         """Build a compact artifact from a node trace and its emitted outputs."""
         return cls(
             artifact_id=f"{trace.node}:{trace.input_hash}:{trace.status}",

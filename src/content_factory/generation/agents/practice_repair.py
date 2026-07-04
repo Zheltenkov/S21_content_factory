@@ -11,7 +11,6 @@ from ..config.thresholds import CODE_EXAMPLE_CONFIG, THRESHOLDS
 from ..models.schemas import ProjectSeed
 from ..utils.text_analysis import count_words
 
-
 StyleRewrite = Callable[[str, str], str]
 
 

@@ -10,11 +10,11 @@ content_gen/agents/length_agent.py
 import re
 
 from ..config.thresholds import THRESHOLDS
-from .base.llm_client import LLMClientProtocol
 from ..models.schemas import ProjectSeed, TheoryPart
+from ..repair.style_guard import StyleGuardRepair
 from ..utils.logging import safe_print
 from ..utils.text_analysis import count_words
-from ..repair.style_guard import StyleGuardRepair
+from .base.llm_client import LLMClientProtocol
 
 SYSTEM = """Ты — эксперт по редактированию образовательного контента.
 Твоя задача — корректировать длину текста, сохраняя все определения терминов и смысл.

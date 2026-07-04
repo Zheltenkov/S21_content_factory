@@ -7,7 +7,6 @@ from pathlib import Path
 
 from content_factory.audit.domain import ContentFile, ContentUnit
 
-
 SUPPORTED_SUFFIXES = {
     ".md",
     ".txt",

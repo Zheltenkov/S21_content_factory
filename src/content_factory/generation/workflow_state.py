@@ -109,7 +109,7 @@ class GenerationStateMachine:
         self.snapshot = snapshot
 
     @classmethod
-    def create(cls, request_id: str, user_id: str | None = None, **metadata: Any) -> "GenerationStateMachine":
+    def create(cls, request_id: str, user_id: str | None = None, **metadata: Any) -> GenerationStateMachine:
         """Create a workflow in the initial durable state."""
         return cls(
             GenerationWorkflowSnapshot(

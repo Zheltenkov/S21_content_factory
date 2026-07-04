@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 
-
 _OBJECT_REWRITES = {
     "api-контракты для mvp": "API-контрактов для MVP",
     "api‑контракты для mvp": "API-контрактов для MVP",

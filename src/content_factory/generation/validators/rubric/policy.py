@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from ...models.criteria_models import CheckMethod, CriteriaItem, StrictnessLevel
 
-
 WARNING_PREFIX = "Предупреждение:"
 SOFT_METHODS = {CheckMethod.AI_AGENT, CheckMethod.SBERT, CheckMethod.HYBRID}
 SEMANTIC_TITLE_HINTS = (

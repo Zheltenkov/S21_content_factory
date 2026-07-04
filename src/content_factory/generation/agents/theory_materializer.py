@@ -10,7 +10,6 @@ from ..models.schemas import ProjectSeed, TheoryPart
 from .theory_generation import semantic_cover, theory_anchor_terms
 from .theory_sanitizer import _sanitize_theory_body_text, _sanitize_theory_example_text
 
-
 StyleRewrite = Callable[[str, str], str]
 
 

@@ -15,22 +15,17 @@ from typing import Any
 from ..config.loader import get_agent_config
 from ..didactics.composer import compose_didactics_context
 from ..models.schemas import ProjectContextMeta, ProjectSeed, TheoryPart
+from ..repair.style_guard import StyleGuardRepair
 from .base.agent import BaseAgent
 from .base.llm_client import LLMClientProtocol
-from ..repair.style_guard import StyleGuardRepair
-from .theory_generation_service import TheoryGenerationService
 from .theory_generation import (
     pick_theory_parts_count,
     semantic_cover,
     theory_anchor_terms,
     validate_bridge_questions,
 )
+from .theory_generation_service import TheoryGenerationService
 from .theory_materializer import TheoryPartMaterializer
-from .theory_sanitizer import (
-    _normalize_definition_bold,
-    _sanitize_theory_body_text,
-    _sanitize_theory_example_text,
-)
 from .theory_prompting import (
     build_theory_content_type_section,
     build_theory_curriculum_context_section,
@@ -38,6 +33,11 @@ from .theory_prompting import (
     build_theory_questions_prompt,
     build_theory_sjm_section,
     determine_theory_content_type,
+)
+from .theory_sanitizer import (
+    _normalize_definition_bold,
+    _sanitize_theory_body_text,
+    _sanitize_theory_example_text,
 )
 
 SYSTEM = ""

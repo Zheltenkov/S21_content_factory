@@ -90,7 +90,7 @@ class GenerationFlowHandlers:
         result_assembler: ResultAssembler,
         log_phase: Callable[[str, str], None],
         section_context_recorder: SectionContextRecorder | None = None,
-    ) -> "GenerationFlowHandlers":
+    ) -> GenerationFlowHandlers:
         """Build handlers from concrete node executors."""
         recorder = section_context_recorder or SectionContextRecorder()
         return cls(

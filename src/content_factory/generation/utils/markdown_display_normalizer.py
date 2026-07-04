@@ -12,7 +12,6 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-
 _FENCED_BLOCK_RE = re.compile(r"```[\s\S]*?```", re.MULTILINE)
 _MERMAID_FENCE_RE = re.compile(r"```mermaid\s+([\s\S]*?)```", re.IGNORECASE)
 _MERMAID_OPEN_RE = re.compile(r"```mermaid\b[ \t]*", re.IGNORECASE)

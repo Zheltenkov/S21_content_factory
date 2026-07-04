@@ -6,10 +6,10 @@
 """
 
 
-from .base.llm_client import LLMClientProtocol
 from ..models.enhancement_plan import EnhancementExecutionLog, EnhancementPlan
 from ..models.schemas import ProjectSeed, TheoryPart
 from ..utils.logging import safe_print
+from .base.llm_client import LLMClientProtocol
 from .enhancement_manager import TheoryEnhancementManager
 from .enhancement_planner import EnhancementPlanner
 from .quality_gate import QualityGate

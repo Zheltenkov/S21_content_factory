@@ -22,7 +22,6 @@ import json
 import re
 from typing import Any
 
-from .base.llm_client import LLMClientProtocol
 from ..models.enhancement_models import FormulaItem, FormulaTableResult, GenerationResponse, TableItem, VisualItem
 from ..models.schemas import ProjectSeed
 from ..utils.logging import safe_print
@@ -31,6 +30,7 @@ from ..utils.markdown_renderer import (
     render_mermaid,
     render_table,
 )
+from .base.llm_client import LLMClientProtocol
 
 SYSTEM = """Ты — эксперт по анализу образовательного контента и генерации математических формул, таблиц и визуализаций.
 Твоя задача — определить, нужны ли для темы формулы, таблицы или диаграммы, и сгенерировать их при необходимости.

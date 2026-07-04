@@ -1,5 +1,6 @@
 """Доступ к реальному skills_catalog.sqlite: канон + резолв кандидатов."""
 from __future__ import annotations
+
 import difflib
 import re
 import sqlite3

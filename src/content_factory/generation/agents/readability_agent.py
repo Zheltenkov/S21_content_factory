@@ -9,10 +9,10 @@ content_gen/agents/readability_agent.py
 
 import re
 
-from .base.llm_client import LLMClientProtocol
 from ..models.schemas import ProjectSeed, TheoryPart
 from ..utils.logging import safe_print
 from ..validators.rubric import _readability_index
+from .base.llm_client import LLMClientProtocol
 
 SYSTEM = """Ты — эксперт по улучшению читаемости образовательного контента.
 Твоя задача — упрощать текст, делая его более понятным, сохраняя смысл и определения терминов.

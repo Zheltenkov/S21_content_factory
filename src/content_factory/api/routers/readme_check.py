@@ -8,14 +8,14 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from content_factory.api.db.user_runs_db import upsert_user_run
 from content_factory.api.db.logging_db import write_log_async
+from content_factory.api.db.user_runs_db import upsert_user_run
 from content_factory.api.dependencies import get_current_user
 from content_factory.api.utils.logger import get_logger
 from content_factory.api.utils.logging_context import set_request_id, set_user_id
-from content_factory.platform.llm.factory import create_llm_client
 from content_factory.generation.utils.rubric_export import criteria_to_json
 from content_factory.generation.validators.rubric import RubricScorer
+from content_factory.platform.llm.factory import create_llm_client
 from content_factory.utils.token_counter import count_tokens
 
 logger = get_logger("readme_check")

@@ -20,11 +20,10 @@ from ..config.loader import get_agent_config
 from ..config.thresholds import CODE_EXAMPLE_CONFIG
 from ..didactics.composer import compose_didactics_context
 from ..models.schemas import PracticeTask, ProjectSeed
+from ..repair.style_guard import StyleGuardRepair
 from .base.agent import BaseAgent
 from .base.llm_client import LLMClientProtocol
 from .practice_bonus_service import BonusPracticeService
-from .practice_finalizer import PracticeTaskFinalizer
-from .practice_generation_service import PracticeGenerationService
 from .practice_contracts import (
     artifact_kind_from_task,
     artifact_review_subject,
@@ -37,6 +36,8 @@ from .practice_contracts import (
     normalize_approach_bullets,
     normalize_sentence,
 )
+from .practice_finalizer import PracticeTaskFinalizer
+from .practice_generation_service import PracticeGenerationService
 from .practice_parsing import (
     parse_approach_bullets,
     parse_p2p_criteria,
@@ -60,7 +61,6 @@ from .practice_repair import (
     summarize_approach_to_limit,
     token_set,
 )
-from ..repair.style_guard import StyleGuardRepair
 
 if TYPE_CHECKING:
     from .code_example import CodeExampleAgent

@@ -1,7 +1,7 @@
 """Endpoint для парсинга Excel файлов."""
 
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
@@ -54,6 +54,6 @@ async def parse_excel(
         raise HTTPException(status_code=500, detail="Для работы с Excel файлами требуется pandas. Установите: pip install pandas openpyxl")
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Ошибка при чтении Excel файла")
 

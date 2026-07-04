@@ -9,23 +9,23 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from content_factory.api.db.generation_results_db import list_recent_generation_results_for_user, save_generation_result
+from content_factory.api.db.logging_db import write_log_async
+from content_factory.api.db.paused_generation_db import (
+    load_paused_generation_session,
+    mark_paused_generation_approved,
+    mark_paused_generation_completed,
+    mark_paused_generation_diff_approved,
+    mark_paused_generation_rejected,
+    record_paused_generation_change_request,
+    record_paused_generation_preview,
+    save_paused_generation_session,
+)
 from content_factory.api.db.user_runs_db import (
     count_active_user_runs,
     list_recent_user_runs_for_user,
     mark_user_run_cancelled,
     reconcile_stale_active_user_runs,
     upsert_user_run,
-)
-from content_factory.api.db.logging_db import write_log_async
-from content_factory.api.db.paused_generation_db import (
-    load_paused_generation_session,
-    mark_paused_generation_diff_approved,
-    mark_paused_generation_approved,
-    mark_paused_generation_completed,
-    mark_paused_generation_rejected,
-    record_paused_generation_change_request,
-    record_paused_generation_preview,
-    save_paused_generation_session,
 )
 from content_factory.api.dependencies import get_current_user
 from content_factory.api.schemas import GenerateStartResponse, GenerationStatusResponse
@@ -35,35 +35,59 @@ from content_factory.api.services.generation_start_service import GenerationStar
 from content_factory.api.services.generation_status_service import GenerationStatusService
 from content_factory.api.services.methodology_review_artifacts import (
     checkpoint_payload_hash as _checkpoint_payload_hash,
+)
+from content_factory.api.services.methodology_review_artifacts import (
     context_preview_markdown as _context_preview_markdown,
+)
+from content_factory.api.services.methodology_review_artifacts import (
     is_final_checkpoint_payload as _is_final_checkpoint_payload,
+)
+from content_factory.api.services.methodology_review_artifacts import (
     markdown_outline as _markdown_outline,
+)
+from content_factory.api.services.methodology_review_artifacts import (
     markdown_section as _markdown_section,
+)
+from content_factory.api.services.methodology_review_artifacts import (
     markdown_subsections as _markdown_subsections,
+)
+from content_factory.api.services.methodology_review_artifacts import (
     methodology_human_review_enabled as _methodology_human_review_enabled,
+)
+from content_factory.api.services.methodology_review_artifacts import (
     refresh_checkpoint_artifact as _refresh_checkpoint_artifact,
 )
 from content_factory.api.services.methodology_review_service import MethodologyReviewService
 from content_factory.api.services.methodology_review_state import (
     build_methodology_review_state as _build_methodology_review_state,
+)
+from content_factory.api.services.methodology_review_state import (
     change_action_ids as _change_action_ids,
+)
+from content_factory.api.services.methodology_review_state import (
     current_review_action_slice as _current_review_action_slice,
+)
+from content_factory.api.services.methodology_review_state import (
     latest_review_action as _latest_review_action,
+)
+from content_factory.api.services.methodology_review_state import (
     preview_hash as _preview_hash,
+)
+from content_factory.api.services.methodology_review_state import (
     revision_results_for_action_ids as _revision_results_for_action_ids,
 )
 from content_factory.api.utils.logger import get_logger
 from content_factory.api.utils.result_cache import (
     cancel_generation_task,
+    get_active_generation_count,
     get_generation_error,
     get_generation_methodology,
     get_generation_owner,
     get_generation_status,
-    get_active_generation_count,
     get_result,
     register_generation_task,
-    set_generation_owner,
     set_generation_methodology,
+    set_generation_owner,
     set_generation_status,
     store_generation_error,
     store_result,
@@ -72,12 +96,12 @@ from content_factory.api.utils.result_cache import (
 
 logger = get_logger("generation")
 from content_factory.generation.exceptions import ContentGenerationError
-from content_factory.platform.llm.factory import create_llm_client
 from content_factory.generation.methodology import (
     MethodologistChangeRequest,
     ScopedRevisionExecutor,
 )
 from content_factory.generation.orchestrator import Orchestrator
+from content_factory.platform.llm.factory import create_llm_client
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)

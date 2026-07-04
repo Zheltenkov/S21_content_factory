@@ -1,5 +1,6 @@
 """Слой доступа к OpenAI-compatible LLM API через Polza AI/OpenRouter fallback."""
 from __future__ import annotations
+
 import json
 import time
 from contextvars import ContextVar
@@ -7,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from content_factory.platform.llm import transport
+
 from . import config
 from .prompt_versions import prompt_version_for_stage
 

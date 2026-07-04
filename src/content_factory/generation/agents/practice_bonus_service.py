@@ -22,7 +22,6 @@ from .practice_repair import (
     token_set,
 )
 
-
 StyleRewrite = Callable[[str, str], str]
 ArtifactLocationBuilder = Callable[..., str]
 

@@ -15,7 +15,6 @@ from content_factory.api.db.paused_generation_codec import hydrate_context
 from content_factory.generation.workflow.flow_runner import FlowExecutionStep, load_flow_definition
 from content_factory.generation.workflow_state import WorkflowCommand
 
-
 _SECTION_TO_NODE = {
     "context": "context",
     "init": "context",

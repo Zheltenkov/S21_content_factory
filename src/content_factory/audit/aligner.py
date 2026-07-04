@@ -470,7 +470,7 @@ HIGH_PRECISION_ISSUE_TYPES = {
     "missing_local_resource", "spec_code_output_mismatch", "spec_code_contradiction",
     "course_language_material_mismatch", "language_material_conflict", "inappropriate_tool",
     "language_tooling_conflict", "ungrounded_sql_condition", "ungrounded_self_join_order",
-    "suspicious_duplicate_name_result", "missing_label_colon", "case", "typo",
+    "suspicious_duplicate_name_result", "case", "typo",
 }
 
 

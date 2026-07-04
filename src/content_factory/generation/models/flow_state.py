@@ -98,7 +98,7 @@ class ProjectFlowState(BaseModel):
     stopped_reason: str | None = None
 
     @classmethod
-    def from_initial_input(cls, raw_input: dict[str, Any], track_files: list[str] | None = None) -> "ProjectFlowState":
+    def from_initial_input(cls, raw_input: dict[str, Any], track_files: list[str] | None = None) -> ProjectFlowState:
         """Construct initial pipeline state."""
         return cls(
             raw_input=raw_input,

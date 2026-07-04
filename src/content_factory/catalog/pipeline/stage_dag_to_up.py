@@ -7,11 +7,10 @@ the final payload remains compatible with the existing UI and CSV export.
 """
 from __future__ import annotations
 
-from math import isfinite
 import re
+from math import isfinite
 
-from . import config
-from . import language
+from . import config, language
 from .curriculum import CurriculumBlock, PlanNode, ProjectBlueprint, SkillOccurrence, build_curriculum_blocks
 from .models import SkillCandidate
 

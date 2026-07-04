@@ -1,11 +1,13 @@
 """Персистентность: применяет миграцию недостающих таблиц и пишет результаты."""
 from __future__ import annotations
+
 import json
 import re
 import sqlite3
 import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
+
 from . import competency_catalog, config
 from .models import Evidence, SkillCandidate
 

@@ -10,10 +10,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from .readme_blocks import (
     ReadmeBlock,
     ReadmeBlockKind,
-    block_counts as count_readme_blocks,
     extract_readme_blocks,
     materialize_readme_blocks,
     render_readme_blocks,
+)
+from .readme_blocks import (
+    block_counts as count_readme_blocks,
 )
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", flags=re.MULTILINE)
@@ -30,7 +32,7 @@ class ReadmeSection(BaseModel):
     level: int = Field(ge=1, le=6)
     body: str = ""
     blocks: list[ReadmeBlock] = Field(default_factory=list)
-    children: list["ReadmeSection"] = Field(default_factory=list)
+    children: list[ReadmeSection] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     def model_post_init(self, __context: Any) -> None:
@@ -65,7 +67,7 @@ class ReadmeSection(BaseModel):
             return body
         return rendered
 
-    def flatten(self) -> list["ReadmeSection"]:
+    def flatten(self) -> list[ReadmeSection]:
         """Return this section and all descendants in document order."""
         result = [self]
         for child in self.children:
@@ -124,7 +126,7 @@ class ReadmeSection(BaseModel):
         *,
         fallback_title: str = "Section",
         fallback_level: int = 2,
-    ) -> "ReadmeSection":
+    ) -> ReadmeSection:
         """Parse a standalone Markdown section into a typed section tree."""
         text = (markdown or "").replace("\r\n", "\n").replace("\r", "\n").strip()
         if not text:
@@ -249,7 +251,7 @@ class ReadmeDocument(BaseModel):
         replacement: ReadmeSection | str,
         *,
         fallback_level: int = 2,
-    ) -> tuple["ReadmeDocument", bool]:
+    ) -> tuple[ReadmeDocument, bool]:
         """Return a copy with the first matching section replaced."""
         normalized = fragment.casefold().strip()
         if not normalized:
@@ -270,7 +272,7 @@ class ReadmeDocument(BaseModel):
         body: str,
         *,
         language: str = "ru",
-    ) -> tuple["ReadmeDocument", bool]:
+    ) -> tuple[ReadmeDocument, bool]:
         """Return a copy where one chapter keeps its title but receives a typed body tree."""
         chapter = self.chapter_section(chapter_number, language=language)
         if chapter is None:
@@ -296,7 +298,7 @@ class ReadmeDocument(BaseModel):
         *,
         chapter_body: str = "",
         language: str = "ru",
-    ) -> tuple["ReadmeDocument", bool]:
+    ) -> tuple[ReadmeDocument, bool]:
         """Return a copy where one chapter receives already-typed child sections."""
         labels = self._chapter_title_labels(chapter_number, language=language)
         document = self.model_copy(deep=True)
@@ -320,7 +322,7 @@ class ReadmeDocument(BaseModel):
         replacement: ReadmeSection | str,
         *,
         fallback_level: int = 2,
-    ) -> "ReadmeDocument":
+    ) -> ReadmeDocument:
         """Replace a matching section or append the section when it is absent."""
         document, replaced = self.with_replaced_section_by_title_fragment(
             fragment,
@@ -338,7 +340,7 @@ class ReadmeDocument(BaseModel):
         )
         return document
 
-    def without_section_by_title_fragment(self, fragment: str) -> tuple["ReadmeDocument", bool]:
+    def without_section_by_title_fragment(self, fragment: str) -> tuple[ReadmeDocument, bool]:
         """Return a copy with the first matching section removed."""
         normalized = fragment.casefold().strip()
         if not normalized:
@@ -376,7 +378,7 @@ class ReadmeDocument(BaseModel):
         return count_readme_blocks(self.content_blocks(include_paragraphs=include_paragraphs))
 
     @classmethod
-    def from_value(cls, value: Any, *, fallback_markdown: str = "", fallback_title: str = "README") -> "ReadmeDocument":
+    def from_value(cls, value: Any, *, fallback_markdown: str = "", fallback_title: str = "README") -> ReadmeDocument:
         """Hydrate a ReadmeDocument from model/dict/Markdown values."""
         if isinstance(value, cls):
             return value
@@ -390,7 +392,7 @@ class ReadmeDocument(BaseModel):
         return cls.from_markdown(fallback_markdown, fallback_title=fallback_title)
 
     @classmethod
-    def from_markdown(cls, markdown: str, *, fallback_title: str = "README") -> "ReadmeDocument":
+    def from_markdown(cls, markdown: str, *, fallback_title: str = "README") -> ReadmeDocument:
         """Parse Markdown headings into a typed document without changing content."""
         text = (markdown or "").replace("\r\n", "\n").replace("\r", "\n")
         heading_matches = cls._heading_matches(text)

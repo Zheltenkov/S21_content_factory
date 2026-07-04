@@ -17,12 +17,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from content_factory.platform.llm.structured_output import StructuredLLMClient
+
 from ..config.thresholds import (
     DEFAULT_ENHANCEMENT_BUDGET,
     get_enhancement_config_for_content_type,
 )
-from .base.llm_client import LLMClientProtocol
-from content_factory.platform.llm.structured_output import StructuredLLMClient
 from ..models.enhancement_plan import (
     EnhancementBudget,
     EnhancementPlan,
@@ -34,6 +34,7 @@ from ..models.generation_profile import DEFAULT_PROFILE, GenerationProfile, get_
 from ..models.schemas import ProjectSeed, TheoryPart
 from ..observability import FallbackTraceEvent
 from ..utils.logging import safe_print
+from .base.llm_client import LLMClientProtocol
 
 
 class EnhancementPlanLLMResponse(BaseModel):

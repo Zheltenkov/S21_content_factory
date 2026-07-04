@@ -120,19 +120,19 @@ class MethodologyRepairController:
         if "task_planning.tasks_count_out_of_range" in issue_codes:
             repaired_count = max(min_tasks, min(max_tasks, current_count or min_tasks))
             if repaired_count != current_count:
-                setattr(task_plan, "tasks_count", repaired_count)
+                task_plan.tasks_count = repaired_count
                 updated_fields.append("task_plan.tasks_count")
                 actions.append(f"clamped TaskPlan.tasks_count from {current_count} to {repaired_count}")
 
         repaired_count = int(getattr(task_plan, "tasks_count", current_count) or current_count or min_tasks)
         if seed is not None and getattr(seed, "tasks_count", None) != repaired_count:
-            setattr(seed, "tasks_count", repaired_count)
+            seed.tasks_count = repaired_count
             updated_fields.append("seed.tasks_count")
             actions.append(f"synced ProjectSeed.tasks_count to {repaired_count}")
 
         complexity = getattr(task_plan, "complexity", None)
         if seed is not None and complexity and getattr(seed, "task_complexity", None) != complexity:
-            setattr(seed, "task_complexity", complexity)
+            seed.task_complexity = complexity
             updated_fields.append("seed.task_complexity")
             actions.append(f"synced ProjectSeed.task_complexity to {complexity}")
 

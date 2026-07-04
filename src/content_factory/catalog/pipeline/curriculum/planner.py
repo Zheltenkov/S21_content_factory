@@ -7,8 +7,9 @@ pedagogically useful than a one-skill-per-project topological walk.
 
 from __future__ import annotations
 
-from collections import Counter
 import re
+from collections import Counter
+
 import networkx as nx
 
 from .. import config

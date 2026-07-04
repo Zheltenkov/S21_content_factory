@@ -18,11 +18,11 @@ from .agents.theory import TheoryAgent
 from .agents.theory_enhancement_agent import TheoryEnhancementAgent
 from .agents.title_annotation import TitleAnnotationAgent
 from .agents.translator import TranslatorAgent
+from .models.flow_state import ProjectContextBundle
+from .models.schemas import PracticeTask, ProjectContextMeta, TheoryPart
 from .renderers.skeleton import SkeletonRenderer
 from .renderers.toc import TOCRenderer
 from .repair.style_guard import StyleGuardRepair
-from .models.flow_state import ProjectContextBundle
-from .models.schemas import PracticeTask, ProjectContextMeta, TheoryPart
 from .validators.practice import PracticeValidator
 from .validators.structural_preflight import StructuralPreflight
 from .validators.structure import IntroValidator

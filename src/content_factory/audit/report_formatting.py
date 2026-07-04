@@ -4,7 +4,6 @@ import re
 
 from content_factory.audit.domain import Finding
 
-
 _TECH_PREFIXES = (
     "Проверка README",
     "Актуальность технологии",

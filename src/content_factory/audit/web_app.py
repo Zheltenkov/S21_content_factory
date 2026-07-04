@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
-import re
-import shutil
-import subprocess
-import tarfile
-import zipfile
 import hmac
 import html
 import json
 import mimetypes
+import re
 import secrets
+import shutil
+import subprocess
+import tarfile
+import zipfile
 from collections import Counter
+from collections.abc import Iterable
 from email import policy
 from email.parser import BytesParser
-from http.cookies import SimpleCookie
 from http import HTTPStatus
+from http.cookies import SimpleCookie
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from content_factory.audit.domain import (
@@ -33,13 +34,12 @@ from content_factory.audit.domain import (
     Severity,
 )
 from content_factory.audit.env import get_env_value, load_env_file
+from content_factory.audit.exporters import write_report
+from content_factory.audit.orchestrator import AuditRunner
 from content_factory.audit.report_formatting import (
     format_finding_explanation_html,
     format_finding_fragment,
 )
-from content_factory.audit.exporters import write_report
-from content_factory.audit.orchestrator import AuditRunner
-
 
 DEFAULT_REPORT_DIR = Path("reports") / "ui_latest"
 DEFAULT_MODEL = "openai/gpt-5.4-mini"
@@ -163,7 +163,7 @@ def _read_multipart_form(body: bytes, content_type: str) -> dict[str, str]:
     """Разбирает multipart-форму и сохраняет загруженный архив во временную папку."""
 
     message = BytesParser(policy=policy.default).parsebytes(
-        f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8") + body
+        f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode() + body
     )
     form: dict[str, str] = {}
     upload_dir: Path | None = None

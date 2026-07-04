@@ -10,12 +10,11 @@ content_gen/agents/enhancement_manager.py
 Принимает решения на основе анализа темы и навыков.
 """
 
-from .base.llm_client import LLMClientProtocol
 from ..models.enhancement_models import FormulaItem, TableItem, VisualItem
 from ..models.enhancement_plan import EnhancementExecutionLog, EnhancementPlan, ImportanceLevel
 from ..models.schemas import ProjectSeed, TheoryPart
-
 from ..utils.logging import safe_print
+from .base.llm_client import LLMClientProtocol
 from .code_example import CodeExampleAgent
 from .formula_table import FormulaTableAgent
 

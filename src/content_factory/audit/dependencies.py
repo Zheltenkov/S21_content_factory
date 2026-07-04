@@ -6,14 +6,13 @@ import json
 import re
 import tomllib
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 from urllib.parse import quote
 
 import requests
 
 from content_factory.audit.domain import ContentUnit, TextLocation
-
 
 SUPPORTED_DEPENDENCY_ECOSYSTEMS = {"npm", "pypi", "docker"}
 
@@ -88,7 +87,7 @@ class DependencyRegistryClient:
             name=candidate.name,
             latest_version=str(latest) if latest else None,
             source_url=url,
-            checked_at=datetime.now(timezone.utc),
+            checked_at=datetime.now(UTC),
             license_spdx=_license_value(version_payload.get("license") or payload.get("license")),
             peer_dependencies=_string_dict(version_payload.get("peerDependencies")),
             engines=_string_dict(version_payload.get("engines")),
@@ -104,7 +103,7 @@ class DependencyRegistryClient:
             name=candidate.name,
             latest_version=str(info.get("version") or "") or None,
             source_url=url,
-            checked_at=datetime.now(timezone.utc),
+            checked_at=datetime.now(UTC),
             license_spdx=_license_value(info.get("license_expression") or info.get("license")),
             required_python=str(info.get("requires_python") or "") or None,
         )
@@ -121,7 +120,7 @@ class DependencyRegistryClient:
             name=image,
             latest_version=tag or "latest",
             source_url=url,
-            checked_at=datetime.now(timezone.utc),
+            checked_at=datetime.now(UTC),
         )
 
 

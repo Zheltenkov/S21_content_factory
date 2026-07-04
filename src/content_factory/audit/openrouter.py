@@ -10,6 +10,7 @@ import requests
 
 from content_factory.platform.llm import transport
 
+
 class OpenRouterError(RuntimeError):
     """Ошибка обращения к OpenRouter."""
 

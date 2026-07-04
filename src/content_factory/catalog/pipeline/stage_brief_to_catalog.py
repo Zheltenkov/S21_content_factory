@@ -4,18 +4,16 @@
 резолвим их против канона, затем запускаем grounded-поиск только для серой зоны.
 """
 from __future__ import annotations
+
 import hashlib
 import json
 import re
 import sqlite3
-from datetime import date
-from datetime import UTC, datetime, timedelta
-from . import config, llm
-from . import stage_atomize
-from . import stage_normalize
-from . import language
-from .models import BLOOM, Evidence, IndicatorSpec, SkillCandidate
+from datetime import UTC, date, datetime, timedelta
+
+from . import config, language, llm, stage_atomize, stage_normalize
 from .catalog_repo import CatalogRepo
+from .models import BLOOM, Evidence, IndicatorSpec, SkillCandidate
 from .skill_names import canonicalize_skill_name, has_observable_action
 
 RUSSIAN_OUTPUT_RULE = (

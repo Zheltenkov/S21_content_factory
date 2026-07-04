@@ -19,20 +19,20 @@ from ..regeneration_pipeline import (
     parse_typed_patch_set,
     render_patch_response_schema,
 )
-from .base.llm_client import LLMClientProtocol
-from ..utils.protected_blocks import BlockInfo, fix_common_latex_issues_in_md, protect_blocks, restore_blocks
 from ..utils.markdown_display_normalizer import (
     normalize_markdown_display_blocks,
     strip_protected_block_instruction_leaks,
 )
 from ..utils.markdown_regeneration_guard import remove_adjacent_rewritten_paragraph_duplicates
+from ..utils.protected_blocks import BlockInfo, fix_common_latex_issues_in_md, protect_blocks, restore_blocks
 from ..utils.regeneration_scope import (
     RegenerationEditScope,
-    render_structural_change_contract,
     render_scope_contract,
+    render_structural_change_contract,
     replace_markdown_scope,
     slice_markdown_by_scope,
 )
+from .base.llm_client import LLMClientProtocol
 
 
 @dataclass

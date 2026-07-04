@@ -4,8 +4,8 @@ import re
 from math import sqrt
 from typing import Any
 
-from ...config.banned_phrases import BAD_GOAL_PATTERNS, BANNED_BY_LANG
 from ...config.active_goals import has_active_goal_verb
+from ...config.banned_phrases import BAD_GOAL_PATTERNS, BANNED_BY_LANG
 from ...config.thresholds import THRESHOLDS
 from ...models.criteria_models import CheckMethod, CriteriaItem, StrictnessLevel
 from ...models.readme_document import ReadmeDocument

@@ -7,7 +7,6 @@ from collections import defaultdict
 
 from content_factory.audit.domain import Criterion, Evidence, Finding, Severity, Verdict
 
-
 SEVERITY_RANK = {
     Severity.INFO: 0,
     Severity.MINOR: 1,

@@ -70,7 +70,7 @@ class MethodologyGatePolicy:
         self.mode = mode
 
     @classmethod
-    def from_env(cls) -> "MethodologyGatePolicy":
+    def from_env(cls) -> MethodologyGatePolicy:
         """Build policy from env without making strict gating the default."""
         raw_mode = os.getenv("METHODOLOGY_GATE_MODE", "observe").strip().lower()
         mode: GateMode = raw_mode if raw_mode in {"observe", "approval", "strict"} else "observe"  # type: ignore[assignment]

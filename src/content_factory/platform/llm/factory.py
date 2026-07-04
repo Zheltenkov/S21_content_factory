@@ -6,7 +6,6 @@ import os
 
 from .gateway import LLMGateway, LLMUsageBudgetTracker
 
-
 _MEMORY_BUDGET_TRACKER = LLMUsageBudgetTracker()
 
 

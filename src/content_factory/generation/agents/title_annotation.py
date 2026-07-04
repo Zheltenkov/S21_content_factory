@@ -13,9 +13,9 @@ from dataclasses import dataclass
 
 from ..config.loader import get_agent_config, prompt_trace_kwargs
 from ..config.thresholds import THRESHOLDS
-from .base.llm_client import LLMClientProtocol
-from ..utils.didactics_loader import compose_didactics_context
 from ..models.schemas import Annotation, ProjectContextMeta, ProjectSeed
+from ..utils.didactics_loader import compose_didactics_context
+from .base.llm_client import LLMClientProtocol
 
 
 def _split_sentences(text: str) -> list[str]:

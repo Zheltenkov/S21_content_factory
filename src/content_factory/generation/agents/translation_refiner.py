@@ -9,11 +9,11 @@ content_gen/agents/translation_refiner.py
   комбинированный вариант, сохраняя полноту и улучшая ясность.
 """
 
-import sys
 import re
+import sys
 
-from .base.llm_client import LLMClientProtocol
 from ..utils.translation_languages import get_translation_language_profile
+from .base.llm_client import LLMClientProtocol
 
 REFINER_SYSTEM = """Ты — редактор переводов технических документов.
 Твоя задача — переписать уже переведённый текст на целевом языке для лучшей читаемости и стиля, БЕЗ изменения смысла и структуры документа.

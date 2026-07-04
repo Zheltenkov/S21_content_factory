@@ -5,7 +5,7 @@ LLMs and should not own application workflow.
 """
 
 from .skeleton import SkeletonParts, SkeletonRenderer
-from .toc import TOCResult, TOCRenderer
+from .toc import TOCRenderer, TOCResult
 
 __all__ = [
     "SkeletonParts",

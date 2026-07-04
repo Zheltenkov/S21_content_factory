@@ -19,10 +19,10 @@ import sys
 from collections.abc import Callable
 from difflib import SequenceMatcher
 
-from .base.llm_client import LLMClientProtocol
 from ..models.schemas import ProjectSeed
 from ..utils.protected_blocks import protect_blocks, restore_blocks
 from ..utils.translation_languages import get_translation_language_profile
+from .base.llm_client import LLMClientProtocol
 from .translation_refiner import TranslationCombinerAgent, TranslationRefinerAgent
 
 SYSTEM = """Ты — профессиональный переводчик технических документов.

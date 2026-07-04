@@ -20,11 +20,13 @@ _log_executor = ThreadPoolExecutor(max_workers=2)
 # Кэш последних фаз для дедупликации (request_id -> last_phase)
 _last_phase_cache: dict[str, str] = {}
 
+from content_factory.platform.llm.observed_client import ObservedLLMClient
+
 from .agents.task_planner import TaskPlanner
 from .exceptions import ContentGenerationError
 from .flow_handlers import GenerationFlowHandlers
 from .flow_result import FlowResultFinalizer
-from content_factory.platform.llm.observed_client import ObservedLLMClient
+from .generation_runtime import GenerationRuntimeContainer
 from .methodology import (
     HumanApprovalCheckpointPolicy,
     MethodologyGate,
@@ -36,10 +38,9 @@ from .methodology import (
 from .methodology.repair import MethodologyRepairController
 from .models.flow_state import ProjectFlowState
 from .models.result import OrchestratorResult
-from .generation_runtime import GenerationRuntimeContainer
-from .observability import LLMTraceRecorder, UnifiedTraceSink, build_default_observability_exporters
 from .node_executor_bundle import GenerationNodeExecutorBundle
 from .node_services import SectionContextRecorder
+from .observability import LLMTraceRecorder, UnifiedTraceSink, build_default_observability_exporters
 from .result_assembly import ResultAssembler
 from .utils.cancellation import CancellationToken
 from .utils.progress import ProgressTracker

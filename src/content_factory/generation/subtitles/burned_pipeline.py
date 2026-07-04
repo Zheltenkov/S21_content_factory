@@ -6,6 +6,7 @@
 """
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -14,12 +15,11 @@ import tempfile
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-import logging
 
-from content_factory.platform.llm.model_registry import resolve_configured_provider
 from content_factory.generation.subtitles.pipeline import build_srt, build_vtt, extract_audio
 from content_factory.generation.subtitles.pipeline import transcribe as openai_whisper_transcribe
 from content_factory.generation.utils.translation_languages import get_translation_language_profile
+from content_factory.platform.llm.model_registry import resolve_configured_provider
 
 WHISPER_MODEL = os.getenv("WHISPER_ASR_MODEL", "large-v3-turbo")
 # OpenAI Whisper API rejects uploads over 25 MB, so larger audio is split into

@@ -14,7 +14,6 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
 DEFAULT_REGISTRY_PATH = Path(__file__).resolve().parents[2] / "config" / "model_registry.yaml"
 
 PROVIDER_ALIASES = {
@@ -277,7 +276,7 @@ class ModelRegistry(BaseModel):
     roles: dict[str, ModelRoleConfig] = Field(default_factory=dict)
 
     @classmethod
-    def load(cls, path: str | os.PathLike[str] | None = None) -> "ModelRegistry":
+    def load(cls, path: str | os.PathLike[str] | None = None) -> ModelRegistry:
         """Load a registry from YAML, falling back to a safe built-in default."""
         registry_path = Path(path or os.getenv("LLM_MODEL_REGISTRY") or DEFAULT_REGISTRY_PATH)
         if not registry_path.exists():
@@ -287,7 +286,7 @@ class ModelRegistry(BaseModel):
         return cls.model_validate(payload)
 
     @classmethod
-    def default(cls) -> "ModelRegistry":
+    def default(cls) -> ModelRegistry:
         """Return a minimal default that preserves old env-based behavior."""
         return cls(
             roles={

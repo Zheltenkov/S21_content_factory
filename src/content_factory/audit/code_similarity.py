@@ -17,7 +17,6 @@ from typing import Protocol
 from content_factory.audit.domain import ContentUnit
 from content_factory.audit.rights import ATTRIBUTION_RE, CodeMatch
 
-
 CODE_EXTENSIONS = {
     ".py": "python",
     ".js": "javascript",

@@ -11,8 +11,8 @@ from .models.readme_document import ReadmeDocument, ReadmeSection
 from .models.schemas import PracticeTask, ProjectSeed
 from .observability import record_runtime_fallback_traces
 from .recovery import ModelOutputNormalizer
-from .utils.text_analysis import extract_defined_terms
 from .utils.markdown_helpers import extract_chapter_content
+from .utils.text_analysis import extract_defined_terms
 from .validators.practice_checks import PracticeChecks
 
 logger = logging.getLogger("content_factory.generation.practice_phase_executor")

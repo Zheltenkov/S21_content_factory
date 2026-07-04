@@ -5,17 +5,17 @@ import json
 import re
 
 from ...agents.base.llm_client import LLMClientProtocol
+from ...embeddings import create_embedding_function
 from ...models.criteria_models import CriteriaItem, CriteriaReport
 from ...models.readme_document import ReadmeDocument
-from ...embeddings import create_embedding_function
 from ...utils.logging import safe_print
 from ...utils.validation_cache import get_cache
+from .policy import apply_rubric_warning_policy
 from .section1_checker import Section1Checker
 from .section2_checker import Section2Checker
 from .section3_checker import Section3Checker
 from .section4_checker import Section4Checker
 from .similarity import SimilarityCalculator
-from .policy import apply_rubric_warning_policy
 
 
 class RubricScorer:

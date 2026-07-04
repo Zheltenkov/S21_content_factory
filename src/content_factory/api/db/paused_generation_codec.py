@@ -10,7 +10,12 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic_core import PydanticSerializationError
 
-from content_factory.generation.observability import CompatibilityEvent, LLMTraceRecorder, ObservabilityExporter, UnifiedTraceSink
+from content_factory.generation.observability import (
+    CompatibilityEvent,
+    LLMTraceRecorder,
+    ObservabilityExporter,
+    UnifiedTraceSink,
+)
 from content_factory.generation.workflow.flow_runner import FlowExecutionStep
 
 _TYPE_KEY = "__paused_type__"

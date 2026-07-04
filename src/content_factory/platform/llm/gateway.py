@@ -573,7 +573,7 @@ class LLMGateway:
         request_kwargs = self._litellm_request_kwargs(route, kwargs)
         timeout = route.timeout_seconds or role_config.timeout_seconds or self._timeout_seconds or self.registry.defaults.timeout_seconds
         max_retries = retries or route.max_retries or role_config.max_retries or self._max_retries or self.registry.defaults.max_retries
-        mode = getattr(getattr(instructor, "Mode"), "JSON")
+        mode = instructor.Mode.JSON
         client = instructor.from_litellm(litellm.completion, mode=mode)
         response, raw_completion = client.create_with_completion(
             model=route.litellm_name(),

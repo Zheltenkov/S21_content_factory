@@ -443,7 +443,11 @@ class TheoryPhaseExecutor:
             if "content_factory.api.utils.logging_context" not in sys.modules:
                 return readme_document
 
-            from content_factory.api.utils.improvement_cache import get_extract_request_id, get_extracted_data, get_original_readme
+            from content_factory.api.utils.improvement_cache import (
+                get_extract_request_id,
+                get_extracted_data,
+                get_original_readme,
+            )
             from content_factory.api.utils.logging_context import get_request_id
 
             from .agents.theory_completeness_agent import TheoryCompletenessAgent
