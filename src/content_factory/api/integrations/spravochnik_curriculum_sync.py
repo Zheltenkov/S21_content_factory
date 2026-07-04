@@ -218,7 +218,12 @@ def _build_project(block_name: str, block_goals: list[str], row: Mapping[str, ob
     if not title:
         return None
 
-    order = _parse_int(row.get("project_index_in_block")) or _parse_int(row.get("row_number")) or fallback_order
+    # ``fallback_order`` is the 1-based position within the block's already-ordered
+    # rows, so it is unique per project. It is preferred over the raw
+    # ``project_index_in_block`` (which is 0-based — index 0 was previously coerced
+    # away by ``or``, colliding two projects onto the same order and breaking the
+    # generator's block→project dropdown selection).
+    order = fallback_order
     completion = row.get("completion_percent")
     completion_value = _parse_float(completion)
     completion_text = f"{completion_value:g}%" if completion_value is not None else _as_text(completion) or None

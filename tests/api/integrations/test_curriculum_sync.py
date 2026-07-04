@@ -71,6 +71,38 @@ def test_read_sqlite_up_empty_when_no_plans(tmp_path) -> None:
     assert rows_by_plan == {}
 
 
+def test_convert_assigns_distinct_project_order_within_block() -> None:
+    """Two projects in one block must get distinct ``order`` values.
+
+    Real mirror rows carry a 0-based ``project_index_in_block``. A prior
+    ``_parse_int(...) or ...`` chain treated index 0 as missing and fell back to
+    ``row_number``, so the first project (index 0 → row_number 1) and the second
+    (index 1) both resolved to order 1 — colliding, which made the generator's
+    block/project dropdown load the wrong project.
+    """
+
+    from content_factory.api.integrations.spravochnik_curriculum_sync import (
+        convert_spravochnik_plan_to_generator_curriculum,
+    )
+
+    payload = {
+        "id": 1,
+        "title": "UP Test",
+        "direction": "PjM",
+        "rows": [
+            {"block_index": 1, "row_number": 1, "project_index_in_block": 0, "block_title": "A", "project_name": "P1"},
+            {"block_index": 1, "row_number": 2, "project_index_in_block": 1, "block_title": "A", "project_name": "P2"},
+        ],
+    }
+
+    curriculum = convert_spravochnik_plan_to_generator_curriculum(payload)
+    projects = curriculum["blocks"][0]["projects"]
+    orders = [p["order"] for p in projects]
+
+    assert len(projects) == 2
+    assert len(set(orders)) == 2, f"project orders must be distinct within a block, got {orders}"
+
+
 def test_plan_and_row_column_lists_match_the_mirror_schema() -> None:
     """The sync's column tuples must stay in lockstep with the Postgres DDL."""
 
