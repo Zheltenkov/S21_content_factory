@@ -56,13 +56,13 @@ def semantic_similarity(text1: str, text2: str, lang: str = "ru", embedding_func
     """
     Вычисляет семантическое сходство между двумя текстами.
     Использует SBERT если доступен, иначе fallback на bag-of-words + cosine similarity.
-    
+
     Args:
         text1: Первый текст
         text2: Второй текст
         lang: Язык текстов
         embedding_function: Функция для создания эмбеддингов (опционально)
-    
+
     Returns:
         Similarity score (0..1)
     """
@@ -142,10 +142,10 @@ def semantic_similarity(text1: str, text2: str, lang: str = "ru", embedding_func
 def readability_index(text: str, lang: str = "ru") -> float:
     """
     Вычисляет индекс читаемости (адаптированный для русского языка).
-    
+
     Использует формулу Флеша, адаптированную для русского текста.
     Нормальный диапазон для учебного контента: 10-25.
-    
+
     Интерпретация:
     - <10: тяжелый текст
     - 10-25: нормальная сложность (целевой диапазон)

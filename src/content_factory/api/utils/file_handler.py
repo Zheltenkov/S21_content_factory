@@ -19,12 +19,12 @@ async def save_uploaded_files(
 ) -> tuple[list[str], str | None]:
     """
     Сохраняет загруженные файлы во временную директорию с изоляцией.
-    
+
     Args:
         files: Список загруженных файлов
         user_id: ID пользователя для изоляции
         request_id: ID запроса для изоляции
-        
+
     Returns:
         Кортеж (список путей к файлам, путь к временной директории)
     """
@@ -51,7 +51,7 @@ async def save_uploaded_files(
 async def cleanup_temp_files(temp_dir: str) -> None:
     """
     Удаляет временную директорию с файлами.
-    
+
     Args:
         temp_dir: Путь к временной директории
     """

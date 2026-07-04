@@ -11,10 +11,10 @@ from ..validators.rubric.policy import rubric_item_status
 def convert_numpy_types(obj: Any) -> Any:
     """
     Рекурсивно конвертирует numpy типы в стандартные Python типы для JSON сериализации.
-    
+
     Args:
         obj: Объект, который может содержать numpy типы
-    
+
     Returns:
         Объект с конвертированными типами
     """
@@ -33,10 +33,10 @@ def convert_numpy_types(obj: Any) -> Any:
 def criteria_to_json(report: CriteriaReport) -> dict[str, Any]:
     """
     Преобразует рубрику в JSON для UI.
-    
+
     Args:
         report: Отчёт по рубрике
-    
+
     Returns:
         Словарь с данными рубрики
     """
@@ -69,10 +69,10 @@ def criteria_to_json(report: CriteriaReport) -> dict[str, Any]:
 def criteria_to_markdown(report: CriteriaReport) -> str:
     """
     Преобразует рубрику в Markdown таблицу (плоская структура).
-    
+
     Args:
         report: Отчёт по рубрике
-    
+
     Returns:
         Markdown таблица
     """
@@ -110,11 +110,11 @@ def criteria_to_markdown(report: CriteriaReport) -> str:
 def criteria_to_html_table(report: CriteriaReport, with_details: bool = True) -> str:
     """
     Преобразует рубрику в HTML таблицу с возможностью детализации при клике.
-    
+
     Args:
         report: Отчёт по рубрике
         with_details: Включать ли детализацию при клике
-    
+
     Returns:
         HTML таблица
     """

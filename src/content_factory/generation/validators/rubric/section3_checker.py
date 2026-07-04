@@ -23,7 +23,7 @@ class Section3Checker:
     def __init__(self, similarity_calculator: SimilarityCalculator, llm_client=None):
         """
         Инициализация checker'а.
-        
+
         Args:
             similarity_calculator: Калькулятор семантического сходства
             llm_client: LLM клиент для AI-проверок
@@ -34,7 +34,7 @@ class Section3Checker:
     def _split_paragraphs(self, md: str) -> list[str]:
         """
         Делит документ на абзацы для анализа когерентности.
-        
+
         Правила:
         - Абзац = блок текста, разделённый одной или более пустыми строками.
         - Отбрасываем совсем короткие куски (например, одиночные слова/фразы).
@@ -67,7 +67,7 @@ class Section3Checker:
         """
         Считает средний SBERT-score между соседними абзацами.
         Использует оптимизированный универсальный метод с batch embedding.
-        
+
         Returns:
             avg_score: средний score (0..1)
             pairwise_scores: список всех соседних score (для деталей в отчёте)

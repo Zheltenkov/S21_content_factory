@@ -31,7 +31,7 @@ class StructuralPreflightResult:
 class StructuralPreflight:
     """
     Быстрая проверка структуры документа.
-    
+
     Проверяет HARD критерии:
     - 1.1-1.6: H1, аннотация, TOC, Главы 1-3
     - 2.3.1-2.3.4: Введение и Инструкция, длины
@@ -58,11 +58,11 @@ class StructuralPreflight:
     def check(self, md: str, has_bonus: bool = False) -> StructuralPreflightResult:
         """
         Проверяет структуру документа.
-        
+
         Args:
             md: Markdown документ
             has_bonus: Есть ли бонусные задания
-            
+
         Returns:
             StructuralPreflightResult
         """

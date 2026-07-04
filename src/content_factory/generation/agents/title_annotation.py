@@ -315,7 +315,7 @@ class TitleAnnotationAgent:
             1. Назначение (зачем проект: ценность)
             2. Что внутри (содержание и формат)
             3. Ожидаемый результат
-            
+
             Returns:
                 (has_all_components, missing_components)
             """

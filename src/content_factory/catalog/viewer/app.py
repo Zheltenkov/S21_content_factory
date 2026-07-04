@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import io
 import json
-import mimetypes
 import re
 import sqlite3
 import sys
@@ -20,7 +19,7 @@ from email.parser import BytesParser
 from email.policy import default as email_policy
 from math import isfinite
 from pathlib import Path
-from urllib.parse import parse_qs, urlencode
+from urllib.parse import parse_qs
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -31,15 +30,9 @@ if str(PROJECT_ROOT) not in sys.path:
 from content_factory.catalog.viewer.migrations import apply_runtime_migrations, migrate_review_queue_entity_types
 from content_factory.catalog.viewer.observability import (
     build_decision_rationale,
-    build_intake_quality_metrics,
-    build_job_observability,
-    load_llm_usage_summary,
-)
-from content_factory.catalog.viewer.route_zones import (
-    detect_route_zone,
-    get_main_nav,
-    get_secondary_nav,
-    show_secondary_nav,
+    build_intake_quality_metrics,  # noqa: F401  re-exported for catalog.web.routers.intake
+    build_job_observability,  # noqa: F401  re-exported for catalog.web.routers.intake
+    load_llm_usage_summary,  # noqa: F401  re-exported for catalog.web.routers.intake
 )
 
 DEFAULT_DB = BASE_DIR.parent / "artifacts" / "skills_catalog.sqlite"

@@ -14,7 +14,7 @@ class Section4Checker:
     def __init__(self, llm_client=None, regex_patterns: dict = None):
         """
         Инициализация checker'а.
-        
+
         Args:
             llm_client: LLM клиент для AI-проверок
             regex_patterns: Словарь с регулярными выражениями для парсинга

@@ -21,7 +21,7 @@ _improvement_owners: dict[str, str] = {}
 def store_original_readme(request_id: str, readme_text: str, user_id: str | None = None) -> None:
     """
     Сохраняет исходный README в кэш.
-    
+
     Args:
         request_id: ID запроса
         readme_text: Текст исходного README
@@ -42,7 +42,7 @@ def store_extracted_data(
 ) -> None:
     """
     Сохраняет извлеченные данные в кэш.
-    
+
     Args:
         request_id: ID запроса
         partial_seed: Извлеченный PartialProjectSeed
@@ -59,7 +59,7 @@ def store_extracted_data(
 def store_improved_readme(request_id: str, improved_readme: str) -> None:
     """
     Сохраняет улучшенный README в кэш.
-    
+
     Args:
         request_id: ID запроса
         improved_readme: Текст улучшенного README
@@ -97,10 +97,10 @@ def get_improved_readme(request_id: str) -> str | None:
 def generate_diff(request_id: str) -> dict[str, any] | None:
     """
     Генерирует diff между исходным и улучшенным README.
-    
+
     Args:
         request_id: ID запроса
-        
+
     Returns:
         Словарь с diff данными или None если данных нет
     """
@@ -183,7 +183,7 @@ def generate_diff(request_id: str) -> dict[str, any] | None:
 def cleanup_old_cache(max_age_hours: int = 24) -> None:
     """
     Очищает старые записи из кэша.
-    
+
     Args:
         max_age_hours: Максимальный возраст записи в часах
     """
@@ -203,7 +203,7 @@ def cleanup_old_cache(max_age_hours: int = 24) -> None:
 def link_generation_request(extract_request_id: str, generation_request_id: str) -> None:
     """
     Связывает extract_request_id с generation_request_id.
-    
+
     Args:
         extract_request_id: ID запроса извлечения
         generation_request_id: ID запроса генерации
@@ -232,7 +232,7 @@ def get_extract_request_id(generation_request_id: str) -> str | None:
 def clear_cache(request_id: str | None = None) -> None:
     """
     Очищает кэш.
-    
+
     Args:
         request_id: Если указан, очищает только этот запрос, иначе весь кэш
     """

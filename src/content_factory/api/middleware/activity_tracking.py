@@ -22,10 +22,10 @@ ACTIVITY_UPDATE_INTERVAL = int(os.getenv("ACTIVITY_UPDATE_INTERVAL_SECONDS", "60
 async def extract_user_id_from_token(request: Request) -> str | None:
     """
     Извлекает user_id и session_token из JWT токена в заголовке Authorization.
-    
+
     Args:
         request: FastAPI Request объект
-        
+
     Returns:
         (user_id, session_token) или (None, None), если токен невалиден или отсутствует
     """
@@ -49,7 +49,7 @@ class ActivityTrackingMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, update_interval_seconds: int = ACTIVITY_UPDATE_INTERVAL):
         """
         Инициализация middleware.
-        
+
         Args:
             app: FastAPI приложение
             update_interval_seconds: Интервал обновления активности в секундах
@@ -61,11 +61,11 @@ class ActivityTrackingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Обрабатывает запрос и обновляет активность пользователя.
-        
+
         Args:
             request: FastAPI Request объект
             call_next: Следующий middleware или endpoint
-            
+
         Returns:
             Response объект
         """
@@ -89,7 +89,7 @@ class ActivityTrackingMiddleware(BaseHTTPMiddleware):
     def _update_activity(self, session_token: str) -> None:
         """
         Обновляет last_activity для сессии в БД.
-        
+
         Args:
             session_token: Токен сессии
         """

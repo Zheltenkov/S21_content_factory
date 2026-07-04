@@ -18,13 +18,13 @@ def _execute_skeleton_phase(
 ) -> SkeletonPhaseResult:
     """
     Phase 1: Каркас с StructuralPreflight.
-    
+
     Args:
         orchestrator: Runtime-like object with structure agents and validators
         seed: Проектный seed
         context_meta: Метаданные curriculum context
         generate_bonus: Генерировать ли бонусные задания
-        
+
     Returns:
         Typed skeleton phase result with markdown, review metadata, and blueprint.
     """

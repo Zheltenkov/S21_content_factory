@@ -46,12 +46,12 @@ async def download_results(
 ):
     """
     Скачивает ZIP архив с результатами генерации.
-    
+
     Args:
         request_id: ID запроса генерации
         include_regenerated: Включить перегенерированную версию (если есть)
         user: Данные пользователя
-        
+
     Returns:
         ZIP архив с файлами
     """
@@ -133,11 +133,11 @@ async def download_translated_results(
 ):
     """
     Скачивает ZIP архив с переведенным README, переведенными диаграммами и файлами данных.
-    
+
     Args:
         request_id: ID запроса генерации
         user: Данные пользователя
-        
+
     Returns:
         ZIP архив с переведенными файлами
     """
@@ -200,7 +200,7 @@ async def download_translated_results(
 async def download_template():
     """
     Скачивает Excel шаблон для спецификации проекта.
-    
+
     Returns:
         Excel файл шаблона
     """

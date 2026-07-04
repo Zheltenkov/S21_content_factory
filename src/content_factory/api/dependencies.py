@@ -24,13 +24,13 @@ async def get_current_user(
 ) -> dict[str, Any]:
     """
     Проверяет JWT токен и возвращает данные пользователя.
-    
+
     Args:
         credentials: JWT токен из заголовка Authorization
-        
+
     Returns:
         Словарь с данными пользователя
-        
+
     Raises:
         HTTPException: Если токен невалиден или отсутствует
     """

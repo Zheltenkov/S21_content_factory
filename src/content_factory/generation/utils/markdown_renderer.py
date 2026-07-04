@@ -147,8 +147,8 @@ def render_mermaid(
 def render_latex_block(formula: str) -> str:
     """
     Центрированная LaTeX формула в виде блочного Markdown:
-    $$ 
-    formula 
+    $$
+    formula
     $$
     Обертка нужна только для внешнего отступа, центрирование делает MathJax/Markdown.
     """

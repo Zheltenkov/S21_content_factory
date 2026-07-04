@@ -21,7 +21,7 @@ def is_service_heading(h: str) -> bool:
 
 def normalize_heading_for_search(h: str) -> str:
     """Нормализует заголовок из TOC для поиска в тексте.
-    
+
     Убирает канонические префиксы типа "Глава 1." и ведущие номера.
     """
     h = h.strip()
@@ -37,7 +37,7 @@ class TOCChecker:
     def __init__(self, llm_client=None, embedding_function=None, language: str = "ru", regex_patterns: dict = None):
         """
         Инициализация checker'а.
-        
+
         Args:
             llm_client: LLM клиент для AI-проверок
             embedding_function: Функция для создания эмбеддингов

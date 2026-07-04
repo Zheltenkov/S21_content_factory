@@ -18,10 +18,10 @@ async def parse_excel(
 ) -> dict[str, Any]:
     """
     Парсит Excel файл и возвращает данные в формате JSON.
-    
+
     Args:
         file: Загруженный Excel файл
-        
+
     Returns:
         Словарь с данными проекта
     """

@@ -19,11 +19,11 @@ class MapperAgent:
     ) -> dict[str, Any]:
         """
         Преобразует данные в словарь для заполнения Excel.
-        
+
         Args:
             partial_seed: Частично заполненный seed
             classification: Результат классификации
-            
+
         Returns:
             Словарь с данными для Excel (ключи соответствуют колонке "Параметр")
         """

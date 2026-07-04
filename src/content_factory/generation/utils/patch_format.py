@@ -96,12 +96,12 @@ def parse_patches_from_response(response: str) -> list[Patch] | None:
 def _find_text_with_fuzzy_match(text: str, pattern: str, max_distance: int = 10) -> tuple[int, int] | None:
     """
     Находит текст в документе с учётом вариаций пробелов и переносов строк.
-    
+
     Args:
         text: Текст для поиска
         pattern: Паттерн для поиска
         max_distance: Максимальное расстояние для fuzzy match (в символах)
-        
+
     Returns:
         Tuple (start, end) позиций найденного текста или None
     """
@@ -152,11 +152,11 @@ def _find_text_with_fuzzy_match(text: str, pattern: str, max_distance: int = 10)
 def _validate_patch(patch: Patch, original_md: str) -> tuple[bool, str | None]:
     """
     Валидирует патч перед применением.
-    
+
     Args:
         patch: Патч для валидации
         original_md: Исходный README
-        
+
     Returns:
         Tuple (is_valid, error_message)
     """

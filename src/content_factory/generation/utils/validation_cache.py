@@ -23,7 +23,7 @@ class ValidationCache:
     def __init__(self, max_size: int = 100, ttl: float = 3600.0):
         """
         Инициализация кэша.
-        
+
         Args:
             max_size: Максимальное количество записей в кэше
             ttl: Время жизни записи в секундах (по умолчанию 1 час)
@@ -43,10 +43,10 @@ class ValidationCache:
     def get(self, md: str, context: object | None = None) -> CriteriaReport | None:
         """
         Получает результат валидации из кэша.
-        
+
         Args:
             md: Markdown документ
-        
+
         Returns:
             CriteriaReport или None, если не найдено или истек срок
         """
@@ -67,7 +67,7 @@ class ValidationCache:
     def set(self, md: str, report: CriteriaReport, context: object | None = None):
         """
         Сохраняет результат валидации в кэш.
-        
+
         Args:
             md: Markdown документ
             report: Результат валидации

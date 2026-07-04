@@ -43,7 +43,7 @@ class TasksExtractor:
     def __init__(self, llm: LLMClientProtocol):
         """
         Инициализация экстрактора задач.
-        
+
         Args:
             llm: LLM клиент для извлечения
         """
@@ -59,11 +59,11 @@ class TasksExtractor:
     ) -> TasksExtractionResult:
         """
         Детально извлекает и подсчитывает практические задачи.
-        
+
         Args:
             normalized_readme: Нормализованный README
             initial_count: Предварительный подсчет из StructureExtractor (для валидации)
-            
+
         Returns:
             TasksExtractionResult с точным количеством задач
         """
@@ -157,7 +157,7 @@ class TasksExtractor:
     ) -> TasksExtractionResult:
         """
         Fallback метод для подсчета задач без LLM.
-        
+
         Использует регулярные выражения для поиска задач.
         """
         if not practice_text:

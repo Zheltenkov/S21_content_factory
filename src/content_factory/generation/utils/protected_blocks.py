@@ -101,7 +101,7 @@ def _fix_latex_body(body: str) -> str:
 def fix_common_latex_issues_in_md(md: str) -> str:
     """
     Прогоняет весь Markdown, но меняет только содержимое внутри $$...$$ и $...$.
-    
+
     ВАЖНО: Исправляет только реальные ошибки, не трогает корректные формулы.
 
     Args:
@@ -285,10 +285,10 @@ BLOCK_PLACEHOLDER_RE = re.compile(r"\[\[\[BLOCK_(\d+)\]\]\]")
 def _normalize_mermaid_block(block_content: str) -> str:
     """
     Нормализует Mermaid-блок, исправляя распространённые проблемы с форматированием.
-    
+
     Args:
         block_content: Содержимое блока (с ```mermaid и ```)
-        
+
     Returns:
         Нормализованный блок
     """
@@ -329,11 +329,11 @@ def _normalize_mermaid_block(block_content: str) -> str:
 def _validate_block_content(block_content: str, block_type: str) -> bool:
     """
     Валидирует содержимое восстановленного блока.
-    
+
     Args:
         block_content: Содержимое блока
         block_type: Тип блока ("mermaid", "code", "formula")
-        
+
     Returns:
         True если блок валиден, False иначе
     """

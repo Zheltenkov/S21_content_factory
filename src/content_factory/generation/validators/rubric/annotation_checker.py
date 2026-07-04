@@ -47,7 +47,7 @@ class AnnotationChecker:
     def __init__(self, llm_client=None, embedding_function=None, language: str = "ru"):
         """
         Инициализация checker'а.
-        
+
         Args:
             llm_client: LLM клиент для AI-проверок
             embedding_function: Функция для создания эмбеддингов
@@ -60,7 +60,7 @@ class AnnotationChecker:
     def _ai_check_annotation_structure(self, annotation: str) -> dict[str, bool] | None:
         """
         ИИ-проверка структуры аннотации.
-        
+
         Returns:
             Словарь с детальной информацией о найденных элементах:
             {"has_purpose": bool, "has_content": bool, "has_outcome": bool}
@@ -112,11 +112,11 @@ class AnnotationChecker:
     def _score_from_ai_result(self, ai_result: dict[str, bool], kw_components_found: int) -> tuple[int, list[str], dict[str, Any]]:
         """
         Формирует результат критерия на основе LLM-ответа.
-        
+
         Args:
             ai_result: Словарь с флагами has_purpose, has_content, has_outcome
             kw_components_found: Количество компонентов, найденных по ключевым словам (для details)
-        
+
         Returns:
             Tuple[score, comments, details]
         """
@@ -165,10 +165,10 @@ class AnnotationChecker:
     def _score_from_keywords_only(self, components_found: int) -> tuple[int, list[str], dict[str, Any]]:
         """
         Формирует результат критерия на основе проверки по ключевым словам (fallback).
-        
+
         Args:
             components_found: Количество найденных компонентов (0-3)
-        
+
         Returns:
             Tuple[score, comments, details]
         """
@@ -205,12 +205,12 @@ class AnnotationChecker:
     ) -> tuple[bool, str | None]:
         """
         LLM-проверка соответствия аннотации теме проекта.
-        
+
         Args:
             title: Название проекта
             annotation: Текст аннотации
             similarity: SBERT similarity score (для контекста)
-        
+
         Returns:
             Tuple[matches: bool, reason: Optional[str]]
         """

@@ -63,7 +63,7 @@ def store_result(
 ) -> None:
     """
     Сохраняет результат генерации в кэш.
-    
+
     Args:
         request_id: ID запроса
         result: Результат генерации
@@ -114,10 +114,10 @@ def store_result(
 def get_result(request_id: str) -> dict[str, Any] | None:
     """
     Получает результат генерации из кэша.
-    
+
     Args:
         request_id: ID запроса
-        
+
     Returns:
         Данные результата или None, если не найдено или истек срок
     """
@@ -154,7 +154,7 @@ def get_result(request_id: str) -> dict[str, Any] | None:
 def clear_result(request_id: str) -> None:
     """
     Удаляет результат из кэша.
-    
+
     Args:
         request_id: ID запроса
     """
@@ -186,7 +186,7 @@ def clear_expired() -> None:
 def set_generation_status(request_id: str, status: str) -> None:
     """
     Устанавливает статус генерации.
-    
+
     Args:
         request_id: ID запроса
         status: Статус (pending, in_progress, completed, failed)
@@ -224,10 +224,10 @@ def get_active_generation_count(user_id: str | None = None) -> int:
 def get_generation_status(request_id: str) -> str | None:
     """
     Получает статус генерации.
-    
+
     Args:
         request_id: ID запроса
-        
+
     Returns:
         Статус генерации или None, если не найден
     """
@@ -237,7 +237,7 @@ def get_generation_status(request_id: str) -> str | None:
 def store_generation_error(request_id: str, error: str) -> None:
     """
     Сохраняет ошибку генерации.
-    
+
     Args:
         request_id: ID запроса
         error: Текст ошибки
@@ -249,10 +249,10 @@ def store_generation_error(request_id: str, error: str) -> None:
 def get_generation_error(request_id: str) -> str | None:
     """
     Получает ошибку генерации.
-    
+
     Args:
         request_id: ID запроса
-        
+
     Returns:
         Текст ошибки или None, если не найдена
     """
@@ -287,7 +287,7 @@ def get_generation_methodology(request_id: str) -> dict[str, Any] | None:
 def register_generation_task(request_id: str, task: Any) -> None:
     """
     Регистрирует активную задачу генерации для возможности отмены.
-    
+
     Args:
         request_id: ID запроса
         task: Asyncio задача
@@ -299,10 +299,10 @@ def register_generation_task(request_id: str, task: Any) -> None:
 def cancel_generation_task(request_id: str) -> bool:
     """
     Отменяет активную задачу генерации.
-    
+
     Args:
         request_id: ID запроса
-        
+
     Returns:
         True если задача была отменена, False если не найдена
     """
@@ -325,7 +325,7 @@ def cancel_generation_task(request_id: str) -> bool:
 def unregister_generation_task(request_id: str) -> None:
     """
     Удаляет задачу из реестра активных задач.
-    
+
     Args:
         request_id: ID запроса
     """

@@ -22,7 +22,7 @@ class ReverseExtractionOrchestrator:
     def __init__(self, llm: LLMClientProtocol):
         """
         Инициализация оркестратора.
-        
+
         Args:
             llm: LLM клиент для агентов
         """
@@ -43,13 +43,13 @@ class ReverseExtractionOrchestrator:
     ) -> tuple[io.BytesIO, dict[str, Any]]:
         """
         Выполняет полный пайплайн извлечения данных из README.
-        
+
         Args:
             readme_text: Текст README.md
-            
+
         Returns:
             Tuple[Excel файл (BytesIO), метаданные]
-            
+
         Raises:
             Exception: Если произошла критичная ошибка на каком-то этапе
         """
@@ -156,16 +156,16 @@ class ReverseExtractionOrchestrator:
     ) -> tuple[PartialProjectSeed, ClassificationResult, NormalizedReadme, dict[str, Any]]:
         """
         Извлекает только данные из README без создания Excel файла.
-        
+
         Используется для улучшения README, где нужны только извлеченные данные
         для последующей генерации.
-        
+
         Args:
             readme_text: Текст README.md
-            
+
         Returns:
             Tuple[PartialProjectSeed, ClassificationResult, NormalizedReadme, metadata]
-            
+
         Raises:
             Exception: Если произошла критичная ошибка на каком-то этапе
         """

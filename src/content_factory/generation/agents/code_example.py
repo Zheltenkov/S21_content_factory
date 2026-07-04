@@ -98,13 +98,13 @@ class CodeExampleAgent:
     ) -> CodeGenerationResult:
         """
         Генерирует примеры кода и задания на программирование.
-        
+
         Args:
             topic: Тема (название части теории или задачи)
             skills: Список навыков
             seed: Входные данные проекта
             context: Дополнительный контекст (текст части теории или задачи)
-        
+
         Returns:
             CodeGenerationResult с примерами и заданиями
         """
@@ -209,10 +209,10 @@ class CodeExampleAgent:
     def _validate_example(self, example_dict: dict) -> dict:
         """
         Валидирует пример кода согласно критерию 6 (≤ 3 предложения в explanation).
-        
+
         Args:
             example_dict: Словарь с данными примера
-        
+
         Returns:
             Валидированный словарь
         """
@@ -239,11 +239,11 @@ class CodeExampleAgent:
     def embed_example_in_text(self, text: str, example: CodeExample) -> str:
         """
         Встраивает пример кода в текст согласно критерию 6 (в конце части перед блоком "Пример:").
-        
+
         Args:
             text: Исходный текст
             example: Пример кода
-        
+
         Returns:
             Текст с встроенным примером
         """

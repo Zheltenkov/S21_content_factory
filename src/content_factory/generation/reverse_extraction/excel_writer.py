@@ -25,11 +25,11 @@ class ExcelWriterTool:
     ) -> io.BytesIO:
         """
         Заполняет Excel-шаблон данными из mapping.
-        
+
         Args:
             mapping: Словарь с данными (ключи соответствуют колонке "Параметр")
             template_path: Путь к шаблону (если None, используется excel_template())
-            
+
         Returns:
             BytesIO буфер с заполненным Excel файлом
         """

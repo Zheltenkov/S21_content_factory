@@ -37,7 +37,7 @@ class PracticeChecksResult:
 class PracticeChecks:
     """
     Проверка практики по критериям 2.5.x.
-    
+
     Проверяет:
     - 2.5.1: Количество задач (3-8)
     - 2.5.2: Наличие 5 блоков в каждой задаче
@@ -103,10 +103,10 @@ class PracticeChecks:
     def check(self, tasks: list[PracticeTask]) -> PracticeChecksResult:
         """
         Проверяет задачи по критериям.
-        
+
         Args:
             tasks: Список задач
-            
+
         Returns:
             PracticeChecksResult
         """

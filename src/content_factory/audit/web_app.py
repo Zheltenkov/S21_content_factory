@@ -5,7 +5,6 @@ from __future__ import annotations
 import hmac
 import html
 import json
-import mimetypes
 import re
 import secrets
 import shutil
@@ -16,11 +15,8 @@ from collections import Counter
 from collections.abc import Iterable
 from email import policy
 from email.parser import BytesParser
-from http import HTTPStatus
-from http.cookies import SimpleCookie
 from pathlib import Path
-from typing import Any
-from urllib.parse import parse_qs, quote, unquote, urlparse
+from urllib.parse import quote, unquote
 
 from content_factory.audit.domain import (
     CRITERION_LABELS,
@@ -33,7 +29,7 @@ from content_factory.audit.domain import (
     Finding,
     Severity,
 )
-from content_factory.audit.env import get_env_value, load_env_file
+from content_factory.audit.env import get_env_value
 from content_factory.audit.exporters import write_report
 from content_factory.audit.orchestrator import AuditRunner
 from content_factory.audit.report_formatting import (

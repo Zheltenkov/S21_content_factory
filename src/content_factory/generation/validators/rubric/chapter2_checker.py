@@ -34,7 +34,7 @@ class Chapter2Checker:
     def __init__(self, llm_client=None, language: str = "ru", regex_patterns: dict = None):
         """
         Инициализация checker'а.
-        
+
         Args:
             llm_client: LLM клиент для AI-проверок
             language: Язык текстов
@@ -746,12 +746,12 @@ class Chapter2Checker:
     def _calculate_readability(self, text: str) -> float:
         """
         Индекс удобочитаемости Флеша, адаптированный под русский.
-        
+
         Формула: FRE = 206.835 - 1.52 * ASL - 65.14 * ASW
         где:
         - ASL (Average Sentence Length) - средняя длина предложения в словах
         - ASW (Average Syllables per Word) - средняя длина слова в слогах
-        
+
         Возвращает число в диапазоне примерно 0–100 (чем выше, тем проще текст).
         """
         # Чистим от лишних пробелов и markdown

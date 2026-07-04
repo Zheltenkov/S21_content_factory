@@ -24,7 +24,7 @@ class RubricScorer:
     def __init__(self, language: str = "ru", llm_client: LLMClientProtocol | None = None):
         """
         Инициализация RubricScorer.
-        
+
         Args:
             language: Язык текстов
             llm_client: LLM клиент для AI-проверок
@@ -104,14 +104,14 @@ class RubricScorer:
     def score(self, md: str, learning_outcomes: list[str] | None = None, use_cache: bool = True) -> CriteriaReport:
         """
         Оценивает проект по всем критериям.
-        
+
         Оптимизированная версия с параллельным выполнением независимых разделов и кэшированием.
-        
+
         Args:
             md: Markdown документ
             learning_outcomes: Список образовательных результатов для проверки соответствия
             use_cache: Использовать кэш результатов (по умолчанию True)
-        
+
         Returns:
             CriteriaReport с оценками по всем критериям
         """

@@ -29,7 +29,7 @@ COHERENCE_TMPL = ""
 class ContentEditorAgent:
     """
     Агент для редактирования контента теории.
-    
+
     Разделен на два режима:
     - edit_theory_parts: локальная чистка (дубли, терминология, мостики между частями)
     - ensure_global_coherence: SBERT-когерентность и переходы между главами 1-3
@@ -71,11 +71,11 @@ class ContentEditorAgent:
     def edit_part(self, part: TheoryPart, seed: ProjectSeed) -> TheoryPart:
         """
         Редактирует часть теории, устраняя дублирование.
-        
+
         Args:
             part: Часть теории для редактирования
             seed: Входные данные проекта
-        
+
         Returns:
             Отредактированная часть теории
         """
@@ -144,13 +144,13 @@ class ContentEditorAgent:
     def improve_coherence(self, part1: TheoryPart, part2: TheoryPart, seed: ProjectSeed, previous_parts: list[TheoryPart] = None) -> TheoryPart:
         """
         Улучшает связность между двумя частями теории.
-        
+
         Args:
             part1: Предыдущая часть теории
             part2: Текущая часть теории (будет улучшена)
             seed: Входные данные проекта
             previous_parts: Все предыдущие части (для контекста)
-        
+
         Returns:
             Улучшенная часть 2 с мостиками и связностью
         """
@@ -218,13 +218,13 @@ class ContentEditorAgent:
     def edit_theory_parts(self, parts: list[TheoryPart], seed: ProjectSeed) -> list[TheoryPart]:
         """
         Локальная чистка частей теории: дубли, терминология, мостики между частями.
-        
+
         Режим 1: Редактирование отдельных частей (Фаза 2 - после генерации теории).
-        
+
         Args:
             parts: Список частей теории
             seed: Входные данные проекта
-        
+
         Returns:
             Список отредактированных частей теории
         """
@@ -233,11 +233,11 @@ class ContentEditorAgent:
     def edit_parts(self, parts: list[TheoryPart], seed: ProjectSeed) -> list[TheoryPart]:
         """
         Редактирует все части теории, устраняя дублирование и улучшая связность.
-        
+
         Args:
             parts: Список частей теории
             seed: Входные данные проекта
-        
+
         Returns:
             Список отредактированных частей теории
         """
@@ -279,13 +279,13 @@ class ContentEditorAgent:
     def ensure_global_coherence(self, md: str, seed: ProjectSeed) -> str:
         """
         SBERT-когерентность и переходы между главами 1-3.
-        
+
         Режим 2: Глобальная связность (Фаза 4 - после сборки всех глав).
-        
+
         Args:
             md: Полный Markdown документ
             seed: Входные данные проекта
-        
+
         Returns:
             Улучшенный Markdown с мостиками между главами
         """
@@ -398,11 +398,11 @@ class ContentEditorAgent:
     def improve_chapter_coherence(self, md: str, seed: ProjectSeed) -> str:
         """
         Улучшает связность между главами (Глава 1, Глава 2, Глава 3).
-        
+
         Args:
             md: Полный Markdown документ
             seed: Входные данные проекта
-        
+
         Returns:
             Улучшенный Markdown с мостиками между главами
         """
@@ -511,11 +511,11 @@ class ContentEditorAgent:
     def _remove_duplicate_chapter_headers(self, md: str, language: str) -> str:
         """
         Удаляет дублирующиеся заголовки глав (например, два "## Глава 2. Теория" подряд).
-        
+
         Args:
             md: Markdown текст
             language: Язык документа
-            
+
         Returns:
             Очищенный Markdown текст
         """
@@ -551,14 +551,14 @@ class ContentEditorAgent:
     def _add_chapter_bridge(self, previous_chapter: str, previous_content: str, current_chapter: str, current_content: str, seed: ProjectSeed) -> str | None:
         """
         Добавляет мостик между главами.
-        
+
         Args:
             previous_chapter: Название предыдущей главы
             previous_content: Содержимое предыдущей главы (для контекста)
             current_chapter: Название текущей главы
             current_content: Содержимое текущей главы
             seed: Входные данные проекта
-        
+
         Returns:
             Улучшенное содержимое текущей главы с мостиком
         """

@@ -55,12 +55,12 @@ class SkeletonRenderer:
     def validate_structure(self, skeleton_md: str, language: str, has_bonus: bool) -> tuple[bool, list[str]]:
         """
         Проверяет структуру скелета на соответствие требованиям.
-        
+
         Args:
             skeleton_md: Сгенерированный скелет документа
             language: Язык проекта
             has_bonus: Есть ли бонусная задача
-            
+
         Returns:
             (is_valid, issues) - кортеж из флага валидности и списка проблем
         """
@@ -135,7 +135,7 @@ class SkeletonRenderer:
         )
         ch2 = f"""{L['ch2']}
 
-<!-- 
+<!--
 СТРУКТУРА ГЛАВЫ 2 (ТЕОРЕТИЧЕСКИЙ БЛОК):
 - Должно быть 2-5 частей (### 2.1. название раздела, ### 2.2. название раздела, и т.д.)
 - Каждая часть: 100-300 слов основного текста

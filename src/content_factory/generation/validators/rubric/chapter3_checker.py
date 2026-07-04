@@ -30,7 +30,7 @@ class Chapter3Checker:
     def __init__(self, llm_client=None, embedding_function=None, language: str = "ru", regex_patterns: dict = None):
         """
         Инициализация checker'а.
-        
+
         Args:
             llm_client: LLM клиент для AI-проверок
             embedding_function: Функция для создания эмбеддингов

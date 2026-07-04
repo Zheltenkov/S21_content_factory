@@ -311,13 +311,13 @@ def _format_static_instruction_markdown(text: str) -> str:
 def _ensure_instruction_keywords(text: str, required_tools: list[str]) -> str:
     """
     Проверяет наличие обязательных элементов в инструкции.
-    
+
     Для статического формата инструкции проверяет наличие обязательных блоков:
     - "Контекст и ограничения проекта" (КРИТИЧЕСКИ ВАЖНО для 2.3.7)
     - "Как учиться в «Школе 21»"
-    
+
     Остальные блоки ("Как работать с проектом", "Дисклеймер") опциональны.
-    
+
     Если обязательные блоки отсутствуют, возвращает исходный текст (LLM должен был их сгенерировать).
     """
     from ..utils.text_analysis import count_words
@@ -476,7 +476,7 @@ class IntroRulesAgent:
     def _determine_content_type(self, seed: ProjectSeed) -> str:
         """
         Определяет тип контента на основе направления.
-        
+
         Returns:
             'hard_code' | 'low_code' | 'no_code'
         """

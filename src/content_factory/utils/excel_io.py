@@ -17,7 +17,7 @@ except ImportError:
 def excel_template() -> io.BytesIO:
     """
     Создаёт Excel шаблон для спецификации проекта (как в старом проекте).
-    
+
     Returns:
         BytesIO буфер с Excel файлом
     """
@@ -105,14 +105,14 @@ def excel_template() -> io.BytesIO:
 def excel_to_json(file_bytes: bytes) -> list[dict[str, Any]]:
     """
     Преобразует загруженный Excel → JSON-спецификации.
-    
+
     Поддерживает два формата:
     1. Старый формат (program_title, project_title, etc.)
     2. Новый формат (Параметр/Значение из шаблона)
-    
+
     Args:
         file_bytes: Байты Excel файла
-        
+
     Returns:
         Список словарей с данными проектов
     """
@@ -225,10 +225,10 @@ def excel_to_json(file_bytes: bytes) -> list[dict[str, Any]]:
 def json_to_excel(data: list[dict[str, Any]]) -> io.BytesIO:
     """
     Сохраняет готовые проекты в Excel.
-    
+
     Args:
         data: Список словарей с данными проектов
-        
+
     Returns:
         BytesIO буфер с Excel файлом
     """

@@ -50,7 +50,7 @@ from .workflow.flow_runner import AgentFlowRunner, FlowExecutionStep, FlowNodeOu
 class Orchestrator:
     """
     Оркестратор пайплайна генерации контента.
-    
+
     Использует AgentFlow с независимыми node services и встроенными проверками.
     """
 
@@ -160,7 +160,7 @@ class Orchestrator:
     def _update_progress(self, phase: str, current: int, total: int, message: str = ""):
         """
         Обновляет прогресс генерации.
-        
+
         Args:
             phase: Название фазы
             current: Текущий элемент (1-based)
@@ -173,9 +173,9 @@ class Orchestrator:
     def _log_phase_to_db(self, phase: str, message: str = ""):
         """
         Логирует текущую фазу в базу данных для отображения в UI.
-        
+
         Оптимизация: не логирует, если фаза не изменилась (дедупликация).
-        
+
         Args:
             phase: Название фазы (например, 'context', 'skeleton', 'theory')
             message: Дополнительное сообщение
@@ -314,7 +314,7 @@ class Orchestrator:
     def run(self, raw_input: dict[str, Any], track_files: list[str] = None) -> OrchestratorResult:
         """
         Запускает полный пайплайн генерации.
-        
+
         Использует AgentFlow с независимыми node services и встроенными проверками.
 
         Args:

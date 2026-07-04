@@ -98,7 +98,7 @@ class User(Base):
     def hash_password(password: str) -> str:
         """
         Хеширует пароль с использованием Argon2.
-        
+
         Argon2 не имеет ограничения по длине пароля (в отличие от bcrypt с 72 байтами).
         Новые пароли будут хешироваться с Argon2.
         """
@@ -107,7 +107,7 @@ class User(Base):
     def verify_password(self, password: str) -> bool:
         """
         Проверяет пароль.
-        
+
         Поддерживает проверку как Argon2 (новые), так и bcrypt (старые) хешей.
         """
         return pwd_context.verify(password, self.hashed_password)
@@ -115,7 +115,7 @@ class User(Base):
     def needs_rehash(self) -> bool:
         """
         Проверяет, нужно ли перехешировать пароль (если это старый bcrypt хеш).
-        
+
         Returns:
             True если пароль нужно перехешировать в Argon2
         """

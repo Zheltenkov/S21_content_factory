@@ -192,10 +192,10 @@ class FormulaTableAgent:
     def _safe_json_extract(self, text: str) -> dict[str, Any] | None:
         """
         Надежное извлечение JSON из текста с множественными попытками.
-        
+
         Args:
             text: Текст, содержащий JSON
-        
+
         Returns:
             Распарсенный JSON словарь или None
         """
@@ -272,10 +272,10 @@ class FormulaTableAgent:
         """
         Очищает и валидирует данные перед передачей в Pydantic.
         Удаляет некорректные элементы из списков.
-        
+
         Args:
             data: Словарь с данными из JSON
-            
+
         Returns:
             Очищенный словарь
         """
@@ -372,7 +372,7 @@ class FormulaTableAgent:
     ) -> FormulaTableResult:
         """
         Анализирует, нужны ли формулы, таблицы или визуализации.
-        
+
         Args:
             topic: Тема (название части теории)
             theory_text: Текст части теории
@@ -381,7 +381,7 @@ class FormulaTableAgent:
             existing_tables: Уже сгенерированные таблицы (для дедупликации)
             existing_enhancements: Словарь с информацией о том, что уже использовано в предыдущих частях
                 Формат: {"tables": 2, "diagrams": 1, "formulas": 0}
-        
+
         Returns:
             FormulaTableResult с решением и сгенерированными элементами
         """
@@ -655,13 +655,13 @@ class FormulaTableAgent:
         """
         Встраивает формулы, таблицы и визуализации в текст с центрированием.
         В рамках одной части допускается одна таблица или одна диаграмма.
-        
+
         Args:
             text: Исходный текст
             formulas: Список формул
             tables: Список таблиц
             visuals: Список визуализаций
-        
+
         Returns:
             Текст с встроенными элементами
         """
@@ -736,7 +736,7 @@ class FormulaTableAgent:
     def _normalize_mermaid(self, mermaid_code: str) -> str:
         """
         Нормализует синтаксис Mermaid диаграммы.
-        
+
         КРИТИЧНО: Этот метод выполняет полную нормализацию Mermaid кода:
         - Обрабатывает экранированные переносы строк (\\n, \n)
         - Удаляет markdown-блоки (```mermaid)
@@ -746,10 +746,10 @@ class FormulaTableAgent:
         - Исправляет отсутствие направления (graph -> flowchart TD)
         - Исправляет неправильные стрелки (-> -> -->)
         - Добавляет пробелы вокруг стрелок
-        
+
         Args:
             mermaid_code: Исходный код Mermaid (может содержать ошибки)
-        
+
         Returns:
             Нормализованный код Mermaid, готовый к использованию
         """
@@ -1066,16 +1066,16 @@ class FormulaTableAgent:
     def _check_mermaid_syntax(self, mermaid_code: str) -> bool:
         """
         Проверяет, что Mermaid код начинается с валидного синтаксиса.
-        
+
         Поддерживаемые типы диаграмм:
         - flowchart TD, flowchart LR, flowchart TB, flowchart BT
         - graph TD, graph LR, graph TB, graph BT
         - sequenceDiagram
         - stateDiagram
-        
+
         Args:
             mermaid_code: Код Mermaid диаграммы (уже нормализованный)
-        
+
         Returns:
             True если синтаксис валиден, False иначе
         """

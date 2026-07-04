@@ -173,7 +173,7 @@ class EnhancementPlanner:
     def _determine_content_type(self, seed: ProjectSeed) -> str:
         """
         Определяет тип контента на основе направления.
-        
+
         Returns:
             'hard_code' | 'low_code' | 'no_code'
         """
@@ -304,13 +304,13 @@ class EnhancementPlanner:
     ) -> EnhancementPlan:
         """
         Создает глобальный план улучшений для всего README.
-        
+
         Args:
             parts: Список частей теории
             seed: Входные данные проекта
             budget: Бюджет элементов (если None - используется из профиля или DEFAULT_ENHANCEMENT_BUDGET)
             profile: Профиль генерации (если None - определяется автоматически)
-        
+
         Returns:
             EnhancementPlan с планом для каждой части
         """

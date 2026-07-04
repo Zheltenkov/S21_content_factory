@@ -18,13 +18,13 @@ class CancelledError(Exception):
 class CancellationToken:
     """
     Токен для отмены операций.
-    
+
     Использование:
         token = CancellationToken()
-        
+
         # В цикле обработки:
         token.check()  # Бросает CancelledError если отменено
-        
+
         # Для отмены:
         token.cancel("User cancelled")
     """
@@ -35,7 +35,7 @@ class CancellationToken:
     def cancel(self, reason: str = "Operation cancelled"):
         """
         Отменяет операцию.
-        
+
         Args:
             reason: Причина отмены
         """
@@ -46,7 +46,7 @@ class CancellationToken:
     def check(self):
         """
         Проверяет, была ли отмена. Бросает CancelledError если да.
-        
+
         Raises:
             CancelledError: Если операция была отменена
         """
@@ -57,7 +57,7 @@ class CancellationToken:
     def is_cancelled(self) -> bool:
         """
         Проверяет, была ли отмена, без исключения.
-        
+
         Returns:
             True если отменено, False иначе
         """

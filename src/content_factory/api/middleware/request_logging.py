@@ -19,10 +19,10 @@ JWT_ALGORITHM = "HS256"
 async def extract_user_id_from_token(request: Request) -> str | None:
     """
     Извлекает user_id из JWT токена в заголовке Authorization.
-    
+
     Args:
         request: FastAPI Request объект
-        
+
     Returns:
         user_id или None, если токен невалиден или отсутствует
     """
@@ -44,11 +44,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Обрабатывает запрос и логирует его в БД.
-        
+
         Args:
             request: FastAPI Request объект
             call_next: Следующий middleware или endpoint
-            
+
         Returns:
             Response объект
         """

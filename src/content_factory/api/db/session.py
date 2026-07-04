@@ -98,7 +98,7 @@ def check_database_connection() -> None:
 def get_db_session() -> Generator[Session, None, None]:
     """
     Генератор сессий БД для использования в зависимостях FastAPI.
-    
+
     Yields:
         Сессия БД
     """

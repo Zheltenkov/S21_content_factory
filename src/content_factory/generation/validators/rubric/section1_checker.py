@@ -18,7 +18,7 @@ class Section1Checker:
     def __init__(self, regex_patterns: dict):
         """
         Инициализация checker'а.
-        
+
         Args:
             regex_patterns: Словарь с регулярными выражениями для парсинга
         """

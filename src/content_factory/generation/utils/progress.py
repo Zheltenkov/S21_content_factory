@@ -26,7 +26,7 @@ class PhaseProgress:
 class ProgressTracker:
     """
     Трекер прогресса генерации.
-    
+
     Использование:
         tracker = ProgressTracker(callback=lambda p: print(f"{p.phase}: {p.percent}%"))
         tracker.update("theory", 2, 5, "Обработка части 2")
@@ -35,7 +35,7 @@ class ProgressTracker:
     def __init__(self, callback: Callable[[PhaseProgress], None] | None = None):
         """
         Инициализация трекера.
-        
+
         Args:
             callback: Функция для обработки обновлений прогресса
         """
@@ -53,7 +53,7 @@ class ProgressTracker:
     ):
         """
         Обновляет прогресс.
-        
+
         Args:
             phase: Название фазы
             current: Текущий элемент (1-based)
@@ -82,7 +82,7 @@ class ProgressTracker:
     def get_current(self) -> PhaseProgress | None:
         """
         Возвращает текущий прогресс.
-        
+
         Returns:
             PhaseProgress или None если нет данных
         """

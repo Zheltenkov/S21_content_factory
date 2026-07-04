@@ -8,7 +8,7 @@ import json
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urldefrag, urljoin, urlparse
@@ -40,7 +40,6 @@ from content_factory.audit.dependencies import (
     metadata_to_record,
 )
 from content_factory.audit.domain import (
-    CRITERION_LABELS,
     AuditSettings,
     ContentFile,
     ContentUnit,

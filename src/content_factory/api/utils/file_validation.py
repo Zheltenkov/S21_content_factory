@@ -47,10 +47,10 @@ async def read_upload_limited(file: UploadFile, *, max_size: int, chunk_size: in
 def validate_file(file: UploadFile) -> None:
     """
     Валидирует один файл.
-    
+
     Args:
         file: Файл для валидации
-        
+
     Raises:
         HTTPException: Если файл не проходит валидацию
     """
@@ -111,10 +111,10 @@ def validate_video_file(file: UploadFile) -> None:
 async def validate_files(files: list[UploadFile]) -> None:
     """
     Валидирует список файлов.
-    
+
     Args:
         files: Список файлов для валидации
-        
+
     Raises:
         HTTPException: Если файлы не проходят валидацию
     """

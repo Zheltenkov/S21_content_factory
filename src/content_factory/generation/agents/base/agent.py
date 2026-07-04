@@ -9,7 +9,7 @@ class BaseAgent:
     def __init__(self, llm_client: LLMClientProtocol):
         """
         Инициализация агента.
-        
+
         Args:
             llm_client: LLM клиент для генерации (реализует LLMClientProtocol)
         """
@@ -19,7 +19,7 @@ class BaseAgent:
     def _validate_llm_client(self, llm_client: LLMClientProtocol) -> None:
         """
         Валидирует, что llm_client реализует необходимый интерфейс.
-        
+
         Args:
             llm_client: LLM клиент для проверки
         """

@@ -32,13 +32,13 @@ async def send_email_async(
 ) -> bool:
     """
     Асинхронно отправляет email.
-    
+
     Args:
         to_email: Email получателя
         subject: Тема письма
         html_body: HTML содержимое
         text_body: Текстовое содержимое (опционально)
-        
+
     Returns:
         True если отправлено успешно, False в противном случае
     """
@@ -119,8 +119,8 @@ def get_password_reset_email_html(reset_link: str, username: str) -> str:
                 <p style="margin-bottom: 15px;">Здравствуйте, {username}!</p>
                 <p style="margin-bottom: 15px;">Вы запросили восстановление пароля для аккаунта в <strong>Генераторе учебных проектов</strong>.</p>
                 <p style="margin: 30px 0;">
-                    <a href="{reset_link}" 
-                       style="background: #764ba2; color: white; padding: 12px 24px; 
+                    <a href="{reset_link}"
+                       style="background: #764ba2; color: white; padding: 12px 24px;
                               text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
                         Восстановить пароль
                     </a>

@@ -14,7 +14,7 @@ class Section2Checker:
     def __init__(self, llm_client=None, embedding_function=None, language: str = "ru", regex_patterns: dict = None):
         """
         Инициализация checker'а.
-        
+
         Args:
             llm_client: LLM клиент для AI-проверок
             embedding_function: Функция для создания эмбеддингов
@@ -39,11 +39,11 @@ class Section2Checker:
     def check(self, md: str, learning_outcomes: list[str] | None = None) -> list[CriteriaItem]:
         """
         Проверяет раздел 2: Соответствие требованиям (2.1-2.5).
-        
+
         Args:
             md: Markdown документ
             learning_outcomes: Список образовательных результатов
-        
+
         Returns:
             Список CriteriaItem для раздела 2
         """

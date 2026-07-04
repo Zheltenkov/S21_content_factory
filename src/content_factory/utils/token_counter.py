@@ -14,10 +14,10 @@ except ImportError:
 def count_tokens(text: str) -> int:
     """
     Подсчитывает количество токенов в тексте.
-    
+
     Args:
         text: Текст для подсчета
-        
+
     Returns:
         Количество токенов
     """

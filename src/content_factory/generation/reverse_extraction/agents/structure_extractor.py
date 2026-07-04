@@ -23,7 +23,7 @@ class StructureExtractor:
     def __init__(self, llm: LLMClientProtocol):
         """
         Инициализация экстрактора.
-        
+
         Args:
             llm: LLM клиент для извлечения
         """
@@ -35,10 +35,10 @@ class StructureExtractor:
     def extract(self, normalized_readme: NormalizedReadme) -> PartialProjectSeed:
         """
         Извлекает структурированные данные из нормализованного README.
-        
+
         Args:
             normalized_readme: Нормализованный README
-            
+
         Returns:
             PartialProjectSeed с извлеченными данными
         """
@@ -90,7 +90,7 @@ class StructureExtractor:
     def _fallback_extraction(self, normalized_readme: NormalizedReadme) -> PartialProjectSeed:
         """
         Fallback метод для извлечения базовых данных без LLM.
-        
+
         Пытается извлечь хотя бы минимальную информацию из структуры README.
         """
         import re

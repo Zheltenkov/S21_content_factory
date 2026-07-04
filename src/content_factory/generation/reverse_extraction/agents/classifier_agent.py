@@ -25,7 +25,7 @@ class ClassifierAgent:
     def __init__(self, llm: LLMClientProtocol):
         """
         Инициализация классификатора.
-        
+
         Args:
             llm: LLM клиент для классификации
         """
@@ -63,11 +63,11 @@ class ClassifierAgent:
     ) -> str | None:
         """
         Ищет тематический блок по ключевым словам в тексте.
-        
+
         Args:
             text: Текст README
             partial_seed: Частично заполненный seed
-            
+
         Returns:
             Кодовое обозначение блока или None
         """
@@ -112,11 +112,11 @@ class ClassifierAgent:
     ) -> ClassificationResult:
         """
         Классифицирует метаданные проекта.
-        
+
         Args:
             partial_seed: Частично заполненный seed
             normalized_readme: Нормализованный README
-            
+
         Returns:
             ClassificationResult с метаданными
         """

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class TheoryCompletenessAgent(BaseAgent):
     """
     Агент для проверки полноты теории по проектному контексту.
-    
+
     Работает в контуре улучшения/сопоставления проекта:
     1. Сравнивает темы и инструменты из исходного материала с теорией
     2. Определяет, что отсутствует
@@ -48,7 +48,7 @@ class TheoryCompletenessAgent(BaseAgent):
     ) -> tuple[str, list[str], list[str]]:
         """
         Проверяет полноту теории и дополняет её при необходимости.
-        
+
         Args:
             theory_markdown: Сгенерированная теория в формате Markdown
             original_readme: Исходный проектный материал для сравнения
@@ -56,7 +56,7 @@ class TheoryCompletenessAgent(BaseAgent):
             extracted_tools: Список инструментов, извлеченных из исходного материала
             seed: Входные данные проекта
             context_meta: Метаданные curriculum context (опционально)
-            
+
         Returns:
             Tuple[enhanced_theory_markdown, warnings, issues]
         """
@@ -140,7 +140,7 @@ class TheoryCompletenessAgent(BaseAgent):
     ) -> tuple[list[str], list[str]]:
         """
         Анализирует полноту теории.
-        
+
         Returns:
             Tuple[missing_topics, missing_tools]
         """
@@ -196,7 +196,7 @@ class TheoryCompletenessAgent(BaseAgent):
     ) -> tuple[str, list[str], list[str]]:
         """
         Дополняет теорию недостающими темами и инструментами.
-        
+
         Returns:
             Tuple[enhanced_markdown, warnings, issues]
         """

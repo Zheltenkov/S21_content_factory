@@ -16,10 +16,10 @@ class InputAgent:
     def normalize(self, readme_text: str) -> NormalizedReadme:
         """
         Нормализует README текст и извлекает структуру.
-        
+
         Args:
             readme_text: Исходный текст README
-            
+
         Returns:
             NormalizedReadme с очищенным текстом и структурой
         """

@@ -57,10 +57,10 @@ class ColoredFormatter(logging.Formatter):
 def setup_logging(level: str = "INFO") -> logging.Logger:
     """
     Настраивает централизованное логирование для API.
-    
+
     Args:
         level: Уровень логирования (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        
+
     Returns:
         Настроенный logger
     """
@@ -93,10 +93,10 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
 def get_logger(name: str | None = None) -> logging.Logger:
     """
     Получает logger для модуля.
-    
+
     Args:
         name: Имя модуля (опционально)
-        
+
     Returns:
         Logger для модуля
     """

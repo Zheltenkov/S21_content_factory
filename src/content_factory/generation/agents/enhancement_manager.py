@@ -35,12 +35,12 @@ class TheoryEnhancementManager:
     ) -> tuple[list[TheoryPart], list[EnhancementExecutionLog]]:
         """
         Применяет улучшения к частям теории на основе глобального плана.
-        
+
         Args:
             parts: Список частей теории
             seed: Входные данные проекта
             plan: Глобальный план улучшений
-        
+
         Returns:
             Кортеж: (улучшенные части, логи выполнения)
         """

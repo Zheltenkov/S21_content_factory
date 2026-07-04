@@ -9,13 +9,13 @@ import re
 def replace_chapter_content(md: str, chapter_number: int, new_body: str, language: str = "ru") -> str:
     """
     Заменяет содержимое главы, сохраняя заголовок.
-    
+
     Args:
         md: Markdown документ
         chapter_number: Номер главы (1, 2, 3)
         new_body: Новое содержимое главы (без заголовка)
         language: Язык (ru, en, ky)
-        
+
     Returns:
         Обновленный Markdown
     """
@@ -104,12 +104,12 @@ def replace_chapter_content(md: str, chapter_number: int, new_body: str, languag
 def extract_chapter_content(md: str, chapter_number: int, language: str = "ru") -> tuple[str, str] | None:
     """
     Извлекает заголовок и содержимое главы.
-    
+
     Args:
         md: Markdown документ
         chapter_number: Номер главы
         language: Язык
-        
+
     Returns:
         Кортеж (заголовок, содержимое) или None
     """
@@ -152,11 +152,11 @@ def extract_chapter_content(md: str, chapter_number: int, language: str = "ru") 
 def has_duplicate_chapter_headers(md: str, language: str = "ru") -> bool:
     """
     Проверяет наличие дублирующихся заголовков глав.
-    
+
     Args:
         md: Markdown документ
         language: Язык
-        
+
     Returns:
         True если есть дубликаты
     """
@@ -184,11 +184,11 @@ def clean_duplicate_chapter_headers(md: str, language: str = "ru") -> str:
     """
     Удаляет дублирующиеся заголовки глав (оставляет только первый).
     Также удаляет жирные дубликаты типа **Глава 2. Теория** в любом месте после основного заголовка.
-    
+
     Args:
         md: Markdown документ
         language: Язык
-        
+
     Returns:
         Очищенный Markdown
     """

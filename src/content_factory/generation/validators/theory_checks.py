@@ -34,7 +34,7 @@ class TheoryChecksResult:
 class TheoryChecks:
     """
     Проверка теории по критериям 2.4.x.
-    
+
     Проверяет:
     - 2.4.1: Количество частей (2-5)
     - 2.4.3: Длина частей (100-300 слов)
@@ -49,10 +49,10 @@ class TheoryChecks:
     def check(self, parts: list[TheoryPart]) -> TheoryChecksResult:
         """
         Проверяет части теории по критериям.
-        
+
         Args:
             parts: Список частей теории
-            
+
         Returns:
             TheoryChecksResult
         """

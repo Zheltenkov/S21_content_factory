@@ -10,7 +10,7 @@ _user_id: ContextVar[str | None] = ContextVar("user_id", default=None)
 def set_request_id(request_id: str) -> None:
     """
     Устанавливает request_id в контексте.
-    
+
     Args:
         request_id: ID запроса
     """
@@ -20,7 +20,7 @@ def set_request_id(request_id: str) -> None:
 def get_request_id() -> str | None:
     """
     Получает request_id из контекста.
-    
+
     Returns:
         ID запроса или None
     """
@@ -30,7 +30,7 @@ def get_request_id() -> str | None:
 def set_user_id(user_id: str) -> None:
     """
     Устанавливает user_id в контексте.
-    
+
     Args:
         user_id: ID пользователя
     """
@@ -40,7 +40,7 @@ def set_user_id(user_id: str) -> None:
 def get_user_id() -> str | None:
     """
     Получает user_id из контекста.
-    
+
     Returns:
         ID пользователя или None
     """

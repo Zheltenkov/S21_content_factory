@@ -20,10 +20,10 @@ class ValidatorAgent:
     def validate(self, mapping: dict[str, Any]) -> ValidationResult:
         """
         Валидирует mapping и выполняет автоматические правки.
-        
+
         Args:
             mapping: Словарь с данными для Excel
-            
+
         Returns:
             ValidationResult с результатами валидации и исправленным mapping
         """

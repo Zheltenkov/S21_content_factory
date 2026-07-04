@@ -93,10 +93,10 @@ HARD_CODE_ENHANCEMENT_TARGETS = {
 def get_enhancement_config_for_content_type(content_type: str) -> tuple:
     """
     Возвращает бюджет и цели для типа контента.
-    
+
     Args:
         content_type: 'hard_code' | 'low_code' | 'no_code'
-    
+
     Returns:
         (budget, targets)
     """

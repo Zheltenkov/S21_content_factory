@@ -17,7 +17,7 @@ class LLMClientProtocol(Protocol):
     ) -> str:
         """
         Выполняет запрос к LLM.
-        
+
         Args:
             system: Системный промпт
             user: Пользовательский промпт
@@ -25,7 +25,7 @@ class LLMClientProtocol(Protocol):
             temperature: Температура генерации
             max_tokens: Максимальное количество токенов
             **kwargs: Дополнительные параметры
-            
+
         Returns:
             Текст ответа от LLM
         """

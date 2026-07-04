@@ -14,7 +14,7 @@ class SimilarityCalculator:
     def __init__(self, embedding_function=None, language: str = "ru", enable_cache: bool = True):
         """
         Инициализация калькулятора.
-        
+
         Args:
             embedding_function: Функция для создания эмбеддингов (SBERT)
             language: Язык текстов
@@ -131,12 +131,12 @@ class SimilarityCalculator:
         """
         Универсальный метод для вычисления similarity между двумя текстами.
         Использует SBERT если доступен, иначе fallback на bag-of-words.
-        
+
         Args:
             a: Первый текст
             b: Второй текст
             use_sbert: Использовать ли SBERT (если доступен)
-        
+
         Returns:
             Similarity score (0..1)
         """
@@ -159,12 +159,12 @@ class SimilarityCalculator:
         """
         Универсальный метод для вычисления similarity между референсным текстом и списком текстов.
         Оптимизирован: использует batch embedding для всех текстов сразу.
-        
+
         Args:
             reference_text: Референсный текст (например, глава 2 или предыдущий абзац)
             texts: Список текстов для сравнения (например, задачи или следующие абзацы)
             use_batch_embedding: Использовать ли batch embedding (оптимизация)
-        
+
         Returns:
             avg_score: средний score
             scores: список scores по каждому тексту
@@ -209,11 +209,11 @@ class SimilarityCalculator:
         """
         Универсальный метод для вычисления similarity между соседними текстами в списке.
         Оптимизирован: использует batch embedding для всех пар сразу.
-        
+
         Args:
             texts: Список текстов для последовательного сравнения (например, абзацы)
             use_batch_embedding: Использовать ли batch embedding (оптимизация)
-        
+
         Returns:
             avg_score: средний score
             pairwise_scores: список scores для каждой пары (texts[i] ↔ texts[i+1])

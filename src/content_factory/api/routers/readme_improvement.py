@@ -90,7 +90,7 @@ async def extract_data_for_improvement(
 ):
     """
     Извлекает данные из README для последующего улучшения.
-    
+
     Сохраняет исходный README и извлеченные данные в кэш.
     """
     request_id = str(uuid.uuid4())
@@ -138,7 +138,7 @@ async def generate_improved_readme(
 ):
     """
     Генерирует улучшенный README на основе извлеченных и отредактированных данных.
-    
+
     Использует существующий пайплайн генерации контента.
     """
     user_id = user.get("id", "anonymous")
@@ -185,7 +185,7 @@ async def get_readme_diff(
 ):
     """
     Получает diff между исходным и улучшенным README.
-    
+
     Args:
         request_id: ID запроса извлечения (extract request_id)
     """
@@ -204,7 +204,7 @@ async def get_generation_status_endpoint(
 ):
     """
     Получает статус генерации улучшенного README.
-    
+
     Использует существующий механизм проверки статуса генерации.
     """
     _ensure_improvement_owner(generation_request_id, user)
@@ -221,11 +221,11 @@ async def download_improved_readme_archive(
 ):
     """
     Скачивает ZIP архив с улучшенным README и дочерними файлами.
-    
+
     Args:
         generation_request_id: ID запроса генерации улучшенного README
         user: Данные пользователя
-        
+
     Returns:
         ZIP архив с улучшенным README (regen_<имя>.md) и дочерними файлами
     """

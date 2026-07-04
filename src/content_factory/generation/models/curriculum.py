@@ -27,7 +27,7 @@ class ProjectSummary(BaseModel):
 class CurriculumContext(BaseModel):
     """
     Контекст из учебного плана для генерации контента.
-    
+
     Передается в агенты для понимания места проекта в курсе.
     """
 
@@ -184,12 +184,12 @@ class CurriculumPlan(BaseModel):
     def build_context(self, block_name: str, project_order: int, cross_block_depth: int = 2) -> CurriculumContext | None:
         """
         Строит контекст для генерации.
-        
+
         Args:
             block_name: Название блока
             project_order: Номер проекта
             cross_block_depth: Сколько проектов из соседних блоков включать
-            
+
         Returns:
             CurriculumContext или None если проект не найден
         """

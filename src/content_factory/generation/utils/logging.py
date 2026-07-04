@@ -11,7 +11,7 @@ def safe_print(*args, sep: str = " ", end: str = "\n", flush: bool = False, file
     """
     Безопасный print для использования в потоках.
     Использует оригинальный stderr, если текущий stderr недоступен (например, нет Streamlit контекста).
-    
+
     Args:
         *args: Аргументы для вывода
         sep: Разделитель между аргументами

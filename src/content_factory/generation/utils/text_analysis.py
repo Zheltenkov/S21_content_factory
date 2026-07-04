@@ -197,13 +197,13 @@ def count_prose_words(text: str, language: str = "ru") -> int:
 def has_term_definitions(text: str, language: str = "ru", min_definitions: int = 2, require_bold: bool = True) -> tuple[bool, list[str]]:
     """
     Проверяет наличие определений терминов.
-    
+
     Args:
         text: Текст для проверки
         language: Язык текста
         min_definitions: Минимальное количество определений
         require_bold: Требовать ли жирное выделение терминов (**термин**)
-    
+
     Returns:
         (найдено ли достаточно определений, список найденных определений)
     """
@@ -345,13 +345,13 @@ def extract_text_between_markers(
 ) -> str:
     """
     Извлекает текст между маркерами (например, между "**Подход:**" и следующим "**").
-    
+
     Args:
         text: Исходный текст
         start_marker: Начальный маркер
         end_marker: Конечный маркер (если None, ищет до следующего маркера или конца)
         exclude_markers: Исключать ли сами маркеры из результата
-    
+
     Returns:
         Извлеченный текст
     """

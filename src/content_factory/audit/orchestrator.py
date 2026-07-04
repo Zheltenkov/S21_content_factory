@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 from content_factory.audit.cache import AuditCache
 from content_factory.audit.checks import CheckContext, default_checkers

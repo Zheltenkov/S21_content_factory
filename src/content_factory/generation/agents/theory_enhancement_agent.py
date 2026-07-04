@@ -18,7 +18,7 @@ from .quality_gate import QualityGate
 class TheoryEnhancementAgent:
     """
     Объединенный агент улучшения теории.
-    
+
     Объединяет функциональность:
     - EnhancementPlanner: глобальное планирование улучшений
     - TheoryEnhancementManager: применение улучшений к частям
@@ -28,7 +28,7 @@ class TheoryEnhancementAgent:
     def __init__(self, llm_client: LLMClientProtocol):
         """
         Инициализация агента улучшения теории.
-        
+
         Args:
             llm_client: LLM клиент для генерации
         """
@@ -44,12 +44,12 @@ class TheoryEnhancementAgent:
     ) -> tuple[list[TheoryPart], EnhancementPlan, list[EnhancementExecutionLog]]:
         """
         Выполняет полный цикл улучшения теории: планирование + применение.
-        
+
         Args:
             parts: Список частей теории
             seed: Входные данные проекта
             profile: Профиль генерации (опционально)
-            
+
         Returns:
             Кортеж (enhanced_parts, enhancement_plan, execution_logs)
         """

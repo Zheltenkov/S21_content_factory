@@ -35,12 +35,12 @@ SENSITIVE_FIELDS = {
 def mask_value(value: Any, mask_char: str = "*", visible_chars: int = 4) -> str:
     """
     Маскирует значение, оставляя видимыми только последние символы.
-    
+
     Args:
         value: Значение для маскирования
         mask_char: Символ для маскирования
         visible_chars: Количество видимых символов в конце
-        
+
     Returns:
         Замаскированное значение
     """
@@ -57,12 +57,12 @@ def mask_value(value: Any, mask_char: str = "*", visible_chars: int = 4) -> str:
 def mask_dict(data: dict[str, Any], mask_char: str = "*", visible_chars: int = 4) -> dict[str, Any]:
     """
     Рекурсивно маскирует чувствительные поля в словаре.
-    
+
     Args:
         data: Словарь для обработки
         mask_char: Символ для маскирования
         visible_chars: Количество видимых символов в конце
-        
+
     Returns:
         Словарь с замаскированными значениями
     """
@@ -113,12 +113,12 @@ def mask_dict(data: dict[str, Any], mask_char: str = "*", visible_chars: int = 4
 def mask_json_string(json_str: str, mask_char: str = "*", visible_chars: int = 4) -> str:
     """
     Маскирует чувствительные данные в JSON строке.
-    
+
     Args:
         json_str: JSON строка для обработки
         mask_char: Символ для маскирования
         visible_chars: Количество видимых символов в конце
-        
+
     Returns:
         JSON строка с замаскированными значениями
     """
@@ -147,10 +147,10 @@ def mask_json_string(json_str: str, mask_char: str = "*", visible_chars: int = 4
 def mask_request_body(body: str | bytes | dict[str, Any] | None) -> dict[str, Any] | None:
     """
     Маскирует чувствительные данные в теле запроса.
-    
+
     Args:
         body: Тело запроса (может быть строкой, bytes или словарем)
-        
+
     Returns:
         Словарь с замаскированными данными или None
     """
