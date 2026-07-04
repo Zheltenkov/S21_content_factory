@@ -735,7 +735,6 @@ class RegenerationAgent:
         lines = md.split('\n')
         fixed_lines = []
         in_code_block = False
-        code_block_start = None
         code_block_language = None
         code_block_lines = 0
 
@@ -749,7 +748,6 @@ class RegenerationAgent:
                     if closing_marker == '```' or closing_marker == f'```{code_block_language}':
                         # Правильно закрытый блок
                         in_code_block = False
-                        code_block_start = None
                         code_block_language = None
                         code_block_lines = 0
                         fixed_lines.append(line)
@@ -758,13 +756,11 @@ class RegenerationAgent:
                         # Это новый блок кода внутри старого - ошибка, закрываем старый
                         fixed_lines.append('```')
                         in_code_block = False
-                        code_block_start = None
                         code_block_language = None
                         code_block_lines = 0
 
                 # Начинаем новый блок кода
                 in_code_block = True
-                code_block_start = i
                 code_block_lines = 0
                 # Извлекаем язык (если указан)
                 code_block_language = line.strip()[3:].strip() or None
@@ -791,7 +787,6 @@ class RegenerationAgent:
                         # Закрываем блок кода перед заголовком
                         fixed_lines.append('```')
                         in_code_block = False
-                        code_block_start = None
                         code_block_language = None
                         code_block_lines = 0
                         continue

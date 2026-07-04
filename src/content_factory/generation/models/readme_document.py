@@ -190,7 +190,7 @@ class ReadmeSection(BaseModel):
         elif re.match(r"^(?:заключение|итог проекта|финал проекта|завершение проекта)\b", title_lower, flags=re.I):
             metadata["section_kind"] = "final"
 
-        artifact_paths = sorted(set(match.group(1) for match in _ARTIFACT_PATH_RE.finditer(body or "")))
+        artifact_paths = sorted({match.group(1) for match in _ARTIFACT_PATH_RE.finditer(body or "")})
         if artifact_paths:
             metadata["artifact_paths"] = artifact_paths
         return metadata

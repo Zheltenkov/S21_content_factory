@@ -464,7 +464,7 @@ def translate_segments_llm(
 
             # Заполняем переводы по id; если после fill-missing чего-то всё ещё нет,
             # оставляем русский текст как окончательный фолбэк.
-            for j, idx in enumerate(indices):
+            for _j, idx in enumerate(indices):
                 seg = segments[idx]
                 sid = seg.get("id", idx + 1)
                 translated_text = translated.get(sid)

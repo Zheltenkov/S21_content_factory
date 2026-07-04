@@ -818,7 +818,7 @@ def _match_gold_cases(
 ) -> tuple[list[CorpusEvaluationMatch], set[str]]:
     """Сопоставляет эталонные и найденные ошибки один-к-одному."""
 
-    gold_by_id = {item.case_id: item for item in gold_cases}
+    {item.case_id: item for item in gold_cases}
     predicted_by_id = {item.finding_id: item for item in predicted_items}
     counted_candidates: list[_MatchCandidate] = []
     best_any_by_gold: dict[str, _MatchCandidate] = {}

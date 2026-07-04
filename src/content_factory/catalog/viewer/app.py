@@ -1944,7 +1944,7 @@ def build_intake_workflow_steps(
 
     dag_payload = result.get("dag") if isinstance(result, dict) and isinstance(result.get("dag"), dict) else {}
     curriculum_plan = result.get("curriculum_plan") if isinstance(result, dict) and isinstance(result.get("curriculum_plan"), dict) else {}
-    dag_nodes = int(dag_payload.get("nodes") or 0) if isinstance(dag_payload, dict) else 0
+    int(dag_payload.get("nodes") or 0) if isinstance(dag_payload, dict) else 0
     plan_id = curriculum_plan.get("plan_id") if isinstance(curriculum_plan, dict) else None
 
     if job_status in {"pending", "running"}:

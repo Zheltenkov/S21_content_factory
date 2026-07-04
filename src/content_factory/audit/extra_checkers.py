@@ -131,7 +131,7 @@ def _collect_call_outputs(unit: ContentUnit):
             ident, args, out = m.group(1), m.group(2), m.group(3)
             if not out or len(out) > 200:
                 continue
-            call_key = "%s(%s)" % (ident, re.sub(r"\s+", "", args))
+            call_key = "{}({})".format(ident, re.sub(r"\s+", "", args))
             occ[call_key].append((path, line_no, out.strip(), _parse_output(out)))
     return occ
 
@@ -165,9 +165,7 @@ class CrossFileConsistencyChecker(BaseChecker):
         findings: list[Finding] = []
         seen: set = set()
         for code in codes[:3]:
-            user = "ЗАДАНИЕ (README):\n%s\n\nКОД-ПРИМЕР (%s):\n%s" % (
-                readme_text, code.relative_path, code.text[: self.model_context_limit]
-            )
+            user = f"ЗАДАНИЕ (README):\n{readme_text}\n\nКОД-ПРИМЕР ({code.relative_path}):\n{code.text[: self.model_context_limit]}"
             try:
                 data = client.complete_json(_XF["model_system"], user)
             except Exception:

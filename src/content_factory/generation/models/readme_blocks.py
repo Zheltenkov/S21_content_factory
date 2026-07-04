@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import re
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ReadmeBlockKind(str, Enum):
+class ReadmeBlockKind(StrEnum):
     """Supported structured block kinds inside README sections."""
 
     PARAGRAPH = "paragraph"

@@ -276,7 +276,7 @@ class OfflineJudge:
             return True, 0.7, "line overlap + shared stem"
         jac = len(gs & fs) / len(gs | fs)
         if jac >= 0.34:
-            return True, 0.6, "stem jaccard %.2f" % jac
+            return True, 0.6, f"stem jaccard {jac:.2f}"
         return False, round(jac, 2), "low overlap"
 
 
@@ -308,7 +308,7 @@ class OpenRouterJudge:
         if key in self.cache:
             v = self.cache[key]
             return bool(v["same_defect"]), float(v.get("confidence", 0.6)), v.get("reason", "cache")
-        loc = (pred.file_path or "") + (":%s" % pred.line_start if pred.line_start else "")
+        loc = (pred.file_path or "") + (f":{pred.line_start}" if pred.line_start else "")
         user = _PROMPTS["user_template"].format(
             gold_criterion=gold.criterion,
             gold_text=gold.gold_text[:1200],
@@ -337,9 +337,9 @@ def build_judge(backend: str, *, api_key: str | None = None, model: str | None =
         return OfflineJudge()
     if backend in MODEL_BACKENDS:
         if not api_key:
-            raise ValueError("%s judge requires an API key." % backend)
+            raise ValueError(f"{backend} judge requires an API key.")
         return OpenRouterJudge(api_key, model or DEFAULT_JUDGE_MODEL, cache_path, base_url=PROVIDER_URLS[backend])
-    raise ValueError("Unknown judge backend: %s" % backend)
+    raise ValueError(f"Unknown judge backend: {backend}")
 
 
 # --------------- matching ---------------
@@ -399,7 +399,7 @@ def _row(gold: GoldCorpusCase, pred: PredictedCorpusItem | None, conf: float, re
         match_type="judge_same_criterion" if gold.criterion == pred.criterion else "judge_cross_criterion",
         match_score=round(conf, 4),
         counted=counted,
-        reason="Судья подтвердил один и тот же дефект (%s)." % reason,
+        reason=f"Судья подтвердил один и тот же дефект ({reason}).",
     )
 
 
@@ -486,7 +486,7 @@ class OfflineValidityJudge:
         self.calls += 1
         it = (item.issue_type or "").strip()
         if it in HIGH_PRECISION_ISSUE_TYPES:
-            return True, 0.8, "high-precision rule type: %s" % it
+            return True, 0.8, f"high-precision rule type: {it}"
         return False, 0.4, "uncertain (needs model judge)"
 
 
@@ -535,9 +535,9 @@ def build_validity_judge(backend: str, *, api_key: str | None = None, model: str
         return OfflineValidityJudge()
     if backend in MODEL_BACKENDS:
         if not api_key:
-            raise ValueError("%s validity judge requires an API key." % backend)
+            raise ValueError(f"{backend} validity judge requires an API key.")
         return OpenRouterValidityJudge(api_key, model or DEFAULT_JUDGE_MODEL, cache_path, base_url=PROVIDER_URLS[backend])
-    raise ValueError("Unknown validity backend: %s" % backend)
+    raise ValueError(f"Unknown validity backend: {backend}")
 
 
 def preflight(backend: str, api_key: str | None, model: str | None = None) -> tuple[bool, str]:
@@ -546,9 +546,9 @@ def preflight(backend: str, api_key: str | None, model: str | None = None) -> tu
     if backend == "offline":
         return True, "offline backend, no network needed"
     if backend not in MODEL_BACKENDS:
-        return False, "unknown backend: %s" % backend
+        return False, f"unknown backend: {backend}"
     if not api_key:
-        return False, "no API key for %s" % backend
+        return False, f"no API key for {backend}"
     from content_factory.audit.openrouter import OpenRouterClient
 
     client = OpenRouterClient(api_key=api_key, model=model or DEFAULT_JUDGE_MODEL, base_url=PROVIDER_URLS[backend], timeout_seconds=30.0)
@@ -558,9 +558,9 @@ def preflight(backend: str, api_key: str | None, model: str | None = None) -> tu
             'Ответь ровно: {"ok": true}',
             max_tokens=20,
         )
-        return True, "%s/%s reachable" % (backend, model or DEFAULT_JUDGE_MODEL)
+        return True, f"{backend}/{model or DEFAULT_JUDGE_MODEL} reachable"
     except Exception as exc:  # noqa: BLE001
-        return False, "%s unreachable: %s" % (backend, str(exc)[:200])
+        return False, f"{backend} unreachable: {str(exc)[:200]}"
 
 
 def assess_validity(items: list[PredictedCorpusItem], judge, accept: float = 0.55) -> dict:
@@ -584,7 +584,7 @@ def assess_validity(items: list[PredictedCorpusItem], judge, accept: float = 0.5
         "total": len(items),
         "valid": valid,
         "valid_actionable": valid_actionable,
-        "by_checker": {k: v for k, v in sorted(by_checker.items(), key=lambda kv: kv[1][0], reverse=True)},
+        "by_checker": dict(sorted(by_checker.items(), key=lambda kv: kv[1][0], reverse=True)),
         "samples": samples,
         "backend": getattr(judge, "name", "?"),
         "calls": getattr(judge, "calls", 0),

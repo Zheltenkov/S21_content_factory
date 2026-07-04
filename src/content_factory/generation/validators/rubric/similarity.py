@@ -55,7 +55,6 @@ class SimilarityCalculator:
 
             # Проверяем кэш и собираем тексты для эмбеддинга
             texts_to_embed = []
-            text_indices = []
             cached_vectors = []
 
             if self.enable_cache:

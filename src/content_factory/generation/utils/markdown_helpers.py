@@ -45,7 +45,7 @@ def replace_chapter_content(md: str, chapter_number: int, new_body: str, languag
         if not match:
             return md
 
-    header_start = match.start()  # Начало заголовка
+    match.start()  # Начало заголовка
     header_end = match.end()  # Конец заголовка (после \n)
 
     # Ищем конец главы (начало следующей главы или конец документа)
@@ -62,7 +62,7 @@ def replace_chapter_content(md: str, chapter_number: int, new_body: str, languag
 
     # Заменяем содержимое, сохраняя заголовок
     # Важно: не добавляем заголовок в new_content, так как он уже есть в md
-    header = match.group(0)
+    match.group(0)
     new_content = "\n" + new_body.strip() + "\n"
 
     # Если следующая глава - добавляем перенос строки перед ней

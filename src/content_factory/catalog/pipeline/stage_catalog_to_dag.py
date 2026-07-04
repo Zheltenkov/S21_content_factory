@@ -86,7 +86,7 @@ def propose_edges(cands: list[SkillCandidate]) -> list[PrereqEdge]:
             pass
     else:
         # MOCK: одно ошибочное ребро (создаст цикл) + одно избыточное
-        sql, rel, rest, q = tid("SQL"), tid("реляцион"), tid("REST"), tid("очеред")
+        sql, rel, rest, _q = tid("SQL"), tid("реляцион"), tid("REST"), tid("очеред")
         if sql and rel:
             edges.append(PrereqEdge(src=sql, dst=rel, relation_type="soft", confidence=0.55, source="ai",
                                     rationale="(ошибочно) SQL раньше БД"))   # цикл рел->SQL->рел
@@ -210,7 +210,7 @@ def build_edge_review_queue(
     removed_transitive: list[tuple[str, str]],
     cands: list[SkillCandidate],
 ) -> list[dict[str, object]]:
-    by_tid = {cand.tmp_id: cand for cand in cands}
+    {cand.tmp_id: cand for cand in cands}
     display_names = {cand.tmp_id: display_name(cand) for cand in cands}
     removed_cycle_set = set(removed_cycle)
     removed_transitive_set = set(removed_transitive)

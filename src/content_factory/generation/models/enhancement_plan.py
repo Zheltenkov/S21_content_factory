@@ -1,12 +1,12 @@
 """Модели для глобального планирования улучшений контента."""
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class ImportanceLevel(str, Enum):
+class ImportanceLevel(StrEnum):
     """Уровень важности элемента улучшения."""
     MUST = "must"  # Обязательно (hard guarantee)
     NICE_TO_HAVE = "nice_to_have"  # Желательно (target)

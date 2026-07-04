@@ -265,7 +265,6 @@ class StyleGuardRepair:
 
         # Разбиваем на части: код блоки и обычный текст
         parts = []
-        in_code_block = False
         current_part = ""
 
         i = 0

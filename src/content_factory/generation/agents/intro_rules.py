@@ -517,7 +517,7 @@ class IntroRulesAgent:
         """Строит блок контекста и ограничений в зависимости от типа контента."""
 
         # Получаем данные из УП
-        platform_name = getattr(seed, 'platform_name', None) or "project"
+        getattr(seed, 'platform_name', None) or "project"
         gitlab_link = getattr(seed, 'gitlab_link', None) or "материалы проекта"
         required_tools_str = ", ".join(seed.required_tools) if seed.required_tools else "инструменты по выбору"
         required_software_str = ", ".join(getattr(seed, "required_software", []) or []) or "ПО по условиям проекта"

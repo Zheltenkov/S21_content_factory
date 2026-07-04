@@ -187,8 +187,8 @@ async def get_request_stats(
 
     return {
         "total_requests": total_requests,
-        "requests_by_method": {method: count for method, count in requests_by_method},
-        "requests_by_status": {status: count for status, count in requests_by_status},
+        "requests_by_method": dict(requests_by_method),
+        "requests_by_status": dict(requests_by_status),
         "avg_response_time_ms": float(avg_response_time) if avg_response_time else None,
         "top_paths": [{"path": path, "count": count} for path, count in top_paths],
         "period_days": days,

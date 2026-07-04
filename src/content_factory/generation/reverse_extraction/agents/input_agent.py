@@ -114,7 +114,7 @@ class InputAgent:
         chapters = {}
 
         # Паттерн для глав: "## Глава 1", "## Глава 2", "## Chapter 1", etc.
-        chapter_pattern = re.compile(
+        re.compile(
             r'^##\s+(?:Глава|Chapter|Chapter\s+\d+|Глава\s+\d+)\s*(\d+)',
             re.IGNORECASE | re.MULTILINE
         )

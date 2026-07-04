@@ -876,7 +876,7 @@ class TranslatorAgent:
             return translated
 
         result = translated
-        pairs = list(zip(original_headings, translated_headings))
+        pairs = list(zip(original_headings, translated_headings, strict=False))
         for original_match, translated_match in reversed(pairs):
             if original_match.group(1) != translated_match.group(1):
                 continue

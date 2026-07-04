@@ -443,7 +443,7 @@ def _split_text_for_docx_runs(translated_text: str, original_parts: list[str]) -
     chunks: list[str] = []
     cursor = 0
     cumulative_weight = 0
-    for index, weight in enumerate(weights[:-1]):
+    for _index, weight in enumerate(weights[:-1]):
         cumulative_weight += weight
         target = round(len(translated_text) * cumulative_weight / total_weight)
         cut = _nearest_space_cut(translated_text, target, cursor)

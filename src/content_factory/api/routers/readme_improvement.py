@@ -189,7 +189,7 @@ async def get_readme_diff(
     Args:
         request_id: ID запроса извлечения (extract request_id)
     """
-    user_id = user.get("id", "anonymous")
+    user.get("id", "anonymous")
     _ensure_improvement_owner(request_id, user)
     try:
         return _build_improvement_service().get_diff(request_id)

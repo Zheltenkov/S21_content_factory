@@ -26,11 +26,6 @@ from .theory_generation import (
 )
 from .theory_generation_service import TheoryGenerationService
 from .theory_materializer import TheoryPartMaterializer
-from .theory_sanitizer import (  # noqa: F401  re-exported for tests/agents/test_theory_helpers
-    _normalize_definition_bold,
-    _sanitize_theory_body_text,
-    _sanitize_theory_example_text,
-)
 from .theory_prompting import (
     build_theory_content_type_section,
     build_theory_curriculum_context_section,
@@ -38,6 +33,11 @@ from .theory_prompting import (
     build_theory_questions_prompt,
     build_theory_sjm_section,
     determine_theory_content_type,
+)
+from .theory_sanitizer import (  # noqa: F401  re-exported for tests/agents/test_theory_helpers
+    _normalize_definition_bold,
+    _sanitize_theory_body_text,
+    _sanitize_theory_example_text,
 )
 
 SYSTEM = ""

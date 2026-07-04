@@ -1,12 +1,12 @@
 """Модели для новых критериев оценки контента."""
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class CheckMethod(str, Enum):
+class CheckMethod(StrEnum):
     """Метод проверки критерия."""
     SCRIPT = "script"  # Скриптовая проверка (regex, подсчеты)
     AI_AGENT = "ai_agent"  # ИИ-агент (LLM)
@@ -14,7 +14,7 @@ class CheckMethod(str, Enum):
     HYBRID = "hybrid"  # Комбинация скрипта и ИИ
 
 
-class StrictnessLevel(str, Enum):
+class StrictnessLevel(StrEnum):
     """Уровень строгости критерия."""
     HARD = "hard"  # Обязательный критерий, блокирует прохождение
     SOFT = "soft"  # Рекомендация, не блокирует прохождение

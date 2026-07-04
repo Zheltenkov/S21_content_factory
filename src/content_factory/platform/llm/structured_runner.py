@@ -253,7 +253,7 @@ def prepare_openai_json_schema(model_class: type[BaseModel]) -> dict[str, Any]:
     return final_schema
 
 
-def parse_json_model(response: Any, response_model: type[T]) -> T:
+def parse_json_model[T: BaseModel](response: Any, response_model: type[T]) -> T:
     """Parse raw JSON-ish model output and validate it with Pydantic."""
 
     try:

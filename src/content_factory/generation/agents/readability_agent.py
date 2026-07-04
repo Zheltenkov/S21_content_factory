@@ -134,7 +134,7 @@ class ReadabilityAgent:
             flush=True
         )
 
-        for attempt in range(1, max_attempts + 1):
+        for _attempt in range(1, max_attempts + 1):
             try:
                 system_prompt = SYSTEM.format(language=seed.language)
                 user_prompt = IMPROVE_TMPL.format(

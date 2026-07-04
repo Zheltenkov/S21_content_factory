@@ -429,7 +429,7 @@ class TOCChecker:
         for link_text, anchor in links:
             # Проверяем, что якорь соответствует заголовку в тексте
             # Нормализуем якорь (убираем дефисы, приводим к нижнему регистру)
-            anchor_normalized = re.sub(r'[-\s]+', '-', anchor.lower().strip('-'))
+            re.sub(r'[-\s]+', '-', anchor.lower().strip('-'))
 
             # Ищем заголовок в тексте
             h2_pattern = re.compile(rf'^##\s+{re.escape(link_text)}', re.M | re.I)

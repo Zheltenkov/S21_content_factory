@@ -543,7 +543,7 @@ class MarkdownStructureChecker(BaseChecker):
         expected = numbers[0]
         previous_number = numbers[0]
         previous_line = block[0][0]
-        for line_number, number, marker, quote in block:
+        for line_number, number, _marker, quote in block:
             if number != expected:
                 issue_type = "numbered_list_reset" if number <= previous_number else "numbered_list_out_of_order"
                 findings.append(

@@ -130,7 +130,7 @@ def _collect_checklist_tasks(
     readme_document: ReadmeDocument,
     practice_tasks: list[PracticeTask],
 ) -> list[dict[str, Any]]:
-    typed_by_index = {index: task for index, task in enumerate(practice_tasks, 1)}
+    typed_by_index = dict(enumerate(practice_tasks, 1))
     tasks = [
         _task_payload_from_section(index, section, typed_by_index.get(index))
         for index, section in enumerate(_practice_sections(readme_document), 1)
