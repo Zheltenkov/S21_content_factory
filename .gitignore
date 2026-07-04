@@ -79,12 +79,12 @@ data/generated/
 # Spravochnik viewer/runtime logs & backup dumps
 viewer/server.log
 viewer/server.err
-artifacts/viewer_*_stdout.log
-artifacts/viewer_*_stderr.log
-artifacts/*_backup*.sqlite
-artifacts/*.before_unified_*.sqlite
-artifacts/llm_usage.jsonl
-artifacts/local-skill-names.json
+**/artifacts/viewer_*_stdout.log
+**/artifacts/viewer_*_stderr.log
+**/artifacts/*_backup*.sqlite
+**/artifacts/*.before_unified_*.sqlite
+**/artifacts/llm_usage.jsonl
+**/artifacts/local-skill-names.json
 
 # ---- Vector / RAG stores ----
 chroma_db/
