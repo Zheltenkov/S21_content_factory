@@ -106,7 +106,7 @@ def parse_theory_part_blocks(
         if questions_match:
             questions_text = questions_match.group(1).strip()
             questions = [
-                question.strip("- •\t ").rstrip()
+                question.strip("- •\t ").rstrip()  # noqa: B005  strips leading/trailing bullet chars
                 for question in questions_text.splitlines()
                 if question.strip()
             ][:2]
@@ -173,7 +173,7 @@ def parse_theory_questions_response(markdown: str) -> list[str]:
         return []
     questions_text = questions_match.group(1).strip()
     return [
-        question.strip("- •\t ").rstrip()
+        question.strip("- •\t ").rstrip()  # noqa: B005  strips leading/trailing bullet chars
         for question in questions_text.splitlines()
         if question.strip()
     ][:2]

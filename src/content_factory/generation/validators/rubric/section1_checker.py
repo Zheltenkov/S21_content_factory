@@ -109,7 +109,7 @@ class Section1Checker:
             if toc_end == -1:
                 toc_end = len(md)
             toc_block = md[toc_start:toc_end]
-            toc_lines = [l.strip() for l in toc_block.split('\n') if l.strip()]
+            toc_lines = [ln.strip() for ln in toc_block.split('\n') if ln.strip()]
 
             if len(toc_lines) >= 3:
                 items.append(CriteriaItem(

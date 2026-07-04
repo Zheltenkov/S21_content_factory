@@ -701,7 +701,7 @@ class Chapter3Checker:
             if json_start >= 0 and json_end > json_start:
                 data = json.loads(response[json_start:json_end])
                 return data.get("is_p2p_verifiable", False)
-        except:
+        except Exception:
             pass
 
         return False

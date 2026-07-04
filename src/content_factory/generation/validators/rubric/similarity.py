@@ -81,7 +81,7 @@ class SimilarityCalculator:
                     if vectors_len == len(texts_only):
                         # Сохраняем в кэш
                         if self.enable_cache:
-                            for (i, text), vector in zip(texts_to_embed, vectors, strict=False):
+                            for (_i, text), vector in zip(texts_to_embed, vectors, strict=False):
                                 text_hash = self._get_text_hash(text)
                                 self._embedding_cache[text_hash] = vector
                     else:

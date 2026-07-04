@@ -578,7 +578,7 @@ class RegenerationAgent:
         h2_chapters = {}
         for idx, line in enumerate(lines):
             if line.startswith('## ') and not line.startswith('###'):
-                for h2_pattern, h3_pattern in chapter_patterns:
+                for h2_pattern, _h3_pattern in chapter_patterns:
                     match = re.match(h2_pattern, line, re.IGNORECASE)
                     if match:
                         chapter_text = match.group(1).strip()
@@ -599,7 +599,7 @@ class RegenerationAgent:
                     is_duplicate = True
                 else:
                     # Проверяем, соответствует ли заголовок паттерну главы
-                    for h2_pattern, h3_pattern in chapter_patterns:
+                    for _h2_pattern, h3_pattern in chapter_patterns:
                         match = re.match(h3_pattern, line, re.IGNORECASE)
                         if match:
                             chapter_text = match.group(1).strip()

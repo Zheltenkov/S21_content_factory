@@ -421,7 +421,7 @@ class Chapter1Checker:
             if json_start >= 0 and json_end > json_start:
                 data = json.loads(response[json_start:json_end])
                 return data.get("has_markers", False)
-        except:
+        except Exception:
             pass
 
         return False
@@ -456,7 +456,7 @@ class Chapter1Checker:
             if json_start >= 0 and json_end > json_start:
                 data = json.loads(response[json_start:json_end])
                 return data.get("correct_format", False)
-        except:
+        except Exception:
             pass
 
         return False
@@ -595,7 +595,7 @@ class Chapter1Checker:
             if json_start >= 0 and json_end > json_start:
                 data = json.loads(response[json_start:json_end])
                 return data.get("has_constraints", False)
-        except:
+        except Exception:
             pass
 
         return False

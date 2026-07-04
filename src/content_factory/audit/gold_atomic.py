@@ -95,12 +95,12 @@ def load_atomic(path: Path, unit_candidates):
         candidate, score = _match_project(raw_project, unit_candidates)
         if score < 0.55:
             notes.append(
-                "Строка %d: слабое сопоставление проекта %r с папкой %r, score=%.2f."
-                % (rownum, raw_project, candidate.raw_name, score)
+                f"Строка {rownum}: слабое сопоставление проекта {raw_project!r} "
+                f"с папкой {candidate.raw_name!r}, score={score:.2f}."
             )
         line_start, line_end = _parse_line(cell(row, ci_line)) if ci_line is not None else (None, None)
         file_hint = (cell(row, ci_file).split(";")[0].strip() or None) if ci_file is not None else None
-        case_id = "gold_%d_%s" % (rownum, crit)
+        case_id = f"gold_{rownum}_{crit}"
         case = GoldCorpusCase(
             case_id=case_id,
             row_number=rownum,

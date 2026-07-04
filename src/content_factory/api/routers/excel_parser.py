@@ -51,9 +51,9 @@ async def parse_excel(
         return result
 
     except ImportError:
-        raise HTTPException(status_code=500, detail="Для работы с Excel файлами требуется pandas. Установите: pip install pandas openpyxl")
+        raise HTTPException(status_code=500, detail="Для работы с Excel файлами требуется pandas. Установите: pip install pandas openpyxl") from None
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=400, detail="Ошибка при чтении Excel файла")
+        raise HTTPException(status_code=400, detail="Ошибка при чтении Excel файла") from None
 

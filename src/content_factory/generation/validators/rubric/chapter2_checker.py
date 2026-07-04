@@ -589,7 +589,7 @@ class Chapter2Checker:
                         return False
 
             return True
-        except:
+        except Exception:
             return False
 
     def _learning_outcomes_coverage_item(

@@ -331,7 +331,7 @@ def translate_segments_llm(
     batch_size = TRANSLATE_BATCH_SIZE
     while batch_size >= 1:
         indices: list[int] = []
-        for i, seg in enumerate(segments):
+        for i, _seg in enumerate(segments):
             if result[i] is not None:
                 continue
             indices.append(i)

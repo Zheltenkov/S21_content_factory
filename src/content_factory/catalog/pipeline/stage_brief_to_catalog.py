@@ -755,7 +755,8 @@ def gather_evidence(sub_queries: list[str], cache_conn: sqlite3.Connection | Non
     for e in ev:
         k = (e.claim.lower(), e.url)
         if k not in seen:
-            seen.add(k); out.append(e)
+            seen.add(k)
+            out.append(e)
     return out
 
 

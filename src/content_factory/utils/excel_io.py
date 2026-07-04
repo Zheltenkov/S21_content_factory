@@ -85,7 +85,7 @@ def excel_template() -> io.BytesIO:
             df.to_excel(writer, index=False, sheet_name='Спецификация')
             # writer.save() вызывается автоматически при выходе из контекста
     except Exception as e:
-        raise ValueError(f"Ошибка при создании Excel файла: {str(e)}")
+        raise ValueError(f"Ошибка при создании Excel файла: {str(e)}") from e
 
     # После выхода из контекста writer автоматически закрыт и данные записаны
     # Возвращаем указатель в начало буфера

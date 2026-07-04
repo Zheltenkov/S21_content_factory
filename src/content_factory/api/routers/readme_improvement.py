@@ -128,7 +128,7 @@ async def extract_data_for_improvement(
             phase="improvement_extract_error",
             metadata={"error": str(e)}
         )
-        raise HTTPException(status_code=500, detail="Ошибка при извлечении данных")
+        raise HTTPException(status_code=500, detail="Ошибка при извлечении данных") from e
 
 
 @router.post("/readme/improve/generate", response_model=GenerateImprovedResponse)
@@ -175,7 +175,7 @@ async def generate_improved_readme(
             phase="improvement_generate_error",
             metadata={"error": str(e)}
         )
-        raise HTTPException(status_code=500, detail="Ошибка при запуске генерации")
+        raise HTTPException(status_code=500, detail="Ошибка при запуске генерации") from e
 
 
 @router.get("/readme/improve/diff/{request_id}")

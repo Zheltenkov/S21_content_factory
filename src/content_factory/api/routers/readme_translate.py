@@ -1109,7 +1109,7 @@ async def translate_readme_start(
         raise HTTPException(
             status_code=400,
             detail=f"Ошибка подготовки контекста для перевода: {e}",
-        )
+        ) from e
 
     set_translation_job(
         request_id=request_id,
@@ -1196,7 +1196,7 @@ async def translate_document_start(
         raise HTTPException(
             status_code=400,
             detail=f"Ошибка подготовки контекста для перевода: {e}",
-        )
+        ) from e
 
     request_id = str(uuid.uuid4())
     user_id = user.get("id", "anonymous")
@@ -1298,7 +1298,7 @@ async def translate_video_start(
     except Exception as e:
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=f"Не удалось сохранить видео: {e}")
+        raise HTTPException(status_code=500, detail=f"Не удалось сохранить видео: {e}") from e
 
     request_id = str(uuid.uuid4())
     user_id = user.get("id", "anonymous")

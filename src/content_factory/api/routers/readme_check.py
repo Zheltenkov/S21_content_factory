@@ -183,7 +183,7 @@ async def check_readme(
             phase="readme_check_error",
             metadata={"error_type": type(e).__name__, "error_message": str(e)},
         )
-        raise HTTPException(status_code=500, detail=f"Ошибка проверки README: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка проверки README: {e}") from e
 
 
 

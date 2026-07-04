@@ -95,7 +95,7 @@ def _match_items(gold_items: list[EvaluationItem], predicted_items: list[Evaluat
     matched_gold: set[int] = set()
     matched_predicted: set[int] = set()
     matches: list[tuple[int, int]] = []
-    for score, gold_index, predicted_index in sorted(candidates, reverse=True):
+    for _score, gold_index, predicted_index in sorted(candidates, reverse=True):
         if gold_index in matched_gold or predicted_index in matched_predicted:
             continue
         matched_gold.add(gold_index)

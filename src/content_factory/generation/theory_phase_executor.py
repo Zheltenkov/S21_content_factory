@@ -114,7 +114,7 @@ def _parse_theory_part_markdown(markdown: str) -> tuple[str, str, str, list[str]
     if questions_match:
         questions_text = questions_match.group(1).strip()
         questions = [
-            line.strip("- •\t ").rstrip()
+            line.strip("- •\t ").rstrip()  # noqa: B005  strips leading/trailing bullet chars
             for line in questions_text.splitlines()
             if line.strip()
         ][:2]

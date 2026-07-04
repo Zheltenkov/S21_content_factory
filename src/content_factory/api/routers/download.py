@@ -229,4 +229,4 @@ async def download_template():
         )
     except Exception as e:
         logger.error(f"❌ Ошибка создания шаблона: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ошибка создания шаблона: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка создания шаблона: {str(e)}") from e

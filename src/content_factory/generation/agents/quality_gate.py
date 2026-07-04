@@ -86,7 +86,7 @@ class QualityGate:
 
         # 2. Проверка must в планах частей
         for part_idx, part_plan in plan.per_part.items():
-            log = next((l for l in execution_logs if l.part_index == part_idx), None)
+            log = next((entry for entry in execution_logs if entry.part_index == part_idx), None)
             if not log:
                 continue
 
@@ -146,7 +146,7 @@ class QualityGate:
         safe_print("  🔍 Проверка targets (nice_to_have)...", flush=True)
 
         for part_idx, part_plan in plan.per_part.items():
-            log = next((l for l in execution_logs if l.part_index == part_idx), None)
+            log = next((entry for entry in execution_logs if entry.part_index == part_idx), None)
             if not log:
                 continue
 

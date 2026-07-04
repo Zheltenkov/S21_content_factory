@@ -224,7 +224,7 @@ def _infer_scopes_from_comments(comments: str, markdown: str) -> list[Regenerati
     scopes: list[RegenerationEditScope] = []
 
     if "назван" in text and "проект" in text:
-        for start_line, _end_line, level, title in _heading_ranges(markdown):
+        for start_line, _end_line, level, _title in _heading_ranges(markdown):
             if level == 1:
                 scopes.append(
                     RegenerationEditScope(
