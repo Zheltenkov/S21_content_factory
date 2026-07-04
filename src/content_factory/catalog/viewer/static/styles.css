@@ -46,7 +46,7 @@ body {
     min-height: 100%;
     background:
         radial-gradient(circle at top right, rgba(14, 143, 111, 0.08), transparent 25%),
-        linear-gradient(180deg, #f7f4ed 0%, var(--bg) 100%);
+        linear-gradient(180deg, var(--s21-surface-2) 0%, var(--bg) 100%);
     color: var(--ink);
     font-family: var(--sans);
 }
@@ -67,7 +67,7 @@ code {
     z-index: 20;
     background: rgba(247, 244, 237, 0.84);
     backdrop-filter: blur(18px);
-    border-bottom: 1px solid rgba(217, 207, 191, 0.78);
+    border-bottom: 1px solid rgba(230, 229, 224, 0.78);
 }
 
 .topbar-inner {
@@ -140,7 +140,7 @@ code {
     padding: 8px 28px;
     background: rgba(244, 241, 234, 0.86);
     backdrop-filter: blur(14px);
-    border-bottom: 1px solid rgba(217, 207, 191, 0.55);
+    border-bottom: 1px solid rgba(230, 229, 224, 0.55);
 }
 
 .secondary-nav-link {
@@ -201,7 +201,7 @@ code {
 .skill-card,
 .workspace-next-step {
     background: var(--panel);
-    border: 1px solid rgba(217, 207, 191, 0.9);
+    border: 1px solid rgba(230, 229, 224, 0.9);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
 }
@@ -211,12 +211,12 @@ code {
 }
 
 .summary-card-warn {
-    border-color: rgba(184, 92, 56, 0.35);
-    background: linear-gradient(180deg, var(--panel) 0%, #fff8f4 100%);
+    border-color: rgba(167, 106, 20, 0.35);
+    background: linear-gradient(180deg, var(--panel) 0%, var(--s21-warn-bg) 100%);
 }
 
 .summary-card-soft {
-    background: linear-gradient(180deg, var(--panel) 0%, #fbfaf7 100%);
+    background: linear-gradient(180deg, var(--panel) 0%, var(--s21-surface-2) 100%);
 }
 
 .summary-label {
@@ -284,7 +284,7 @@ code {
 }
 
 .workspace-job-card {
-    background: linear-gradient(180deg, rgba(255, 253, 250, 0.98), rgba(247, 244, 237, 0.96));
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 237, 0.96));
 }
 
 .workspace-control-panel {
@@ -302,7 +302,7 @@ code {
 
 .workspace-control-panel[open] > summary {
     margin-bottom: 0;
-    border-bottom: 1px solid rgba(217, 207, 191, 0.62);
+    border-bottom: 1px solid rgba(230, 229, 224, 0.62);
 }
 
 .workspace-control-summary-main {
@@ -331,9 +331,9 @@ code {
 
 .workspace-control-card {
     padding: 13px 14px;
-    border: 1px solid rgba(217, 207, 191, 0.72);
+    border: 1px solid rgba(230, 229, 224, 0.72);
     border-radius: 16px;
-    background: rgba(255, 253, 250, 0.72);
+    background: rgba(255, 255, 255, 0.72);
     box-shadow: none;
 }
 
@@ -432,7 +432,7 @@ code {
     border-color: rgba(14, 143, 111, 0.28);
     background:
         radial-gradient(circle at top right, rgba(14, 143, 111, 0.09), transparent 32%),
-        linear-gradient(180deg, var(--panel) 0%, #fbfaf7 100%);
+        linear-gradient(180deg, var(--panel) 0%, var(--s21-surface-2) 100%);
 }
 
 .workspace-next-step h2 {
@@ -474,15 +474,15 @@ code {
     align-items: center;
     padding: 11px 13px;
     border-radius: 16px;
-    border: 1px solid rgba(217, 207, 191, 0.78);
-    background: rgba(255, 253, 250, 0.78);
+    border: 1px solid rgba(230, 229, 224, 0.78);
+    background: rgba(255, 255, 255, 0.78);
     color: inherit;
     text-decoration: none;
 }
 
 .workspace-blocker-warn {
-    border-color: rgba(184, 92, 56, 0.35);
-    background: #fff8f4;
+    border-color: rgba(167, 106, 20, 0.35);
+    background: var(--s21-warn-bg);
 }
 
 .workspace-blocker-info {
@@ -527,9 +527,9 @@ code {
     display: grid;
     gap: 3px;
     padding: 12px 14px;
-    border: 1px solid rgba(217, 207, 191, 0.72);
+    border: 1px solid rgba(230, 229, 224, 0.72);
     border-radius: 16px;
-    background: rgba(255, 253, 250, 0.74);
+    background: rgba(255, 255, 255, 0.74);
     color: inherit;
     text-decoration: none;
 }
@@ -571,7 +571,7 @@ code {
 
 .intake-run-panel[open] > summary {
     margin-bottom: 0;
-    border-bottom: 1px solid rgba(217, 207, 191, 0.62);
+    border-bottom: 1px solid rgba(230, 229, 224, 0.62);
 }
 
 .intake-run-summary-main {
@@ -625,8 +625,8 @@ code {
     display: grid;
     gap: 14px;
     padding: 20px 24px;
-    background: linear-gradient(180deg, rgba(255, 253, 250, 0.96), rgba(248, 244, 236, 0.94));
-    border: 1px solid rgba(217, 207, 191, 0.9);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 244, 236, 0.94));
+    border: 1px solid rgba(230, 229, 224, 0.9);
     border-radius: 22px;
 }
 
@@ -669,8 +669,8 @@ code {
 }
 
 .intake-progress-fill.failed {
-    background: linear-gradient(90deg, #b85c38 0%, #d9835f 100%);
-    box-shadow: 0 0 18px rgba(184, 92, 56, 0.16);
+    background: linear-gradient(90deg, var(--warn) 0%, #d9835f 100%);
+    box-shadow: 0 0 18px rgba(167, 106, 20, 0.16);
 }
 
 .intake-progress-steps {
@@ -682,8 +682,8 @@ code {
 .intake-progress-step {
     padding: 9px 12px;
     border-radius: 999px;
-    border: 1px solid rgba(217, 207, 191, 0.9);
-    background: rgba(255, 253, 250, 0.85);
+    border: 1px solid rgba(230, 229, 224, 0.9);
+    background: rgba(255, 255, 255, 0.85);
     color: var(--ink-soft);
     font-size: 0.9rem;
     text-align: center;
@@ -704,7 +704,7 @@ code {
 }
 
 .intake-progress-step.failed {
-    border-color: rgba(184, 92, 56, 0.28);
+    border-color: rgba(167, 106, 20, 0.28);
     color: var(--warn);
 }
 
@@ -806,7 +806,7 @@ code {
 
 .pill {
     background: #ebf6f2;
-    color: #15735a;
+    color: var(--accent-deep);
     font-weight: 600;
 }
 
@@ -979,7 +979,7 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .directory-skill {
-    border: 1px solid rgba(217, 207, 191, 0.9);
+    border: 1px solid rgba(230, 229, 224, 0.9);
     border-radius: 16px;
     background: rgba(255, 255, 255, 0.62);
     box-shadow: none;
@@ -1033,7 +1033,7 @@ details[open] > summary .toggle-glyph::before {
     padding: 12px;
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.85);
-    border: 1px solid rgba(217, 207, 191, 0.9);
+    border: 1px solid rgba(230, 229, 224, 0.9);
 }
 
 .level-label {
@@ -1097,9 +1097,9 @@ details[open] > summary .toggle-glyph::before {
     align-self: stretch;
     min-height: 0;
     padding: 10px 12px;
-    border: 1px solid rgba(217, 207, 191, 0.88);
+    border: 1px solid rgba(230, 229, 224, 0.88);
     border-radius: 14px;
-    background: rgba(255, 253, 250, 0.84);
+    background: rgba(255, 255, 255, 0.84);
     box-shadow: var(--shadow-sm);
 }
 
@@ -1134,7 +1134,7 @@ details[open] > summary .toggle-glyph::before {
 
 .workflow-step-done {
     border-color: rgba(14, 143, 111, 0.24);
-    background: linear-gradient(180deg, rgba(216, 242, 234, 0.65), rgba(255, 253, 250, 0.92));
+    background: linear-gradient(180deg, rgba(216, 242, 234, 0.65), rgba(255, 255, 255, 0.92));
 }
 
 .workflow-step-done .workflow-step-index {
@@ -1144,17 +1144,17 @@ details[open] > summary .toggle-glyph::before {
 
 .workflow-step-active {
     border-color: rgba(14, 143, 111, 0.45);
-    background: linear-gradient(180deg, rgba(14, 143, 111, 0.12), rgba(255, 253, 250, 0.96));
+    background: linear-gradient(180deg, rgba(14, 143, 111, 0.12), rgba(255, 255, 255, 0.96));
 }
 
 .workflow-step-warn {
-    border-color: rgba(184, 92, 56, 0.38);
-    background: linear-gradient(180deg, rgba(251, 229, 220, 0.72), rgba(255, 253, 250, 0.96));
+    border-color: rgba(167, 106, 20, 0.38);
+    background: linear-gradient(180deg, rgba(251, 229, 220, 0.72), rgba(255, 255, 255, 0.96));
 }
 
 .workflow-step-pending {
     opacity: 0.68;
-    background: rgba(255, 253, 250, 0.62);
+    background: rgba(255, 255, 255, 0.62);
 }
 
 .workflow-focus {
@@ -1210,7 +1210,7 @@ details[open] > summary .toggle-glyph::before {
 .candidate-list-panel {
     padding: 14px 16px;
     border-color: rgba(14, 143, 111, 0.2);
-    background: linear-gradient(180deg, rgba(255, 253, 250, 0.86), rgba(247, 244, 237, 0.66));
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(247, 244, 237, 0.66));
 }
 
 .candidate-list-panel > summary {
@@ -1225,7 +1225,7 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .candidate-list-panel-complete {
-    background: linear-gradient(180deg, rgba(216, 242, 234, 0.42), rgba(255, 253, 250, 0.78));
+    background: linear-gradient(180deg, rgba(216, 242, 234, 0.42), rgba(255, 255, 255, 0.78));
 }
 
 .candidate-list-panel-complete:not([open]) {
@@ -1234,10 +1234,10 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .candidate-review-card {
-    border: 1px solid rgba(217, 207, 191, 0.86);
+    border: 1px solid rgba(230, 229, 224, 0.86);
     border-radius: var(--radius);
     background:
-        linear-gradient(180deg, rgba(255, 253, 250, 0.94), rgba(247, 244, 237, 0.8)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 244, 237, 0.8)),
         var(--panel);
     box-shadow: var(--shadow-sm);
     overflow: hidden;
@@ -1245,7 +1245,7 @@ details[open] > summary .toggle-glyph::before {
 
 .candidate-review-card.candidate-card-collapsed {
     background:
-        linear-gradient(180deg, rgba(255, 253, 250, 0.98), rgba(247, 244, 237, 0.72)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 237, 0.72)),
         var(--panel);
 }
 
@@ -1387,7 +1387,7 @@ details[open] > summary .toggle-glyph::before {
 .candidate-card-divider {
     height: 1px;
     margin: 16px 0 14px;
-    background: rgba(217, 207, 191, 0.86);
+    background: rgba(230, 229, 224, 0.86);
 }
 
 .candidate-diagnostic-row {
@@ -1398,12 +1398,12 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .candidate-resolution-pill {
-    background: rgba(31, 42, 42, 0.06);
+    background: rgba(15, 20, 25, 0.06);
     color: var(--ink);
 }
 
 .candidate-match-chip {
-    background: rgba(217, 156, 73, 0.16);
+    background: rgba(167, 106, 20, 0.16);
     color: #8b5a18;
 }
 
@@ -1441,28 +1441,28 @@ details[open] > summary .toggle-glyph::before {
     margin-top: 14px;
     padding: 13px 15px;
     border-radius: 14px;
-    border: 1px solid rgba(217, 207, 191, 0.72);
-    background: rgba(255, 253, 250, 0.78);
+    border: 1px solid rgba(230, 229, 224, 0.72);
+    background: rgba(255, 255, 255, 0.78);
 }
 
 .candidate-recommendation-panel.candidate-recommendation-create,
 .candidate-recommendation-panel.candidate-recommendation-link,
 .candidate-recommendation-panel.candidate-recommendation-done {
     border-color: rgba(14, 143, 111, 0.24);
-    background: linear-gradient(135deg, rgba(216, 242, 234, 0.68), rgba(255, 253, 250, 0.9));
+    background: linear-gradient(135deg, rgba(216, 242, 234, 0.68), rgba(255, 255, 255, 0.9));
     color: var(--ink);
 }
 
 .candidate-recommendation-panel.candidate-recommendation-check,
 .candidate-recommendation-panel.candidate-recommendation-review {
-    border-color: rgba(217, 156, 73, 0.32);
-    background: linear-gradient(135deg, rgba(217, 156, 73, 0.18), rgba(255, 253, 250, 0.9));
+    border-color: rgba(167, 106, 20, 0.32);
+    background: linear-gradient(135deg, rgba(167, 106, 20, 0.18), rgba(255, 255, 255, 0.9));
     color: var(--ink);
 }
 
 .candidate-recommendation-panel.candidate-recommendation-rejected {
-    border-color: rgba(184, 92, 56, 0.3);
-    background: linear-gradient(135deg, rgba(251, 229, 220, 0.74), rgba(255, 253, 250, 0.9));
+    border-color: rgba(167, 106, 20, 0.3);
+    background: linear-gradient(135deg, rgba(251, 229, 220, 0.74), rgba(255, 255, 255, 0.9));
     color: var(--ink);
 }
 
@@ -1503,7 +1503,7 @@ details[open] > summary .toggle-glyph::before {
     border-radius: var(--radius);
     background:
         radial-gradient(circle at top left, rgba(14, 143, 111, 0.1), transparent 34%),
-        linear-gradient(135deg, rgba(236, 250, 246, 0.92), rgba(255, 253, 250, 0.95) 62%);
+        linear-gradient(135deg, rgba(236, 250, 246, 0.92), rgba(255, 255, 255, 0.95) 62%);
     box-shadow: 0 14px 30px rgba(14, 143, 111, 0.07);
 }
 
@@ -1533,7 +1533,7 @@ details[open] > summary .toggle-glyph::before {
     padding: 7px 9px;
     border: 1px solid rgba(14, 143, 111, 0.12);
     border-radius: 12px;
-    background: rgba(255, 253, 250, 0.62);
+    background: rgba(255, 255, 255, 0.62);
 }
 
 .primary-workspace .data-table th,
@@ -1549,16 +1549,16 @@ details[open] > summary .toggle-glyph::before {
 .filter-panel {
     padding: 18px 20px;
     background: var(--panel);
-    border: 1px solid rgba(217, 207, 191, 0.9);
+    border: 1px solid rgba(230, 229, 224, 0.9);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
 }
 
 .collapse-panel {
     padding: 16px 18px;
-    border: 1px solid rgba(217, 207, 191, 0.76);
+    border: 1px solid rgba(230, 229, 224, 0.76);
     border-radius: var(--radius);
-    background: rgba(255, 253, 250, 0.72);
+    background: rgba(255, 255, 255, 0.72);
     box-shadow: 0 12px 26px rgba(15, 20, 25, 0.05);
 }
 
@@ -1776,7 +1776,7 @@ details[open] > summary .toggle-glyph::before {
     border-radius: 16px;
     background:
         radial-gradient(circle at top left, rgba(14, 143, 111, 0.08), transparent 42%),
-        rgba(255, 253, 250, 0.78);
+        rgba(255, 255, 255, 0.78);
 }
 
 .dag-review-explainer strong {
@@ -1952,13 +1952,13 @@ details[open] > summary .toggle-glyph::before {
     padding: 14px 16px;
     text-align: left;
     vertical-align: top;
-    border-bottom: 1px solid rgba(217, 207, 191, 0.9);
+    border-bottom: 1px solid rgba(230, 229, 224, 0.9);
 }
 
 .data-table thead th {
     position: sticky;
     top: 0;
-    background: rgba(255, 253, 250, 0.98);
+    background: rgba(255, 255, 255, 0.98);
     z-index: 1;
     font-weight: 600;
 }
@@ -1999,8 +1999,8 @@ details[open] > summary .toggle-glyph::before {
     padding: 34px 28px;
     text-align: center;
     color: var(--ink-soft);
-    background: rgba(255, 253, 250, 0.7);
-    border: 1px dashed rgba(217, 207, 191, 0.95);
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px dashed rgba(230, 229, 224, 0.95);
     border-radius: var(--radius);
 }
 
@@ -2092,7 +2092,7 @@ details[open] > summary .toggle-glyph::before {
     gap: 16px 18px;
     padding: 16px 18px;
     background: var(--panel);
-    border: 1px solid rgba(217, 207, 191, 0.9);
+    border: 1px solid rgba(230, 229, 224, 0.9);
     border-radius: var(--radius);
 }
 
@@ -2144,14 +2144,14 @@ details[open] > summary .toggle-glyph::before {
 .review-check-panel,
 .review-technical-details {
     padding: 12px 14px;
-    border: 1px solid rgba(217, 207, 191, 0.72);
+    border: 1px solid rgba(230, 229, 224, 0.72);
     border-radius: 14px;
-    background: rgba(255, 253, 250, 0.68);
+    background: rgba(255, 255, 255, 0.68);
 }
 
 .review-reason-panel {
     border-color: rgba(14, 143, 111, 0.18);
-    background: linear-gradient(135deg, rgba(216, 242, 234, 0.58), rgba(255, 253, 250, 0.86));
+    background: linear-gradient(135deg, rgba(216, 242, 234, 0.58), rgba(255, 255, 255, 0.86));
 }
 
 .review-technical-details > summary {
@@ -2287,7 +2287,7 @@ details[open] > summary .toggle-glyph::before {
     width: 100%;
     min-width: 0;
     padding: 10px 12px;
-    border: 1px solid rgba(217, 207, 191, 0.72);
+    border: 1px solid rgba(230, 229, 224, 0.72);
     border-radius: 16px;
     background: rgba(248, 244, 236, 0.58);
     position: sticky;
@@ -2345,9 +2345,9 @@ details[open] > summary .toggle-glyph::before {
     grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
     gap: 18px;
     padding: 18px;
-    border: 1px solid rgba(217, 207, 191, 0.78);
+    border: 1px solid rgba(230, 229, 224, 0.78);
     border-radius: 22px;
-    background: rgba(255, 253, 250, 0.8);
+    background: rgba(255, 255, 255, 0.8);
 }
 
 .candidate-competency-section-head {
@@ -2385,8 +2385,8 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .candidate-competency-window[open] .candidate-competency-summary {
-    border-bottom: 1px solid rgba(217, 207, 191, 0.62);
-    background: linear-gradient(180deg, rgba(14, 143, 111, 0.05), rgba(255, 253, 250, 0));
+    border-bottom: 1px solid rgba(230, 229, 224, 0.62);
+    background: linear-gradient(180deg, rgba(14, 143, 111, 0.05), rgba(255, 255, 255, 0));
 }
 
 .candidate-competency-summary-main {
@@ -2512,7 +2512,7 @@ details[open] > summary .toggle-glyph::before {
     padding: 12px;
     border-radius: 16px;
     background: rgba(248, 244, 236, 0.55);
-    border: 1px solid rgba(217, 207, 191, 0.66);
+    border: 1px solid rgba(230, 229, 224, 0.66);
 }
 
 .candidate-skill-move-list h3 {
@@ -2545,9 +2545,9 @@ details[open] > summary .toggle-glyph::before {
     justify-content: space-between;
     gap: 12px;
     padding: 9px 10px;
-    border: 1px solid rgba(217, 207, 191, 0.72);
+    border: 1px solid rgba(230, 229, 224, 0.72);
     border-radius: 13px;
-    background: rgba(255, 253, 250, 0.82);
+    background: rgba(255, 255, 255, 0.82);
     color: inherit;
     text-decoration: none;
 }
@@ -2574,7 +2574,7 @@ details[open] > summary .toggle-glyph::before {
     gap: 10px;
     align-items: start;
     padding-top: 8px;
-    border-top: 1px solid rgba(217, 207, 191, 0.55);
+    border-top: 1px solid rgba(230, 229, 224, 0.55);
 }
 
 .candidate-skill-move-row .inline-form {
@@ -2656,7 +2656,7 @@ details[open] > summary .toggle-glyph::before {
 
 .action-btn {
     padding: 9px 12px;
-    border: 1px solid rgba(217, 207, 191, 0.9);
+    border: 1px solid rgba(230, 229, 224, 0.9);
     border-radius: 999px;
     background: var(--panel-strong);
     color: var(--ink);
@@ -2687,7 +2687,7 @@ details[open] > summary .toggle-glyph::before {
 
 .action-btn-danger {
     background: var(--warn-soft);
-    border-color: rgba(184, 92, 56, 0.35);
+    border-color: rgba(167, 106, 20, 0.35);
     color: var(--warn);
 }
 
@@ -2759,12 +2759,12 @@ details[open] > summary .toggle-glyph::before {
 
 .candidate-recommendation-check,
 .candidate-recommendation-review {
-    background: rgba(217, 156, 73, 0.16);
+    background: rgba(167, 106, 20, 0.16);
     color: #9a6420;
 }
 
 .candidate-recommendation-rejected {
-    background: rgba(184, 92, 56, 0.14);
+    background: rgba(167, 106, 20, 0.14);
     color: var(--warn);
 }
 
@@ -2809,12 +2809,12 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .match-hint-medium {
-    background: rgba(217, 156, 73, 0.16);
+    background: rgba(167, 106, 20, 0.16);
     color: #9a6420;
 }
 
 .match-hint-weak {
-    background: rgba(184, 92, 56, 0.14);
+    background: rgba(167, 106, 20, 0.14);
     color: var(--warn);
 }
 
@@ -2861,7 +2861,7 @@ details[open] > summary .toggle-glyph::before {
     gap: 18px;
     padding: 22px 24px;
     background: var(--panel);
-    border: 1px solid rgba(217, 207, 191, 0.9);
+    border: 1px solid rgba(230, 229, 224, 0.9);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
 }
@@ -2904,7 +2904,7 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .dag-legend-chip-ai {
-    color: #b85c38;
+    color: var(--warn);
 }
 
 .dag-legend-chip-ai::before {
@@ -2934,8 +2934,8 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .dag-legend-chip-soft::before {
-    background: rgba(184, 92, 56, 0.14);
-    border: 1px dashed rgba(184, 92, 56, 0.45);
+    background: rgba(167, 106, 20, 0.14);
+    border: 1px dashed rgba(167, 106, 20, 0.45);
 }
 
 .dag-graph-shell {
@@ -2980,7 +2980,7 @@ details[open] > summary .toggle-glyph::before {
     background:
         linear-gradient(180deg, rgba(14, 143, 111, 0.08), rgba(14, 143, 111, 0.02)),
         var(--panel-strong);
-    border: 1px solid rgba(217, 207, 191, 0.75);
+    border: 1px solid rgba(230, 229, 224, 0.75);
 }
 
 .dag-wave-title,
@@ -3012,7 +3012,7 @@ details[open] > summary .toggle-glyph::before {
     border-radius: 18px;
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 245, 237, 0.98));
-    border: 1px solid rgba(217, 207, 191, 0.95);
+    border: 1px solid rgba(230, 229, 224, 0.95);
     box-shadow: 0 14px 28px rgba(15, 20, 25, 0.08);
     transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease, border-color 180ms ease;
 }
@@ -3046,7 +3046,7 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .dag-node-bloom {
-    background: rgba(31, 42, 42, 0.08);
+    background: rgba(15, 20, 25, 0.08);
     color: var(--ink-soft);
 }
 
@@ -3055,7 +3055,7 @@ details[open] > summary .toggle-glyph::before {
     gap: 12px;
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(217, 207, 191, 0.82);
+    border: 1px solid rgba(230, 229, 224, 0.82);
     box-shadow: 0 10px 24px rgba(15, 20, 25, 0.05);
     overflow: hidden;
 }
@@ -3117,7 +3117,7 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .dag-edge-ai {
-    stroke: #b85c38;
+    stroke: var(--warn);
 }
 
 .dag-edge-pipeline {
@@ -3145,8 +3145,8 @@ details[open] > summary .toggle-glyph::before {
 }
 
 .dag-node-downstream {
-    border-color: rgba(184, 92, 56, 0.32);
-    box-shadow: 0 14px 28px rgba(184, 92, 56, 0.1);
+    border-color: rgba(167, 106, 20, 0.32);
+    box-shadow: 0 14px 28px rgba(167, 106, 20, 0.1);
 }
 
 .dag-node-dimmed {
@@ -3156,7 +3156,7 @@ details[open] > summary .toggle-glyph::before {
 .dag-edge-active {
     opacity: 1;
     stroke-width: 3.2;
-    filter: drop-shadow(0 0 6px rgba(31, 42, 42, 0.1));
+    filter: drop-shadow(0 0 6px rgba(15, 20, 25, 0.1));
 }
 
 .dag-edge-context {
@@ -3173,7 +3173,7 @@ details[open] > summary .toggle-glyph::before {
     max-width: 320px;
     padding: 14px 16px;
     border-radius: 16px;
-    background: rgba(31, 42, 42, 0.96);
+    background: rgba(15, 20, 25, 0.96);
     color: #fffdf8;
     box-shadow: 0 18px 32px rgba(0, 0, 0, 0.18);
     font-size: 0.84rem;
