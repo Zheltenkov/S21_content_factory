@@ -12,6 +12,11 @@ Pure, offline, no dependencies beyond the domain model.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from content_factory.audit.domain import Finding
 
 # Deterministic / high-precision modules: trust their output to the fix tier.
 HIGH_PRECISION_CHECKERS = {
@@ -29,33 +34,33 @@ HIGH_PRECISION_CHECKERS = {
 ACTIONABLE_SEVERITIES = {"critical", "major"}
 
 
-def _sev(finding) -> str:
+def _sev(finding: Finding) -> str:
     s = getattr(finding, "severity", "")
     return getattr(s, "value", s) or ""
 
 
-def _crit(finding) -> str:
+def _crit(finding: Finding) -> str:
     c = getattr(finding, "criterion", "")
     return getattr(c, "value", c) or ""
 
 
-def _issue_type(finding) -> str:
+def _issue_type(finding: Finding) -> str:
     extra = getattr(finding, "extra", {}) or {}
     return str(extra.get("issue_type") or "")
 
 
-def is_fix_tier(finding) -> bool:
+def is_fix_tier(finding: Finding) -> bool:
     """A finding belongs to the 'fix first' tier."""
 
     return _sev(finding) in ACTIONABLE_SEVERITIES or getattr(finding, "checker_name", "") in HIGH_PRECISION_CHECKERS
 
 
-def _group_count(findings) -> int:
+def _group_count(findings: Iterable[Finding]) -> int:
     groups = {(getattr(f, "unit_id", ""), _crit(f), _issue_type(f)) for f in findings}
     return len(groups)
 
 
-def triage_findings(findings) -> dict:
+def triage_findings(findings: Sequence[Finding]) -> dict[str, Any]:
     """Splits findings into 'fix' and 'review' tiers with grouped counts."""
 
     fix = [f for f in findings if is_fix_tier(f)]

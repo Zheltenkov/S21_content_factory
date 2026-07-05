@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from content_factory.audit.domain import AuditSettings
+from content_factory.audit.domain import AuditSettings, RunSummary
 from content_factory.audit.env import get_env_value, load_env_file
 from content_factory.audit.evaluation import write_evaluation
 from content_factory.audit.exporters import write_report
@@ -100,7 +100,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_summary(summary, output_path: Path) -> None:
+def _print_summary(summary: RunSummary, output_path: Path) -> None:
     """Печатаем короткий итог в терминал."""
 
     print(f"Единиц контента: {summary.units_total}")

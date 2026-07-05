@@ -25,6 +25,7 @@ import json
 import re
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 from content_factory.audit.checks import BaseChecker, CheckContext, _finding
 from content_factory.audit.domain import (
@@ -46,7 +47,7 @@ CODE_EXTS_SET = set(CODE_EXTS)
 _IGNORE_DIRS = {".git", "node_modules", "__pycache__", ".venv", ".idea", ".vscode"}
 
 
-def _disk_code_files(unit, limit_bytes: int = 200_000, max_files: int = 40):
+def _disk_code_files(unit: ContentUnit, limit_bytes: int = 200_000, max_files: int = 40) -> list[tuple[str, str]]:
     """Reads source-code files from the unit folder on disk.
 
     The ingestion step loads only docs (md/yml/txt), so code files are not in
@@ -55,7 +56,7 @@ def _disk_code_files(unit, limit_bytes: int = 200_000, max_files: int = 40):
     """
 
     root = getattr(unit, "root_path", None)
-    out = []
+    out: list[tuple[str, str]] = []
     if not root:
         return out
     root = Path(root)
@@ -78,7 +79,7 @@ def _disk_code_files(unit, limit_bytes: int = 200_000, max_files: int = 40):
     return out
 
 
-def _disk_code_paths(unit, max_files: int = 200):
+def _disk_code_paths(unit: ContentUnit, max_files: int = 200) -> list[str]:
     """Lightweight scan of code-file relative paths (no read) for language inference."""
 
     root = getattr(unit, "root_path", None)
@@ -87,7 +88,7 @@ def _disk_code_paths(unit, max_files: int = 200):
     root = Path(root)
     if not root.is_dir():
         return []
-    paths = []
+    paths: list[str] = []
     for fp in root.rglob("*"):
         if len(paths) >= max_files:
             break
@@ -107,7 +108,7 @@ def _is_code(path: str) -> bool:
     return path.lower().endswith(CODE_EXTS)
 
 
-def _parse_output(raw: str):
+def _parse_output(raw: str) -> tuple[str, object]:
     """Normalize an expected-output comment into a comparable value."""
 
     s = raw.strip().strip("`").strip()
@@ -117,7 +118,7 @@ def _parse_output(raw: str):
     return ("str", re.sub(r"\s+", "", s.lower().strip("'\"`{}() ")))
 
 
-def _collect_call_outputs(unit: ContentUnit):
+def _collect_call_outputs(unit: ContentUnit) -> dict[str, Any]:
     """Map a normalized call signature to its documented outputs per file."""
 
     occ: dict = defaultdict(list)  # call_key -> [(path, line_no, raw_out, parsed)]
@@ -154,6 +155,8 @@ class CrossFileConsistencyChecker(BaseChecker):
 
     def _model(self, unit: ContentUnit, context: CheckContext) -> list[Finding]:
         client = context.model_client
+        if client is None:
+            return []
         readmes = [f for f in unit.files if _is_readme(f.relative_path)]
         codes = [
             f for f in unit.files
@@ -330,7 +333,7 @@ class CourseMaterialRelevanceChecker(BaseChecker):
                 if hint in name:
                     return lang
             return None
-        return max(counts.items(), key=lambda kv: kv[1])[0]
+        return str(max(counts.items(), key=lambda kv: kv[1])[0])
 
 
 # Finding type is only needed for annotations; import here to avoid an unused

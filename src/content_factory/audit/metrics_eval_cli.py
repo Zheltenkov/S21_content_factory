@@ -10,7 +10,11 @@ from content_factory.audit.cli import (
     DEFAULT_OPENROUTER_MODEL,
     DEFAULT_OPENROUTER_TECH_MODEL,
 )
-from content_factory.audit.corpus_evaluation import evaluate_corpus_report, write_corpus_evaluation
+from content_factory.audit.corpus_evaluation import (
+    CorpusEvaluationSummary,
+    evaluate_corpus_report,
+    write_corpus_evaluation,
+)
 from content_factory.audit.domain import AuditSettings
 from content_factory.audit.env import get_env_value, load_env_file
 from content_factory.audit.exporters import write_report
@@ -145,7 +149,7 @@ def _find_gold_xlsx(metrics_dir: Path) -> Path:
     return candidates[0]
 
 
-def _print_summary(summary, output_dir: Path) -> None:
+def _print_summary(summary: CorpusEvaluationSummary, output_dir: Path) -> None:
     """Печатает короткие итоговые метрики."""
 
     print("Main detailed metric:")

@@ -845,12 +845,12 @@ def _match_gold_cases(
 
     rows: list[CorpusEvaluationMatch] = []
     for gold in gold_cases:
-        candidate = assigned_by_gold.get(gold.case_id)
-        counted = candidate is not None
-        if candidate is None:
-            candidate = _best_unassigned_candidate(gold, predicted_items, assigned_predictions)
-        prediction = predicted_by_id.get(candidate.prediction_id) if candidate is not None else None
-        rows.append(_match_row(gold, prediction, candidate, counted))
+        matched: _MatchCandidate | None = assigned_by_gold.get(gold.case_id)
+        counted = matched is not None
+        if matched is None:
+            matched = _best_unassigned_candidate(gold, predicted_items, assigned_predictions)
+        prediction = predicted_by_id.get(matched.prediction_id) if matched is not None else None
+        rows.append(_match_row(gold, prediction, matched, counted))
     return rows, assigned_predictions
 
 

@@ -17,6 +17,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 Z_95 = 1.96
 VALID_VERDICTS = {"real", "style", "wrong"}
@@ -401,7 +402,7 @@ def split_issue_parts(issue_text: str) -> tuple[str, str, str, str]:
     return quote, defect, suggested_fix, subtype
 
 
-def _load_false_positive_rows(fp_file: Path, checker: str) -> list[dict[str, str]]:
+def _load_false_positive_rows(fp_file: Path, checker: str) -> list[dict[str, Any]]:
     with fp_file.open("r", encoding="utf-8-sig", newline="") as stream:
         rows = []
         for row in csv.DictReader(stream):
@@ -410,7 +411,7 @@ def _load_false_positive_rows(fp_file: Path, checker: str) -> list[dict[str, str
         return rows
 
 
-def _candidate_from_false_positive_row(row: dict[str, str]) -> AdjudicationCandidate:
+def _candidate_from_false_positive_row(row: dict[str, Any]) -> AdjudicationCandidate:
     raw = row["raw"]
     quote, defect, suggested_fix, subtype = split_issue_parts(row["issue"])
     location = _first_existing(raw, ("найденная строка/диапазон", "found_location", "location"))

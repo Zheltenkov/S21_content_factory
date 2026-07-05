@@ -25,7 +25,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from content_factory.audit.corpus_evaluation import (
     CorpusEvaluationMatch,
@@ -226,7 +226,7 @@ def cap_repetitive(
         if noisy and it.line_start is not None:
             # distinct lines are distinct real defects: keep them all, drop only
             # exact same-line same-issue duplicates.
-            key = (it.project_id, it.criterion, it.issue_type or "", it.line_start)
+            key: tuple[object, ...] = (it.project_id, it.criterion, it.issue_type or "", it.line_start)
             if key in seen_line:
                 dropped += 1
                 continue
@@ -249,6 +249,14 @@ class Judge(Protocol):
     calls: int
 
     def same_defect(self, gold: GoldCorpusCase, pred: PredictedCorpusItem) -> tuple[bool, float, str]:
+        ...
+
+
+class ValidityJudge(Protocol):
+    name: str
+    calls: int
+
+    def is_valid(self, item: PredictedCorpusItem) -> tuple[bool, float, str]:
         ...
 
 
@@ -286,7 +294,7 @@ class OpenRouterJudge:
     def __init__(self, api_key: str, model: str, cache_path: str | None = None, base_url: str | None = None) -> None:
         from content_factory.audit.openrouter import OpenRouterClient
 
-        kwargs = {"base_url": base_url} if base_url else {}
+        kwargs: dict[str, Any] = {"base_url": base_url} if base_url else {}
         self.client = OpenRouterClient(api_key=api_key, model=model, **kwargs)
         self.calls = 0
         self.cache_path = Path(cache_path) if cache_path else None
@@ -356,7 +364,7 @@ def _prescreen(gold: GoldCorpusCase, pred: PredictedCorpusItem) -> float:
     if getattr(gold, "file_hint", None) and pred.file_path:
         gf = mirror_family(gold.file_hint)
         pf = mirror_family(pred.file_path)
-        same_file = gf == pf or Path(gold.file_hint).name.lower() == Path(pred.file_path).name.lower()
+        same_file = gf == pf or Path(gold.file_hint or "").name.lower() == Path(pred.file_path).name.lower()
         if same_file and line_rel in ("overlap", "near"):
             return 0.9
         if same_file and gold.line_start is None:
@@ -498,7 +506,7 @@ class OpenRouterValidityJudge:
     def __init__(self, api_key: str, model: str, cache_path: str | None = None, base_url: str | None = None) -> None:
         from content_factory.audit.openrouter import OpenRouterClient
 
-        kwargs = {"base_url": base_url} if base_url else {}
+        kwargs: dict[str, Any] = {"base_url": base_url} if base_url else {}
         self.client = OpenRouterClient(api_key=api_key, model=model, **kwargs)
         self.calls = 0
         self.cache_path = Path(cache_path) if cache_path else None
@@ -530,7 +538,7 @@ class OpenRouterValidityJudge:
         return valid, conf, reason
 
 
-def build_validity_judge(backend: str, *, api_key: str | None = None, model: str | None = None, cache_path: str | None = None):
+def build_validity_judge(backend: str, *, api_key: str | None = None, model: str | None = None, cache_path: str | None = None) -> ValidityJudge:
     if backend == "offline":
         return OfflineValidityJudge()
     if backend in MODEL_BACKENDS:
@@ -563,7 +571,7 @@ def preflight(backend: str, api_key: str | None, model: str | None = None) -> tu
         return False, f"{backend} unreachable: {str(exc)[:200]}"
 
 
-def assess_validity(items: list[PredictedCorpusItem], judge, accept: float = 0.55) -> dict:
+def assess_validity(items: list[PredictedCorpusItem], judge: ValidityJudge, accept: float = 0.55) -> dict:
     """Runs the validity judge over extra findings; returns aggregate stats."""
 
     valid = 0

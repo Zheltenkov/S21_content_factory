@@ -9,9 +9,15 @@ for .xlsx and .csv. Falls back (returns None) when the sheet is the legacy
 from __future__ import annotations
 
 import csv as _csv
+from collections.abc import Iterable
 from pathlib import Path
 
-from content_factory.audit.corpus_evaluation import GoldCorpusCase, GoldCorpusItem, _match_project
+from content_factory.audit.corpus_evaluation import (
+    GoldCorpusCase,
+    GoldCorpusItem,
+    _match_project,
+    _ProjectCandidate,
+)
 
 CRIT_CODE = "критерий_код"
 TEXT_COLS = ("Текст кейса", "Текст ошибки", "Текст")
@@ -20,7 +26,7 @@ PROJECT_COL = "Проект"
 LINE_COL = "Строка"
 
 
-def _read_rows(path: Path):
+def _read_rows(path: Path) -> list[list[str]]:
     suffix = path.suffix.lower()
     if suffix == ".csv":
         with path.open(encoding="utf-8-sig") as fh:
@@ -32,14 +38,14 @@ def _read_rows(path: Path):
     return [[("" if c is None else str(c)) for c in row] for row in ws.iter_rows(values_only=True)]
 
 
-def _first(header: dict, names) -> int | None:
+def _first(header: dict[str, int], names: Iterable[str]) -> int | None:
     for n in names:
         if n in header:
             return header[n]
     return None
 
 
-def _parse_line(value: str):
+def _parse_line(value: str) -> tuple[int | None, int | None]:
     v = (value or "").strip()
     if not v:
         return None, None
@@ -66,7 +72,9 @@ def is_atomic(path: Path) -> bool:
     return CRIT_CODE in header and _first(header, TEXT_COLS) is not None
 
 
-def load_atomic(path: Path, unit_candidates):
+def load_atomic(
+    path: Path, unit_candidates: list[_ProjectCandidate]
+) -> tuple[list[GoldCorpusItem], list[GoldCorpusCase], set[str], list[str]]:
     """Returns (gold_items, gold_cases, opinion_case_ids, notes)."""
 
     rows = _read_rows(path)
@@ -83,7 +91,7 @@ def load_atomic(path: Path, unit_candidates):
     opinion_ids: set[str] = set()
     notes: list[str] = []
 
-    def cell(row, idx):
+    def cell(row: list[str], idx: int | None) -> str:
         return (row[idx].strip() if idx is not None and idx < len(row) and row[idx] is not None else "")
 
     for rownum, row in enumerate(rows[1:], start=2):

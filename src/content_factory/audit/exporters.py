@@ -14,6 +14,7 @@ from content_factory.audit.domain import (
     SEVERITY_LABELS,
     VERDICT_LABELS,
     AuditReport,
+    Finding,
     Verdict,
 )
 from content_factory.audit.report_formatting import format_finding_explanation, format_finding_fragment
@@ -60,7 +61,7 @@ def _report_rows(report: AuditReport) -> list[dict[str, object]]:
     """Собирает табличные строки отчёта для CSV и XLSX."""
 
     unit_by_id = {unit.unit_id: unit for unit in report.units}
-    rows = []
+    rows: list[dict[str, object]] = []
     for finding in report.findings:
         unit = unit_by_id.get(finding.unit_id)
         rows.append(
@@ -96,7 +97,10 @@ def _write_xlsx(report: AuditReport, path: Path) -> None:
 
     rows = _report_rows(report)
     fieldnames = list(rows[0].keys()) if rows else _empty_fieldnames()
-    sheet_rows = [fieldnames, *[[row.get(field, "") for field in fieldnames] for row in rows]]
+    sheet_rows: list[list[object]] = [
+        [*fieldnames],
+        *[[row.get(field, "") for field in fieldnames] for row in rows],
+    ]
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("[Content_Types].xml", _xlsx_content_types())
         archive.writestr("_rels/.rels", _xlsx_root_rels())
@@ -264,9 +268,9 @@ def _empty_fieldnames() -> list[str]:
     ]
 
 
-def _format_checked_at(finding) -> str:
+def _format_checked_at(finding: Finding) -> str:
     """Форматируем дату проверки для табличной выгрузки."""
 
     if not finding.checked_at:
         return ""
-    return finding.checked_at.isoformat()
+    return str(finding.checked_at.isoformat())

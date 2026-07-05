@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 from content_factory.audit.domain import Finding
 
@@ -46,7 +47,7 @@ def format_finding_explanation(finding: Finding) -> str:
     return "Нужно проверить случай вручную: подробное основание не сформировано."
 
 
-def format_finding_explanation_html(finding: Finding, esc) -> str:
+def format_finding_explanation_html(finding: Finding, esc: Callable[[str], str]) -> str:
     """HTML-версия обоснования: рекомендация остаётся снизу внутри той же ячейки."""
 
     found = _humanize_evidence(finding)

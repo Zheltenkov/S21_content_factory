@@ -12,7 +12,7 @@ import subprocess
 import tarfile
 import zipfile
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
@@ -165,9 +165,10 @@ def _read_multipart_form(body: bytes, content_type: str) -> dict[str, str]:
     upload_dir: Path | None = None
     for part in message.iter_parts():
         name = part.get_param("name", header="content-disposition")
-        if not name:
+        if not isinstance(name, str):
             continue
-        payload = part.get_payload(decode=True) or b""
+        raw_payload = part.get_payload(decode=True)
+        payload = raw_payload if isinstance(raw_payload, bytes) else b""
         filename = part.get_filename()
         if filename:
             if not payload or name != ARCHIVE_FIELD_NAME:
@@ -1808,7 +1809,7 @@ applyFilters();
 """
 
 
-def _metric_rows(rows: list[tuple[str, object]]) -> str:
+def _metric_rows(rows: Sequence[tuple[str, object]]) -> str:
     """Рисует компактные строки без шкалы, когда важнее статус, а не объём."""
 
     if not rows:
@@ -1824,7 +1825,7 @@ def _metric_rows(rows: list[tuple[str, object]]) -> str:
     )
 
 
-def _bars(values: dict[str, int | float], labels: dict[str, str], sort_by_count: bool = True) -> str:
+def _bars(values: Mapping[str, float], labels: dict[str, str], sort_by_count: bool = True) -> str:
     """Рисует горизонтальные полосы распределения."""
 
     if not values:

@@ -97,7 +97,8 @@ class DependencyRegistryClient:
         encoded_name = quote(candidate.name, safe="")
         url = f"https://pypi.org/pypi/{encoded_name}/json"
         payload = _get_json(url, self.timeout_seconds)
-        info = payload.get("info") if isinstance(payload.get("info"), dict) else {}
+        raw_info = payload.get("info")
+        info = raw_info if isinstance(raw_info, dict) else {}
         return DependencyMetadata(
             ecosystem="pypi",
             name=candidate.name,
@@ -265,7 +266,8 @@ def _extract_pyproject(text: str, file_path: str) -> list[DependencyCandidate]:
         payload = tomllib.loads(text)
     except tomllib.TOMLDecodeError:
         return []
-    project = payload.get("project") if isinstance(payload.get("project"), dict) else {}
+    raw_project = payload.get("project")
+    project = raw_project if isinstance(raw_project, dict) else {}
     candidates: list[DependencyCandidate] = []
     requires_python = project.get("requires-python")
     if isinstance(requires_python, str) and requires_python.strip():

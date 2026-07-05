@@ -401,7 +401,7 @@ def _artifact_refs_for_question(
     lowered = f"{checklist_text}\n{readme_context}".lower()
     if not re.search(r"\b(pcap|pcapng|capture|dump|trace|log)\b|(\bдамп\w*\b|\bзахват\w*\b)", lowered):
         return ()
-    extensions = ARTIFACT_CONTENT_EXTENSIONS
+    extensions: tuple[str, ...] = ARTIFACT_CONTENT_EXTENSIONS
     if re.search(r"\b(pcap|pcapng|capture)\b|(\bзахват\w*\b)", lowered):
         extensions = ("pcap", "pcapng")
     elif re.search(r"\b(log|trace)\b", lowered):

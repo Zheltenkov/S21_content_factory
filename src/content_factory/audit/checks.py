@@ -9,8 +9,9 @@ import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from datetime import UTC, datetime
+from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar, cast
 from urllib.parse import urldefrag, urljoin, urlparse
 
 import requests
@@ -446,7 +447,7 @@ class MarkdownStructureChecker(BaseChecker):
             chapter_number = self._chapter_number(title)
             if chapter_number is None:
                 continue
-            line_number = int(heading["line"])
+            line_number = int(str(heading["line"]))
             if previous_number is None:
                 if chapter_number != 1:
                     findings.append(
@@ -1171,15 +1172,15 @@ class ResourceAvailabilityChecker(BaseChecker):
             path = file.relative_path.replace("\\", "/").lower()
             available.add(path)
             available.add(Path(path).name)
-        for path in unit.root_path.rglob("*"):
-            if not path.is_file():
+        for fs_path in unit.root_path.rglob("*"):
+            if not fs_path.is_file():
                 continue
             try:
-                relative_path = path.relative_to(unit.root_path).as_posix().lower()
+                relative_path = fs_path.relative_to(unit.root_path).as_posix().lower()
             except ValueError:
                 continue
             available.add(relative_path)
-            available.add(path.name.lower())
+            available.add(fs_path.name.lower())
         return available
 
     def _file_refs(self, line: str) -> list[str]:
@@ -1354,7 +1355,7 @@ class ResourceAvailabilityChecker(BaseChecker):
     ) -> Finding:
         """Создаёт строку отчёта по отсутствующему локальному ресурсу."""
 
-        merged_extra = {"issue_type": issue_type}
+        merged_extra: dict[str, object] = {"issue_type": issue_type}
         if extra:
             merged_extra.update(extra)
         return _finding(
@@ -2105,6 +2106,8 @@ class SpellingAndWordingChecker(BaseChecker):
 
         findings: list[Finding] = []
         windows_used = 0
+        if context.model_client is None:
+            return findings, windows_used
         for window in self._line_windows(lines):
             if windows_used >= remaining_windows or len(findings) >= self.max_model_findings_per_file:
                 break
@@ -2199,7 +2202,7 @@ class SpellingAndWordingChecker(BaseChecker):
     ) -> Finding:
         """Создаёт редакторское замечание в общем формате отчёта."""
 
-        merged_extra = {"issue_type": issue_type, "source_kind": source_kind}
+        merged_extra: dict[str, object] = {"issue_type": issue_type, "source_kind": source_kind}
         if extra:
             merged_extra.update(extra)
         return _finding(
@@ -2640,7 +2643,7 @@ class LocalConsistencyChecker(BaseChecker):
     ) -> Finding:
         """Создаёт находку по локальному противоречию."""
 
-        merged_extra = {"issue_type": issue_type}
+        merged_extra: dict[str, object] = {"issue_type": issue_type}
         if extra:
             merged_extra.update(extra)
         return _finding(
@@ -2858,8 +2861,8 @@ class RightsAndOriginalityChecker(BaseChecker):
                     title=str(query["title"]),
                     detail=note,
                     recommendation="Передать методологу: подтвердить источник и права по найденным ссылкам.",
-                    quote=query.get("quote"),
-                    location=query.get("location"),
+                    quote=cast("str | None", query.get("quote")),
+                    location=cast("TextLocation | None", query.get("location")),
                     source=_source_summary(sources),
                     url=_first_source_url(sources),
                     confidence=_parse_confidence(item.get("confidence")),
@@ -2907,7 +2910,7 @@ class MarketFitChecker(BaseChecker):
         "business_context": "Бизнес-контекст",
         "success_metrics": "Бизнес-метрики или требования",
     }
-    signal_patterns = {
+    signal_patterns: dict[str, tuple[str, ...]] = {
         "real_data": (
             r"\b(dataset|datasets|real data|production data|historical data|customer data|sales data|transaction data|"
             r"kaggle|open data|huggingface datasets|uci repository|data source)\b",
@@ -2966,6 +2969,8 @@ success_metrics=true ставь только если есть бизнес-ме
     ) -> tuple[dict[str, Any], dict[str, Any], bool] | None:
         """Уточняет слабые эвристические сигналы моделью."""
 
+        if context.model_client is None:
+            return None
         payload = {
             "unit": unit.name,
             "signals": signals,
@@ -3954,7 +3959,7 @@ class CurriculumRelevanceChecker(BaseChecker):
         for signal in signals:
             key = (
                 str(signal.get("file_path") or ""),
-                int(signal.get("line_start") or 0),
+                int(str(signal.get("line_start") or 0)),
                 str(signal.get("issue_type") or ""),
                 normalize_for_match(str(signal.get("quote") or "")),
             )
@@ -4506,7 +4511,7 @@ def _merge_market_signals(
     """Объединяет правила и уточнение модели без потери найденных доказательств."""
 
     merged = {
-        key: {"present": bool(value["present"]), "matches": list(value["matches"]), "source": value["source"]}
+        key: {"present": bool(value["present"]), "matches": list(cast("list[Any]", value["matches"])), "source": value["source"]}
         for key, value in signals.items()
     }
     if model_item is None:
@@ -5572,7 +5577,10 @@ def _is_actionable_model_rubric_finding(finding: Finding) -> bool:
     return True
 
 
-def _enum_or_default(enum_class: type, value: object, default: object) -> object:
+_EnumT = TypeVar("_EnumT", bound=Enum)
+
+
+def _enum_or_default(enum_class: type[_EnumT], value: object, default: _EnumT) -> _EnumT:
     """Безопасно разбираем строковое значение перечисления."""
 
     if value is None:
