@@ -8,6 +8,12 @@ from typing import Any
 from content_factory.catalog.pipeline import config as intake_config
 from content_factory.catalog.pipeline.prompt_versions import prompt_version_for_stage
 
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    """Return the value when it is a dict, else an empty dict (JSON payload guard)."""
+    return value if isinstance(value, dict) else {}
+
+
 STAGE_LABELS: dict[str, str] = {
     "decompose": "Декомпозиция",
     "draft": "Черновик навыков",
@@ -57,7 +63,7 @@ class DecisionRationale:
         }
 
 
-def build_model_version_rows(llm_usage: dict[str, Any] | None) -> list[dict[str, object]]:
+def build_model_version_rows(llm_usage: dict[str, Any] | None) -> list[dict[str, Any]]:
     rows = []
     for row in (llm_usage or {}).get("rows") or []:
         if not isinstance(row, dict):
@@ -79,7 +85,7 @@ def build_model_version_rows(llm_usage: dict[str, Any] | None) -> list[dict[str,
     return rows
 
 
-def load_llm_usage_summary(job_id: int) -> dict[str, object]:
+def load_llm_usage_summary(job_id: int) -> dict[str, Any]:
     path = Path(intake_config.LLM_USAGE_LOG_PATH)
     if not path.exists():
         return {
@@ -93,7 +99,7 @@ def load_llm_usage_summary(job_id: int) -> dict[str, object]:
             "cost_configured": False,
             "rows": [],
         }
-    aggregate: dict[tuple[str, str, str], dict[str, object]] = {}
+    aggregate: dict[tuple[str, str, str], dict[str, Any]] = {}
     totals = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     total_latency_ms = 0.0
     total_calls = 0
@@ -162,9 +168,9 @@ def load_llm_usage_summary(job_id: int) -> dict[str, object]:
 
 
 def build_intake_quality_metrics(
-    result: dict[str, object] | None,
-    llm_usage: dict[str, object] | None,
-) -> dict[str, object] | None:
+    result: dict[str, Any] | None,
+    llm_usage: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     """Compact quality dashboard for a completed intake job."""
     if not isinstance(result, dict):
         return None
@@ -187,12 +193,12 @@ def build_intake_quality_metrics(
         or item.get("decision") == "rejected"
     ]
     false_match_count = len(suspicious_matches)
-    up_payload = result.get("curriculum_plan") if isinstance(result.get("curriculum_plan"), dict) else {}
-    up_report = up_payload.get("report") if isinstance(up_payload, dict) and isinstance(up_payload.get("report"), dict) else {}
-    up_quality = up_report.get("quality_metrics") if isinstance(up_report.get("quality_metrics"), dict) else {}
-    up_rows = [row for row in up_payload.get("rows") or [] if isinstance(row, dict)] if isinstance(up_payload, dict) else []
-    up_summary = up_payload.get("summary") if isinstance(up_payload.get("summary"), dict) else {}
-    dag_payload = result.get("dag") if isinstance(result.get("dag"), dict) else {}
+    up_payload = _as_dict(result.get("curriculum_plan"))
+    up_report = _as_dict(up_payload.get("report"))
+    up_quality = _as_dict(up_report.get("quality_metrics"))
+    up_rows = [row for row in up_payload.get("rows") or [] if isinstance(row, dict)]
+    up_summary = _as_dict(up_payload.get("summary"))
+    dag_payload = _as_dict(result.get("dag"))
     dag_waves = dag_payload.get("visual_waves") or dag_payload.get("waves") or []
     template_proposal_count = int(up_payload.get("template_proposal_count") or 0) if isinstance(up_payload, dict) else 0
     enriched_rows = [
@@ -234,8 +240,8 @@ def build_intake_quality_metrics(
     }
 
 
-def build_stage_latency_rows(llm_usage: dict[str, Any] | None) -> list[dict[str, object]]:
-    aggregate: dict[str, dict[str, object]] = {}
+def build_stage_latency_rows(llm_usage: dict[str, Any] | None) -> list[dict[str, Any]]:
+    aggregate: dict[str, dict[str, Any]] = {}
     for row in build_model_version_rows(llm_usage):
         stage = str(row["stage"])
         target = aggregate.setdefault(
@@ -310,7 +316,7 @@ def build_decision_rationale(candidate: dict[str, Any]) -> dict[str, str]:
     ).as_template_dict()
 
 
-def build_job_observability(llm_usage: dict[str, Any] | None) -> dict[str, object]:
+def build_job_observability(llm_usage: dict[str, Any] | None) -> dict[str, Any]:
     return {
         "stage_latency_rows": build_stage_latency_rows(llm_usage),
         "model_version_rows": build_model_version_rows(llm_usage),

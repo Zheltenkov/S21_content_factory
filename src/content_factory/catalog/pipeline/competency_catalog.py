@@ -147,7 +147,7 @@ def _ensure_ingest_run(con: sqlite3.Connection) -> int:
             json.dumps({"source": "intake_accept"}, ensure_ascii=False),
         ),
     )
-    return int(cur.lastrowid)
+    return int(cur.lastrowid or 0)
 
 
 def _ensure_workbook(con: sqlite3.Connection, ingest_run_id: int) -> int:
@@ -171,7 +171,7 @@ def _ensure_workbook(con: sqlite3.Connection, ingest_run_id: int) -> int:
             _utc_now_iso(),
         ),
     )
-    return int(cur.lastrowid)
+    return int(cur.lastrowid or 0)
 
 
 def _ensure_sheet(con: sqlite3.Connection, source_workbook_id: int) -> int:
@@ -189,7 +189,7 @@ def _ensure_sheet(con: sqlite3.Connection, source_workbook_id: int) -> int:
         """,
         (source_workbook_id, SERVICE_SHEET_NAME),
     )
-    return int(cur.lastrowid)
+    return int(cur.lastrowid or 0)
 
 
 def _ensure_profile(con: sqlite3.Connection, source_workbook_id: int) -> int:
@@ -206,7 +206,7 @@ def _ensure_profile(con: sqlite3.Connection, source_workbook_id: int) -> int:
                 "Служебный профиль для навыков, подтвержденных через intake.",
             ),
         )
-        profile_id = int(cur.lastrowid)
+        profile_id = int(cur.lastrowid or 0)
     else:
         con.execute(
             "UPDATE profile SET name = ?, source_kind = 'draft' WHERE id = ?",
@@ -271,7 +271,7 @@ def _ensure_competency(con: sqlite3.Connection, title: str) -> tuple[int, bool, 
             "Кандидат создан автоматически при подтверждении нового навыка из intake. Требует проверки методологом.",
         ),
     )
-    return int(cur.lastrowid), True, cleaned_title, "candidate"
+    return int(cur.lastrowid or 0), True, cleaned_title, "candidate"
 
 
 def _ensure_competency_review(
@@ -344,7 +344,7 @@ def _ensure_source_block(con: sqlite3.Connection, source_sheet_id: int, competen
             "Служебный блок intake для подтвержденных навыков.",
         ),
     )
-    return int(cur.lastrowid)
+    return int(cur.lastrowid or 0)
 
 
 def _ensure_profile_competency(
@@ -406,7 +406,7 @@ def _ensure_profile_competency(
         """,
         (profile_id, competency_id, source_block_id, title, next_order, review_state),
     )
-    return int(cur.lastrowid), True
+    return int(cur.lastrowid or 0), True
 
 
 def _ensure_competency_skill(
@@ -464,7 +464,7 @@ def _ensure_competency_skill(
         """,
         (profile_competency_id, skill_id, skill_name, next_order, review_state),
     )
-    return int(cur.lastrowid), True
+    return int(cur.lastrowid or 0), True
 
 
 def _ensure_dimension(con: sqlite3.Connection, code: str) -> int:
@@ -476,7 +476,7 @@ def _ensure_dimension(con: sqlite3.Connection, code: str) -> int:
         "INSERT INTO dimension(code, title) VALUES (?, ?)",
         (code, DIMENSION_TITLES[code]),
     )
-    return int(cur.lastrowid)
+    return int(cur.lastrowid or 0)
 
 
 def _dimension_code_from_indicator(indicator: dict[str, Any]) -> str:
@@ -576,7 +576,7 @@ def _ensure_indicator_row(
         """,
         (competency_skill_id, dimension_id, row_number, text, source_note),
     )
-    return int(cur.lastrowid), True
+    return int(cur.lastrowid or 0), True
 
 
 def _level_label_for_dimension(dimension_code: str) -> str:

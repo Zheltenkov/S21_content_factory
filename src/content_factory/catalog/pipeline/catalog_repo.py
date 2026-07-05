@@ -138,7 +138,7 @@ class CatalogRepo:
         )
         if best and best[1] >= config.FUZZY_MATCH_MIN:
             sid = self._fuzzy_norm_to_skill[best[0]]
-            cname = self.canonical_name(sid)
+            cname = self.canonical_name(sid) or ""
             cgroup = self.canonical_group(sid)
             cand.resolution = "fuzzy"
             cand.canonical_skill_id = sid

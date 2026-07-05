@@ -7,6 +7,7 @@ import sqlite3
 import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
 from . import competency_catalog, config
 from .models import Evidence, SkillCandidate
@@ -155,7 +156,7 @@ def _normalize_catalog_key(value: str) -> str:
     return re.sub(r"\s+", " ", normalized)
 
 
-def load_curriculum_artifact_templates(con: sqlite3.Connection, active_only: bool = True) -> list[dict[str, object]]:
+def load_curriculum_artifact_templates(con: sqlite3.Connection, active_only: bool = True) -> list[dict[str, Any]]:
     """Load active methodologist-managed artifact templates for the UP planner."""
     if not _table_exists(con, "curriculum_artifact_template"):
         return []
@@ -170,11 +171,11 @@ def load_curriculum_artifact_templates(con: sqlite3.Connection, active_only: boo
         ORDER BY priority ASC, id ASC
         """
     ).fetchall()
-    templates: list[dict[str, object]] = []
+    templates: list[dict[str, Any]] = []
     for row in rows:
         template = dict(row)
         template_id = int(template["id"])
-        scopes: list[dict[str, object]] = []
+        scopes: list[dict[str, Any]] = []
         if _table_exists(con, "curriculum_artifact_template_scope"):
             scope_rows = con.execute(
                 """
@@ -209,7 +210,7 @@ def upsert_curriculum_artifact_template(
     priority: int = 100,
     status: str = "active",
     source: str = "manual",
-    scopes: list[dict[str, object]] | None = None,
+    scopes: list[dict[str, Any]] | None = None,
 ) -> int:
     """Create or update a methodology-owned artifact template."""
     normalized_code = _slug_catalog_key(code or title)
@@ -276,7 +277,12 @@ def upsert_curriculum_artifact_template(
     return template_id
 
 
-def _json_list(value: object) -> list[object]:
+def _as_dict(value: Any) -> dict[str, Any]:
+    """Return value when it is a dict, else an empty dict (JSON payload guard)."""
+    return value if isinstance(value, dict) else {}
+
+
+def _json_list(value: object) -> list[Any]:
     if isinstance(value, list):
         return value
     if not isinstance(value, str) or not value.strip():
@@ -292,7 +298,7 @@ def load_curriculum_artifact_template_proposals(
     con: sqlite3.Connection,
     brief_id: int,
     status: str | None = None,
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     """Load human-reviewable UP template proposals for a brief."""
     if not _table_exists(con, "curriculum_artifact_template_proposal"):
         return []
@@ -316,7 +322,7 @@ def load_curriculum_artifact_template_proposals(
         """,
         tuple(params),
     ).fetchall()
-    proposals: list[dict[str, object]] = []
+    proposals: list[dict[str, Any]] = []
     for row in rows:
         proposal = dict(row)
         proposal["scope_names"] = [str(item) for item in _json_list(proposal.get("scope_names_json")) if str(item).strip()]
@@ -370,7 +376,7 @@ def _proposal_title(scope_name: str, skill_names: list[str], family: str) -> str
     return f"{family_titles.get(family, 'Проектный артефакт')}: {_compact_scope_title(scope_name)}"
 
 
-def _proposal_payload(scope_name: str, skill_rows: list[sqlite3.Row]) -> dict[str, object]:
+def _proposal_payload(scope_name: str, skill_rows: list[sqlite3.Row]) -> dict[str, Any]:
     skill_names = [
         str(row["canonical_name"] or row["suggested_name"]).strip()
         for row in skill_rows
@@ -416,7 +422,7 @@ def _proposal_payload(scope_name: str, skill_rows: list[sqlite3.Row]) -> dict[st
     }
 
 
-def _brief_context_for_consilium(con: sqlite3.Connection, brief_id: int) -> dict[str, object]:
+def _brief_context_for_consilium(con: sqlite3.Connection, brief_id: int) -> dict[str, Any]:
     row = con.execute(
         """
         SELECT id, raw_text, role, seniority, domain, created_at
@@ -428,10 +434,10 @@ def _brief_context_for_consilium(con: sqlite3.Connection, brief_id: int) -> dict
     return dict(row) if row else {"id": brief_id, "raw_text": "", "role": "", "seniority": "", "domain": ""}
 
 
-def _scope_groups_for_consilium(grouped: dict[str, list[sqlite3.Row]]) -> list[dict[str, object]]:
-    groups: list[dict[str, object]] = []
+def _scope_groups_for_consilium(grouped: dict[str, list[sqlite3.Row]]) -> list[dict[str, Any]]:
+    groups: list[dict[str, Any]] = []
     for scope_name, skill_rows in sorted(grouped.items(), key=lambda item: (-len(item[1]), item[0])):
-        skills: list[dict[str, object]] = []
+        skills: list[dict[str, Any]] = []
         for row in skill_rows:
             skill_name = str(row["canonical_name"] or row["suggested_name"] or "").strip()
             skills.append(
@@ -460,7 +466,7 @@ def generate_curriculum_artifact_template_proposals(
     brief_id: int,
     plan_id: int | None = None,
     max_proposals: int = 10,
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     """Generate idempotent template proposals from accepted skills.
 
     The preferred path is LLM consilium with strict prompts and validation.
@@ -513,7 +519,7 @@ def generate_curriculum_artifact_template_proposals(
                 payload["rationale"] = f"{payload.get('rationale', '')} {fallback_reason}".strip()
                 payloads.append(payload)
 
-    proposals: list[dict[str, object]] = []
+    proposals: list[dict[str, Any]] = []
     con.execute(
         """
         DELETE FROM curriculum_artifact_template_proposal
@@ -642,7 +648,7 @@ def update_curriculum_artifact_template_proposal(
     con.commit()
 
 
-def accept_curriculum_artifact_template_proposal(con: sqlite3.Connection, proposal_id: int) -> dict[str, object]:
+def accept_curriculum_artifact_template_proposal(con: sqlite3.Connection, proposal_id: int) -> dict[str, Any]:
     proposal = con.execute(
         """
         SELECT *
@@ -728,11 +734,11 @@ def _ensure_skill_group(con: sqlite3.Connection, group_name: str | None) -> int 
         """,
         (code, name, int(max_order) + 10, _utc_now_iso()),
     )
-    return int(cursor.lastrowid)
+    return int(cursor.lastrowid or 0)
 
 
 def _load_skill_suggestion_row(con: sqlite3.Connection, suggestion_id: int) -> sqlite3.Row | None:
-    return con.execute(
+    row = con.execute(
         """
         SELECT id, brief_id, suggested_name, source_name, group_name, coverage_area, resolution,
                canonical_skill_id, nearest_skill_id, nearest_name, nearest_group,
@@ -742,20 +748,23 @@ def _load_skill_suggestion_row(con: sqlite3.Connection, suggestion_id: int) -> s
         """,
         (suggestion_id,),
     ).fetchone()
+    return cast("sqlite3.Row | None", row)
 
 
 def _find_skill_by_id(con: sqlite3.Connection, skill_id: int) -> sqlite3.Row | None:
-    return con.execute(
+    row = con.execute(
         "SELECT id, normalized_name, canonical_name, skill_type, status FROM skill WHERE id = ?",
         (skill_id,),
     ).fetchone()
+    return cast("sqlite3.Row | None", row)
 
 
 def _find_skill_by_normalized_name(con: sqlite3.Connection, normalized_name: str) -> sqlite3.Row | None:
-    return con.execute(
+    row = con.execute(
         "SELECT id, normalized_name, canonical_name, skill_type, status FROM skill WHERE normalized_name = ?",
         (normalized_name,),
     ).fetchone()
+    return cast("sqlite3.Row | None", row)
 
 
 def _ensure_skill_alias(con: sqlite3.Connection, skill_id: int, alias: str, source: str) -> bool:
@@ -783,7 +792,7 @@ def _ensure_skill_alias(con: sqlite3.Connection, skill_id: int, alias: str, sour
 def _existing_promotion(con: sqlite3.Connection, suggestion_id: int) -> sqlite3.Row | None:
     if "skill_promotion_log" not in {row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}:
         return None
-    return con.execute(
+    row = con.execute(
         """
         SELECT id, suggestion_id, skill_id, alias, normalized_alias, created_skill, created_alias, status
         FROM skill_promotion_log
@@ -791,6 +800,7 @@ def _existing_promotion(con: sqlite3.Connection, suggestion_id: int) -> sqlite3.
         """,
         (suggestion_id,),
     ).fetchone()
+    return cast("sqlite3.Row | None", row)
 
 
 def _skillset_code(*parts: object) -> str:
@@ -833,7 +843,7 @@ def upsert_skill_set(
     source_ref: str = "",
     description: str = "",
     status: str = "active",
-    metadata: dict[str, object] | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> int | None:
     """Create or update a reusable skill set without touching catalog taxonomy."""
     if not _table_exists(con, "skill_set"):
@@ -876,7 +886,7 @@ def upsert_skill_set(
 def replace_skill_set_items(
     con: sqlite3.Connection,
     skill_set_id: int,
-    items: list[dict[str, object]],
+    items: list[dict[str, Any]],
 ) -> int:
     """Rewrite skill-set membership idempotently."""
     if not _table_exists(con, "skill_set_item"):
@@ -910,7 +920,7 @@ def replace_skill_set_items(
     return inserted
 
 
-def sync_brief_skill_set(con: sqlite3.Connection, brief_id: int) -> dict[str, object]:
+def sync_brief_skill_set(con: sqlite3.Connection, brief_id: int) -> dict[str, Any]:
     """Persist accepted atomic skills as a reusable skill set for the brief."""
     rows = _accepted_atomic_skill_rows(con, brief_id)
     if not _table_exists(con, "skill_set"):
@@ -940,7 +950,7 @@ def sync_brief_skill_set(con: sqlite3.Connection, brief_id: int) -> dict[str, ob
             "item_count": len(rows),
             "coverage_areas": sorted({str(row["coverage_area"] or row["group_name"] or "").strip() for row in rows if str(row["coverage_area"] or row["group_name"] or "").strip()}),
         },
-    )
+    ) or 0
     if skill_set_id is None:
         return {"status": "skipped", "brief_id": brief_id, "item_count": 0}
     items = [
@@ -963,14 +973,14 @@ def sync_curriculum_plan_skill_set(
     *,
     brief_id: int,
     plan_id: int,
-    plan_payload: dict[str, object],
-) -> dict[str, object]:
+    plan_payload: dict[str, Any],
+) -> dict[str, Any]:
     """Persist the skill set used by a curriculum plan without changing plan rows."""
     rows = _accepted_atomic_skill_rows(con, brief_id)
     if not rows or not _table_exists(con, "skill_set"):
         return {"status": "skipped", "plan_id": plan_id, "item_count": 0}
-    report = plan_payload.get("report") if isinstance(plan_payload.get("report"), dict) else {}
-    quality_metrics = report.get("quality_metrics") if isinstance(report.get("quality_metrics"), dict) else {}
+    report = _as_dict(plan_payload.get("report"))
+    quality_metrics = _as_dict(report.get("quality_metrics"))
     skill_set_id = upsert_skill_set(
         con,
         code=f"curriculum-plan-{plan_id}-skills",
@@ -1003,7 +1013,7 @@ def sync_curriculum_plan_skill_set(
     return {"status": "synced", "plan_id": plan_id, "skill_set_id": skill_set_id, "item_count": item_count}
 
 
-def promote_suggestion_to_catalog(con: sqlite3.Connection, suggestion_id: int) -> dict[str, object]:
+def promote_suggestion_to_catalog(con: sqlite3.Connection, suggestion_id: int) -> dict[str, Any]:
     row = _load_skill_suggestion_row(con, suggestion_id)
     if not row:
         return {"status": "missing_suggestion", "suggestion_id": suggestion_id}
@@ -1054,7 +1064,7 @@ def promote_suggestion_to_catalog(con: sqlite3.Connection, suggestion_id: int) -
             f"INSERT INTO skill({', '.join(columns)}) VALUES ({placeholders})",
             tuple(values),
         )
-        skill_id = int(cur.lastrowid)
+        skill_id = int(cur.lastrowid or 0)
         skill_row = _find_skill_by_id(con, skill_id)
         created_skill = True
     else:
@@ -1157,7 +1167,7 @@ def promote_suggestion_to_catalog(con: sqlite3.Connection, suggestion_id: int) -
     }
 
 
-def revert_suggestion_promotion(con: sqlite3.Connection, suggestion_id: int) -> dict[str, object]:
+def revert_suggestion_promotion(con: sqlite3.Connection, suggestion_id: int) -> dict[str, Any]:
     row = _load_skill_suggestion_row(con, suggestion_id)
     promotion = _existing_promotion(con, suggestion_id)
     if not row or not promotion or str(promotion["status"]) != "active":
@@ -1247,7 +1257,7 @@ def revert_suggestion_promotion(con: sqlite3.Connection, suggestion_id: int) -> 
     }
 
 
-def link_suggestion_to_nearest(con: sqlite3.Connection, suggestion_id: int) -> dict[str, object]:
+def link_suggestion_to_nearest(con: sqlite3.Connection, suggestion_id: int) -> dict[str, Any]:
     """Accept coverage by the nearest existing catalog skill without creating a new skill."""
     row = con.execute(
         """
@@ -1322,16 +1332,16 @@ def save_brief(con: sqlite3.Connection, raw: str, spec: dict) -> int:
         "INSERT INTO profile_brief(raw_text, role, seniority, domain) VALUES (?,?,?,?)",
         (raw, spec.get("role"), spec.get("seniority"), spec.get("domain")))
     con.commit()
-    return cur.lastrowid
+    return int(cur.lastrowid or 0)
 
 
 def save_evidence(con: sqlite3.Connection, brief_id: int, evidence: list[Evidence]) -> dict[str, int]:
-    idmap = {}
+    idmap: dict[str, int] = {}
     for e in evidence:
         cur = con.execute(
             "INSERT INTO evidence_source(brief_id, claim, source_type, url, snippet, retrieved_at) VALUES (?,?,?,?,?,?)",
             (brief_id, e.claim, e.source_type, e.url, e.snippet, e.retrieved_at))
-        idmap[e.id] = cur.lastrowid
+        idmap[e.id] = int(cur.lastrowid or 0)
     con.commit()
     return idmap
 
@@ -1408,7 +1418,7 @@ def save_suggestions(con: sqlite3.Connection, brief_id: int, cands: list[SkillCa
 def save_prerequisites(
     con: sqlite3.Connection,
     brief_id: int,
-    DAG,
+    DAG: Any,
     cands: list[SkillCandidate],
     tmp_to_db: dict[str, int] | None = None,
 ) -> int:
@@ -1440,7 +1450,7 @@ def save_prerequisites(
     return n
 
 
-def save_prerequisite_reviews(con: sqlite3.Connection, brief_id: int, edge_reviews: list[dict[str, object]]) -> int:
+def save_prerequisite_reviews(con: sqlite3.Connection, brief_id: int, edge_reviews: list[dict[str, Any]]) -> int:
     count = 0
     decided_edge_keys: set[str] = set()
     if _table_exists(con, "prerequisite_edge_decision"):
@@ -1510,11 +1520,11 @@ def clear_curriculum_plan(con: sqlite3.Connection, brief_id: int, source_policy:
 def save_curriculum_plan(
     con: sqlite3.Connection,
     brief_id: int,
-    plan_payload: dict[str, object],
+    plan_payload: dict[str, Any],
     source_policy: str = "accepted_only",
 ) -> dict[str, int]:
     clear_curriculum_plan(con, brief_id, source_policy)
-    summary = plan_payload.get("summary") if isinstance(plan_payload.get("summary"), dict) else {}
+    summary = _as_dict(plan_payload.get("summary"))
     cur = con.execute(
         """
         INSERT INTO curriculum_plan(
@@ -1537,7 +1547,7 @@ def save_curriculum_plan(
             json.dumps(plan_payload, ensure_ascii=False),
         ),
     )
-    plan_id = int(cur.lastrowid)
+    plan_id = int(cur.lastrowid or 0)
     row_count = 0
     for row in plan_payload.get("rows", []):
         if not isinstance(row, dict):

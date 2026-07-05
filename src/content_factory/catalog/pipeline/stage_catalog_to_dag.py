@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import networkx as nx
 
@@ -166,7 +167,9 @@ def visual_preview_edges(edges: list[PrereqEdge]) -> list[PrereqEdge]:
     return preview
 
 
-def build_dag(edges: list[PrereqEdge], cands: list[SkillCandidate]):
+def build_dag(
+    edges: list[PrereqEdge], cands: list[SkillCandidate]
+) -> tuple[nx.DiGraph, list[tuple[str, str]], list[tuple[str, str]]]:
     """Возвращает (DAG, removed_cycle, removed_transitive)."""
     G = nx.DiGraph()
     G.add_nodes_from(c.tmp_id for c in cands)
@@ -209,12 +212,12 @@ def build_edge_review_queue(
     removed_cycle: list[tuple[str, str]],
     removed_transitive: list[tuple[str, str]],
     cands: list[SkillCandidate],
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     {cand.tmp_id: cand for cand in cands}
     display_names = {cand.tmp_id: display_name(cand) for cand in cands}
     removed_cycle_set = set(removed_cycle)
     removed_transitive_set = set(removed_transitive)
-    review_queue: list[dict[str, object]] = []
+    review_queue: list[dict[str, Any]] = []
 
     for edge in edges:
         key = (edge.src, edge.dst)
@@ -278,7 +281,7 @@ def build_dag_payload(
     removed_cycle: list[tuple[str, str]],
     removed_transitive: list[tuple[str, str]],
     cands: list[SkillCandidate],
-) -> dict[str, object]:
+) -> dict[str, Any]:
     by_tid = {cand.tmp_id: cand for cand in cands}
     display_names = {cand.tmp_id: display_name(cand) for cand in cands}
     display_groups = {cand.tmp_id: display_group(cand) for cand in cands}
@@ -328,7 +331,7 @@ def build_dag_payload(
     }
 
 
-def add_visual_preview_payload(dag_payload: dict[str, object], edges: list[PrereqEdge], cands: list[SkillCandidate]) -> None:
+def add_visual_preview_payload(dag_payload: dict[str, Any], edges: list[PrereqEdge], cands: list[SkillCandidate]) -> None:
     """Attach display-only DAG preview without changing the operational DAG."""
     preview_edges = visual_preview_edges(edges)
     if not preview_edges:
@@ -350,7 +353,9 @@ def add_visual_preview_payload(dag_payload: dict[str, object], edges: list[Prere
     dag_payload["visual_removed_transitive"] = preview_payload["removed_transitive"]
 
 
-def run(cands: list[SkillCandidate], edge_decisions: dict[str, str] | None = None):
+def run(
+    cands: list[SkillCandidate], edge_decisions: dict[str, str] | None = None
+) -> tuple[list[PrereqEdge], nx.DiGraph, list[tuple[str, str]], list[tuple[str, str]], dict[str, Any]]:
     used_candidates = _graph_candidates(cands)
     all_edges = deduplicate_edges(propose_edges(used_candidates))
     triage_edges(all_edges, used_candidates)

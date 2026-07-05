@@ -6,6 +6,7 @@ import time
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
 from content_factory.platform.llm import transport
 
@@ -87,11 +88,11 @@ def chat(model: str, messages: list[dict], json_mode: bool = False, timeout: int
     r.raise_for_status()
     response_json = r.json()
     _append_usage_log(model, messages, json_mode, timeout, max_tokens, response_json, latency_ms)
-    return response_json
+    return cast("dict[str, Any]", response_json)
 
 
 def content(resp: dict) -> str:
-    return resp["choices"][0]["message"]["content"]
+    return str(resp["choices"][0]["message"]["content"])
 
 
 def citations(resp: dict) -> list[str]:

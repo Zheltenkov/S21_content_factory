@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from math import isfinite
+from typing import Any
 
 from . import config, language
 from .curriculum import CurriculumBlock, PlanNode, ProjectBlueprint, SkillOccurrence, build_curriculum_blocks
@@ -137,7 +138,7 @@ def _node_from_candidate(candidate: SkillCandidate) -> PlanNode:
     )
 
 
-def _audience_label(spec: dict[str, object] | None) -> str:
+def _audience_label(spec: dict[str, Any] | None) -> str:
     seniority = str((spec or {}).get("seniority") or "").casefold()
     mapping = {
         "junior": "Начальный",
@@ -286,7 +287,7 @@ def _project_materials(project: ProjectBlueprint) -> str:
     return "\n".join(lines)
 
 
-def enrich_curriculum_row(row: dict[str, object], project: ProjectBlueprint, spec: dict[str, object] | None, block_key: str) -> None:
+def enrich_curriculum_row(row: dict[str, Any], project: ProjectBlueprint, spec: dict[str, Any] | None, block_key: str) -> None:
     """Enrich a curriculum row without mutating DAG identity fields."""
     protected_node_ids = list(row.get("node_ids") or [])
     protected_node_names = list(row.get("node_names") or [])
@@ -449,18 +450,18 @@ def _default_group_size(delivery_format: str) -> int:
     return int(bounds[0])
 
 
-def _target_total_hours(spec: dict[str, object] | None) -> float | None:
+def _target_total_hours(spec: dict[str, Any] | None) -> float | None:
     raw = (spec or {}).get("target_total_hours")
     if raw in (None, ""):
         return None
     try:
-        value = float(raw)
+        value = float(raw or 0)
     except (TypeError, ValueError):
         return None
     return value if value > 0 else None
 
 
-def _scale_hours_to_target(rows: list[dict[str, object]], spec: dict[str, object] | None) -> None:
+def _scale_hours_to_target(rows: list[dict[str, Any]], spec: dict[str, Any] | None) -> None:
     target_hours = _target_total_hours(spec)
     current_hours = sum(float(row.get("effort_hours", 0) or 0) for row in rows)
     if not rows or not target_hours or current_hours <= 0:
@@ -479,7 +480,7 @@ def _scale_hours_to_target(rows: list[dict[str, object]], spec: dict[str, object
         rows[-1]["effort_hours"] = max(4, int(float(rows[-1].get("effort_hours", 0) or 0) + delta))
 
 
-def _fill_effort_columns(rows: list[dict[str, object]]) -> None:
+def _fill_effort_columns(rows: list[dict[str, Any]]) -> None:
     total_hours = sum(float(row.get("effort_hours", 0) or 0) for row in rows)
     cumulative_days = 0.0
     for row in rows:
@@ -493,8 +494,8 @@ def _fill_effort_columns(rows: list[dict[str, object]]) -> None:
         row["p2p_checks"] = 1 if effort_hours >= 12 else 0
 
 
-def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, object] | None) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
+def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, Any] | None) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     row_number = 0
     occurrence_totals = _occurrence_totals(blocks)
     for block_index, block in enumerate(blocks, start=1):
@@ -558,13 +559,13 @@ def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, object] | None) 
     return rows
 
 
-def _plan_report(rows: list[dict[str, object]], dag_payload: dict[str, object]) -> dict[str, object]:
+def _plan_report(rows: list[dict[str, Any]], dag_payload: dict[str, Any]) -> dict[str, Any]:
     # Проверяем порядок по стабильным tmp_id, а не по отображаемым именам.
     position_by_node: dict[str, tuple[int, int]] = {}
     row_by_node: dict[str, int] = {}
     for row in rows:
         row_number = int(row.get("row_number", 0) or 0)
-        node_ids = row.get("node_ids") if isinstance(row.get("node_ids"), list) else []
+        node_ids = row.get("node_ids") or []
         for skill_index, node_id in enumerate(node_ids):
             node_key = str(node_id)
             position_by_node.setdefault(node_key, (row_number, skill_index))
@@ -593,7 +594,7 @@ def _plan_report(rows: list[dict[str, object]], dag_payload: dict[str, object]) 
     }
 
 
-def _quality_metrics(rows: list[dict[str, object]], planner_meta: dict[str, object]) -> dict[str, object]:
+def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -> dict[str, Any]:
     project_count = len(rows)
     if not project_count:
         return {
@@ -675,7 +676,7 @@ def _quality_metrics(rows: list[dict[str, object]], planner_meta: dict[str, obje
     }
 
 
-def run(spec: dict[str, object] | None, candidates: list[SkillCandidate], dag_payload: dict[str, object]) -> dict[str, object]:
+def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_payload: dict[str, Any]) -> dict[str, Any]:
     # Планировщик работает только по фактически принятым узлам DAG.
     if not candidates or not dag_payload.get("order"):
         return {
@@ -710,8 +711,8 @@ def run(spec: dict[str, object] | None, candidates: list[SkillCandidate], dag_pa
     is_invalid = bool(report["order_violations"] or report.get("project_violations"))
 
     # Для UI держим и блочное представление, и плоские CSV-совместимые строки.
-    block_payloads: list[dict[str, object]] = []
-    rows_by_block: dict[int, list[dict[str, object]]] = {}
+    block_payloads: list[dict[str, Any]] = []
+    rows_by_block: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
         rows_by_block.setdefault(int(row["block_index"]), []).append(row)
     for block_index, block_rows in rows_by_block.items():

@@ -11,6 +11,7 @@ import difflib
 import re
 import unicodedata
 from dataclasses import dataclass
+from typing import Any
 
 from . import config
 from .models import IndicatorSpec, SkillCandidate
@@ -186,7 +187,7 @@ def _merge_into(anchor: SkillCandidate, duplicate: SkillCandidate) -> None:
         anchor.council_agreement = max(anchor.council_agreement or 0.0, duplicate.council_agreement)
 
 
-def _candidate_rank(candidate: SkillCandidate) -> tuple[int, int, int, int]:
+def _candidate_rank(candidate: SkillCandidate) -> tuple[int, int, int, int, int]:
     # Более богатое evidence и более компактное название обычно дают лучший представитель для coverage-area.
     evidence_score = len(set(candidate.evidence_ids))
     indicator_score = len(candidate.indicators)
@@ -220,13 +221,13 @@ def _apply_area_compaction(
     candidates: list[SkillCandidate],
     *,
     max_per_area: int,
-) -> tuple[list[SkillCandidate], list[dict[str, object]]]:
+) -> tuple[list[SkillCandidate], list[dict[str, Any]]]:
     if max_per_area <= 0:
         return candidates, []
 
     grouped: dict[str, list[SkillCandidate]] = {}
     passthrough: list[SkillCandidate] = []
-    compacted_events: list[dict[str, object]] = []
+    compacted_events: list[dict[str, Any]] = []
     for candidate in candidates:
         if candidate.entity_type == "skill" and candidate.atomicity == "atomic" and _must_drop_fragment(candidate.name):
             compacted_events.append(
@@ -288,14 +289,14 @@ def _apply_area_compaction(
     return kept, compacted_events
 
 
-def run(candidates: list[SkillCandidate], spec: dict[str, object] | None = None) -> tuple[list[SkillCandidate], dict[str, object]]:
+def run(candidates: list[SkillCandidate], spec: dict[str, Any] | None = None) -> tuple[list[SkillCandidate], dict[str, Any]]:
     """Возвращает сокращённый список кандидатов и детальный audit merge-событий."""
     kept: list[SkillCandidate] = []
     atomic_input = 0
     atomic_output = 0
     exact_merges = 0
     fuzzy_merges = 0
-    dedup_events: list[dict[str, object]] = []
+    dedup_events: list[dict[str, Any]] = []
 
     for candidate in candidates:
         if not (candidate.entity_type == "skill" and candidate.atomicity == "atomic"):
@@ -335,7 +336,7 @@ def run(candidates: list[SkillCandidate], spec: dict[str, object] | None = None)
             }
         )
 
-    compacted_events: list[dict[str, object]] = []
+    compacted_events: list[dict[str, Any]] = []
     artifact_type = str((spec or {}).get("artifact_type") or "").strip()
     if artifact_type in {"program_brief", "mixed"}:
         kept, compacted_events = _apply_area_compaction(

@@ -190,7 +190,7 @@ def artifact_templates_get(
     edit_id = parse_optional_int(edit)
     edit_template = next((dict(item) for item in templates if int(item.get("id") or 0) == edit_id), None)
     if edit_template:
-        scopes = edit_template.get("scopes") if isinstance(edit_template.get("scopes"), list) else []
+        scopes = edit_template.get("scopes") or []
         first_scope = scopes[0] if scopes else {}
         edit_template["scope_type"] = str(first_scope.get("scope_type") or "coverage_area") if isinstance(first_scope, dict) else "coverage_area"
         edit_template["scope_weight"] = str(first_scope.get("weight") or "1.0") if isinstance(first_scope, dict) else "1.0"

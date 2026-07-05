@@ -10,6 +10,7 @@ import json
 import re
 import sqlite3
 from datetime import UTC, date, datetime, timedelta
+from typing import Any, cast
 
 from . import config, language, llm, stage_atomize, stage_normalize
 from .catalog_repo import CatalogRepo
@@ -103,7 +104,7 @@ _DOMAIN_HINTS: dict[str, tuple[str, ...]] = {
 }
 
 
-def _seniority_bloom_ceiling(spec: dict[str, object] | None) -> str | None:
+def _seniority_bloom_ceiling(spec: dict[str, Any] | None) -> str | None:
     seniority = str((spec or {}).get("seniority") or (spec or {}).get("target_seniority") or "").strip().casefold()
     if not seniority:
         return None
@@ -115,7 +116,7 @@ def _seniority_bloom_ceiling(spec: dict[str, object] | None) -> str | None:
     return None
 
 
-def _clamp_bloom_for_audience(level: str, spec: dict[str, object] | None, text: str | None = None) -> str:
+def _clamp_bloom_for_audience(level: str, spec: dict[str, Any] | None, text: str | None = None) -> str:
     ceiling = _seniority_bloom_ceiling(spec)
     if not ceiling or ceiling not in BLOOM or BLOOM[level] <= BLOOM[ceiling]:
         return level
@@ -138,7 +139,7 @@ def _bloom_floor_for_text(text: str | None) -> str | None:
     return None
 
 
-def normalize_bloom(value: str | None, spec: dict[str, object] | None = None, text: str | None = None) -> str:
+def normalize_bloom(value: str | None, spec: dict[str, Any] | None = None, text: str | None = None) -> str:
     mapping = {
         "remember": "remember",
         "recall": "remember",
@@ -173,7 +174,7 @@ def _number(value: str) -> float:
     return float(value.replace(",", "."))
 
 
-def _extract_workload_from_text(text: str) -> dict[str, object]:
+def _extract_workload_from_text(text: str) -> dict[str, Any]:
     """Extract target workload from a free-form Russian/English brief."""
     source = text.casefold().replace("ё", "е")
     duration_months: tuple[float, float] | None = None
@@ -227,12 +228,12 @@ def _extract_workload_from_text(text: str) -> dict[str, object]:
     }
 
 
-def extract_workload_from_text(text: str) -> dict[str, object]:
+def extract_workload_from_text(text: str) -> dict[str, Any]:
     """Public wrapper used by persisted-plan rebuilds."""
     return _extract_workload_from_text(text)
 
 
-def _normalized_spec(raw: dict[str, object]) -> dict[str, object]:
+def _normalized_spec(raw: dict[str, Any]) -> dict[str, Any]:
     role = str(raw.get("target_role") or raw.get("role") or "").strip()
     seniority = str(raw.get("target_seniority") or raw.get("seniority") or "").strip()
     domain = str(raw.get("domain") or "").strip()
@@ -335,7 +336,7 @@ def _extract_mock_domain(brief: str, areas: list[str]) -> str:
     return first_line[:120] or "Домен из брифа"
 
 
-def _mock_spec_from_brief(brief: str) -> dict[str, object]:
+def _mock_spec_from_brief(brief: str) -> dict[str, Any]:
     is_program = _is_program_brief_text(brief)
     areas = _brief_sentence_candidates(brief)
     if not areas:
@@ -375,7 +376,7 @@ _COVERAGE_STOPWORDS = {
 }
 
 
-def _reclassify_program_artifacts(cands: list[SkillCandidate], spec: dict[str, object]) -> None:
+def _reclassify_program_artifacts(cands: list[SkillCandidate], spec: dict[str, Any]) -> None:
     if str(spec.get("artifact_type") or "").strip() not in {"program_brief", "mixed"}:
         return
     for cand in cands:
@@ -460,7 +461,7 @@ def group_is_compatible(candidate: SkillCandidate) -> bool:
     return _has_exact_catalog_name(candidate)
 
 
-def is_catalog_match_safe(candidate: SkillCandidate, spec: dict[str, object] | None = None) -> bool:
+def is_catalog_match_safe(candidate: SkillCandidate, spec: dict[str, Any] | None = None) -> bool:
     """Guard against false positive catalog matches before auto-accepting a candidate."""
     if candidate.resolution not in {"matched", "alias", "fuzzy"}:
         return True
@@ -478,18 +479,18 @@ def is_catalog_match_safe(candidate: SkillCandidate, spec: dict[str, object] | N
 
 
 def _build_coverage_audit(
-    spec: dict[str, object],
+    spec: dict[str, Any],
     cands: list[SkillCandidate],
-    coverage_rows: list[dict[str, object]] | None = None,
-    compaction_events: list[dict[str, object]] | None = None,
-) -> dict[str, object]:
+    coverage_rows: list[dict[str, Any]] | None = None,
+    compaction_events: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     # Coverage нужен как продуктовый сигнал: видно, какие обязательные области закрыты, а какие выпали.
     areas = [str(item).strip() for item in spec.get("must_include_areas") or [] if str(item).strip()]
     if not areas:
         return {"covered_count": 0, "partial_count": 0, "uncovered_count": 0, "rows": []}
 
     skills = [cand for cand in cands if cand.entity_type == "skill" and cand.atomicity == "atomic"]
-    coverage_index: dict[str, dict[str, object]] = {}
+    coverage_index: dict[str, dict[str, Any]] = {}
     for row in coverage_rows or []:
         area = str(row.get("area") or "").strip()
         if not area:
@@ -511,7 +512,7 @@ def _build_coverage_audit(
         if reason.startswith("program_brief_area_cap"):
             cap_reason_by_area[area] = reason
 
-    audit_rows: list[dict[str, object]] = []
+    audit_rows: list[dict[str, Any]] = []
     covered_count = 0
     partial_count = 0
     uncovered_count = 0
@@ -571,11 +572,11 @@ def _build_coverage_audit(
 
 
 def build_coverage_audit(
-    spec: dict[str, object],
+    spec: dict[str, Any],
     cands: list[SkillCandidate],
-    coverage_rows: list[dict[str, object]] | None = None,
-    normalize_report: dict[str, object] | None = None,
-) -> dict[str, object]:
+    coverage_rows: list[dict[str, Any]] | None = None,
+    normalize_report: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     compaction_events = []
     if isinstance(normalize_report, dict) and isinstance(normalize_report.get("compaction_events"), list):
         compaction_events = normalize_report["compaction_events"]
@@ -720,7 +721,7 @@ def search(query: str, cache_conn: sqlite3.Connection | None = None) -> list[dic
             it.setdefault("snippet", "")
             it.setdefault("retrieved_at", date.today().isoformat())
         _store_cached_search(cache_conn, query, items)
-        return items
+        return cast("list[dict[Any, Any]]", items)
     today = date.today().isoformat()
     DB = {
         "SQL": [("Уверенный SQL: SELECT, JOIN", "vacancy", "https://hh.ru/v/1", "SQL, JOIN, индексы"),
@@ -783,7 +784,7 @@ def _localize_candidate(candidate: SkillCandidate) -> SkillCandidate:
     return candidate
 
 
-def synthesize_draft_from_brief(brief: str, spec: dict) -> tuple[list[SkillCandidate], dict[str, object] | None]:
+def synthesize_draft_from_brief(brief: str, spec: dict) -> tuple[list[SkillCandidate], dict[str, Any] | None]:
     """Генерирует первичный shortlist из самого брифа без внешнего поиска.
 
     Этот draft нужен для дешёвого pre-match against canon: если навык уже есть в каталоге,
@@ -922,11 +923,11 @@ def gather_evidence_for_gray_zone(
         )
         group_evidence_ids: list[str] = []
         for hit in search(query, cache_conn=cache_conn):
-            key = (str(hit.get("claim", "")).casefold(), str(hit.get("url", "")))
-            evidence_id = seen.get(key)
+            evidence_key = (str(hit.get("claim", "")).casefold(), str(hit.get("url", "")))
+            evidence_id = seen.get(evidence_key)
             if evidence_id is None:
                 evidence_id = f"E{len(evidence) + 1:02d}"
-                seen[key] = evidence_id
+                seen[evidence_key] = evidence_id
                 evidence.append(Evidence(
                     id=evidence_id,
                     **{k: hit[k] for k in ("claim", "source_type", "url", "snippet", "retrieved_at")},
@@ -940,7 +941,7 @@ def gather_evidence_for_gray_zone(
 
 
 # --------- синтез кандидатов (с Блумом и инструментами) ---------
-def synthesize_with_coverage(evidence: list[Evidence], spec: dict) -> tuple[list[SkillCandidate], dict[str, object] | None]:
+def synthesize_with_coverage(evidence: list[Evidence], spec: dict) -> tuple[list[SkillCandidate], dict[str, Any] | None]:
     ev_ids = [e.id for e in evidence]
     if config.USE_LIVE:
         cl = [{"id": e.id, "claim": e.claim, "type": e.source_type} for e in evidence]
@@ -990,7 +991,7 @@ def synthesize_with_coverage(evidence: list[Evidence], spec: dict) -> tuple[list
             json_mode=True,
         )))
         items = data.get("candidates", [])
-        out = []
+        out: list[SkillCandidate] = []
         for i, it in enumerate(items, 1):
             ids = [x for x in it.get("evidence_ids", []) if x in ev_ids]
             if not ids:
@@ -1022,7 +1023,7 @@ def synthesize_with_coverage(evidence: list[Evidence], spec: dict) -> tuple[list
     if not topics:
         topics = [(str(area), []) for area in (spec.get("must_include_areas") or []) if str(area).strip()]
 
-    out: list[SkillCandidate] = []
+    out = []
     group = str(spec.get("domain") or spec.get("role") or "Общее").strip() or "Общее"
     for i, (topic, ids) in enumerate(topics[:12], 1):
         name = _topic_to_mock_skill_name(topic)
@@ -1130,7 +1131,7 @@ def run_council(cands: list[SkillCandidate]) -> dict[str, int]:
     }
 
 
-def _meets_auto_accept_policy(cand: SkillCandidate, spec: dict[str, object] | None = None) -> bool:
+def _meets_auto_accept_policy(cand: SkillCandidate, spec: dict[str, Any] | None = None) -> bool:
     artifact_type = str((spec or {}).get("artifact_type") or "").strip()
     if not has_observable_action(cand.name):
         return False
@@ -1150,7 +1151,7 @@ def _meets_auto_accept_policy(cand: SkillCandidate, spec: dict[str, object] | No
     )
 
 
-def triage_candidates(cands: list[SkillCandidate], spec: dict[str, object] | None = None) -> None:
+def triage_candidates(cands: list[SkillCandidate], spec: dict[str, Any] | None = None) -> None:
     artifact_type = str((spec or {}).get("artifact_type") or "").strip()
     for c in cands:
         if not _is_for_resolve(c):

@@ -12,6 +12,12 @@ from typing import Any
 
 from . import config, llm
 
+
+def _as_list(value: Any) -> list[Any]:
+    """Return value when it is a list, else an empty list (JSON payload guard)."""
+    return value if isinstance(value, list) else []
+
+
 PROMPT_VERSION = "up-template-consilium-v1"
 ALLOWED_ARTIFACT_FAMILIES = {"analysis", "document", "configuration", "design", "production", "practice"}
 FALLBACK_FAMILY = "practice"
@@ -85,7 +91,7 @@ def _repair_json_response(raw: str) -> dict[str, Any]:
     return _extract_json_object(llm.content(repaired))
 
 
-def _brief_summary(brief: dict[str, object]) -> dict[str, object]:
+def _brief_summary(brief: dict[str, Any]) -> dict[str, Any]:
     raw_text = _clean_multiline(brief.get("raw_text"), max_len=1800)
     return {
         "id": brief.get("id"),
@@ -157,8 +163,8 @@ def _system_prompt(max_proposals: int) -> str:
 
 def build_messages(
     *,
-    brief: dict[str, object],
-    scope_groups: list[dict[str, object]],
+    brief: dict[str, Any],
+    scope_groups: list[dict[str, Any]],
     max_proposals: int,
 ) -> list[dict[str, str]]:
     payload = {
@@ -184,10 +190,10 @@ def build_messages(
 def validate_proposals(
     raw: dict[str, Any],
     *,
-    scope_groups: list[dict[str, object]],
+    scope_groups: list[dict[str, Any]],
     max_proposals: int,
     source: str,
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     """Convert LLM JSON into safe proposal payloads.
 
     The validator is deliberately strict about ids and scopes. It may repair
@@ -203,26 +209,26 @@ def validate_proposals(
         scope_name = _clean_text(group.get("scope_name"), max_len=240)
         if not scope_name:
             continue
-        skills = group.get("skills") if isinstance(group.get("skills"), list) else []
+        skills = _as_list(group.get("skills"))
         for skill in skills:
             if not isinstance(skill, dict):
                 continue
             try:
-                skill_id = int(skill.get("id"))
+                skill_id = int(skill.get("id") or 0)
             except (TypeError, ValueError):
                 continue
             name = _clean_text(skill.get("name"), max_len=180)
             scope_to_ids.setdefault(scope_name, set()).add(skill_id)
             id_to_name[skill_id] = name
 
-    validated: list[dict[str, object]] = []
+    validated: list[dict[str, Any]] = []
     seen_codes: set[str] = set()
     for item in proposals_raw[: max_proposals * 2]:
         if not isinstance(item, dict):
             continue
         scope_names = [
             _clean_text(scope, max_len=240)
-            for scope in (item.get("scope_names") if isinstance(item.get("scope_names"), list) else [])
+            for scope in _as_list(item.get("scope_names"))
         ]
         scope_names = [scope for scope in scope_names if scope in scope_to_ids]
         if not scope_names:
@@ -230,7 +236,7 @@ def validate_proposals(
 
         allowed_ids = set().union(*(scope_to_ids[scope] for scope in scope_names))
         skill_ids: list[int] = []
-        for raw_id in item.get("covered_skill_ids") if isinstance(item.get("covered_skill_ids"), list) else []:
+        for raw_id in _as_list(item.get("covered_skill_ids")):
             try:
                 skill_id = int(raw_id)
             except (TypeError, ValueError):
@@ -301,10 +307,10 @@ def validate_proposals(
 
 def propose(
     *,
-    brief: dict[str, object],
-    scope_groups: list[dict[str, object]],
+    brief: dict[str, Any],
+    scope_groups: list[dict[str, Any]],
     max_proposals: int,
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     messages = build_messages(brief=brief, scope_groups=scope_groups, max_proposals=max_proposals)
     response = llm.chat(
         config.MODEL_TEMPLATE_COUNCIL,

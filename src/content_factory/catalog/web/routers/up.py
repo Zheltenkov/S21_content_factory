@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -76,7 +77,7 @@ async def _form(request: Request) -> dict[str, str]:
     return {key: str(value) for key, value in data.items()}
 
 
-def _require_plan(conn: sqlite3.Connection, plan_id: int) -> dict[str, object]:
+def _require_plan(conn: sqlite3.Connection, plan_id: int) -> dict[str, Any]:
     plan = get_curriculum_plan(conn, plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="Curriculum plan not found")

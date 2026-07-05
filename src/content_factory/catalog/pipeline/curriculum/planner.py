@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from typing import Any
 
 import networkx as nx
 
 from .. import config
-from .domain import CurriculumBlock, PlanNode, ProjectBlueprint, SkillOccurrence
+from .domain import BloomBucket, CurriculumBlock, OccurrenceRole, PlanNode, ProjectBlueprint, SkillOccurrence
 
 _DANGLING_TAIL_WORDS = {
     "и",
@@ -62,7 +63,7 @@ def _limit_on_word_boundary(text: str, *, max_chars: int) -> str:
     return f"{candidate}…" if candidate else "…"
 
 
-def _dag_position(dag_payload: dict[str, object]) -> dict[str, int]:
+def _dag_position(dag_payload: dict[str, Any]) -> dict[str, int]:
     return {
         str(item.get("id")): index
         for index, item in enumerate(dag_payload.get("order", []))
@@ -70,7 +71,7 @@ def _dag_position(dag_payload: dict[str, object]) -> dict[str, int]:
     }
 
 
-def _is_reliable_theme_edge(edge: dict[str, object]) -> bool:
+def _is_reliable_theme_edge(edge: dict[str, Any]) -> bool:
     relation_type = str(edge.get("relation_type") or "").casefold()
     if relation_type == "hard":
         return True
@@ -81,7 +82,7 @@ def _is_reliable_theme_edge(edge: dict[str, object]) -> bool:
     return confidence >= config.TAU_EDGE_ACCEPT
 
 
-def _direct_edge_pairs(dag_payload: dict[str, object], *, hard_only: bool = False) -> set[tuple[str, str]]:
+def _direct_edge_pairs(dag_payload: dict[str, Any], *, hard_only: bool = False) -> set[tuple[str, str]]:
     pairs: set[tuple[str, str]] = set()
     for edge in dag_payload.get("final_edges", []):
         if not isinstance(edge, dict):
@@ -183,12 +184,12 @@ def _node_scope_text(node: PlanNode) -> str:
     return _norm_text(" ".join([node.name, node.group, node.block_key]))
 
 
-def _template_scopes(template: dict[str, object]) -> list[dict[str, object]]:
+def _template_scopes(template: dict[str, Any]) -> list[dict[str, Any]]:
     raw = template.get("scopes")
     return [scope for scope in raw if isinstance(scope, dict)] if isinstance(raw, list) else []
 
 
-def _template_scope_score(node: PlanNode, template: dict[str, object]) -> float:
+def _template_scope_score(node: PlanNode, template: dict[str, Any]) -> float:
     family = str(template.get("artifact_family") or "").strip()
     if family and family != _artifact_family_for(node):
         return 0.0
@@ -217,7 +218,7 @@ def _template_scope_score(node: PlanNode, template: dict[str, object]) -> float:
     return best
 
 
-def _best_template_for_node(node: PlanNode, artifact_templates: list[dict[str, object]]) -> dict[str, object] | None:
+def _best_template_for_node(node: PlanNode, artifact_templates: list[dict[str, Any]]) -> dict[str, Any] | None:
     scored = [
         (template, _template_scope_score(node, template))
         for template in artifact_templates
@@ -247,7 +248,7 @@ def _render_pattern(pattern: object, *, nodes: list[PlanNode], block_key: str, a
         return text
 
 
-def _template_artifact_for(nodes: list[PlanNode], block_key: str, artifact_family: str, template: dict[str, object] | None) -> str:
+def _template_artifact_for(nodes: list[PlanNode], block_key: str, artifact_family: str, template: dict[str, Any] | None) -> str:
     if not template:
         return ""
     rendered = _render_pattern(
@@ -259,7 +260,7 @@ def _template_artifact_for(nodes: list[PlanNode], block_key: str, artifact_famil
     return rendered
 
 
-def _template_title_for(nodes: list[PlanNode], block_key: str, artifact_family: str, template: dict[str, object] | None) -> str:
+def _template_title_for(nodes: list[PlanNode], block_key: str, artifact_family: str, template: dict[str, Any] | None) -> str:
     if not template:
         return ""
     pattern = str(template.get("project_name_pattern") or "").strip()
@@ -287,7 +288,7 @@ def _template_enrichment_for(
     block_key: str,
     artifact_family: str,
     artifact: str,
-    template: dict[str, object] | None,
+    template: dict[str, Any] | None,
 ) -> dict[str, str]:
     if not template:
         return {}
@@ -313,7 +314,7 @@ def _project_title_for(block_key: str, chunk_index: int, chunk_count: int) -> st
     return f"{_compact_text(block_key, max_words=4, max_chars=44)}{suffix}"
 
 
-def _ordered_nodes(nodes: list[PlanNode], dag_payload: dict[str, object]) -> list[PlanNode]:
+def _ordered_nodes(nodes: list[PlanNode], dag_payload: dict[str, Any]) -> list[PlanNode]:
     position = _dag_position(dag_payload)
     return sorted(nodes, key=lambda item: (position.get(item.tmp_id, 10**9), item.bloom, item.name))
 
@@ -345,7 +346,7 @@ def _project_from_nodes(
 
 def _split_nodes_for_project(
     nodes: list[PlanNode],
-    dag_payload: dict[str, object],
+    dag_payload: dict[str, Any],
     *,
     max_skills: int,
 ) -> list[list[PlanNode]]:
@@ -368,13 +369,13 @@ def _split_nodes_for_project(
 
 def _pack_dynamic_artifact_projects(
     nodes: list[PlanNode],
-    dag_payload: dict[str, object],
-    artifact_templates: list[dict[str, object]] | None = None,
-) -> tuple[list[ProjectBlueprint], dict[str, object]]:
+    dag_payload: dict[str, Any],
+    artifact_templates: list[dict[str, Any]] | None = None,
+) -> tuple[list[ProjectBlueprint], dict[str, Any]]:
     max_skills = max(1, int(config.UP_MAX_SKILLS_PER_PROJECT))
     grouped: dict[str, list[PlanNode]] = {}
     group_order: list[str] = []
-    group_meta: dict[str, tuple[str, str, dict[str, object] | None]] = {}
+    group_meta: dict[str, tuple[str, str, dict[str, Any] | None]] = {}
     templates = artifact_templates or []
     for node in _ordered_nodes(nodes, dag_payload):
         template = _best_template_for_node(node, templates)
@@ -430,7 +431,7 @@ def _pack_dynamic_artifact_projects(
     return projects, meta
 
 
-def _reorder_projects_by_hard_edges(projects: list[ProjectBlueprint], dag_payload: dict[str, object]) -> list[ProjectBlueprint]:
+def _reorder_projects_by_hard_edges(projects: list[ProjectBlueprint], dag_payload: dict[str, Any]) -> list[ProjectBlueprint]:
     if len(projects) <= 1:
         return projects
     project_by_node: dict[str, int] = {}
@@ -464,9 +465,9 @@ def _blocks_from_projects(projects: list[ProjectBlueprint]) -> list[CurriculumBl
 
 def _pack_dynamic_artifact_blocks(
     nodes: list[PlanNode],
-    dag_payload: dict[str, object],
-    artifact_templates: list[dict[str, object]] | None = None,
-) -> tuple[list[CurriculumBlock], dict[str, object]]:
+    dag_payload: dict[str, Any],
+    artifact_templates: list[dict[str, Any]] | None = None,
+) -> tuple[list[CurriculumBlock], dict[str, Any]]:
     projects, meta = _pack_dynamic_artifact_projects(nodes, dag_payload, artifact_templates)
     projects = _reorder_projects_by_hard_edges(projects, dag_payload)
     return _blocks_from_projects(projects), meta
@@ -492,7 +493,7 @@ def _primary_project_index(projects: list[ProjectBlueprint]) -> dict[str, int]:
     return index
 
 
-def _centrality_scores(nodes: list[PlanNode], dag_payload: dict[str, object]) -> dict[str, float]:
+def _centrality_scores(nodes: list[PlanNode], dag_payload: dict[str, Any]) -> dict[str, float]:
     by_id = {node.tmp_id: node for node in nodes}
     degree: Counter[str] = Counter()
     reliable_degree: Counter[str] = Counter()
@@ -514,7 +515,7 @@ def _centrality_scores(nodes: list[PlanNode], dag_payload: dict[str, object]) ->
     }
 
 
-def _select_core_threads(nodes: list[PlanNode], dag_payload: dict[str, object]) -> list[PlanNode]:
+def _select_core_threads(nodes: list[PlanNode], dag_payload: dict[str, Any]) -> list[PlanNode]:
     if not config.UP_SPIRAL_ENABLED:
         return []
     scores = _centrality_scores(nodes, dag_payload)
@@ -543,7 +544,7 @@ def _target_repeat_indexes(first_index: int, project_count: int, occurrence_coun
     return targets
 
 
-def _bucket_for_repeat(touch_index: int, total_occurrences: int) -> str:
+def _bucket_for_repeat(touch_index: int, total_occurrences: int) -> BloomBucket:
     if touch_index <= 1:
         return "can"
     if touch_index >= total_occurrences:
@@ -551,7 +552,7 @@ def _bucket_for_repeat(touch_index: int, total_occurrences: int) -> str:
     return "can"
 
 
-def _add_spiral_occurrences(blocks: list[CurriculumBlock], nodes: list[PlanNode], dag_payload: dict[str, object]) -> set[str]:
+def _add_spiral_occurrences(blocks: list[CurriculumBlock], nodes: list[PlanNode], dag_payload: dict[str, Any]) -> set[str]:
     projects = _flatten_projects(blocks)
     if len(projects) < 3:
         return set()
@@ -578,7 +579,7 @@ def _add_spiral_occurrences(blocks: list[CurriculumBlock], nodes: list[PlanNode]
                 continue
             if _has_direct_edge(node, existing_nodes, direct_edges):
                 continue
-            role = "assessment" if touch_offset == total_occurrences else "reinforcement"
+            role: OccurrenceRole = "assessment" if touch_offset == total_occurrences else "reinforcement"
             project.occurrences.append(
                 SkillOccurrence(
                     node=node,
@@ -593,9 +594,9 @@ def _add_spiral_occurrences(blocks: list[CurriculumBlock], nodes: list[PlanNode]
 
 def build_curriculum_blocks(
     nodes: list[PlanNode],
-    dag_payload: dict[str, object],
-    artifact_templates: list[dict[str, object]] | None = None,
-) -> tuple[list[CurriculumBlock], dict[str, object]]:
+    dag_payload: dict[str, Any],
+    artifact_templates: list[dict[str, Any]] | None = None,
+) -> tuple[list[CurriculumBlock], dict[str, Any]]:
     """Build project blocks and return planner metadata."""
     blocks, artifact_meta = _pack_dynamic_artifact_blocks(nodes, dag_payload, artifact_templates)
     core_threads = _select_core_threads(nodes, dag_payload)
