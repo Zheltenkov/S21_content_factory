@@ -20,7 +20,7 @@ class ColoredFormatter(logging.Formatter):
         'RESET': '\033[0m'       # Reset
     }
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         # Добавляем контекст из contextvars
         request_id = get_request_id()
         user_id = get_user_id()
@@ -43,7 +43,7 @@ class ColoredFormatter(logging.Formatter):
         timestamp = datetime.now().strftime("%H:%M:%S")
         log_msg = (
             f"{log_color}[{timestamp}] {record.levelname:8s}{reset} "
-            f"[req:{record.request_id}] [user:{record.user_id}] "
+            f"[req:{getattr(record, 'request_id', 'N/A')}] [user:{getattr(record, 'user_id', 'N/A')}] "
             f"{record.getMessage()}"
         )
 

@@ -127,7 +127,7 @@ def generate_diff(request_id: str) -> dict[str, Any] | None:
     diff_obj = difflib.SequenceMatcher(None, original_lines, improved_lines)
     opcodes = diff_obj.get_opcodes()
 
-    side_by_side = []
+    side_by_side: list[dict[str, str | None]] = []
     for tag, i1, i2, j1, j2 in opcodes:
         if tag == "equal":
             # Одинаковые строки

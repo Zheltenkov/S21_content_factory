@@ -43,7 +43,7 @@ async def download_results(
     request_id: str,
     include_regenerated: bool = Query(False, description="Включить перегенерированную версию"),
     user: dict = Depends(get_current_user)
-):
+) -> StreamingResponse:
     """
     Скачивает ZIP архив с результатами генерации.
 
@@ -77,7 +77,7 @@ async def download_results(
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         markdown = (cached or {}).get("markdown") or (db_result.markdown if db_result else "")
-        markdown = normalize_markdown_display_blocks(markdown)
+        markdown = normalize_markdown_display_blocks(markdown or "")
         if not markdown:
             raise HTTPException(status_code=404, detail="README не найден в результатах")
 
@@ -130,7 +130,7 @@ async def download_results(
 async def download_translated_results(
     request_id: str,
     user: dict = Depends(get_current_user)
-):
+) -> StreamingResponse:
     """
     Скачивает ZIP архив с переведенным README, переведенными диаграммами и файлами данных.
 
@@ -197,7 +197,7 @@ async def download_translated_results(
 
 
 @router.get("/template")
-async def download_template():
+async def download_template() -> StreamingResponse:
     """
     Скачивает Excel шаблон для спецификации проекта.
 

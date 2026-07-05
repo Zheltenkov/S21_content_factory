@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from io import BytesIO
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, cast
 from xml.etree import ElementTree
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -198,7 +198,7 @@ def _extract_text_from_html(content: bytes) -> str:
     """Извлекает видимый текст HTML, удаляя script/style/noscript."""
     html = _decode_text_bytes(content)
     try:
-        from bs4 import BeautifulSoup  # type: ignore
+        from bs4 import BeautifulSoup
 
         soup = BeautifulSoup(html, "html.parser")
         for node in soup(["script", "style", "noscript"]):
@@ -516,7 +516,7 @@ def _build_translated_docx(
 def _extract_text_from_pdf(content: bytes) -> str:
     """Извлекает текстовый слой PDF через pypdf."""
     try:
-        from pypdf import PdfReader  # type: ignore
+        from pypdf import PdfReader
     except ImportError as exc:
         raise HTTPException(
             status_code=500,
@@ -745,7 +745,7 @@ def _run_translation(
         user_id=user_id,
         run_id=request_id,
     )
-    translator = TranslatorAgent(llm_client)
+    translator = TranslatorAgent(cast(LLMClientProtocol, llm_client))
     try:
         translated_md = translator.translate(
             markdown,
@@ -823,7 +823,7 @@ def _run_document_translation(
                 translations = {unit.unit_id: unit.text for unit in units}
             else:
                 translations = _translate_docx_units(
-                    llm_client,
+                    cast(LLMClientProtocol, llm_client),
                     units,
                     target_language,
                     progress_callback=progress_callback,
@@ -837,7 +837,7 @@ def _run_document_translation(
             stored_filename = _write_translation_artifact(request_id, docx_filename, translated_docx)
             result_links = {"docx": stored_filename}
         else:
-            translator = TranslatorAgent(llm_client)
+            translator = TranslatorAgent(cast(LLMClientProtocol, llm_client))
             translated_md = translator.translate(
                 document.text,
                 target_language,
@@ -1390,7 +1390,7 @@ async def download_translated_subtitles(
     )
 
 
-async def _stream_download(request_id: str, file_type: str, job: dict):
+async def _stream_download(request_id: str, file_type: str, job: dict[str, Any]) -> Response:
     """Отдаёт файл из STORAGE_DIR/translations/{request_id}/ по type."""
     result_links = job.get("result_links") or {}
     filename = result_links.get(file_type)
@@ -1420,7 +1420,7 @@ async def download_translation_artifact(
     request_id: str,
     type: str = Query(..., alias="type"),  # video | vtt | srt | ass | transcript | docx
     user: dict = Depends(get_current_user),
-):
+) -> Response:
     """Скачивает артефакт перевода: видео-файлы или DOCX для переведённого документа."""
     job = _translation_job_for_user(request_id, user)
     kind = (type or "").lower().strip()

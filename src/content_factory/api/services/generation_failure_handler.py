@@ -226,6 +226,8 @@ class GenerationFailureHandler:
         phase: str,
     ) -> bool:
         """Persist methodology pause or fail explicitly instead of leaving stale in_progress status."""
+        if self._pause_persister is None:
+            return False
         try:
             await self._pause_persister.store_methodology_pause(
                 request_id=request_id,

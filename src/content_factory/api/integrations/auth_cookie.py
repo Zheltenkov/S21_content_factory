@@ -10,7 +10,8 @@ from fastapi import HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.types import ASGIApp
 
 from content_factory.api.db.session import SessionLocal
 from content_factory.api.dependencies import get_current_user
@@ -73,11 +74,11 @@ async def validate_request_user(request: Request, db: Session | None = None) -> 
 class ToolAuthCookieMiddleware(BaseHTTPMiddleware):
     """Require generator login before mounted browser-only tools are served."""
 
-    def __init__(self, app, protected_prefixes: tuple[str, ...]) -> None:
+    def __init__(self, app: ASGIApp, protected_prefixes: tuple[str, ...]) -> None:
         super().__init__(app)
         self.protected_prefixes = protected_prefixes
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         path = request.url.path
         if any(path == prefix or path.startswith(f"{prefix}/") for prefix in self.protected_prefixes):
             try:

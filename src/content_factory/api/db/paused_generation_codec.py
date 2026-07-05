@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import importlib
 from dataclasses import asdict, is_dataclass
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel
 from pydantic_core import PydanticSerializationError
@@ -49,7 +49,7 @@ def serialize_value(value: Any) -> Any:
             _TYPE_KEY: "content_factory.generation.agents.flow:FlowExecutionStep",
             _DATA_KEY: value.as_dict(0) | {"step_index": None},
         }
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return serialize_value(asdict(value))
     if isinstance(value, dict):
         serialized: dict[str, Any] = {}
@@ -167,9 +167,9 @@ def hydrate_context(payload: dict[str, Any]) -> dict[str, Any]:
             event.model_dump(mode="json") for event in events
         )
     state = context.get("state") if isinstance(context, dict) else None
-    if hasattr(state, "sync_from_context"):
+    if state is not None and hasattr(state, "sync_from_context"):
         state.sync_from_context(context)
-    return context
+    return cast(dict[str, Any], context)
 
 
 def serialize_steps(steps: list[Any]) -> list[dict[str, Any]]:

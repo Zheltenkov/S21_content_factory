@@ -3,11 +3,11 @@
 import os
 import time
 import uuid
-from collections.abc import Callable
+from typing import Any
 
 from fastapi import Request, Response
 from jose import JWTError, jwt
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from content_factory.api.db.logging_db import write_request_log_async
 from content_factory.api.utils.data_masking import mask_request_body
@@ -33,7 +33,8 @@ async def extract_user_id_from_token(request: Request) -> str | None:
     token = authorization.split(" ")[1]
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        return payload.get("sub")
+        sub = payload.get("sub")
+        return sub if isinstance(sub, str) else None
     except JWTError:
         return None
 
@@ -41,7 +42,7 @@ async def extract_user_id_from_token(request: Request) -> str | None:
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Middleware для логирования всех HTTP запросов в базу данных."""
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """
         Обрабатывает запрос и логирует его в БД.
 
@@ -83,7 +84,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         # Восстанавливаем body для дальнейшей обработки (если было прочитано)
         if body_bytes is not None:
-            async def receive():
+            async def receive() -> dict[str, Any]:
                 return {"type": "http.request", "body": body_bytes}
             request._receive = receive
 

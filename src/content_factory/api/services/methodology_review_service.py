@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any
 
 from content_factory.generation.methodology import (
@@ -26,8 +26,8 @@ from .methodology_review_state import build_methodology_review_state
 from .methodology_scoped_revision_preview import ScopedRevisionPreviewService
 
 JsonDict = dict[str, Any]
-ResumeBackground = Callable[..., Awaitable[None]]
-WorkflowCommandBackground = Callable[..., Awaitable[None]]
+ResumeBackground = Callable[..., Coroutine[Any, Any, None]]
+WorkflowCommandBackground = Callable[..., Coroutine[Any, Any, None]]
 
 
 class MethodologyReviewService:

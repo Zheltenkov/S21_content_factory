@@ -3,7 +3,7 @@
 import asyncio
 import re
 import uuid
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -13,6 +13,7 @@ from content_factory.api.db.user_runs_db import upsert_user_run
 from content_factory.api.dependencies import get_current_user
 from content_factory.api.utils.logger import get_logger
 from content_factory.api.utils.logging_context import set_request_id, set_user_id
+from content_factory.generation.agents.base.llm_client import LLMClientProtocol
 from content_factory.generation.utils.rubric_export import criteria_to_json
 from content_factory.generation.validators.rubric import RubricScorer
 from content_factory.platform.llm.factory import create_llm_client
@@ -130,7 +131,7 @@ async def check_readme(
             llm_client = None
             logger.warning("⚠️ Продолжаем проверку без LLM клиента (некоторые AI-критерии будут пропущены)")
 
-        scorer = RubricScorer(language=request.language, llm_client=llm_client)
+        scorer = RubricScorer(language=request.language, llm_client=cast("LLMClientProtocol | None", llm_client))
 
         rubric_report = await asyncio.to_thread(
             scorer.score,

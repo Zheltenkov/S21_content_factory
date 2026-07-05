@@ -43,7 +43,7 @@ _database_error: str | None = None
 def describe_database_target() -> str:
     """Return a password-safe DATABASE_URL summary for diagnostics."""
     try:
-        parsed = urlsplit(DATABASE_URL)
+        parsed = urlsplit(DATABASE_URL or "")
         userinfo = f"{parsed.username}:***@" if parsed.username else ""
         host = parsed.hostname or ""
         port = f":{parsed.port}" if parsed.port else ""

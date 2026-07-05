@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import cast
 
 from fastapi import APIRouter, Depends
 
@@ -17,7 +18,7 @@ def load_thematic_blocks() -> dict[str, str]:
     if THEMATIC_BLOCKS_FILE.exists():
         try:
             with open(THEMATIC_BLOCKS_FILE, encoding="utf-8") as f:
-                return json.load(f)
+                return cast(dict[str, str], json.load(f))
         except Exception:
             pass
 

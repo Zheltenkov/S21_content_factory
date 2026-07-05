@@ -2,7 +2,7 @@
 
 import os
 from collections import OrderedDict
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from content_factory.api.utils.logger import get_logger
@@ -29,7 +29,7 @@ _active_generation_tasks: dict[str, Any] = {}
 
 def _utc_now() -> datetime:
     """Return UTC time as a naive datetime for legacy cache comparisons."""
-    return datetime.now(UTC).replace(tzinfo=None)
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _normalize_created_at(value: Any) -> datetime | None:

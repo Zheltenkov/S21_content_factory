@@ -69,7 +69,7 @@ def mask_dict(data: dict[str, Any], mask_char: str = "*", visible_chars: int = 4
     if not isinstance(data, dict):
         return data
 
-    masked = {}
+    masked: dict[str, Any] = {}
     for key, value in data.items():
         key_lower = key.lower()
 
@@ -127,6 +127,7 @@ def mask_json_string(json_str: str, mask_char: str = "*", visible_chars: int = 4
 
     try:
         data = json.loads(json_str)
+        masked_data: dict[str, Any] | list[Any]
         if isinstance(data, dict):
             masked_data = mask_dict(data, mask_char, visible_chars)
         elif isinstance(data, list):

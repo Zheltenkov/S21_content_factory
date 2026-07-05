@@ -1,5 +1,6 @@
 """Endpoints для получения метрик и отчетов."""
 
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -34,7 +35,7 @@ def _ensure_request_owner(request_id: str, user: dict) -> None:
 async def get_metrics(
     request_id: str,
     user: dict = Depends(get_current_user)
-):
+) -> Any:
     """
     Получает метрики и отчеты для запроса генерации.
 
@@ -99,7 +100,7 @@ async def get_metrics(
 async def get_rubric(
     request_id: str,
     user: dict = Depends(get_current_user)
-):
+) -> Any:
     """
     Получает rubric (оценку) для запроса генерации.
 

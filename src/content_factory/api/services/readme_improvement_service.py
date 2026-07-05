@@ -8,7 +8,7 @@ import io
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from content_factory.api.db.generation_results_db import get_generation_result, get_report_by_request_id
 from content_factory.api.db.logging_db import write_log_async
@@ -36,6 +36,7 @@ from content_factory.api.utils.result_cache import (
     get_result,
     set_generation_status,
 )
+from content_factory.generation.agents.base.llm_client import LLMClientProtocol
 from content_factory.generation.models.schemas import ProjectSeed
 from content_factory.generation.project_seed_provider import ProjectSeedProvider
 from content_factory.generation.reverse_extraction.models import ClassificationResult, PartialProjectSeed
@@ -153,7 +154,7 @@ class ReadmeImprovementService:
         configure_context = getattr(llm_client, "configure_run_context", None)
         if callable(configure_context):
             configure_context(user_id=command.user_id, run_id=command.request_id)
-        orchestrator = ReverseExtractionOrchestrator(llm_client)
+        orchestrator = ReverseExtractionOrchestrator(cast(LLMClientProtocol, llm_client))
         partial_seed, classification, _normalized_readme, metadata = await asyncio.to_thread(
             orchestrator.extract_data_only,
             command.readme_text,
@@ -303,8 +304,9 @@ class ReadmeImprovementService:
     def _build_from_curriculum_project(
         command: ExtractForImprovementCommand,
     ) -> tuple[PartialProjectSeed, ClassificationResult]:
-        block = command.curriculum_project.get("block") or {}
-        project = command.curriculum_project.get("project") or {}
+        curriculum_project = command.curriculum_project or {}
+        block = curriculum_project.get("block") or {}
+        project = curriculum_project.get("project") or {}
         block_code = block.get("code") or block.get("name") or ""
         project_title = project.get("title") or ""
         project_description = project.get("description") or ""
@@ -324,11 +326,11 @@ class ReadmeImprovementService:
             sjm=project.get("sjm"),
         )
         classification = ClassificationResult(
-            language=command.curriculum_project.get("language") or "ru",
+            language=curriculum_project.get("language") or "ru",
             thematic_block=block_code or None,
             thematic_block_suggested=block_code or None,
             thematic_block_name=block.get("name"),
-            audience_level=command.curriculum_project.get("audience_level") or "base",
+            audience_level=curriculum_project.get("audience_level") or "base",
             project_type="group" if project_format == "group" else "individual",
         )
         return partial_seed, classification
@@ -351,8 +353,9 @@ class ReadmeImprovementService:
             rubric is not None,
         )
         assets = report_json.get("assets") or {}
-        if not assets and result.get("assets"):
-            assets = _assets_to_base64(result.get("assets"))
+        raw_assets = result.get("assets")
+        if not assets and raw_assets:
+            assets = _assets_to_base64(raw_assets)
 
         return {
             "markdown": markdown,

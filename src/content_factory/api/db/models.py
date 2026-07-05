@@ -1,13 +1,13 @@
 """SQLAlchemy модели для базы данных логов."""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 from passlib.context import CryptContext
 from sqlalchemy import (
     JSON,
     Boolean,
-    Column,
     DateTime,
     ForeignKey,
     Index,
@@ -17,14 +17,16 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    """Декларативная база SQLAlchemy 2.0 для всех моделей API."""
 
 
 def utc_now_naive() -> datetime:
     """Return UTC time as a naive datetime for existing DateTime columns."""
-    return datetime.now(UTC).replace(tzinfo=None)
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # Контекст для хеширования паролей
 # Используем Argon2 как основной (нет ограничения в 72 байта), bcrypt для совместимости со старыми паролями
@@ -36,16 +38,16 @@ class LogEntry(Base):
 
     __tablename__ = "logs"
 
-    id = Column(Integer, primary_key=True)
-    request_id = Column(String(36), nullable=False)
-    user_id = Column(String(100))
-    timestamp = Column(DateTime, default=utc_now_naive, nullable=False)
-    level = Column(String(10), nullable=False)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-    message = Column(Text, nullable=False)
-    agent_name = Column(String(100))
-    phase = Column(String(100))
-    meta_data = Column(JSON, nullable=True)  # Дополнительные данные (ошибки, метрики, etc.) - переименовано из 'metadata' (зарезервированное имя в SQLAlchemy)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    user_id: Mapped[str | None] = mapped_column(String(100))
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    level: Mapped[str] = mapped_column(String(10), nullable=False)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    agent_name: Mapped[str | None] = mapped_column(String(100))
+    phase: Mapped[str | None] = mapped_column(String(100))
+    meta_data: Mapped[Any] = mapped_column(JSON, nullable=True)  # Дополнительные данные (ошибки, метрики, etc.) - переименовано из 'metadata' (зарезервированное имя в SQLAlchemy)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
 
     # Индексы для быстрого поиска
     __table_args__ = (
@@ -76,19 +78,21 @@ class User(Base):
 
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True)
-    email = Column(String(255), nullable=False, unique=True)
-    username = Column(String(100), nullable=False, unique=True)
-    hashed_password = Column(String(255), nullable=False)
-    role = Column(String(20), nullable=False, default="user")
-    is_active = Column(Boolean, nullable=False, default=True)
-    is_email_verified = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
-    last_login = Column(DateTime, nullable=True)
-    failed_login_attempts = Column(Integer, nullable=False, default=0)
-    locked_until = Column(DateTime, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    username: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="user")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+    sessions: Mapped[list["UserSession"]] = relationship(
+        "UserSession", back_populates="user", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index('idx_users_active_email', 'is_active', 'email'),
@@ -102,7 +106,7 @@ class User(Base):
         Argon2 не имеет ограничения по длине пароля (в отличие от bcrypt с 72 байтами).
         Новые пароли будут хешироваться с Argon2.
         """
-        return pwd_context.hash(password)
+        return str(pwd_context.hash(password))
 
     def verify_password(self, password: str) -> bool:
         """
@@ -110,7 +114,7 @@ class User(Base):
 
         Поддерживает проверку как Argon2 (новые), так и bcrypt (старые) хешей.
         """
-        return pwd_context.verify(password, self.hashed_password)
+        return bool(pwd_context.verify(password, self.hashed_password))
 
     def needs_rehash(self) -> bool:
         """
@@ -140,14 +144,14 @@ class PasswordResetToken(Base):
 
     __tablename__ = "password_reset_tokens"
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    token = Column(String(255), nullable=False, unique=True)
-    expires_at = Column(DateTime, nullable=False)
-    used = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    token: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
 
-    user = relationship("User")
+    user: Mapped["User"] = relationship("User")
 
     __table_args__ = (
         Index('ix_password_reset_tokens_user_id', 'user_id'),
@@ -160,19 +164,19 @@ class UserSession(Base):
 
     __tablename__ = "user_sessions"
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(String(100), nullable=False)
-    username = Column(String(100), nullable=False)
-    session_token = Column(String(255), nullable=False)
-    token_hash = Column(String(255), nullable=True)  # Хеш токена для безопасности
-    started_at = Column(DateTime, default=utc_now_naive, nullable=False)
-    last_activity = Column(DateTime, default=utc_now_naive, nullable=False)
-    ip_address = Column(String(45))  # IPv6 может быть до 45 символов
-    user_agent = Column(Text)
-    is_active = Column(String(10), default="true", nullable=False)  # "true" или "false" для совместимости
-    ended_at = Column(DateTime, nullable=True)
-    user_id_fk = Column(Integer, ForeignKey("users.id"), nullable=True)
-    user = relationship("User", back_populates="sessions")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    username: Mapped[str] = mapped_column(String(100), nullable=False)
+    session_token: Mapped[str] = mapped_column(String(255), nullable=False)
+    token_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Хеш токена для безопасности
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    last_activity: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(45))  # IPv6 может быть до 45 символов
+    user_agent: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[str] = mapped_column(String(10), default="true", nullable=False)  # "true" или "false" для совместимости
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    user_id_fk: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    user: Mapped["User"] = relationship("User", back_populates="sessions")
 
     # Индексы для быстрого поиска
     __table_args__ = (
@@ -208,18 +212,18 @@ class RequestLog(Base):
 
     __tablename__ = "request_logs"
 
-    id = Column(Integer, primary_key=True)
-    request_id = Column(String(36), nullable=False)
-    user_id = Column(String(100))
-    method = Column(String(10), nullable=False)  # GET, POST, PUT, DELETE и т.д.
-    path = Column(String(500), nullable=False)
-    status_code = Column(Integer, nullable=False)
-    request_body = Column(JSON, nullable=True)  # Тело запроса (с маскированием чувствительных данных)
-    response_time_ms = Column(Integer, nullable=True)  # Время ответа в миллисекундах
-    ip_address = Column(String(45))  # IPv6 может быть до 45 символов
-    user_agent = Column(Text)
-    timestamp = Column(DateTime, default=utc_now_naive, nullable=False)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    user_id: Mapped[str | None] = mapped_column(String(100))
+    method: Mapped[str] = mapped_column(String(10), nullable=False)  # GET, POST, PUT, DELETE и т.д.
+    path: Mapped[str] = mapped_column(String(500), nullable=False)
+    status_code: Mapped[int] = mapped_column(Integer, nullable=False)
+    request_body: Mapped[Any] = mapped_column(JSON, nullable=True)  # Тело запроса (с маскированием чувствительных данных)
+    response_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Время ответа в миллисекундах
+    ip_address: Mapped[str | None] = mapped_column(String(45))  # IPv6 может быть до 45 символов
+    user_agent: Mapped[str | None] = mapped_column(Text)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
 
     # Индексы для быстрого поиска
     __table_args__ = (
@@ -254,29 +258,35 @@ class GenerationResult(Base):
 
     __tablename__ = "generation_results"
 
-    id = Column(Integer, primary_key=True)
-    request_id = Column(String(36), nullable=False, unique=True)
-    user_id = Column(String(100))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    user_id: Mapped[str | None] = mapped_column(String(100))
 
-    seed_data = Column(JSON, nullable=True)
-    markdown = Column(Text, nullable=True)
-    text_stats = Column(JSON, nullable=True)
-    task_plan = Column(JSON, nullable=True)
-    issues = Column(JSON, nullable=True)
-    practice_critic_issues = Column(JSON, nullable=True)
-    agent_config_versions = Column(JSON, nullable=True)
-    flow_trace = Column(JSON, nullable=True)
+    seed_data: Mapped[Any] = mapped_column(JSON, nullable=True)
+    markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
+    text_stats: Mapped[Any] = mapped_column(JSON, nullable=True)
+    task_plan: Mapped[Any] = mapped_column(JSON, nullable=True)
+    issues: Mapped[Any] = mapped_column(JSON, nullable=True)
+    practice_critic_issues: Mapped[Any] = mapped_column(JSON, nullable=True)
+    agent_config_versions: Mapped[Any] = mapped_column(JSON, nullable=True)
+    flow_trace: Mapped[Any] = mapped_column(JSON, nullable=True)
 
-    regenerated_markdown = Column(Text, nullable=True)
-    regeneration_comments = Column(Text, nullable=True)
-    regeneration_changes = Column(JSON, nullable=True)
-    original_markdown = Column(Text, nullable=True)
+    regenerated_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
+    regeneration_comments: Mapped[str | None] = mapped_column(Text, nullable=True)
+    regeneration_changes: Mapped[Any] = mapped_column(JSON, nullable=True)
+    original_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
-    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False
+    )
 
-    rubric = relationship("RubricResult", back_populates="generation", uselist=False, cascade="all, delete-orphan")
-    report = relationship("ReportResult", back_populates="generation", uselist=False, cascade="all, delete-orphan")
+    rubric: Mapped["RubricResult | None"] = relationship(
+        "RubricResult", back_populates="generation", uselist=False, cascade="all, delete-orphan"
+    )
+    report: Mapped["ReportResult | None"] = relationship(
+        "ReportResult", back_populates="generation", uselist=False, cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index('idx_gen_results_user_id', 'user_id'),
@@ -312,21 +322,23 @@ class PausedGenerationSession(Base):
 
     __tablename__ = "paused_generation_sessions"
 
-    id = Column(Integer, primary_key=True)
-    request_id = Column(String(36), nullable=False, unique=True)
-    user_id = Column(String(100), nullable=False)
-    status = Column(String(30), nullable=False, default="needs_review")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="needs_review")
 
-    project_seed = Column(JSON, nullable=True)
-    track_paths = Column(JSON, nullable=True)
-    context_payload = Column(JSON, nullable=True)
-    steps_payload = Column(JSON, nullable=True)
-    resume_from_index = Column(Integer, nullable=False, default=0)
-    methodology = Column(JSON, nullable=True)
-    review_actions = Column(JSON, nullable=True)
+    project_seed: Mapped[Any] = mapped_column(JSON, nullable=True)
+    track_paths: Mapped[Any] = mapped_column(JSON, nullable=True)
+    context_payload: Mapped[Any] = mapped_column(JSON, nullable=True)
+    steps_payload: Mapped[Any] = mapped_column(JSON, nullable=True)
+    resume_from_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    methodology: Mapped[Any] = mapped_column(JSON, nullable=True)
+    review_actions: Mapped[Any] = mapped_column(JSON, nullable=True)
 
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
-    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False
+    )
 
     __table_args__ = (
         Index('idx_paused_gen_user_id', 'user_id'),
@@ -356,20 +368,22 @@ class GenerationWorkflowState(Base):
 
     __tablename__ = "generation_workflow_states"
 
-    id = Column(Integer, primary_key=True)
-    request_id = Column(String(36), nullable=False, unique=True)
-    user_id = Column(String(100), nullable=True)
-    status = Column(String(40), nullable=False, default="created")
-    current_node = Column(String(120), nullable=True)
-    last_completed_node = Column(String(120), nullable=True)
-    resume_from_node = Column(String(120), nullable=True)
-    progress_current = Column(Integer, nullable=False, default=0)
-    progress_total = Column(Integer, nullable=False, default=0)
-    error = Column(Text, nullable=True)
-    meta_data = Column(JSON, nullable=True)
-    commands = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
-    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    user_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="created")
+    current_node: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    last_completed_node: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    resume_from_node: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    progress_current: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    progress_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    meta_data: Mapped[Any] = mapped_column(JSON, nullable=True)
+    commands: Mapped[Any] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False
+    )
 
     __table_args__ = (
         Index("idx_generation_workflow_user_status", "user_id", "status"),
@@ -401,20 +415,20 @@ class GenerationWorkflowCheckpoint(Base):
 
     __tablename__ = "generation_workflow_checkpoints"
 
-    id = Column(Integer, primary_key=True)
-    request_id = Column(String(36), nullable=False)
-    user_id = Column(String(100), nullable=True)
-    checkpoint_index = Column(Integer, nullable=False)
-    node_id = Column(String(120), nullable=False)
-    node_name = Column(String(300), nullable=False)
-    status = Column(String(40), nullable=False)
-    input_hash = Column(String(64), nullable=False)
-    output_artifact = Column(JSON, nullable=True)
-    context_snapshot = Column(JSON, nullable=True)
-    validation_result = Column(JSON, nullable=True)
-    retry_count = Column(Integer, nullable=False, default=0)
-    duration_ms = Column(Numeric(18, 3), nullable=True)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    user_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    checkpoint_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    node_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    node_name: Mapped[str] = mapped_column(String(300), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    output_artifact: Mapped[Any] = mapped_column(JSON, nullable=True)
+    context_snapshot: Mapped[Any] = mapped_column(JSON, nullable=True)
+    validation_result: Mapped[Any] = mapped_column(JSON, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    duration_ms: Mapped[Decimal | None] = mapped_column(Numeric(18, 3), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
 
     __table_args__ = (
         UniqueConstraint("request_id", "checkpoint_index", name="uq_workflow_checkpoint_request_index"),
@@ -447,17 +461,19 @@ class ToolRun(Base):
 
     __tablename__ = "tool_runs"
 
-    id = Column(Integer, primary_key=True)
-    run_id = Column(String(36), nullable=False, unique=True)
-    tool_name = Column(String(40), nullable=False)
-    user_id = Column(String(100), nullable=True)
-    status = Column(String(30), nullable=False, default="pending")
-    input_ref = Column(Text, nullable=True)
-    output_ref = Column(Text, nullable=True)
-    summary = Column(JSON, nullable=True)
-    error = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
-    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    tool_name: Mapped[str] = mapped_column(String(40), nullable=False)
+    user_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending")
+    input_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    output_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary: Mapped[Any] = mapped_column(JSON, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False
+    )
 
     __table_args__ = (
         Index("idx_tool_runs_tool_status", "tool_name", "status"),
@@ -487,17 +503,19 @@ class UserRun(Base):
 
     __tablename__ = "user_runs"
 
-    id = Column(Integer, primary_key=True)
-    request_id = Column(String(36), nullable=False, unique=True)
-    user_id = Column(String(100), nullable=False)
-    kind = Column(String(40), nullable=False)
-    status = Column(String(40), nullable=False)
-    title = Column(String(500), nullable=True)
-    score = Column(JSON, nullable=True)
-    result_url = Column(String(500), nullable=True)
-    meta_data = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
-    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    score: Mapped[Any] = mapped_column(JSON, nullable=True)
+    result_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    meta_data: Mapped[Any] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False
+    )
 
     __table_args__ = (
         Index("idx_user_runs_user_updated", "user_id", "updated_at"),
@@ -527,21 +545,23 @@ class LLMUsageLedger(Base):
 
     __tablename__ = "llm_usage_ledger"
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(String(100), nullable=False)
-    run_id = Column(String(100), nullable=False)
-    node = Column(String(100), nullable=False)
-    role = Column(String(60), nullable=True)
-    provider = Column(String(40), nullable=True)
-    model = Column(String(120), nullable=True)
-    calls_count = Column(Integer, nullable=False, default=0)
-    prompt_tokens = Column(Integer, nullable=False, default=0)
-    completion_tokens = Column(Integer, nullable=False, default=0)
-    total_tokens = Column(Integer, nullable=False, default=0)
-    cost_usd = Column(Numeric(18, 8), nullable=False, default=0)
-    route_data = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
-    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    run_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    node: Mapped[str] = mapped_column(String(100), nullable=False)
+    role: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    provider: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    calls_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cost_usd: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False, default=0)
+    route_data: Mapped[Any] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False
+    )
 
     __table_args__ = (
         UniqueConstraint("user_id", "run_id", "node", name="uq_llm_usage_user_run_node"),
@@ -574,18 +594,20 @@ class RubricResult(Base):
 
     __tablename__ = "rubric_results"
 
-    id = Column(Integer, primary_key=True)
-    generation_result_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    generation_result_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("generation_results.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
     )
-    rubric_data = Column(JSON, nullable=False)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
-    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
+    rubric_data: Mapped[Any] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False
+    )
 
-    generation = relationship("GenerationResult", back_populates="rubric")
+    generation: Mapped["GenerationResult"] = relationship("GenerationResult", back_populates="rubric")
 
     def to_dict(self) -> dict[str, Any]:
         """Преобразует запись в словарь."""
@@ -603,18 +625,20 @@ class ReportResult(Base):
 
     __tablename__ = "report_results"
 
-    id = Column(Integer, primary_key=True)
-    generation_result_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    generation_result_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("generation_results.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
     )
-    report_data = Column(JSON, nullable=False)
-    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
-    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
+    report_data: Mapped[Any] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False
+    )
 
-    generation = relationship("GenerationResult", back_populates="report")
+    generation: Mapped["GenerationResult"] = relationship("GenerationResult", back_populates="report")
 
     def to_dict(self) -> dict[str, Any]:
         """Преобразует запись в словарь."""

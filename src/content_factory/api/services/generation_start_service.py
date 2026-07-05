@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any
 
 from fastapi import Request, UploadFile
@@ -20,7 +20,7 @@ from content_factory.generation.workflow_profiles import resolve_workflow_profil
 from .generation_errors import GenerationServiceError
 from .generation_workflow_service import GenerationWorkflowService
 
-BackgroundRunner = Callable[[str, str, dict[str, Any], list[str], str | None], Awaitable[None]]
+BackgroundRunner = Callable[[str, str, dict[str, Any], list[str], str | None], Coroutine[Any, Any, None]]
 
 
 class GenerationStartService:

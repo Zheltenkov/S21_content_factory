@@ -2,12 +2,12 @@
 
 import os
 import time
-from collections.abc import Callable
 from datetime import datetime
 
 from fastapi import Request, Response
 from jose import JWTError, jwt
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.types import ASGIApp
 
 from content_factory.api.db.models import UserSession
 from content_factory.api.db.session import SessionLocal, is_database_available
@@ -19,7 +19,7 @@ JWT_ALGORITHM = "HS256"
 ACTIVITY_UPDATE_INTERVAL = int(os.getenv("ACTIVITY_UPDATE_INTERVAL_SECONDS", "60"))
 
 
-async def extract_user_id_from_token(request: Request) -> str | None:
+async def extract_user_id_from_token(request: Request) -> tuple[str | None, str | None]:
     """
     Извлекает user_id и session_token из JWT токена в заголовке Authorization.
 
@@ -46,7 +46,7 @@ async def extract_user_id_from_token(request: Request) -> str | None:
 class ActivityTrackingMiddleware(BaseHTTPMiddleware):
     """Middleware для автоматического обновления last_activity в сессиях пользователей."""
 
-    def __init__(self, app, update_interval_seconds: int = ACTIVITY_UPDATE_INTERVAL):
+    def __init__(self, app: ASGIApp, update_interval_seconds: int = ACTIVITY_UPDATE_INTERVAL) -> None:
         """
         Инициализация middleware.
 
@@ -56,9 +56,9 @@ class ActivityTrackingMiddleware(BaseHTTPMiddleware):
         """
         super().__init__(app)
         self.update_interval = update_interval_seconds
-        self._last_update_time = {}  # Кэш последнего времени обновления по session_token
+        self._last_update_time: dict[str, float] = {}  # Кэш последнего времени обновления по session_token
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """
         Обрабатывает запрос и обновляет активность пользователя.
 

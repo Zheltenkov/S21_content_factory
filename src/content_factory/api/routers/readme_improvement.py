@@ -87,7 +87,7 @@ class GenerateImprovedResponse(BaseModel):
 async def extract_data_for_improvement(
     request: ExtractForImprovementRequest,
     user: dict = Depends(get_current_user)
-):
+) -> Any:
     """
     Извлекает данные из README для последующего улучшения.
 
@@ -135,7 +135,7 @@ async def extract_data_for_improvement(
 async def generate_improved_readme(
     request: GenerateImprovedRequest,
     user: dict = Depends(get_current_user)
-):
+) -> Any:
     """
     Генерирует улучшенный README на основе извлеченных и отредактированных данных.
 
@@ -182,7 +182,7 @@ async def generate_improved_readme(
 async def get_readme_diff(
     request_id: str,
     user: dict = Depends(get_current_user)
-):
+) -> Any:
     """
     Получает diff между исходным и улучшенным README.
 
@@ -201,7 +201,7 @@ async def get_readme_diff(
 async def get_generation_status_endpoint(
     generation_request_id: str,
     user: dict = Depends(get_current_user)
-):
+) -> Any:
     """
     Получает статус генерации улучшенного README.
 
@@ -218,7 +218,7 @@ async def get_generation_status_endpoint(
 async def download_improved_readme_archive(
     generation_request_id: str,
     user: dict = Depends(get_current_user)
-):
+) -> Any:
     """
     Скачивает ZIP архив с улучшенным README и дочерними файлами.
 

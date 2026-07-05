@@ -370,7 +370,7 @@ def _delete_stale_plans(db: Session, active_ids: list[int]) -> int:
         )
     else:
         res = db.execute(text("DELETE FROM catalog.curriculum_plan"))
-    return res.rowcount or 0
+    return int(getattr(res, "rowcount", 0) or 0)
 
 
 def sync_spravochnik_curriculum_plans(

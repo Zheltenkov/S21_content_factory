@@ -29,7 +29,7 @@ from content_factory.api.utils.logger import get_logger
 
 def _parse_allowed_email_domains() -> tuple[str, ...]:
     """Return normalized allowed email domains from env, preserving legacy config."""
-    raw_domains = os.getenv("ALLOWED_EMAIL_DOMAINS") or os.getenv("ALLOWED_EMAIL_DOMAIN", "21-school.ru")
+    raw_domains = os.getenv("ALLOWED_EMAIL_DOMAINS") or os.getenv("ALLOWED_EMAIL_DOMAIN") or "21-school.ru"
     domains = tuple(
         domain.strip().lower().removeprefix("@")
         for domain in raw_domains.replace(";", ",").split(",")
@@ -123,7 +123,7 @@ def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = 
         expire = datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
+    return str(encoded_jwt)
 
 
 def _session_public_payload(session: UserSession) -> dict[str, Any]:
@@ -147,7 +147,7 @@ async def login(
     response: Response,
     http_request: Request,
     db: Session = Depends(get_db_session)
-):
+) -> Any:
     """
     Аутентифицирует пользователя по email и паролю.
 
@@ -332,7 +332,7 @@ async def logout(
     http_request: Request,
     response: Response,
     db: Session = Depends(get_db_session)
-):
+) -> Any:
     """
     Завершает сессию пользователя.
 
@@ -421,7 +421,7 @@ async def get_sessions(
     user_id: str | None = None,
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db_session)
-):
+) -> Any:
     """
     Получает список сессий.
 
@@ -479,7 +479,7 @@ async def register(
     register_data: RegisterRequest,
     request: Request,
     db: Session = Depends(get_db_session)
-):
+) -> Any:
     """Регистрация нового пользователя."""
     # Ограничение по домену
     email = _ensure_allowed_domain(register_data.email)
@@ -535,7 +535,7 @@ async def forgot_password(
     forgot_data: ForgotPasswordRequest,
     request: Request,
     db: Session = Depends(get_db_session)
-):
+) -> Any:
     """Запрос на восстановление пароля."""
     # Ограничение по домену (security best practice: не раскрываем, что именно не так)
     try:
@@ -594,7 +594,7 @@ async def reset_password(
     reset_data: ResetPasswordRequest,
     request: Request,
     db: Session = Depends(get_db_session)
-):
+) -> Any:
     """Сброс пароля по токену."""
     token_hash = hash_token(reset_data.token)
 

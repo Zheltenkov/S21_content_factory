@@ -424,7 +424,7 @@ class GenerationResumeService:
             if human_review_enabled
             else None
         )
-        orchestrator_kwargs = {
+        orchestrator_kwargs: dict[str, Any] = {
             "methodology_progress_callback": methodology_callback,
             "human_approval_enabled": human_review_enabled,
             "run_id": request_id,
@@ -467,7 +467,8 @@ class GenerationResumeService:
         """Run an orchestrator from a recovered context or from the original seed."""
         context = session.get("context")
         if isinstance(context, dict):
-            raw_input = context.get("raw_input") if isinstance(context.get("raw_input"), dict) else {}
+            raw_context_input = context.get("raw_input")
+            raw_input = raw_context_input if isinstance(raw_context_input, dict) else {}
             llm_provider = self._resolve_session_llm_provider(raw_input, session)
             human_review_enabled = methodology_human_review_enabled(
                 raw_input or session.get("project_seed") or {},
@@ -485,7 +486,8 @@ class GenerationResumeService:
                 previous_steps=session.get("previous_steps") or [],
             )
 
-        raw_input = session.get("raw_input") if isinstance(session.get("raw_input"), dict) else {}
+        raw_session_input = session.get("raw_input")
+        raw_input = raw_session_input if isinstance(raw_session_input, dict) else {}
         project_seed = ProjectSeed(**raw_input)
         return await asyncio.to_thread(
             self._build_orchestrator(

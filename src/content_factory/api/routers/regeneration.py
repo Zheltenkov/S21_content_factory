@@ -65,7 +65,7 @@ class RegenerateResponse(BaseModel):
 async def regenerate(
     request: RegenerateRequest,
     user: dict = Depends(get_current_user)
-):
+) -> Any:
     """
     Перегенерирует контент на основе комментариев.
 

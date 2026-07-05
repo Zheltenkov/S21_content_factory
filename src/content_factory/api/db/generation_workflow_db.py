@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 from content_factory.api.utils.logger import get_logger
@@ -186,7 +187,7 @@ def record_generation_workflow_checkpoint(
             if is_existing_attempt
             else incoming_retry_count
         )
-        row.duration_ms = duration_ms
+        row.duration_ms = Decimal(str(duration_ms)) if duration_ms is not None else None
         db.commit()
         db.refresh(row)
         return row.to_dict()

@@ -5,12 +5,13 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from content_factory.api.db.generation_results_db import update_regeneration_result
 from content_factory.api.db.logging_db import write_log_async
 from content_factory.api.utils.logger import get_logger
 from content_factory.api.utils.result_cache import get_result
+from content_factory.generation.agents.base.llm_client import LLMClientProtocol
 from content_factory.generation.agents.content_editor import ContentEditorAgent
 from content_factory.generation.agents.regeneration import RegenerationAgent
 from content_factory.generation.models.readme_document import ReadmeDocument
@@ -330,7 +331,7 @@ class RegenerationService:
         configure_context = getattr(llm_client, "configure_run_context", None)
         if callable(configure_context):
             configure_context(user_id=command.user_id, run_id=command.request_id)
-        regen_agent = RegenerationAgent(llm_client)
+        regen_agent = RegenerationAgent(cast(LLMClientProtocol, llm_client))
 
         original_cached = self._load_original_cached(command.original_request_id)
         seed_result = ProjectSeedProvider.build_for_regeneration(

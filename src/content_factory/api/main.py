@@ -2,14 +2,16 @@
 
 import asyncio
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -52,7 +54,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Run application startup/shutdown hooks without deprecated on_event decorators."""
     await startup_event()
     try:
@@ -70,7 +72,7 @@ app = FastAPI(
 
 # Добавляем rate limiter в app state
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]  # slowapi handler signature
 
 # Сжимаем HTML, CSS, JS и JSON-ответы. Это особенно заметно на страницах с крупной
 # статикой и уменьшает время до первого полностью оформленного экрана.
@@ -113,7 +115,7 @@ if static_dir.exists():
 
     # Определяем роуты для HTML страниц ПЕРЕД mount статических файлов
     @app.get("/")
-    async def read_root():
+    async def read_root() -> Response:
         """Главная страница с UI."""
         login_path = static_path / "login.html"
         logger.debug(f"🔍 Запрос главной страницы, путь: {login_path}")
@@ -127,7 +129,7 @@ if static_dir.exists():
         return FileResponse(str(login_path), headers={"Cache-Control": "no-store"})
 
     @app.get("/register")
-    async def read_register():
+    async def read_register() -> Response:
         """Страница регистрации."""
         register_path = static_path / "register.html"
         if not register_path.exists():
@@ -139,7 +141,7 @@ if static_dir.exists():
         return FileResponse(str(register_path), headers={"Cache-Control": "no-store"})
 
     @app.get("/forgot-password")
-    async def read_forgot_password():
+    async def read_forgot_password() -> Response:
         """Страница восстановления пароля."""
         forgot_path = static_path / "forgot-password.html"
         if not forgot_path.exists():
@@ -151,7 +153,7 @@ if static_dir.exists():
         return FileResponse(str(forgot_path))
 
     @app.get("/reset-password")
-    async def read_reset_password():
+    async def read_reset_password() -> Response:
         """Страница сброса пароля по токену."""
         reset_path = static_path / "reset-password.html"
         if not reset_path.exists():
@@ -166,7 +168,7 @@ if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
     @app.get("/app")
-    async def read_app():
+    async def read_app() -> Response:
         """Страница выбора режима после аутентификации."""
         app_path = static_path / "app.html"
         if not app_path.exists():
@@ -178,7 +180,7 @@ if static_dir.exists():
         return FileResponse(str(app_path), headers={"Cache-Control": "no-store"})
 
     @app.get("/app/generate")
-    async def read_app_generate():
+    async def read_app_generate() -> Response:
         """Страница генератора README."""
         index_path = static_path / "index.html"
         if not index_path.exists():
@@ -190,7 +192,7 @@ if static_dir.exists():
         return FileResponse(str(index_path), headers={"Cache-Control": "no-store"})
 
     @app.get("/app/instruction")
-    async def read_app_instruction():
+    async def read_app_instruction() -> Response:
         """Страница инструкции для методолога."""
         instruction_path = static_path / "instruction.html"
         if not instruction_path.exists():
@@ -202,23 +204,23 @@ if static_dir.exists():
         return FileResponse(str(instruction_path), headers={"Cache-Control": "no-store"})
 
     @app.get("/app/check")
-    async def read_app_check():
+    async def read_app_check() -> Response:
         """Legacy alias for the full auditor page."""
         return RedirectResponse("/app/auditor", status_code=303)
 
     @app.get("/app/curriculum")
-    async def read_app_curriculum():
+    async def read_app_curriculum() -> Response:
         """Учебный план живёт в контуре справочника."""
         return RedirectResponse("/app/spravochnik/up", status_code=303)
 
     @app.get("/app/spravochnik")
     @app.get("/app/spravochnik/")
-    async def read_app_spravochnik():
+    async def read_app_spravochnik() -> Response:
         """Главная точка входа в справочник."""
         return RedirectResponse("/app/spravochnik/intake", status_code=303)
 
     @app.get("/app/translate")
-    async def read_app_translate():
+    async def read_app_translate() -> Response:
         """Страница перевода README."""
         translator_path = static_path / "translator.html"
         if not translator_path.exists():
@@ -263,7 +265,7 @@ app.include_router(curriculum.router, prefix="/api/v1", tags=["curriculum"])
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception) -> Response:
     """Глобальный обработчик исключений для возврата понятных ошибок."""
     logger.error(f"❌ Необработанное исключение: {exc}", exc_info=True)
     expose_details = os.getenv("EXPOSE_ERROR_DETAILS", "false").lower() in {"1", "true", "yes", "on"}
@@ -277,11 +279,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> Response:
     """Обработчик ошибок валидации."""
     logger.warning(f"⚠️ Ошибка валидации запроса: {exc}")
     expose_details = os.getenv("EXPOSE_ERROR_DETAILS", "false").lower() in {"1", "true", "yes", "on"}
-    content = {"detail": "Ошибка валидации запроса"}
+    content: dict[str, Any] = {"detail": "Ошибка валидации запроса"}
     if expose_details:
         content["errors"] = exc.errors()
     return JSONResponse(
@@ -290,7 +292,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-async def startup_event():
+async def startup_event() -> None:
     """События при запуске приложения."""
     logger.info("🚀 FastAPI приложение запущено")
     logger.info(f"📝 Режим: {'development' if os.getenv('RELOAD', 'true').lower() == 'true' else 'production'}")
@@ -333,7 +335,7 @@ async def startup_event():
     # Запускаем периодическую очистку старых логов
     cleanup_task = None
 
-    async def periodic_log_cleanup():
+    async def periodic_log_cleanup() -> None:
         """Периодическая очистка старых логов из БД."""
         from content_factory.api.db.logging_db import cleanup_old_logs_async
         from content_factory.api.db.maintenance_db import cleanup_old_runtime_state_async
@@ -387,7 +389,7 @@ async def startup_event():
     app.state.cleanup_task = cleanup_task
 
 
-async def shutdown_event():
+async def shutdown_event() -> None:
     """События при остановке приложения."""
     logger.info("🛑 Начало корректного завершения работы приложения...")
 

@@ -90,7 +90,7 @@ def _send_email_sync(
     """Синхронная отправка email."""
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
-    msg['From'] = SMTP_FROM
+    msg['From'] = SMTP_FROM or ""
     msg['To'] = to_email
 
     if text_body:
@@ -100,7 +100,7 @@ def _send_email_sync(
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
         if SMTP_USE_TLS:
             server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.login(SMTP_USER or "", SMTP_PASSWORD or "")
         server.send_message(msg)
 
 

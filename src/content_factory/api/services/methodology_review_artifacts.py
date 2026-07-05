@@ -42,7 +42,7 @@ def annotation_text_from_context(context: JsonDict) -> str:
     annotation = context.get("annotation")
     if isinstance(annotation, dict):
         return str(annotation.get("text") or "")
-    if hasattr(annotation, "text"):
+    if annotation is not None and hasattr(annotation, "text"):
         return str(annotation.text or "")
     return ""
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal, cast
 
 from content_factory.api.db.generation_workflow_db import (
     create_generation_workflow,
@@ -321,7 +321,8 @@ class GenerationWorkflowService:
             return None
         checkpoints = list(workflow.get("checkpoints") or [])
         checkpoints.sort(key=lambda item: int(item.get("checkpoint_index") or 0))
-        metadata = workflow.get("metadata") if isinstance(workflow.get("metadata"), dict) else {}
+        raw_metadata = workflow.get("metadata")
+        metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
         resolved_node = self._resolve_command_node(command, node_id=node_id, payload=payload or {})
 
         if command in {"retry_node", "regenerate_section"} and resolved_node:
@@ -410,7 +411,7 @@ class GenerationWorkflowService:
             and isinstance(context_source.get("context_snapshot"), dict)
             and context_source["context_snapshot"]
         )
-        if has_context_snapshot:
+        if has_context_snapshot and context_source is not None:
             context = hydrate_context(context_source["context_snapshot"])
             previous_steps = self._steps_from_checkpoints(previous)
             return {
@@ -467,7 +468,10 @@ class GenerationWorkflowService:
                 FlowExecutionStep(
                     node_id=_normalize_workflow_node_id(str(item.get("node_id") or "")) or "",
                     node_name=str(item.get("node_name") or item.get("node_id") or ""),
-                    status=str(item.get("status") or "success"),
+                    status=cast(
+                        "Literal['success', 'skipped', 'error', 'cancelled', 'paused']",
+                        str(item.get("status") or "success"),
+                    ),
                     duration_ms=float(item.get("duration_ms") or 0.0),
                     issues=[str(issue) for issue in issues or []],
                 )

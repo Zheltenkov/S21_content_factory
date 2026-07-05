@@ -114,7 +114,8 @@ def build_methodology_review_state(paused_session: JsonDict) -> JsonDict:
     for action in active_review_actions:
         if not isinstance(action, dict) or action.get("action") != "diff_approved":
             continue
-        details = action.get("details") if isinstance(action.get("details"), dict) else {}
+        raw_details = action.get("details")
+        details = raw_details if isinstance(raw_details, dict) else {}
         approved_set.update(str(item) for item in details.get("approved_action_ids") or [] if item)
     approved_ids = [action_id for action_id in pending_change_ids if action_id in approved_set]
 
@@ -146,9 +147,9 @@ def build_methodology_review_state(paused_session: JsonDict) -> JsonDict:
         "resume_from_index": paused_session.get("resume_from_index", 0),
         "review_state": review_state,
         "runtime_state": (
-            MethodologyRuntimeState.CHANGES_REQUESTED.value
+            str(MethodologyRuntimeState.CHANGES_REQUESTED)
             if review_state in {"changes_requested", "preview_ready"}
-            else MethodologyRuntimeState.NEEDS_REVIEW.value
+            else str(MethodologyRuntimeState.NEEDS_REVIEW)
         ),
         "requires_diff_approval": bool(unapproved_set),
         "pending_change_ids": pending_change_ids,

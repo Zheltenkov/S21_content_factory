@@ -39,7 +39,7 @@ async def save_uploaded_files(
 
     paths = []
     for file in files:
-        file_path = request_dir / file.filename
+        file_path = request_dir / (file.filename or "unnamed")
         # Асинхронно читаем и сохраняем файл
         content = await file.read()
         file_path.write_bytes(content)

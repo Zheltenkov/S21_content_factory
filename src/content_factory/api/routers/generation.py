@@ -454,10 +454,10 @@ async def get_dashboard_recent_runs(
         request_id = str(item.get("request_id") or "")
         if request_id:
             items_by_request_id[request_id] = item
-    for row in legacy_rows:
-        request_id = str(getattr(row, "request_id", "") or "")
+    for legacy_row in legacy_rows:
+        request_id = str(getattr(legacy_row, "request_id", "") or "")
         if request_id and request_id not in items_by_request_id:
-            items_by_request_id[request_id] = _dashboard_recent_item(row)
+            items_by_request_id[request_id] = _dashboard_recent_item(legacy_row)
 
     items = sorted(items_by_request_id.values(), key=_dashboard_sort_key, reverse=True)[:limit]
     active_tasks = max(
@@ -483,7 +483,7 @@ async def generate(
     request: Request,
     track_files: list[UploadFile] | None = File(None),
     user: dict = Depends(get_current_user)
-):
+) -> Any:
     """Запускает асинхронную генерацию контента учебного проекта."""
     user_id = user.get("id", "anonymous")
     try:
@@ -511,7 +511,7 @@ async def generate(
 async def get_generation_status_endpoint(
     request_id: str,
     user: dict = Depends(get_current_user)
-):
+) -> Any:
     """Получает статус генерации контента."""
     user_id = user.get("id", "anonymous")
     try:
@@ -525,7 +525,7 @@ async def approve_methodology_review(
     request_id: str,
     request: MethodologyReviewActionRequest,
     user: dict = Depends(get_current_user),
-):
+) -> Any:
     """Approve a paused methodology gate and continue generation from the saved node."""
     user_id = user.get("id", "anonymous")
     try:
@@ -544,7 +544,7 @@ async def reject_methodology_review(
     request_id: str,
     request: MethodologyReviewActionRequest,
     user: dict = Depends(get_current_user),
-):
+) -> Any:
     """Reject a paused methodology gate and stop the generation job."""
     user_id = user.get("id", "anonymous")
     try:
@@ -561,7 +561,7 @@ async def reject_methodology_review(
 async def get_methodology_review_state(
     request_id: str,
     user: dict = Depends(get_current_user),
-):
+) -> Any:
     """Return durable methodology review state for UI history and target selection."""
     user_id = user.get("id", "anonymous")
     try:
@@ -574,7 +574,7 @@ async def get_methodology_review_state(
 async def preview_methodology_changes(
     request_id: str,
     user: dict = Depends(get_current_user),
-):
+) -> Any:
     """Run pending scoped revisions on a copied paused context and return diff previews."""
     user_id = user.get("id", "anonymous")
     try:
@@ -588,7 +588,7 @@ async def approve_methodology_diff(
     request_id: str,
     request: MethodologyReviewActionRequest,
     user: dict = Depends(get_current_user),
-):
+) -> Any:
     """Approve the latest persisted preview before generation resume."""
     user_id = user.get("id", "anonymous")
     try:
@@ -606,7 +606,7 @@ async def request_methodology_changes(
     request_id: str,
     request: MethodologistChangeRequest,
     user: dict = Depends(get_current_user),
-):
+) -> Any:
     """Record a scoped change request while keeping the generation paused."""
     user_id = user.get("id", "anonymous")
     try:
@@ -624,7 +624,7 @@ async def run_methodology_assistant_command(
     request_id: str,
     request: MethodologyAssistantCommandRequest,
     user: dict = Depends(get_current_user),
-):
+) -> Any:
     """Parse a methodologist chat message and apply the resulting checkpoint command."""
     user_id = user.get("id", "anonymous")
     try:
@@ -642,7 +642,7 @@ async def run_methodology_assistant_command(
 async def cancel_generation_endpoint(
     request_id: str,
     user: dict = Depends(get_current_user)
-):
+) -> Any:
     """Останавливает активную генерацию контента."""
     user_id = user.get("id", "anonymous")
     try:
@@ -677,7 +677,7 @@ async def submit_generation_workflow_command(
     request_id: str,
     request: WorkflowCommandRequest,
     user: dict = Depends(get_current_user),
-):
+) -> Any:
     """Submit a durable workflow command: resume, retry_node or regenerate_section."""
     user_id = user.get("id", "anonymous")
     if request.command == "cancel":
