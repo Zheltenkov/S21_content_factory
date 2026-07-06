@@ -8,9 +8,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from content_factory.catalog.db import CatalogConnection
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, cast
+
+from content_factory.catalog.db import CatalogConnection
 
 from . import config, language, llm, stage_atomize, stage_normalize
 from .catalog_repo import CatalogRepo

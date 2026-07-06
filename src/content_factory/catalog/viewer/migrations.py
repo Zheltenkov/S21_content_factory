@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import hashlib
-from content_factory.catalog.db import CatalogConnection, CatalogRow
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from content_factory.catalog.db import is_postgres_connection
+from content_factory.catalog.db import CatalogConnection, CatalogRow, is_postgres_connection
 
 
 @dataclass(frozen=True)

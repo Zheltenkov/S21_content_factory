@@ -1,7 +1,7 @@
-"""FastAPI dependencies for the catalog UI (per-request SQLite connection).
+"""FastAPI dependencies for the catalog UI (per-request Postgres connection).
 
-The catalog runs on its SQLite store (hybrid Phase-4b); the connection path honours
-the same ``SPRAVOCHNIK_SQLITE_PATH`` override used elsewhere.
+The catalog runs on Postgres (full cutover). ``catalog_db_path()`` is a legacy artifact
+path kept only as an (ignored) positional argument for call sites that still pass it.
 """
 
 from __future__ import annotations
@@ -15,13 +15,13 @@ from content_factory.catalog.db import open_catalog_connection
 
 
 def catalog_db_path() -> Path:
-    """Path to the catalog store (SQLite path; honours SPRAVOCHNIK_SQLITE_PATH)."""
+    """Legacy catalog artifact path (ignored by the Postgres connection factory)."""
 
     return spravochnik_sqlite_path()
 
 
 def get_conn() -> Iterator[Any]:
-    """Yield a per-request catalog connection (backend by CATALOG_DB; default SQLite)."""
+    """Yield a per-request Postgres catalog connection (backend fixed to Postgres)."""
 
     # check_same_thread=False: FastAPI may create this connection in a threadpool
     # thread and use it in the event-loop thread; access is sequential per request.

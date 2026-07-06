@@ -7,11 +7,10 @@ these exact paths are handled here and everything else falls through to the moun
 
 from __future__ import annotations
 
-from content_factory.catalog.db import CatalogConnection
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
+from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.viewer.app import (
     get_competency,
     get_competency_skills,

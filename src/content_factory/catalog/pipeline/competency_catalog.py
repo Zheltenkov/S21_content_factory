@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import json
 import re
-from content_factory.catalog.db import CatalogConnection
 import unicodedata
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from content_factory.catalog.db import existing_columns, table_exists
+from content_factory.catalog.db import CatalogConnection, existing_columns, table_exists
 
 SERVICE_PROFILE_SLUG = "intake-accepted-skills"
 SERVICE_PROFILE_NAME = "Живой справочник intake"

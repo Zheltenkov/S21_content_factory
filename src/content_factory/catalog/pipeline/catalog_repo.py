@@ -1,10 +1,11 @@
-"""Доступ к реальному skills_catalog.sqlite: канон + резолв кандидатов."""
+"""Доступ к каталогу (Postgres): канон навыков/синонимов + резолв кандидатов."""
 from __future__ import annotations
 
 import difflib
 import re
-from content_factory.catalog.db import CatalogRow
 import unicodedata
+
+from content_factory.catalog.db import CatalogRow
 
 try:
     from rapidfuzz import fuzz, process
@@ -29,7 +30,7 @@ class CatalogRepo:
     """Читает канонические навыки и синонимы; резолвит кандидата против них."""
 
     def __init__(self, db_path: str):
-        # Backend по CATALOG_DB (default sqlite); PG игнорирует путь и берёт DATABASE_URL.
+        # Каталог на Postgres: путь игнорируется, подключение берёт CATALOG_DATABASE_URL/DATABASE_URL.
         self.con = open_catalog_connection(db_path)
         self.con.row_factory = CatalogRow
         self._load_index()

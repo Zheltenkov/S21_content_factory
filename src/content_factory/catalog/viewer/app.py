@@ -4,7 +4,6 @@ import csv
 import io
 import json
 import re
-from content_factory.catalog.db import CatalogConnection, CatalogRow
 import sys
 import unicodedata
 import xml.etree.ElementTree as ET
@@ -21,6 +20,8 @@ from math import isfinite
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qs
+
+from content_factory.catalog.db import CatalogConnection, CatalogRow
 
 if TYPE_CHECKING:
     from content_factory.catalog.pipeline.models import Evidence, SkillCandidate

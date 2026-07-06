@@ -147,3 +147,19 @@ def test_executemany_translates() -> None:
     sql, seq = cur.executed[-1]
     assert sql == "INSERT INTO t (a) VALUES (%s)"
     assert seq == [(1,), (2,)]
+
+
+def test_executemany_applies_full_dialect_chain() -> None:
+    # Bulk writes get the same adapters as execute() (INSERT OR IGNORE, CURRENT_TIMESTAMP,
+    # `%`-escaping) but never RETURNING — a batch has no single lastrowid.
+    cur = FakeCursor()
+    conn = PgConnection(FakeConn(cur))
+    conn.executemany(
+        "INSERT OR IGNORE INTO t (a, created_at) VALUES (?, CURRENT_TIMESTAMP)",
+        [(1,), (2,)],
+    )
+    sql, seq = cur.executed[-1]
+    assert "ON CONFLICT DO NOTHING" in sql
+    assert "CURRENT_TIMESTAMP" not in sql and "to_char" in sql
+    assert "RETURNING" not in sql
+    assert seq == [(1,), (2,)]

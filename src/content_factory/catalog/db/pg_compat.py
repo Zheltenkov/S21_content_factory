@@ -73,7 +73,16 @@ class PgCursor:
         return self
 
     def executemany(self, sql: str, seq_of_params: Any) -> PgCursor:
-        self._cur.executemany(translate_placeholders(sql), [tuple(p) for p in seq_of_params])
+        params = [tuple(p) for p in seq_of_params]
+        # Same dialect chain as execute() minus RETURNING (no lastrowid for a batch).
+        raw = sql.replace("%", "%%") if params else sql
+        adapted, _ = adapt_write_sql(
+            translate_current_timestamp(
+                translate_like(translate_group_concat(translate_placeholders(raw)))
+            ),
+            add_returning=False,
+        )
+        self._cur.executemany(adapted, params)
         return self
 
     def fetchone(self) -> Row | None:

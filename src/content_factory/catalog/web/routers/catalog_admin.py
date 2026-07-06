@@ -7,12 +7,12 @@ redirects (PRG, 303). All mutation/query logic reuses the viewer's data function
 
 from __future__ import annotations
 
-from content_factory.catalog.db import CatalogConnection
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.pipeline import competency_catalog
 from content_factory.catalog.pipeline import storage as intake_storage
 from content_factory.catalog.viewer.app import (

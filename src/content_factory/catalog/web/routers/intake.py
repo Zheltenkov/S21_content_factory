@@ -12,12 +12,11 @@ side-by-side for parity checks during the migration.
 
 from __future__ import annotations
 
-from content_factory.catalog.db import CatalogConnection
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
+from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.viewer.app import (
     UploadedFile,
     apply_brief_catalog_decisions,

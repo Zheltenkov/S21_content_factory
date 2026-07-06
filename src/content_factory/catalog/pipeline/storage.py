@@ -3,13 +3,18 @@ from __future__ import annotations
 
 import json
 import re
-from content_factory.catalog.db import CatalogConnection, CatalogRow
 import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from content_factory.catalog.db import existing_columns, is_postgres_connection, table_exists
+from content_factory.catalog.db import (
+    CatalogConnection,
+    CatalogRow,
+    existing_columns,
+    is_postgres_connection,
+    table_exists,
+)
 
 from . import competency_catalog, config
 from .models import Evidence, SkillCandidate
@@ -1397,7 +1402,7 @@ def save_suggestions(con: CatalogConnection, brief_id: int, cands: list[SkillCan
                 c.atomize_rationale,
             ),
         )
-        tmp_to_db[c.tmp_id] = suggestion_cursor.lastrowid
+        tmp_to_db[c.tmp_id] = int(suggestion_cursor.lastrowid or 0)
         # спорное -> в существующую review_queue (переиспользуем механизм каталога)
         if stored_decision == "needs_review":
             rq_entity_type = _review_queue_entity_type(c)

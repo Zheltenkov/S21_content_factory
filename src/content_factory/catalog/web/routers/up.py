@@ -11,12 +11,12 @@ literal segment is not swallowed by the int converter.
 from __future__ import annotations
 
 import logging
-from content_factory.catalog.db import CatalogConnection
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
+from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.pipeline import storage as intake_storage
 from content_factory.catalog.viewer.app import (
     ARTIFACT_FAMILY_OPTIONS,

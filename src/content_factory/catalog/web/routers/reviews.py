@@ -8,11 +8,10 @@ logic reuses the viewer functions unchanged.
 
 from __future__ import annotations
 
-from content_factory.catalog.db import CatalogConnection
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.viewer.app import (
     apply_brief_catalog_decisions,
     build_dag_for_brief,

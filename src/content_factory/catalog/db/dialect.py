@@ -86,12 +86,13 @@ def translate_current_timestamp(sql: str) -> str:
     return "".join(result)
 
 
-def adapt_write_sql(sql: str) -> tuple[str, bool]:
+def adapt_write_sql(sql: str, *, add_returning: bool = True) -> tuple[str, bool]:
     """Адаптировать write-SQL под PG. Возвращает (sql, wants_returning_id).
 
     - `INSERT OR IGNORE INTO` → `INSERT INTO … ON CONFLICT DO NOTHING`.
     - Одиночный `INSERT INTO` без `RETURNING` и без `ON CONFLICT` → добавить `RETURNING id`
-      (эмуляция sqlite `lastrowid`).
+      (эмуляция sqlite `lastrowid`). Для bulk (`executemany`) `add_returning=False` — lastrowid
+      там не нужен, а `RETURNING` сломал бы batch.
 
     `RETURNING id` НЕ добавляется к `ON CONFLICT`-запросам: они бывают над таблицами без
     колонки `id` (`evidence_query_cache` — PK `cache_key`), и это upsert'ы по уникальному
@@ -105,7 +106,7 @@ def adapt_write_sql(sql: str) -> tuple[str, bool]:
 
     is_insert = bool(_INSERT_INTO_RE.match(core))
     has_conflict = bool(_ON_CONFLICT_RE.search(core))
-    wants_returning = is_insert and not _RETURNING_RE.search(core) and not has_conflict
+    wants_returning = add_returning and is_insert and not _RETURNING_RE.search(core) and not has_conflict
     if wants_returning:
         core = f"{core} RETURNING id"
     return core, wants_returning
