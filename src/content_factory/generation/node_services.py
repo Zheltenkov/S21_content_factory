@@ -402,6 +402,7 @@ class EvaluationNodeService:
         return EvaluationNodeResult(
             rubric_json=result.rubric_json,
             serialized_issues=self.serialize_issues(result.issues),
+            didactic_json=result.didactic_json,
         )
 
     def _call_evaluation(

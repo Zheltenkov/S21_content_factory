@@ -5,6 +5,9 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
+
+from content_factory.catalog.db import is_postgres_connection
 
 
 @dataclass(frozen=True)
@@ -81,8 +84,11 @@ def _review_queue_allows_prerequisite_edge(conn: sqlite3.Connection) -> bool:
     return "prerequisite_edge" in str(create_sql or "")
 
 
-def migrate_review_queue_entity_types(conn: sqlite3.Connection) -> None:
+def migrate_review_queue_entity_types(conn: Any) -> None:
     """Rebuild review_queue when an old CHECK constraint blocks prerequisite edge reviews."""
+    if is_postgres_connection(conn):
+        # PG-схема управляется alembic; SQLite-rebuild здесь не нужен.
+        return
     if not conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'review_queue'").fetchone():
         return
     if _review_queue_allows_prerequisite_edge(conn):
@@ -130,8 +136,11 @@ def migrate_review_queue_entity_types(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_review_queue_source_ref ON review_queue(source_ref, status)")
 
 
-def apply_runtime_migrations(conn: sqlite3.Connection, schema_sql_path: Path) -> list[MigrationResult]:
+def apply_runtime_migrations(conn: Any, schema_sql_path: Path) -> list[MigrationResult]:
     """Runtime migrations are intentionally explicit instead of hidden bootstrap SQL."""
+    if is_postgres_connection(conn):
+        # PG-схема (canonical + working) уже создана alembic-миграциями; SQLite-runtime-DDL не нужен.
+        return []
     results = [apply_sql_migration(conn, "intake_runtime_schema", schema_sql_path)]
     migrate_review_queue_entity_types(conn)
     return results

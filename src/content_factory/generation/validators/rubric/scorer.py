@@ -10,12 +10,16 @@ from ...models.criteria_models import CriteriaItem, CriteriaReport
 from ...models.readme_document import ReadmeDocument
 from ...utils.logging import safe_print
 from ...utils.validation_cache import get_cache
+from .integrity_checker import IntegrityChecker
 from .policy import apply_rubric_warning_policy
 from .section1_checker import Section1Checker
 from .section2_checker import Section2Checker
 from .section3_checker import Section3Checker
 from .section4_checker import Section4Checker
 from .similarity import SimilarityCalculator
+
+# 39 базовых критериев (разделы 1–4) + 5 сигналов целостности (N.1–N.5, structural v2).
+EXPECTED_CRITERIA_COUNT = 44
 
 
 class RubricScorer:
@@ -101,6 +105,9 @@ class RubricScorer:
             regex_patterns=regex_patterns
         )
 
+        # Структурная ось v2: детерминированные проверки целостности (N.1–N.5, advisory)
+        self.integrity_checker = IntegrityChecker()
+
     def score(self, md: str, learning_outcomes: list[str] | None = None, use_cache: bool = True) -> CriteriaReport:
         """
         Оценивает проект по всем критериям.
@@ -170,11 +177,12 @@ class RubricScorer:
 
         safe_print("  📋 Начало проверки критериев (параллельный режим)...", flush=True)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_section1 = executor.submit(self._check_section1, md, document)
             future_section2 = executor.submit(self._check_section2, md, learning_outcomes, document)
             future_section3 = executor.submit(self._check_section3, md, document)
             future_section4 = executor.submit(self._check_section4, md, document)
+            future_integrity = executor.submit(self._check_integrity, md, document)
 
             safe_print("  📋 Раздел 1: Соответствие шаблону структуры (1.1-1.6)...", flush=True)
             section1_items = future_section1.result()
@@ -199,6 +207,12 @@ class RubricScorer:
             items.extend(section4_items)
             section4_score = sum(item.score for item in section4_items)
             safe_print(f"    ✅ Раздел 4: {section4_score}/{len(section4_items)} критериев пройдено", flush=True)
+
+            safe_print("  📋 Целостность (N.1–N.5, advisory)...", flush=True)
+            integrity_items = future_integrity.result()
+            items.extend(integrity_items)
+            integrity_score = sum(item.score for item in integrity_items)
+            safe_print(f"    ✅ Целостность: {integrity_score}/{len(integrity_items)} сигналов чисто", flush=True)
 
         return self._build_report(items)
 
@@ -231,14 +245,23 @@ class RubricScorer:
             return self.section4_checker.check_document(document)
         return self.section4_checker.check(md)
 
+    def _check_integrity(self, md: str, document: ReadmeDocument | None) -> list[CriteriaItem]:
+        """Run integrity signals (N.1–N.5) over raw README markdown."""
+        if document is not None:
+            return self.integrity_checker.check_document(document)
+        return self.integrity_checker.check(md)
+
     @staticmethod
     def _build_report(items: list[CriteriaItem]) -> CriteriaReport:
         """Build the final criteria report from section items."""
         items = apply_rubric_warning_policy(items)
         total = sum(item.score for item in items)
         max_score = len(items)
-        if max_score != 39:
-            safe_print(f"  ⚠️ Предупреждение: ожидалось 39 критериев, получено {max_score}", flush=True)
+        if max_score != EXPECTED_CRITERIA_COUNT:
+            safe_print(
+                f"  ⚠️ Предупреждение: ожидалось {EXPECTED_CRITERIA_COUNT} критериев, получено {max_score}",
+                flush=True,
+            )
 
         summary: dict[str, int] = {}
         for item in items:

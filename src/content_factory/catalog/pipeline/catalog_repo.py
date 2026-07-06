@@ -12,6 +12,8 @@ except ImportError:  # pragma: no cover - depends on local environment
     fuzz = None
     process = None
 
+from content_factory.catalog.db import open_catalog_connection, table_exists
+
 from . import config
 from .models import SkillCandidate
 from .skill_names import skill_name_variants
@@ -27,7 +29,8 @@ class CatalogRepo:
     """Читает канонические навыки и синонимы; резолвит кандидата против них."""
 
     def __init__(self, db_path: str):
-        self.con = sqlite3.connect(db_path)
+        # Backend по CATALOG_DB (default sqlite); PG игнорирует путь и берёт DATABASE_URL.
+        self.con = open_catalog_connection(db_path)
         self.con.row_factory = sqlite3.Row
         self._load_index()
 
@@ -38,9 +41,7 @@ class CatalogRepo:
         cur = self.con.cursor()
         self.by_norm: dict[str, tuple[int, str, str | None]] = {}   # normalized -> (skill_id, canonical_name, canonical_group)
         self.skill_meta: dict[int, tuple[str, str | None]] = {}
-        has_skill_group = cur.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='skill_group'"
-        ).fetchone() is not None
+        has_skill_group = table_exists(self.con, "skill_group")
         if has_skill_group:
             skill_rows = cur.execute(
                 """

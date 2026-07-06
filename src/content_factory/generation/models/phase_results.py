@@ -89,6 +89,7 @@ class EvaluationPhaseResult:
     rubric_json: dict[str, Any]
     issues: list[Any]
     readme_document: ReadmeDocument
+    didactic_json: dict[str, Any] | None = None
 
 
 @dataclass

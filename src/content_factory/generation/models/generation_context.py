@@ -156,11 +156,15 @@ class EvaluationNodeResult(TypedNodeOutput):
 
     rubric_json: dict[str, Any]
     serialized_issues: list[Any] = Field(default_factory=list)
+    didactic_json: dict[str, Any] | None = None
 
     def updates(self) -> dict[str, Any]:
-        return {
+        updates: dict[str, Any] = {
             "rubric_json": self.rubric_json,
         }
+        if self.didactic_json is not None:
+            updates["didactic_json"] = self.didactic_json
+        return updates
 
 
 class TranslationNodeResult(TypedNodeOutput):

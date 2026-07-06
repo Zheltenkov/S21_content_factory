@@ -1,34 +1,26 @@
 """Phase 5.1 — native FastAPI catalog UI (read-only pages).
 
-Exercises the ported routes through the real app with a temporary catalog SQLite,
-asserting they render and that links carry the /app/spravochnik prefix (the base
-global replacing the old PrefixRewrite hack).
+Exercises the ported routes through the real app against the Postgres ``catalog`` schema
+(`catalog_conn` truncates + seeds per test), asserting they render and that links carry the
+/app/spravochnik prefix (the base global replacing the old PrefixRewrite hack).
 """
 
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-_REPO = Path(__file__).resolve().parents[2]
-_CATALOG_SCHEMA = _REPO / "src" / "content_factory" / "catalog" / "sql" / "catalog_schema.sql"
 _PREFIX = "/app/spravochnik"
 
 
 @pytest.fixture()
-def client(tmp_path, monkeypatch) -> TestClient:
-    db = tmp_path / "catalog.sqlite"
-    con = sqlite3.connect(db)
-    con.executescript(_CATALOG_SCHEMA.read_text(encoding="utf-8"))
+def client(catalog_conn, tmp_path, monkeypatch) -> TestClient:
     # one profile + competency so detail pages have something to resolve
-    con.execute("INSERT INTO profile (id, slug, name, source_kind) VALUES (1, 'be', 'Backend', 'role_profile')")
-    con.execute("INSERT INTO competency (id, normalized_title, title, status) VALUES (1, 'algorithms', 'Алгоритмы', 'active')")
-    con.commit()
-    con.close()
-    monkeypatch.setenv("SPRAVOCHNIK_SQLITE_PATH", str(db))
+    catalog_conn.execute("INSERT INTO profile (id, slug, name, source_kind) VALUES (1, 'be', 'Backend', 'role_profile')")
+    catalog_conn.execute("INSERT INTO competency (id, normalized_title, title, status) VALUES (1, 'algorithms', 'Алгоритмы', 'active')")
+    catalog_conn.commit()
     monkeypatch.setenv("SPRAVOCHNIK_SUMMARY_PATH", str(tmp_path / "missing_summary.json"))
     monkeypatch.setenv("DISABLE_AUTH", "true")  # browser-tool paths are behind the shared auth cookie
     from content_factory.api.main import app

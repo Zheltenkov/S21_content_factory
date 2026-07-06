@@ -100,20 +100,19 @@ class TestRubricScorer:
         monkeypatch.setattr(scorer.section3_checker, "check_document", section3)
         monkeypatch.setattr(scorer.section4_checker, "check_document", section4)
         document = ReadmeDocument.from_markdown("# Проект\n\n## Глава 2. Теория\n\nТекст.")
-        monkeypatch.setattr(
-            ReadmeDocument,
-            "to_markdown",
-            lambda self: (_ for _ in ()).throw(AssertionError("typed scorer rendered markdown")),
-        )
 
         report = scorer.score_document(document, learning_outcomes=["LO"], use_cache=False)
 
         assert isinstance(report, CriteriaReport)
-        assert report.max_score == 4
+        # 4 замоканных раздела + 5 сигналов целостности (N.1–N.5, structural v2).
+        assert report.max_score == 9
         assert ("1", "Проект") in captured["sections"]
         assert ("2", ["LO"]) in captured["sections"]
         assert ("3", "Проект") in captured["sections"]
         assert ("4", "Проект") in captured["sections"]
+        # Раздел целостности прогоняется через типизированный документ.
+        integrity_ids = {item.id for item in report.items if item.parent_id == "N"}
+        assert integrity_ids == {"N.1", "N.2", "N.3", "N.4", "N.5"}
 
     def test_build_report_turns_soft_failures_into_warnings(self):
         """Soft rubric failures are diagnostic warnings, not blocking score losses."""

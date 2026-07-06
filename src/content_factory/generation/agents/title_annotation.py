@@ -3,7 +3,7 @@ content_gen/agents/title_annotation.py
 
 Агент генерации заголовка и аннотации.
 
-Генерирует H1 заголовок (1-3 слова) и аннотацию (220-520 символов).
+Генерирует H1 заголовок (1-3 слова) и аннотацию (300-800 символов).
 Использует curriculum context для выравнивания с предыдущими проектами.
 """
 
@@ -418,7 +418,7 @@ class TitleAnnotationAgent:
 
         if needs_regeneration and seed:
             print(f"  ⚠️ Аннотация: {regeneration_reason}. Перегенерация...", file=sys.stderr, flush=True)
-            target_length = (lo + hi) // 2  # Контрольная точка ~500
+            target_length = (lo + hi) // 2  # Контрольная точка ~550
 
             # Перегенерируем с явным указанием на отсутствующие компоненты
             max_attempts = 3

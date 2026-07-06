@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from content_factory.catalog.db import existing_columns, is_postgres_connection, table_exists
+
 from . import competency_catalog, config
 from .models import Evidence, SkillCandidate
 
@@ -50,18 +52,18 @@ _REVIEW_QUEUE_ENTITY_TYPE_MAP = {
 }
 
 
-def _existing_cols(con: sqlite3.Connection, table: str) -> set[str]:
-    return {row[1] for row in con.execute(f"PRAGMA table_info({table})")}
+def _existing_cols(con: Any, table: str) -> set[str]:
+    return existing_columns(con, table)
 
 
-def _table_exists(con: sqlite3.Connection, table: str) -> bool:
-    return con.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
-        (table,),
-    ).fetchone() is not None
+def _table_exists(con: Any, table: str) -> bool:
+    return table_exists(con, table)
 
 
-def _supports_superseded(con: sqlite3.Connection) -> bool:
+def _supports_superseded(con: Any) -> bool:
+    if is_postgres_connection(con):
+        # PG-схема (alembic 016) всегда допускает decision='superseded'.
+        return True
     row = con.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='skill_suggestion'").fetchone()
     return bool(row and row[0] and "superseded" in row[0])
 
@@ -87,6 +89,9 @@ def _ensure_curriculum_plan_accepts_invalid(con: sqlite3.Connection, sql_path: s
     and row records, then recreates indexes through the idempotent schema.
     """
 
+    if is_postgres_connection(con):
+        # PG-схема (alembic) уже допускает status='invalid'; SQLite-only rebuild не нужен.
+        return
     if not _table_exists(con, "curriculum_plan"):
         return
     row = con.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='curriculum_plan'").fetchone()
@@ -572,7 +577,7 @@ def generate_curriculum_artifact_template_proposals(
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(brief_id, code) DO UPDATE SET
-                plan_id = COALESCE(excluded.plan_id, plan_id),
+                plan_id = COALESCE(excluded.plan_id, curriculum_artifact_template_proposal.plan_id),
                 title = excluded.title,
                 artifact_family = excluded.artifact_family,
                 scope_type = excluded.scope_type,
@@ -789,8 +794,8 @@ def _ensure_skill_alias(con: sqlite3.Connection, skill_id: int, alias: str, sour
     return True
 
 
-def _existing_promotion(con: sqlite3.Connection, suggestion_id: int) -> sqlite3.Row | None:
-    if "skill_promotion_log" not in {row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}:
+def _existing_promotion(con: Any, suggestion_id: int) -> Any:
+    if not _table_exists(con, "skill_promotion_log"):
         return None
     row = con.execute(
         """
@@ -1361,7 +1366,7 @@ def save_suggestions(con: sqlite3.Connection, brief_id: int, cands: list[SkillCa
             stored_decision = "superseded"
         if stored_decision == "superseded" and not allow_superseded:
             stored_decision = "rejected"
-        con.execute(
+        suggestion_cursor = con.execute(
             """INSERT INTO skill_suggestion(brief_id, suggested_name, source_name, group_name, coverage_area, bloom,
                indicators_json, tools, resolution, canonical_skill_id, match_score,
                nearest_skill_id, nearest_name, nearest_group, confidence, council_agreement,
@@ -1392,7 +1397,7 @@ def save_suggestions(con: sqlite3.Connection, brief_id: int, cands: list[SkillCa
                 c.atomize_rationale,
             ),
         )
-        tmp_to_db[c.tmp_id] = con.execute("SELECT last_insert_rowid()").fetchone()[0]
+        tmp_to_db[c.tmp_id] = suggestion_cursor.lastrowid
         # спорное -> в существующую review_queue (переиспользуем механизм каталога)
         if stored_decision == "needs_review":
             rq_entity_type = _review_queue_entity_type(c)

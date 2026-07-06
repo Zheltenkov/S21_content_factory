@@ -15,6 +15,8 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from content_factory.catalog.db import existing_columns, table_exists
+
 SERVICE_PROFILE_SLUG = "intake-accepted-skills"
 SERVICE_PROFILE_NAME = "Живой справочник intake"
 SERVICE_SOURCE_ROOT = "intake://catalog"
@@ -94,15 +96,12 @@ def _utc_now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _table_exists(con: sqlite3.Connection, table: str) -> bool:
-    return con.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
-        (table,),
-    ).fetchone() is not None
+def _table_exists(con: Any, table: str) -> bool:
+    return table_exists(con, table)
 
 
-def _existing_cols(con: sqlite3.Connection, table: str) -> set[str]:
-    return {str(row[1]) for row in con.execute(f"PRAGMA table_info({table})")}
+def _existing_cols(con: Any, table: str) -> set[str]:
+    return existing_columns(con, table)
 
 
 def has_competency_structure(con: sqlite3.Connection) -> bool:
@@ -961,7 +960,8 @@ def list_skill_competency_links(con: sqlite3.Connection, skill_id: int) -> list[
             JOIN profile p ON p.id = pc.profile_id
             LEFT JOIN indicator_row ir ON ir.competency_skill_id = cs.id
             WHERE cs.skill_id = ?
-            GROUP BY cs.id, pc.id, c.id, p.id
+            GROUP BY cs.id, cs.review_state, cs.skill_order, pc.id, pc.review_state,
+                     c.id, c.title, c.status, p.id, p.name
             ORDER BY p.name, c.title, cs.skill_order, cs.id
             """,
             (skill_id,),

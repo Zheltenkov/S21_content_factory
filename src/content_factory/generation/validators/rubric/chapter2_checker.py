@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Any
+from typing import Any, cast
 
 from ...config.thresholds import THRESHOLDS
 from ...models.criteria_models import CheckMethod, CriteriaItem, StrictnessLevel
@@ -23,6 +23,13 @@ class Chapter2Checker:
     # Константы для подсчета слогов
     RUS_VOWELS = set("аеёиоуыэюяАЕЁИОУЫЭЮЯ")
     LAT_VOWELS = set("aeiouyAEIOUY")
+
+    # 2.4.6: детекция примера/кейса по границам слова.
+    # Негативные lookahead отсекают «примерно/примерный» и «случайно/случайный»,
+    # которые ловились подстрочным `"пример" in text`.
+    _EXAMPLE_WORD_RE = re.compile(
+        r"\b(?:пример(?!н)|кейс|ситуаци|случай(?!н))", re.IGNORECASE
+    )
     LO_STOP_WORDS = {
         "знает", "понимает", "умеет", "уметь", "научится", "научиться", "может",
         "основы", "основные", "базовые", "проект", "проекта", "проекте", "работа",
@@ -268,7 +275,7 @@ class Chapter2Checker:
         # 2.4.5 остается опциональной проверкой: отсутствие образовательных результатов не снижает оценку.
         items.append(self._learning_outcomes_coverage_item(ch2_content, learning_outcomes))
 
-        # 2.4.6: Проверка наличия примера/кейса (ИИ)
+        # 2.4.6: Проверка наличия примера/кейса (скрипт, по границам слова)
         example_issues = []
         for i, part in enumerate(parts, 1):
             part_start = part.end()
@@ -278,83 +285,23 @@ class Chapter2Checker:
 
             part_text = ch2_content[part_start:part_end]
 
-            # Проверяем наличие блока **Пример:**
-            has_example_block = "**Пример:**" in part_text
-
-            # Проверяем наличие слов-маркеров
-            has_markers = any(m in part_text.lower() for m in ["пример", "ситуация", "кейс", "случай"])
-
-            if not (has_example_block or has_markers):
+            if not self._has_real_example(part_text):
                 example_issues.append(f"{theory_section_label(i)}: отсутствует пример/кейс")
 
-        if len(example_issues) == 0:
-            items.append(CriteriaItem(
-                id="2.4.6",
-                title="Проверка наличия примера/кейса",
-                description="В каждом теоретическом разделе есть пример, ситуация или кейс",
-                check_method=CheckMethod.AI_AGENT,
-                score=1,
-                comments=[],
-                parent_id="2.4"
-            ))
-        else:
-            items.append(CriteriaItem(
-                id="2.4.6",
-                title="Проверка наличия примера/кейса",
-                description="В каждом теоретическом разделе есть пример, ситуация или кейс",
-                check_method=CheckMethod.AI_AGENT,
-                score=0,
-                comments=example_issues[:5],
-                parent_id="2.4",
-                details={"issues": example_issues}
-            ))
+        items.append(self._example_item(example_issues))
 
-        # 2.4.7: Проверка читабельности текста (формула Флеша)
+        # 2.4.7: Проверка читабельности текста (формула Флеша-Оборневой)
         readability_scores = []
         readability_issues = []
         for i, part in enumerate(parts, 1):
             part_text = self._extract_part_text(ch2_content, part)
             part_main = clean_markdown_prose_for_counting(self._main_theory_text(part_text))
-
-            # Используем формулу Флеша
-            raw_readability = self._calculate_readability(part_main.strip())
-
-            # Нормировка индекса читаемости: из диапазона [0, 30] в [50, 80]
-            raw_min, raw_max = 0.0, 30.0
-            new_min, new_max = 50.0, 80.0
-
-            raw_clamped = max(raw_min, min(raw_readability, raw_max))
-            readability = new_min + (new_max - new_min) * (raw_clamped - raw_min) / (raw_max - raw_min)
-
+            readability = self._calculate_readability(part_main.strip())
             readability_scores.append(readability)
-
-            if not (50 <= readability <= 80):
+            if not self._readability_in_band(readability):
                 readability_issues.append((i, readability))
 
-        avg_readability = sum(readability_scores) / len(readability_scores) if readability_scores else 0
-
-        if 50 <= avg_readability <= 80:
-            items.append(CriteriaItem(
-                id="2.4.7",
-                title="Проверка читабельности текста",
-                description="Индекс читаемости: 50–80",
-                check_method=CheckMethod.SCRIPT,
-                score=1,
-                comments=[],
-                parent_id="2.4",
-                details={"avg_readability": avg_readability, "readability_scores": readability_scores}
-            ))
-        else:
-            items.append(CriteriaItem(
-                id="2.4.7",
-                title="Проверка читабельности текста",
-                description="Индекс читаемости: 50–80",
-                check_method=CheckMethod.SCRIPT,
-                score=0,
-                comments=[f"Средний индекс читаемости: {avg_readability:.1f} (ожидалось 50–80)"],
-                parent_id="2.4",
-                details={"avg_readability": avg_readability, "readability_scores": readability_scores, "issues": readability_issues[:5]}
-            ))
+        items.append(self._readability_item(readability_scores, readability_issues))
 
         return items
 
@@ -477,46 +424,24 @@ class Chapter2Checker:
 
         items.append(self._learning_outcomes_coverage_item(ch2_text, learning_outcomes))
 
-        example_issues: list[str] = []
+        example_issues = []
         for i, part in enumerate(parts, 1):
             part_text = section_prose_text(part)
-            has_example_block = section_has_label(part, "Пример") or "**Пример:**" in part_text
-            has_markers = any(marker in part_text.lower() for marker in ["пример", "ситуация", "кейс", "случай"])
-            if not (has_example_block or has_markers):
+            has_example = section_has_label(part, "Пример") or self._has_real_example(part_text)
+            if not has_example:
                 example_issues.append(f"{theory_section_label(i, part.title)}: отсутствует пример/кейс")
-        items.append(CriteriaItem(
-            id="2.4.6",
-            title="Проверка наличия примера/кейса",
-            description="В каждом теоретическом разделе есть пример, ситуация или кейс",
-            check_method=CheckMethod.AI_AGENT,
-            score=1 if not example_issues else 0,
-            comments=[] if not example_issues else example_issues[:5],
-            parent_id="2.4",
-            details={} if not example_issues else {"issues": example_issues},
-        ))
+        items.append(self._example_item(example_issues))
 
         readability_scores: list[float] = []
         readability_issues: list[tuple[int, float]] = []
         for i, part in enumerate(parts, 1):
             part_main = clean_markdown_prose_for_counting(self._main_theory_text(section_prose_text(part)))
-            raw_readability = self._calculate_readability(part_main.strip())
-            raw_clamped = max(0.0, min(raw_readability, 30.0))
-            readability = 50.0 + (80.0 - 50.0) * raw_clamped / 30.0
+            readability = self._calculate_readability(part_main.strip())
             readability_scores.append(readability)
-            if not (50 <= readability <= 80):
+            if not self._readability_in_band(readability):
                 readability_issues.append((i, readability))
 
-        avg_readability = sum(readability_scores) / len(readability_scores) if readability_scores else 0
-        items.append(CriteriaItem(
-            id="2.4.7",
-            title="Проверка читабельности текста",
-            description="Индекс читаемости: 50–80",
-            check_method=CheckMethod.SCRIPT,
-            score=1 if 50 <= avg_readability <= 80 else 0,
-            comments=[] if 50 <= avg_readability <= 80 else [f"Средний индекс читаемости: {avg_readability:.1f} (ожидалось 50–80)"],
-            parent_id="2.4",
-            details={"avg_readability": avg_readability, "readability_scores": readability_scores, "issues": readability_issues[:5]},
-        ))
+        items.append(self._readability_item(readability_scores, readability_issues))
 
         return items
 
@@ -743,11 +668,68 @@ class Chapter2Checker:
         # Минимум 1 слог на слово
         return max(1, count)
 
+    def _has_real_example(self, part_text: str) -> bool:
+        """Есть ли в части пример/кейс — по границам слова, не подстрокой (2.4.6)."""
+        return bool(self._EXAMPLE_WORD_RE.search(part_text))
+
+    def _example_item(self, example_issues: list[str]) -> CriteriaItem:
+        """Строит критерий 2.4.6. Advisory-режим (strictness=SOFT) на время калибровки."""
+        passed = not example_issues
+        return CriteriaItem(
+            id="2.4.6",
+            title="Проверка наличия примера/кейса",
+            description="В каждом теоретическом разделе есть пример, ситуация или кейс",
+            check_method=CheckMethod.SCRIPT,
+            score=1 if passed else 0,
+            comments=[] if passed else example_issues[:5],
+            parent_id="2.4",
+            strictness=StrictnessLevel.SOFT,
+            details=None if passed else {"issues": example_issues},
+        )
+
+    def _readability_in_band(self, value: float) -> bool:
+        """Попадает ли индекс читаемости в целевую полосу (thresholds.readability_band)."""
+        lo, hi = cast(tuple[float, float], THRESHOLDS["readability_band"])
+        return lo <= value <= hi
+
+    def _readability_item(
+        self,
+        readability_scores: list[float],
+        readability_issues: list[tuple[int, float]],
+    ) -> CriteriaItem:
+        """Строит критерий 2.4.7 из честных баллов Флеша-Оборневой.
+
+        Advisory-режим (strictness=SOFT): провал по калибруемой полосе становится
+        предупреждением, а не блокирующим отказом (см. rollout structural_v2).
+        """
+        lo, hi = cast(tuple[float, float], THRESHOLDS["readability_band"])
+        avg_readability = (
+            sum(readability_scores) / len(readability_scores) if readability_scores else 0.0
+        )
+        passed = bool(readability_scores) and lo <= avg_readability <= hi
+        return CriteriaItem(
+            id="2.4.7",
+            title="Проверка читабельности текста",
+            description=f"Индекс читаемости (Флеш-Оборнева): {lo}–{hi}",
+            check_method=CheckMethod.SCRIPT,
+            score=1 if passed else 0,
+            comments=[] if passed else [
+                f"Средний индекс читаемости: {avg_readability:.1f} (ожидалось {lo}–{hi})"
+            ],
+            parent_id="2.4",
+            strictness=StrictnessLevel.SOFT,
+            details={
+                "avg_readability": avg_readability,
+                "readability_scores": readability_scores,
+                "issues": readability_issues[:5],
+            },
+        )
+
     def _calculate_readability(self, text: str) -> float:
         """
-        Индекс удобочитаемости Флеша, адаптированный под русский.
+        Индекс удобочитаемости Флеша-Оборневой (русская адаптация Флеша).
 
-        Формула: FRE = 206.835 - 1.52 * ASL - 65.14 * ASW
+        Формула: FRE = 206.835 - 1.3 * ASL - 60.1 * ASW
         где:
         - ASL (Average Sentence Length) - средняя длина предложения в словах
         - ASW (Average Syllables per Word) - средняя длина слова в слогах
@@ -778,8 +760,8 @@ class Chapter2Checker:
         asl = num_words / num_sentences          # avg sentence length
         asw = total_syllables / num_words         # avg syllables per word
 
-        # Формула Флеша для русского
-        score = 206.835 - 1.52 * asl - 65.14 * asw
+        # Формула Флеша-Оборневой (русская адаптация)
+        score = 206.835 - 1.3 * asl - 60.1 * asw
 
         # Обрежем до разумного диапазона
         score = max(0.0, min(100.0, score))

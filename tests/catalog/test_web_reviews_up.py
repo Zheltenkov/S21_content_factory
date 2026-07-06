@@ -2,34 +2,17 @@
 
 from __future__ import annotations
 
-import sqlite3
-from pathlib import Path
-
 import pytest
 from fastapi.testclient import TestClient
 
-_REPO = Path(__file__).resolve().parents[2]
-_CATALOG_SCHEMA = _REPO / "src" / "content_factory" / "catalog" / "sql" / "catalog_schema.sql"
 _PREFIX = "/app/spravochnik"
 
 
 @pytest.fixture()
-def client(tmp_path, monkeypatch) -> TestClient:
-    db = tmp_path / "catalog.sqlite"
-    con = sqlite3.connect(db)
-    con.executescript(_CATALOG_SCHEMA.read_text(encoding="utf-8"))
-    con.commit()
-    con.close()
-    monkeypatch.setenv("SPRAVOCHNIK_SQLITE_PATH", str(db))
+def client(catalog_conn, tmp_path, monkeypatch) -> TestClient:
+    # working tables (intake/DAG, curriculum_plan) already exist in the PG catalog schema
     monkeypatch.setenv("SPRAVOCHNIK_SUMMARY_PATH", str(tmp_path / "missing_summary.json"))
     monkeypatch.setenv("DISABLE_AUTH", "true")
-
-    from content_factory.catalog.viewer.app import ensure_intake_runtime_schema, open_db
-
-    conn = open_db(db)
-    ensure_intake_runtime_schema(conn, db)
-    conn.close()
-
     from content_factory.api.main import app
 
     return TestClient(app)
@@ -105,12 +88,12 @@ def test_up_row_new_on_missing_plan_404(client: TestClient) -> None:
 
 def _seed_plan(client: TestClient) -> int:
     """Insert a minimal curriculum_plan row and return its id."""
-    from content_factory.api.integrations.project_paths import spravochnik_sqlite_path
-    from content_factory.catalog.viewer.app import open_db, utc_now_iso
+    from content_factory.catalog.db import existing_columns, open_catalog_connection
+    from content_factory.catalog.viewer.app import utc_now_iso
 
-    conn = open_db(spravochnik_sqlite_path())
+    conn = open_catalog_connection("unused-on-postgres")
     try:
-        cols = {row["name"] for row in conn.execute("PRAGMA table_info(curriculum_plan)")}
+        cols = set(existing_columns(conn, "curriculum_plan"))
         now = utc_now_iso()
         payload: dict[str, object] = {}
         if "status" in cols:
@@ -139,11 +122,10 @@ def test_up_plan_detail_renders(client: TestClient) -> None:
 
 
 def test_up_plan_csv_invalid_status_409(client: TestClient) -> None:
-    from content_factory.api.integrations.project_paths import spravochnik_sqlite_path
-    from content_factory.catalog.viewer.app import open_db
+    from content_factory.catalog.db import open_catalog_connection
 
     plan_id = _seed_plan(client)
-    conn = open_db(spravochnik_sqlite_path())
+    conn = open_catalog_connection("unused-on-postgres")
     try:
         conn.execute("UPDATE curriculum_plan SET status = 'invalid' WHERE id = ?", (plan_id,))
         conn.commit()

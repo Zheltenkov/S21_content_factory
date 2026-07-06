@@ -174,6 +174,11 @@ class ResultAssembler:
             ),
         )
 
+        didactic_json = context.get("didactic_json")
+        if isinstance(didactic_json, dict) and didactic_json:
+            # Вторая ось качества рядом с рубрикой; НЕ суммируется с 39 критериями.
+            report["didactic"] = didactic_json
+
         encoded_assets = self._encode_assets(assets_binary)
         if encoded_assets:
             report["assets"] = encoded_assets

@@ -31,6 +31,15 @@ STATIC_DIR = BASE_DIR / "static"
 PROJECT_ROOT = BASE_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+from content_factory.catalog.db import (
+    existing_columns as _db_existing_columns,
+)
+from content_factory.catalog.db import (
+    open_catalog_connection,
+)
+from content_factory.catalog.db import (
+    table_exists as _db_table_exists,
+)
 from content_factory.catalog.viewer.migrations import apply_runtime_migrations, migrate_review_queue_entity_types
 from content_factory.catalog.viewer.observability import (
     build_decision_rationale,
@@ -336,8 +345,7 @@ def refresh_summary_counts(summary: dict[str, Any], db_path: Path) -> dict[str, 
     refreshed = dict(summary or {})
     counts = dict(refreshed.get("counts") or {})
     try:
-        conn = sqlite3.connect(db_path, timeout=30)
-        conn.row_factory = sqlite3.Row
+        conn = open_catalog_connection(db_path)
         counts.update(
             {
                 "profiles": int(conn.execute("SELECT COUNT(*) FROM profile").fetchone()[0]) if table_exists(conn, "profile") else counts.get("profiles", 0),
@@ -356,7 +364,8 @@ def refresh_summary_counts(summary: dict[str, Any], db_path: Path) -> dict[str, 
             }
         )
         conn.close()
-    except sqlite3.Error:
+    except Exception:
+        # Summary counts — best-effort; degrade gracefully on either backend.
         pass
     refreshed["counts"] = counts
     return refreshed
@@ -485,20 +494,16 @@ def clean_profile_slug(value: str | None) -> str:
     return cleaned or str(value or "").strip()
 
 
-def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
-    row = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
-        (table_name,),
-    ).fetchone()
-    return row is not None
+def table_exists(conn: Any, table_name: str) -> bool:
+    return _db_table_exists(conn, table_name)
 
 
-def column_exists(conn: sqlite3.Connection, table_name: str, column_name: str) -> bool:
-    return any(row["name"] == column_name for row in conn.execute(f"PRAGMA table_info({table_name})"))
+def column_exists(conn: Any, table_name: str, column_name: str) -> bool:
+    return column_name in _db_existing_columns(conn, table_name)
 
 
-def table_columns(conn: sqlite3.Connection, table_name: str) -> set[str]:
-    return {str(row["name"]) for row in conn.execute(f"PRAGMA table_info({table_name})")}
+def table_columns(conn: Any, table_name: str) -> set[str]:
+    return _db_existing_columns(conn, table_name)
 
 
 def ensure_runtime_schema(conn: sqlite3.Connection) -> None:
@@ -1103,7 +1108,7 @@ def get_latest_job_id_for_brief(conn: sqlite3.Connection, brief_id: int) -> int 
         SELECT id
         FROM intake_job
         WHERE json_valid(result_payload)
-          AND json_extract(result_payload, '$.brief_id') = ?
+          AND CAST(json_extract(result_payload, '$.brief_id') AS INTEGER) = ?
         ORDER BY id DESC
         LIMIT 1
         """,
@@ -1352,7 +1357,7 @@ def update_jobs_dag_payload(
         FROM intake_job
         WHERE status = 'succeeded'
           AND json_valid(result_payload)
-          AND json_extract(result_payload, '$.brief_id') = ?
+          AND CAST(json_extract(result_payload, '$.brief_id') AS INTEGER) = ?
         """,
         (brief_id,),
     ).fetchall()
@@ -1396,7 +1401,7 @@ def update_jobs_curriculum_plan_payload(
         FROM intake_job
         WHERE status = 'succeeded'
           AND json_valid(result_payload)
-          AND json_extract(result_payload, '$.brief_id') = ?
+          AND CAST(json_extract(result_payload, '$.brief_id') AS INTEGER) = ?
         """,
         (brief_id,),
     ).fetchall()
@@ -1663,7 +1668,7 @@ def update_jobs_catalog_payload(
         FROM intake_job
         WHERE status = 'succeeded'
           AND json_valid(result_payload)
-          AND json_extract(result_payload, '$.brief_id') = ?
+          AND CAST(json_extract(result_payload, '$.brief_id') AS INTEGER) = ?
         """,
         (brief_id,),
     ).fetchall()
@@ -3020,7 +3025,7 @@ def run_intake_pipeline(
 
 def execute_intake_job(db_path: Path, job_id: int) -> None:
     ACTIVE_INTAKE_JOB_IDS.add(job_id)
-    conn = open_db(db_path)
+    conn = open_catalog_connection(db_path)
     try:
         ensure_intake_runtime_schema(conn, db_path)
         job = get_intake_job(conn, job_id)
@@ -3037,7 +3042,7 @@ def execute_intake_job(db_path: Path, job_id: int) -> None:
         )
 
         def progress(stage: str, note: str) -> None:
-            worker_conn = open_db(db_path)
+            worker_conn = open_catalog_connection(db_path)
             try:
                 ensure_intake_runtime_schema(worker_conn, db_path)
                 update_intake_job(worker_conn, job_id, current_stage=stage, progress_note=note)
@@ -3530,7 +3535,7 @@ def get_curriculum_plan(conn: sqlite3.Connection, plan_id: int) -> dict[str, Any
                 FROM intake_job ij
                 WHERE ij.status = 'succeeded'
                   AND json_valid(ij.result_payload)
-                  AND json_extract(ij.result_payload, '$.brief_id') = cp.brief_id
+                  AND CAST(json_extract(ij.result_payload, '$.brief_id') AS INTEGER) = cp.brief_id
                 ORDER BY ij.created_at DESC
                 LIMIT 1
             ) AS latest_job_id
@@ -3600,7 +3605,7 @@ def list_curriculum_plans(conn: sqlite3.Connection, limit: int = 50) -> list[dic
                 FROM intake_job ij
                 WHERE ij.status = 'succeeded'
                   AND json_valid(ij.result_payload)
-                  AND json_extract(ij.result_payload, '$.brief_id') = cp.brief_id
+                  AND CAST(json_extract(ij.result_payload, '$.brief_id') AS INTEGER) = cp.brief_id
                 ORDER BY ij.created_at DESC
                 LIMIT 1
             ) AS latest_job_id
@@ -3856,7 +3861,7 @@ def reset_curriculum_plan_payload_in_jobs(conn: sqlite3.Connection, brief_id: in
         FROM intake_job
         WHERE result_payload IS NOT NULL
           AND json_valid(result_payload)
-          AND json_extract(result_payload, '$.brief_id') = ?
+          AND CAST(json_extract(result_payload, '$.brief_id') AS INTEGER) = ?
         """,
         (brief_id,),
     ).fetchall()
@@ -4622,7 +4627,7 @@ def merge_catalog_skills(conn: sqlite3.Connection, source_skill_id: int, target_
         UPDATE skill
         SET is_active = 0,
             status = 'deprecated',
-            match_note = COALESCE(match_note || char(10), '') || ?,
+            match_note = COALESCE(match_note || chr(10), '') || ?,
             updated_at = ?
         WHERE id = ?
         """,
@@ -4697,7 +4702,7 @@ def list_archived_skills(conn: sqlite3.Connection, query: str = "") -> list[dict
         JOIN skill_group sg ON sg.id = s.group_id
         LEFT JOIN indicator i ON i.skill_id = s.id
         WHERE {' AND '.join(where_parts)}
-        GROUP BY s.id, s.group_id, s.name, s.sort_order, s.complexity_summary, s.source_scale_title, s.source_skill_name, s.resolution_status, sg.name
+        GROUP BY s.id, s.group_id, s.name, s.sort_order, s.complexity_summary, s.source_scale_title, s.source_skill_name, s.resolution_status, sg.name, sg.sort_order
         ORDER BY sg.sort_order, s.sort_order, s.name, s.id
     """
     return fetch_all(conn, sql, tuple(params))
