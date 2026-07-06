@@ -12,7 +12,7 @@ side-by-side for parity checks during the migration.
 
 from __future__ import annotations
 
-import sqlite3
+from content_factory.catalog.db import CatalogConnection
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -91,7 +91,7 @@ def _render_intake(context: dict[str, object]) -> str:
 # brief workspace
 # --------------------------------------------------------------------------- #
 @router.get("/intake", response_class=HTMLResponse)
-def intake_get(conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
+def intake_get(conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     html = _render_intake(
         {
@@ -109,7 +109,7 @@ def intake_get(conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
 
 
 @router.post("/intake")
-async def intake_post(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+async def intake_post(request: Request, conn: CatalogConnection = Depends(get_conn)) -> Response:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     form_data, files = await _form_and_files(request)
     try:
@@ -159,7 +159,7 @@ async def intake_post(request: Request, conn: sqlite3.Connection = Depends(get_c
 
 
 @router.post("/intake/jobs/clear")
-def intake_jobs_clear(conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+def intake_jobs_clear(conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     clear_intake_workspace(conn)
     return _redirect("/intake")
@@ -169,7 +169,7 @@ def intake_jobs_clear(conn: sqlite3.Connection = Depends(get_conn)) -> RedirectR
 # async job — JSON status polling
 # --------------------------------------------------------------------------- #
 @router.get("/intake/jobs/{job_id}/status")
-def intake_job_status(job_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> JSONResponse:
+def intake_job_status(job_id: int, conn: CatalogConnection = Depends(get_conn)) -> JSONResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     job = get_intake_job(conn, job_id)
     if not job:
@@ -192,7 +192,7 @@ def intake_job_status(job_id: int, conn: sqlite3.Connection = Depends(get_conn))
 # workflow actions
 # --------------------------------------------------------------------------- #
 @router.post("/intake/jobs/{job_id}/next-step")
-def intake_job_next_step(job_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+def intake_job_next_step(job_id: int, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     job = get_intake_job(conn, job_id)
     if not job:
@@ -222,7 +222,7 @@ def intake_job_next_step(job_id: int, conn: sqlite3.Connection = Depends(get_con
 
 
 @router.post("/intake/jobs/{job_id}/build-dag")
-def intake_job_build_dag(job_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+def intake_job_build_dag(job_id: int, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     job, brief_id = get_intake_job_brief_id(conn, job_id)
     if not job:
@@ -235,7 +235,7 @@ def intake_job_build_dag(job_id: int, conn: sqlite3.Connection = Depends(get_con
 
 
 @router.post("/intake/jobs/{job_id}/apply-catalog")
-def intake_job_apply_catalog(job_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+def intake_job_apply_catalog(job_id: int, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     job, brief_id = get_intake_job_brief_id(conn, job_id)
     if not job:
@@ -248,7 +248,7 @@ def intake_job_apply_catalog(job_id: int, conn: sqlite3.Connection = Depends(get
 
 @router.post("/intake/jobs/{job_id}/candidate-decision")
 async def intake_job_candidate_decision(
-    job_id: int, request: Request, conn: sqlite3.Connection = Depends(get_conn)
+    job_id: int, request: Request, conn: CatalogConnection = Depends(get_conn)
 ) -> Response:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     form_data = await _form(request)
@@ -296,7 +296,7 @@ async def intake_job_candidate_decision(
 # curriculum plan CSV
 # --------------------------------------------------------------------------- #
 @router.get("/intake/jobs/{job_id}/plan.csv")
-def intake_job_plan_csv(job_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+def intake_job_plan_csv(job_id: int, conn: CatalogConnection = Depends(get_conn)) -> Response:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     job = get_intake_job(conn, job_id)
     if not job:
@@ -319,7 +319,7 @@ def intake_job_plan_csv(job_id: int, conn: sqlite3.Connection = Depends(get_conn
 # async job — full view (declared last: matches only after the sub-paths above)
 # --------------------------------------------------------------------------- #
 @router.get("/intake/jobs/{job_id}", response_class=HTMLResponse)
-def intake_job_detail(job_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
+def intake_job_detail(job_id: int, conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     job = get_intake_job(conn, job_id)
     if not job:

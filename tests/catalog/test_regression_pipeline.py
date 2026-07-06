@@ -45,7 +45,6 @@ from content_factory.catalog.viewer.app import (
     create_catalog_skill,
     curriculum_plan_to_csv_bytes,
     ensure_catalog_group,
-    ensure_intake_runtime_schema,
     get_intake_job,
     get_brief_catalog_apply_state,
     merge_catalog_skills,
@@ -56,13 +55,11 @@ from content_factory.catalog.viewer.app import (
     list_skill_sets,
     merge_candidate_competency,
     move_candidate_competency_skill,
-    open_db,
     repair_dirty_profile_names,
     rename_candidate_competency,
     update_review_status,
     update_intake_job,
 )
-from content_factory.catalog.viewer.migrations import apply_runtime_migrations
 from content_factory.catalog.viewer.observability import build_decision_rationale, build_job_observability
 from content_factory.catalog.viewer.route_zones import detect_route_zone, get_secondary_nav, show_secondary_nav
 

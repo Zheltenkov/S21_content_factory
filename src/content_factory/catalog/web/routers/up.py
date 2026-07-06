@@ -11,7 +11,7 @@ literal segment is not swallowed by the int converter.
 from __future__ import annotations
 
 import logging
-import sqlite3
+from content_factory.catalog.db import CatalogConnection
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -77,7 +77,7 @@ async def _form(request: Request) -> dict[str, str]:
     return {key: str(value) for key, value in data.items()}
 
 
-def _require_plan(conn: sqlite3.Connection, plan_id: int) -> dict[str, Any]:
+def _require_plan(conn: CatalogConnection, plan_id: int) -> dict[str, Any]:
     plan = get_curriculum_plan(conn, plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="Curriculum plan not found")
@@ -88,7 +88,7 @@ def _require_plan(conn: sqlite3.Connection, plan_id: int) -> dict[str, Any]:
 # index
 # --------------------------------------------------------------------------- #
 @router.get("/up", response_class=HTMLResponse)
-def up_index(conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
+def up_index(conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     html = render(
         "up_index.html",
@@ -99,7 +99,7 @@ def up_index(conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
 
 
 @router.post("/up/cleanup-empty")
-def up_cleanup_empty(conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+def up_cleanup_empty(conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     cleanup_empty_curriculum_plans(conn)
     return _redirect_synced("/up")
@@ -109,14 +109,14 @@ def up_cleanup_empty(conn: sqlite3.Connection = Depends(get_conn)) -> RedirectRe
 # plan-level actions
 # --------------------------------------------------------------------------- #
 @router.post("/up/plans/{plan_id}/delete")
-def up_plan_delete(plan_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+def up_plan_delete(plan_id: int, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     delete_curriculum_plan(conn, plan_id)
     return _redirect_synced("/up")
 
 
 @router.get("/up/plans/{plan_id}/csv")
-def up_plan_csv(plan_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+def up_plan_csv(plan_id: int, conn: CatalogConnection = Depends(get_conn)) -> Response:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     plan = _require_plan(conn, plan_id)
     if str(plan.get("status") or "").casefold() == "invalid":
@@ -137,7 +137,7 @@ def up_plan_csv(plan_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> R
 # artifact-template proposals
 # --------------------------------------------------------------------------- #
 @router.post("/up/plans/{plan_id}/template-proposals/generate")
-def up_plan_proposals_generate(plan_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+def up_plan_proposals_generate(plan_id: int, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     from content_factory.catalog.pipeline import llm as intake_llm
 
     ensure_intake_runtime_schema(conn, catalog_db_path())
@@ -154,7 +154,7 @@ def up_plan_proposals_generate(plan_id: int, conn: sqlite3.Connection = Depends(
 
 
 @router.get("/up/plans/{plan_id}/template-proposals", response_class=HTMLResponse)
-def up_plan_proposals_get(plan_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
+def up_plan_proposals_get(plan_id: int, conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     plan = _require_plan(conn, plan_id)
     proposals = intake_storage.load_curriculum_artifact_template_proposals(conn, int(plan.get("brief_id") or 0))
@@ -174,7 +174,7 @@ def up_plan_proposals_get(plan_id: int, conn: sqlite3.Connection = Depends(get_c
 
 @router.post("/up/plans/{plan_id}/template-proposals/{proposal_id}")
 async def up_plan_proposal_post(
-    plan_id: int, proposal_id: int, request: Request, conn: sqlite3.Connection = Depends(get_conn)
+    plan_id: int, proposal_id: int, request: Request, conn: CatalogConnection = Depends(get_conn)
 ) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     plan = _require_plan(conn, plan_id)
@@ -221,7 +221,7 @@ async def up_plan_proposal_post(
 # rows
 # --------------------------------------------------------------------------- #
 @router.post("/up/plans/{plan_id}/rows/new")
-def up_plan_row_new(plan_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+def up_plan_row_new(plan_id: int, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     _require_plan(conn, plan_id)
     row_id = create_curriculum_plan_row(conn, plan_id)
@@ -229,7 +229,7 @@ def up_plan_row_new(plan_id: int, conn: sqlite3.Connection = Depends(get_conn)) 
 
 
 @router.get("/up/plans/{plan_id}/rows/{row_id}", response_class=HTMLResponse)
-def up_plan_row_get(plan_id: int, row_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
+def up_plan_row_get(plan_id: int, row_id: int, conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     plan = get_curriculum_plan(conn, plan_id)
     row = get_curriculum_plan_row(conn, plan_id, row_id)
@@ -245,7 +245,7 @@ def up_plan_row_get(plan_id: int, row_id: int, conn: sqlite3.Connection = Depend
 
 @router.post("/up/plans/{plan_id}/rows/{row_id}")
 async def up_plan_row_post(
-    plan_id: int, row_id: int, request: Request, conn: sqlite3.Connection = Depends(get_conn)
+    plan_id: int, row_id: int, request: Request, conn: CatalogConnection = Depends(get_conn)
 ) -> Response:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     plan = get_curriculum_plan(conn, plan_id)
@@ -271,7 +271,7 @@ async def up_plan_row_post(
 
 
 @router.post("/up/plans/{plan_id}/rows/{row_id}/delete")
-def up_plan_row_delete(plan_id: int, row_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+def up_plan_row_delete(plan_id: int, row_id: int, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     delete_curriculum_plan_row(conn, plan_id, row_id)
     return _redirect_synced(f"/up/plans/{plan_id}")
@@ -281,7 +281,7 @@ def up_plan_row_delete(plan_id: int, row_id: int, conn: sqlite3.Connection = Dep
 # plan detail (declared last: only matches when no sub-path above did)
 # --------------------------------------------------------------------------- #
 @router.get("/up/plans/{plan_id}", response_class=HTMLResponse)
-def up_plan_detail(plan_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
+def up_plan_detail(plan_id: int, conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     plan = _require_plan(conn, plan_id)
     html = render(

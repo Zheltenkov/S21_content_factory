@@ -4,7 +4,7 @@ import csv
 import io
 import json
 import re
-import sqlite3
+from content_factory.catalog.db import CatalogConnection, CatalogRow
 import sys
 import unicodedata
 import xml.etree.ElementTree as ET
@@ -319,18 +319,6 @@ def intake_stage_label(stage: str | None) -> str:
     return INTAKE_STAGE_LABELS.get(stage, stage)
 
 
-def open_db(db_path: Path, *, check_same_thread: bool = True) -> sqlite3.Connection:
-    resolved = str(Path(db_path).resolve())
-    conn = sqlite3.connect(db_path, timeout=30, check_same_thread=check_same_thread)
-    conn.row_factory = sqlite3.Row
-    conn.create_function("search_norm", 1, normalize_search_text)
-    ensure_runtime_schema(conn)
-    if resolved not in CATALOG_ADMIN_SCHEMA_READY:
-        ensure_catalog_admin_runtime_schema(conn)
-        CATALOG_ADMIN_SCHEMA_READY.add(resolved)
-    return conn
-
-
 def load_summary(summary_path: Path) -> dict[str, Any]:
     if not summary_path.exists():
         return {}
@@ -371,7 +359,7 @@ def refresh_summary_counts(summary: dict[str, Any], db_path: Path) -> dict[str, 
     return refreshed
 
 
-def repair_dirty_profile_names(conn: sqlite3.Connection) -> int:
+def repair_dirty_profile_names(conn: CatalogConnection) -> int:
     if not table_exists(conn, "profile"):
         return 0
     updated = 0
@@ -396,12 +384,12 @@ def repair_dirty_profile_names(conn: sqlite3.Connection) -> int:
     return updated
 
 
-def fetch_one(conn: sqlite3.Connection, query: str, params: tuple = ()) -> dict[str, Any] | None:
+def fetch_one(conn: CatalogConnection, query: str, params: tuple = ()) -> dict[str, Any] | None:
     row = conn.execute(query, params).fetchone()
     return dict(row) if row else None
 
 
-def fetch_all(conn: sqlite3.Connection, query: str, params: tuple = ()) -> list[dict[str, Any]]:
+def fetch_all(conn: CatalogConnection, query: str, params: tuple = ()) -> list[dict[str, Any]]:
     return [dict(row) for row in conn.execute(query, params)]
 
 
@@ -506,7 +494,7 @@ def table_columns(conn: Any, table_name: str) -> set[str]:
     return _db_existing_columns(conn, table_name)
 
 
-def ensure_runtime_schema(conn: sqlite3.Connection) -> None:
+def ensure_runtime_schema(conn: CatalogConnection) -> None:
     review_columns = {
         "resolution_note": "TEXT",
         "reviewed_at": "TEXT",
@@ -663,7 +651,7 @@ def build_candidate_recommended_action(
     }
 
 
-def load_nearest_skill_preview(conn: sqlite3.Connection, skill_id: int | None, indicator_limit: int = 3) -> dict[str, Any] | None:
+def load_nearest_skill_preview(conn: CatalogConnection, skill_id: int | None, indicator_limit: int = 3) -> dict[str, Any] | None:
     """Load a compact catalog preview for the nearest matched skill."""
     if not skill_id or not table_exists(conn, "skill"):
         return None
@@ -745,7 +733,7 @@ def load_nearest_skill_preview(conn: sqlite3.Connection, skill_id: int | None, i
     return preview
 
 
-def ensure_intake_runtime_schema(conn: sqlite3.Connection, db_path: Path) -> None:
+def ensure_intake_runtime_schema(conn: CatalogConnection, db_path: Path) -> None:
     resolved = str(db_path.resolve())
     schema_ready = (
         table_exists(conn, "profile_brief")
@@ -775,7 +763,7 @@ def ensure_intake_runtime_schema(conn: sqlite3.Connection, db_path: Path) -> Non
     repair_stale_intake_jobs(conn)
 
 
-def prune_empty_generated_catalog_nodes(conn: sqlite3.Connection) -> dict[str, int]:
+def prune_empty_generated_catalog_nodes(conn: CatalogConnection) -> dict[str, int]:
     """Remove empty generated taxonomy nodes; keep manual empty nodes editable."""
     stats: dict[str, int] = {}
     if table_exists(conn, "skill_set") and table_exists(conn, "skill_set_item"):
@@ -877,7 +865,7 @@ def format_local_datetime(value: object | None) -> str:
     return parsed.strftime("%d.%m.%Y %H:%M")
 
 
-def repair_stale_intake_jobs(conn: sqlite3.Connection, stale_after_seconds: int = INTAKE_STALE_TIMEOUT_SECONDS) -> int:
+def repair_stale_intake_jobs(conn: CatalogConnection, stale_after_seconds: int = INTAKE_STALE_TIMEOUT_SECONDS) -> int:
     if not table_exists(conn, "intake_job"):
         return 0
 
@@ -925,7 +913,7 @@ def repair_stale_intake_jobs(conn: sqlite3.Connection, stale_after_seconds: int 
 
 
 def create_intake_job(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     *,
     source_kind: str,
     source_name: str | None,
@@ -957,7 +945,7 @@ def create_intake_job(
 
 
 def update_intake_job(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     job_id: int,
     *,
     status: str | None = None,
@@ -998,7 +986,7 @@ def update_intake_job(
     conn.commit()
 
 
-def get_intake_job(conn: sqlite3.Connection, job_id: int) -> dict[str, Any] | None:
+def get_intake_job(conn: CatalogConnection, job_id: int) -> dict[str, Any] | None:
     row = conn.execute("SELECT * FROM intake_job WHERE id = ?", (job_id,)).fetchone()
     if not row:
         return None
@@ -1013,14 +1001,14 @@ def get_intake_job(conn: sqlite3.Connection, job_id: int) -> dict[str, Any] | No
     return job
 
 
-def get_intake_job_brief_id(conn: sqlite3.Connection, job_id: int) -> tuple[dict[str, Any] | None, int | None]:
+def get_intake_job_brief_id(conn: CatalogConnection, job_id: int) -> tuple[dict[str, Any] | None, int | None]:
     job = get_intake_job(conn, job_id)
     payload = job.get("result_payload") if job else None
     brief_id = payload.get("brief_id") if isinstance(payload, dict) else None
     return job, brief_id if isinstance(brief_id, int) else None
 
 
-def list_recent_intake_jobs(conn: sqlite3.Connection, limit: int = 8) -> list[dict[str, Any]]:
+def list_recent_intake_jobs(conn: CatalogConnection, limit: int = 8) -> list[dict[str, Any]]:
     items = fetch_all(
         conn,
         """
@@ -1065,7 +1053,7 @@ def extract_quoted_name(details: str | None) -> str | None:
     return details[start + 1:end].strip() or None
 
 
-def repair_intake_review_links(conn: sqlite3.Connection) -> int:
+def repair_intake_review_links(conn: CatalogConnection) -> int:
     if not table_exists(conn, "review_queue") or not table_exists(conn, "skill_suggestion"):
         return 0
 
@@ -1102,7 +1090,7 @@ def repair_intake_review_links(conn: sqlite3.Connection) -> int:
     return updated
 
 
-def get_latest_job_id_for_brief(conn: sqlite3.Connection, brief_id: int) -> int | None:
+def get_latest_job_id_for_brief(conn: CatalogConnection, brief_id: int) -> int | None:
     row = conn.execute(
         """
         SELECT id
@@ -1117,7 +1105,7 @@ def get_latest_job_id_for_brief(conn: sqlite3.Connection, brief_id: int) -> int 
     return int(row["id"]) if row else None
 
 
-def get_brief_dag_state(conn: sqlite3.Connection, brief_id: int) -> dict[str, Any]:
+def get_brief_dag_state(conn: CatalogConnection, brief_id: int) -> dict[str, Any]:
     accepted_atomic = conn.execute(
         """
         SELECT COUNT(*)
@@ -1174,7 +1162,7 @@ def get_brief_dag_state(conn: sqlite3.Connection, brief_id: int) -> dict[str, An
     }
 
 
-def load_prerequisite_edge_decisions(conn: sqlite3.Connection, brief_id: int) -> dict[str, str]:
+def load_prerequisite_edge_decisions(conn: CatalogConnection, brief_id: int) -> dict[str, str]:
     if not table_exists(conn, "prerequisite_edge_decision"):
         return {}
     return {
@@ -1270,7 +1258,7 @@ def format_prerequisite_edge_review(item: dict[str, Any]) -> None:
 
 
 def save_prerequisite_edge_decision(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     *,
     brief_id: int,
     details: dict[str, Any],
@@ -1346,7 +1334,7 @@ def build_deferred_dag_payload(state: dict[str, Any], *, status: str, message: s
 
 
 def update_jobs_dag_payload(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     brief_id: int,
     dag_payload: dict[str, Any],
     persisted_update: dict[str, Any] | None = None,
@@ -1390,7 +1378,7 @@ def build_deferred_curriculum_plan_payload(message: str, audience_level: str = "
 
 
 def update_jobs_curriculum_plan_payload(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     brief_id: int,
     plan_payload: dict[str, Any],
     persisted_update: dict[str, Any] | None = None,
@@ -1417,7 +1405,7 @@ def update_jobs_curriculum_plan_payload(
     conn.commit()
 
 
-def clear_brief_dag_artifacts(conn: sqlite3.Connection, brief_id: int) -> None:
+def clear_brief_dag_artifacts(conn: CatalogConnection, brief_id: int) -> None:
     if table_exists(conn, "skill_prerequisite") and column_exists(conn, "skill_prerequisite", "brief_id"):
         conn.execute("DELETE FROM skill_prerequisite WHERE brief_id = ?", (brief_id,))
     if table_exists(conn, "review_queue"):
@@ -1433,7 +1421,7 @@ def clear_brief_dag_artifacts(conn: sqlite3.Connection, brief_id: int) -> None:
     conn.commit()
 
 
-def clear_brief_curriculum_plan_artifacts(conn: sqlite3.Connection, brief_id: int) -> None:
+def clear_brief_curriculum_plan_artifacts(conn: CatalogConnection, brief_id: int) -> None:
     if table_exists(conn, "curriculum_plan_row"):
         conn.execute(
             """
@@ -1448,7 +1436,7 @@ def clear_brief_curriculum_plan_artifacts(conn: sqlite3.Connection, brief_id: in
 
 
 def refresh_brief_dag_state(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     brief_id: int,
     *,
     status: str = "deferred",
@@ -1475,7 +1463,7 @@ def refresh_brief_dag_state(
     return state
 
 
-def count_brief_template_proposals(conn: sqlite3.Connection, brief_id: int) -> dict[str, int]:
+def count_brief_template_proposals(conn: CatalogConnection, brief_id: int) -> dict[str, int]:
     if not table_exists(conn, "curriculum_artifact_template_proposal"):
         return {"total": 0, "open": 0, "accepted": 0, "rejected": 0}
     row = conn.execute(
@@ -1500,7 +1488,7 @@ def count_brief_template_proposals(conn: sqlite3.Connection, brief_id: int) -> d
     }
 
 
-def get_brief_catalog_apply_state(conn: sqlite3.Connection, brief_id: int) -> dict[str, Any]:
+def get_brief_catalog_apply_state(conn: CatalogConnection, brief_id: int) -> dict[str, Any]:
     accepted_atomic = 0
     active_promotions = 0
     active_promoted_skills = 0
@@ -1531,7 +1519,7 @@ def get_brief_catalog_apply_state(conn: sqlite3.Connection, brief_id: int) -> di
                 """,
                 (brief_id,),
             ).fetchone()
-        if isinstance(promotion_row, sqlite3.Row):
+        if isinstance(promotion_row, CatalogRow):
             total_promotions = promotion_row["total_promotions"]
             distinct_skills = promotion_row["distinct_skills"]
         else:
@@ -1575,7 +1563,7 @@ def get_brief_catalog_apply_state(conn: sqlite3.Connection, brief_id: int) -> di
     }
 
 
-def count_open_skill_reviews_for_brief(conn: sqlite3.Connection, brief_id: int) -> int:
+def count_open_skill_reviews_for_brief(conn: CatalogConnection, brief_id: int) -> int:
     if not table_exists(conn, "review_queue"):
         return 0
     return int(
@@ -1596,7 +1584,7 @@ def count_open_skill_reviews_for_brief(conn: sqlite3.Connection, brief_id: int) 
     )
 
 
-def count_open_prerequisite_edge_reviews_for_brief(conn: sqlite3.Connection, brief_id: int) -> int:
+def count_open_prerequisite_edge_reviews_for_brief(conn: CatalogConnection, brief_id: int) -> int:
     if not table_exists(conn, "review_queue"):
         return 0
     return int(
@@ -1615,7 +1603,7 @@ def count_open_prerequisite_edge_reviews_for_brief(conn: sqlite3.Connection, bri
     )
 
 
-def load_brief_catalog_promotion_summary(conn: sqlite3.Connection, brief_id: int, limit: int = 10) -> dict[str, Any]:
+def load_brief_catalog_promotion_summary(conn: CatalogConnection, brief_id: int, limit: int = 10) -> dict[str, Any]:
     if not all(table_exists(conn, name) for name in ("skill_promotion_log", "skill_suggestion", "skill")):
         return {"total": 0, "items": []}
     rows = fetch_all(
@@ -1656,7 +1644,7 @@ def load_brief_catalog_promotion_summary(conn: sqlite3.Connection, brief_id: int
 
 
 def update_jobs_catalog_payload(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     brief_id: int,
     *,
     catalog_state: dict[str, Any],
@@ -1684,7 +1672,7 @@ def update_jobs_catalog_payload(
     conn.commit()
 
 
-def apply_brief_catalog_decisions(conn: sqlite3.Connection, brief_id: int) -> dict[str, Any]:
+def apply_brief_catalog_decisions(conn: CatalogConnection, brief_id: int) -> dict[str, Any]:
     """Apply accepted skill decisions to the canonical catalog as a batch step."""
     from content_factory.catalog.pipeline import llm as intake_llm
     from content_factory.catalog.pipeline import storage as intake_storage
@@ -1758,7 +1746,7 @@ def apply_brief_catalog_decisions(conn: sqlite3.Connection, brief_id: int) -> di
     }
 
 
-def hydrate_job_result_payload(conn: sqlite3.Connection, result: dict[str, Any] | None) -> dict[str, Any] | None:
+def hydrate_job_result_payload(conn: CatalogConnection, result: dict[str, Any] | None) -> dict[str, Any] | None:
     if not isinstance(result, dict):
         return result
     brief_id = result.get("brief_id")
@@ -1777,8 +1765,8 @@ def hydrate_job_result_payload(conn: sqlite3.Connection, result: dict[str, Any] 
         """,
         (brief_id,),
     ).fetchall()
-    rows_by_key: dict[tuple[str, str, str, str], list[sqlite3.Row]] = defaultdict(list)
-    id_to_row: dict[int, sqlite3.Row] = {}
+    rows_by_key: dict[tuple[str, str, str, str], list[CatalogRow]] = defaultdict(list)
+    id_to_row: dict[int, CatalogRow] = {}
     for row in suggestion_rows:
         key = (
             str(row["suggested_name"] or ""),
@@ -2034,7 +2022,7 @@ def build_intake_workflow_steps(
 
 
 def build_intake_workspace_state(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     job: dict[str, Any] | None,
     result: dict[str, Any] | None,
     dag_build_state: dict[str, Any] | None,
@@ -2233,7 +2221,7 @@ def build_intake_workspace_state(
 
 
 def apply_candidate_decision(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     suggestion_id: int,
     target_decision: str,
     resolution_note: str | None = None,
@@ -2304,7 +2292,7 @@ def apply_candidate_decision(
 
 
 def load_accepted_skill_candidates(
-    conn: sqlite3.Connection, brief_id: int
+    conn: CatalogConnection, brief_id: int
 ) -> tuple[list[SkillCandidate], dict[str, int]]:
     from content_factory.catalog.pipeline.models import IndicatorSpec, SkillCandidate
 
@@ -2382,7 +2370,7 @@ def load_accepted_skill_candidates(
     return cands, tmp_to_db
 
 
-def load_brief_spec_for_plan(conn: sqlite3.Connection, brief_id: int) -> dict[str, Any]:
+def load_brief_spec_for_plan(conn: CatalogConnection, brief_id: int) -> dict[str, Any]:
     row = conn.execute(
         "SELECT raw_text, role, seniority, domain FROM profile_brief WHERE id = ?",
         (brief_id,),
@@ -2403,7 +2391,7 @@ def load_brief_spec_for_plan(conn: sqlite3.Connection, brief_id: int) -> dict[st
 
 
 def build_curriculum_plan_for_brief(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     brief_id: int,
     candidates: list[SkillCandidate] | None = None,
     dag_payload: dict[str, Any] | None = None,
@@ -2439,7 +2427,7 @@ def build_curriculum_plan_for_brief(
     return plan_payload
 
 
-def build_dag_for_brief(conn: sqlite3.Connection, brief_id: int) -> dict[str, Any]:
+def build_dag_for_brief(conn: CatalogConnection, brief_id: int) -> dict[str, Any]:
     from content_factory.catalog.pipeline import llm as intake_llm
     from content_factory.catalog.pipeline import stage_catalog_to_dag, storage
 
@@ -2544,7 +2532,7 @@ def build_dag_for_brief(conn: sqlite3.Connection, brief_id: int) -> dict[str, An
     }
 
 
-def list_dag_build_options(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+def list_dag_build_options(conn: CatalogConnection) -> list[dict[str, Any]]:
     if not table_exists(conn, "profile_brief") or not table_exists(conn, "skill_suggestion"):
         return []
     rows = conn.execute(
@@ -2562,7 +2550,7 @@ def list_dag_build_options(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return options
 
 
-def ensure_catalog_admin_runtime_schema(conn: sqlite3.Connection) -> None:
+def ensure_catalog_admin_runtime_schema(conn: CatalogConnection) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS skill_group (
@@ -2688,7 +2676,7 @@ def ensure_catalog_admin_runtime_schema(conn: sqlite3.Connection) -> None:
 
 
 def ensure_catalog_group(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     code: str,
     name: str,
     sort_order: int,
@@ -2833,7 +2821,7 @@ def load_brief_text(
 
 
 def run_intake_pipeline(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     db_path: Path,
     brief_text: str,
     intake_job_id: int | None = None,
@@ -3108,7 +3096,7 @@ def build_complexity_summary(
     return f"{left} -> {right}"
 
 
-def refresh_catalog_skill_complexity(conn: sqlite3.Connection, skill_id: int, commit: bool = True) -> None:
+def refresh_catalog_skill_complexity(conn: CatalogConnection, skill_id: int, commit: bool = True) -> None:
     rows = conn.execute(
         """
         SELECT
@@ -3171,7 +3159,7 @@ def refresh_catalog_skill_complexity(conn: sqlite3.Connection, skill_id: int, co
         conn.commit()
 
 
-def update_review_status(conn: sqlite3.Connection, review_id: int, new_status: str, resolution_note: str) -> None:
+def update_review_status(conn: CatalogConnection, review_id: int, new_status: str, resolution_note: str) -> None:
     from content_factory.catalog.pipeline import competency_catalog, storage
 
     repair_intake_review_links(conn)
@@ -3320,7 +3308,7 @@ def curriculum_plan_to_csv_bytes(plan_payload: dict[str, Any]) -> bytes:
     return buffer.getvalue().encode("utf-8-sig")
 
 
-def load_curriculum_plan_rows(conn: sqlite3.Connection, plan_id: int) -> list[dict[str, Any]]:
+def load_curriculum_plan_rows(conn: CatalogConnection, plan_id: int) -> list[dict[str, Any]]:
     if not table_exists(conn, "curriculum_plan_row"):
         return []
     rows = conn.execute(
@@ -3520,7 +3508,7 @@ def build_curriculum_plan_payload_from_rows(
     return built_payload
 
 
-def get_curriculum_plan(conn: sqlite3.Connection, plan_id: int) -> dict[str, Any] | None:
+def get_curriculum_plan(conn: CatalogConnection, plan_id: int) -> dict[str, Any] | None:
     if not table_exists(conn, "curriculum_plan"):
         return None
     row = conn.execute(
@@ -3581,7 +3569,7 @@ def get_curriculum_plan(conn: sqlite3.Connection, plan_id: int) -> dict[str, Any
     return plan_payload
 
 
-def list_curriculum_plans(conn: sqlite3.Connection, limit: int = 50) -> list[dict[str, Any]]:
+def list_curriculum_plans(conn: CatalogConnection, limit: int = 50) -> list[dict[str, Any]]:
     if not table_exists(conn, "curriculum_plan"):
         return []
     rows = conn.execute(
@@ -3624,7 +3612,7 @@ def list_curriculum_plans(conn: sqlite3.Connection, limit: int = 50) -> list[dic
     return items
 
 
-def sync_curriculum_plan_payload(conn: sqlite3.Connection, plan_id: int) -> dict[str, Any] | None:
+def sync_curriculum_plan_payload(conn: CatalogConnection, plan_id: int) -> dict[str, Any] | None:
     plan_payload = get_curriculum_plan(conn, plan_id)
     if not plan_payload:
         return None
@@ -3669,7 +3657,7 @@ def sync_curriculum_plan_payload(conn: sqlite3.Connection, plan_id: int) -> dict
     return get_curriculum_plan(conn, plan_id)
 
 
-def create_curriculum_plan_row(conn: sqlite3.Connection, plan_id: int) -> int:
+def create_curriculum_plan_row(conn: CatalogConnection, plan_id: int) -> int:
     plan = get_curriculum_plan(conn, plan_id)
     if not plan:
         raise ValueError("Curriculum plan not found")
@@ -3722,7 +3710,7 @@ def create_curriculum_plan_row(conn: sqlite3.Connection, plan_id: int) -> int:
     return int(cur.lastrowid or 0)
 
 
-def get_curriculum_plan_row(conn: sqlite3.Connection, plan_id: int, row_id: int) -> dict[str, Any] | None:
+def get_curriculum_plan_row(conn: CatalogConnection, plan_id: int, row_id: int) -> dict[str, Any] | None:
     if not table_exists(conn, "curriculum_plan_row"):
         return None
     row = conn.execute(
@@ -3770,7 +3758,7 @@ def parse_scope_names(raw_names: str | None, scope_type: str = "coverage_area") 
     return [item.strip() for item in re.split(r"[\n;]+", raw_names or "") if item.strip()]
 
 
-def update_curriculum_plan_row(conn: sqlite3.Connection, plan_id: int, row_id: int, form_data: dict[str, str]) -> dict[str, Any]:
+def update_curriculum_plan_row(conn: CatalogConnection, plan_id: int, row_id: int, form_data: dict[str, str]) -> dict[str, Any]:
     row = get_curriculum_plan_row(conn, plan_id, row_id)
     if not row:
         raise ValueError("Curriculum plan row not found")
@@ -3846,13 +3834,13 @@ def update_curriculum_plan_row(conn: sqlite3.Connection, plan_id: int, row_id: i
     return updated_row
 
 
-def delete_curriculum_plan_row(conn: sqlite3.Connection, plan_id: int, row_id: int) -> None:
+def delete_curriculum_plan_row(conn: CatalogConnection, plan_id: int, row_id: int) -> None:
     conn.execute("DELETE FROM curriculum_plan_row WHERE id = ? AND plan_id = ?", (row_id, plan_id))
     conn.commit()
     sync_curriculum_plan_payload(conn, plan_id)
 
 
-def reset_curriculum_plan_payload_in_jobs(conn: sqlite3.Connection, brief_id: int, message: str) -> None:
+def reset_curriculum_plan_payload_in_jobs(conn: CatalogConnection, brief_id: int, message: str) -> None:
     if not table_exists(conn, "intake_job"):
         return
     rows = conn.execute(
@@ -3882,7 +3870,7 @@ def reset_curriculum_plan_payload_in_jobs(conn: sqlite3.Connection, brief_id: in
         )
 
 
-def delete_curriculum_plan(conn: sqlite3.Connection, plan_id: int) -> bool:
+def delete_curriculum_plan(conn: CatalogConnection, plan_id: int) -> bool:
     if not table_exists(conn, "curriculum_plan"):
         return False
     row = conn.execute("SELECT id, brief_id FROM curriculum_plan WHERE id = ?", (plan_id,)).fetchone()
@@ -3898,7 +3886,7 @@ def delete_curriculum_plan(conn: sqlite3.Connection, plan_id: int) -> bool:
     return True
 
 
-def cleanup_empty_curriculum_plans(conn: sqlite3.Connection) -> int:
+def cleanup_empty_curriculum_plans(conn: CatalogConnection) -> int:
     if not table_exists(conn, "curriculum_plan"):
         return 0
     rows = conn.execute(
@@ -3921,7 +3909,7 @@ def cleanup_empty_curriculum_plans(conn: sqlite3.Connection) -> int:
     return deleted
 
 
-def clear_intake_workspace(conn: sqlite3.Connection) -> dict[str, int]:
+def clear_intake_workspace(conn: CatalogConnection) -> dict[str, int]:
     """Clear transient intake artifacts while keeping canonical catalog tables intact."""
     from content_factory.catalog.pipeline import competency_catalog
     from content_factory.catalog.pipeline import storage as intake_storage
@@ -4142,7 +4130,7 @@ def clear_intake_workspace(conn: sqlite3.Connection) -> dict[str, int]:
     return {key: int(value or 0) for key, value in stats.items()}
 
 
-def list_catalog_groups(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+def list_catalog_groups(conn: CatalogConnection) -> list[dict[str, Any]]:
     return fetch_all(
         conn,
         """
@@ -4185,7 +4173,7 @@ def list_catalog_groups(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     )
 
 
-def list_skill_sets(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+def list_skill_sets(conn: CatalogConnection) -> list[dict[str, Any]]:
     if not table_exists(conn, "skill_set"):
         return []
     return fetch_all(
@@ -4218,7 +4206,7 @@ def list_skill_sets(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     )
 
 
-def get_skill_set(conn: sqlite3.Connection, skill_set_id: int) -> dict[str, Any] | None:
+def get_skill_set(conn: CatalogConnection, skill_set_id: int) -> dict[str, Any] | None:
     if not table_exists(conn, "skill_set"):
         return None
     return fetch_one(
@@ -4236,7 +4224,7 @@ def get_skill_set(conn: sqlite3.Connection, skill_set_id: int) -> dict[str, Any]
     )
 
 
-def list_skill_set_items(conn: sqlite3.Connection, skill_set_id: int) -> list[dict[str, Any]]:
+def list_skill_set_items(conn: CatalogConnection, skill_set_id: int) -> list[dict[str, Any]]:
     if not table_exists(conn, "skill_set_item"):
         return []
     return fetch_all(
@@ -4263,7 +4251,7 @@ def list_skill_set_items(conn: sqlite3.Connection, skill_set_id: int) -> list[di
     )
 
 
-def get_catalog_group(conn: sqlite3.Connection, group_id: int) -> dict[str, Any] | None:
+def get_catalog_group(conn: CatalogConnection, group_id: int) -> dict[str, Any] | None:
     return fetch_one(
         conn,
         """
@@ -4296,7 +4284,7 @@ def get_catalog_group(conn: sqlite3.Connection, group_id: int) -> dict[str, Any]
     )
 
 
-def list_catalog_group_skills(conn: sqlite3.Connection, group_id: int) -> list[dict[str, Any]]:
+def list_catalog_group_skills(conn: CatalogConnection, group_id: int) -> list[dict[str, Any]]:
     return fetch_all(
         conn,
         """
@@ -4328,7 +4316,7 @@ def list_catalog_group_skills(conn: sqlite3.Connection, group_id: int) -> list[d
     )
 
 
-def get_catalog_skill(conn: sqlite3.Connection, skill_id: int) -> dict[str, Any] | None:
+def get_catalog_skill(conn: CatalogConnection, skill_id: int) -> dict[str, Any] | None:
     return fetch_one(
         conn,
         """
@@ -4363,7 +4351,7 @@ def get_catalog_skill(conn: sqlite3.Connection, skill_id: int) -> dict[str, Any]
     )
 
 
-def get_catalog_indicator(conn: sqlite3.Connection, indicator_id: int) -> dict[str, Any] | None:
+def get_catalog_indicator(conn: CatalogConnection, indicator_id: int) -> dict[str, Any] | None:
     return fetch_one(
         conn,
         """
@@ -4386,7 +4374,7 @@ def get_catalog_indicator(conn: sqlite3.Connection, indicator_id: int) -> dict[s
     )
 
 
-def list_catalog_indicators(conn: sqlite3.Connection, skill_id: int) -> list[dict[str, Any]]:
+def list_catalog_indicators(conn: CatalogConnection, skill_id: int) -> list[dict[str, Any]]:
     return fetch_all(
         conn,
         """
@@ -4410,7 +4398,7 @@ def list_catalog_indicators(conn: sqlite3.Connection, skill_id: int) -> list[dic
     )
 
 
-def list_skill_aliases(conn: sqlite3.Connection, skill_id: int) -> list[dict[str, Any]]:
+def list_skill_aliases(conn: CatalogConnection, skill_id: int) -> list[dict[str, Any]]:
     return fetch_all(
         conn,
         """
@@ -4423,7 +4411,7 @@ def list_skill_aliases(conn: sqlite3.Connection, skill_id: int) -> list[dict[str
     )
 
 
-def find_alias_owner(conn: sqlite3.Connection, normalized_alias: str, exclude_skill_id: int | None = None) -> dict[str, Any] | None:
+def find_alias_owner(conn: CatalogConnection, normalized_alias: str, exclude_skill_id: int | None = None) -> dict[str, Any] | None:
     params: list[object] = [normalized_alias]
     exclude_clause = ""
     if exclude_skill_id is not None:
@@ -4446,7 +4434,7 @@ def find_alias_owner(conn: sqlite3.Connection, normalized_alias: str, exclude_sk
     )
 
 
-def add_skill_alias(conn: sqlite3.Connection, skill_id: int, alias: str, source: str = "manual") -> str:
+def add_skill_alias(conn: CatalogConnection, skill_id: int, alias: str, source: str = "manual") -> str:
     cleaned = alias.strip()
     normalized_alias = normalize_catalog_key(cleaned)
     if not cleaned or not normalized_alias:
@@ -4468,7 +4456,7 @@ def add_skill_alias(conn: sqlite3.Connection, skill_id: int, alias: str, source:
     return "added"
 
 
-def remove_skill_alias(conn: sqlite3.Connection, skill_id: int, alias_id: int) -> str:
+def remove_skill_alias(conn: CatalogConnection, skill_id: int, alias_id: int) -> str:
     row = fetch_one(
         conn,
         "SELECT id FROM skill_alias WHERE id = ? AND skill_id = ?",
@@ -4482,7 +4470,7 @@ def remove_skill_alias(conn: sqlite3.Connection, skill_id: int, alias_id: int) -
 
 
 def search_catalog_skills(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     query: str,
     exclude_skill_id: int | None = None,
     limit: int = 15,
@@ -4534,7 +4522,7 @@ def search_catalog_skills(
     )
 
 
-def merge_catalog_skills(conn: sqlite3.Connection, source_skill_id: int, target_skill_id: int) -> dict[str, int | str]:
+def merge_catalog_skills(conn: CatalogConnection, source_skill_id: int, target_skill_id: int) -> dict[str, int | str]:
     if source_skill_id == target_skill_id:
         return {"status": "same_skill"}
     source = get_catalog_skill(conn, source_skill_id)
@@ -4644,7 +4632,7 @@ def merge_catalog_skills(conn: sqlite3.Connection, source_skill_id: int, target_
     }
 
 
-def list_archived_groups(conn: sqlite3.Connection, query: str = "") -> list[dict[str, Any]]:
+def list_archived_groups(conn: CatalogConnection, query: str = "") -> list[dict[str, Any]]:
     params: list[object] = []
     where_parts = ["sg.status = 'deprecated'"]
     if query:
@@ -4670,7 +4658,7 @@ def list_archived_groups(conn: sqlite3.Connection, query: str = "") -> list[dict
     return fetch_all(conn, sql, tuple(params))
 
 
-def list_archived_skills(conn: sqlite3.Connection, query: str = "") -> list[dict[str, Any]]:
+def list_archived_skills(conn: CatalogConnection, query: str = "") -> list[dict[str, Any]]:
     params: list[object] = []
     where_parts = ["s.is_active = 0"]
     if query:
@@ -4708,7 +4696,7 @@ def list_archived_skills(conn: sqlite3.Connection, query: str = "") -> list[dict
     return fetch_all(conn, sql, tuple(params))
 
 
-def list_archived_indicators(conn: sqlite3.Connection, query: str = "") -> list[dict[str, Any]]:
+def list_archived_indicators(conn: CatalogConnection, query: str = "") -> list[dict[str, Any]]:
     params: list[object] = []
     where_parts = ["i.is_active = 0"]
     if query:
@@ -4750,7 +4738,7 @@ def list_archived_indicators(conn: sqlite3.Connection, query: str = "") -> list[
     return fetch_all(conn, sql, tuple(params))
 
 
-def create_catalog_group(conn: sqlite3.Connection, name: str, sort_order: int, status: str) -> int:
+def create_catalog_group(conn: CatalogConnection, name: str, sort_order: int, status: str) -> int:
     cursor = conn.execute(
         """
         INSERT INTO skill_group (code, name, sort_order, status, source, updated_at)
@@ -4762,7 +4750,7 @@ def create_catalog_group(conn: sqlite3.Connection, name: str, sort_order: int, s
     return int(cursor.lastrowid or 0)
 
 
-def update_catalog_group(conn: sqlite3.Connection, group_id: int, name: str, sort_order: int, status: str) -> None:
+def update_catalog_group(conn: CatalogConnection, group_id: int, name: str, sort_order: int, status: str) -> None:
     conn.execute(
         """
         UPDATE skill_group
@@ -4774,7 +4762,7 @@ def update_catalog_group(conn: sqlite3.Connection, group_id: int, name: str, sor
     conn.commit()
 
 
-def remove_catalog_group(conn: sqlite3.Connection, group_id: int) -> str:
+def remove_catalog_group(conn: CatalogConnection, group_id: int) -> str:
     row = fetch_one(
         conn,
         """
@@ -4810,7 +4798,7 @@ def remove_catalog_group(conn: sqlite3.Connection, group_id: int) -> str:
     return "deleted"
 
 
-def restore_catalog_group(conn: sqlite3.Connection, group_id: int) -> str:
+def restore_catalog_group(conn: CatalogConnection, group_id: int) -> str:
     group = get_catalog_group(conn, group_id)
     if not group and not fetch_one(conn, "SELECT id FROM skill_group WHERE id = ?", (group_id,)):
         return "missing"
@@ -4828,7 +4816,7 @@ def restore_catalog_group(conn: sqlite3.Connection, group_id: int) -> str:
 
 
 def create_catalog_skill(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     group_id: int,
     name: str,
     sort_order: int,
@@ -4881,7 +4869,7 @@ def create_catalog_skill(
 
 
 def update_catalog_skill(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     skill_id: int,
     name: str,
     sort_order: int,
@@ -4930,7 +4918,7 @@ def update_catalog_skill(
     conn.commit()
 
 
-def remove_catalog_skill(conn: sqlite3.Connection, skill_id: int) -> str:
+def remove_catalog_skill(conn: CatalogConnection, skill_id: int) -> str:
     skill = get_catalog_skill(conn, skill_id)
     if not skill:
         return "missing"
@@ -4955,7 +4943,7 @@ def remove_catalog_skill(conn: sqlite3.Connection, skill_id: int) -> str:
     return "deleted"
 
 
-def restore_catalog_skill(conn: sqlite3.Connection, skill_id: int) -> str:
+def restore_catalog_skill(conn: CatalogConnection, skill_id: int) -> str:
     skill = get_catalog_skill(conn, skill_id)
     if not skill:
         return "missing"
@@ -4984,7 +4972,7 @@ def restore_catalog_skill(conn: sqlite3.Connection, skill_id: int) -> str:
 
 
 def create_catalog_indicator(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     skill_id: int,
     indicator_type: str,
     text: str,
@@ -5034,7 +5022,7 @@ def create_catalog_indicator(
 
 
 def update_catalog_indicator(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     indicator_id: int,
     indicator_type: str,
     text: str,
@@ -5079,7 +5067,7 @@ def update_catalog_indicator(
     conn.commit()
 
 
-def remove_catalog_indicator(conn: sqlite3.Connection, indicator_id: int) -> str:
+def remove_catalog_indicator(conn: CatalogConnection, indicator_id: int) -> str:
     indicator = get_catalog_indicator(conn, indicator_id)
     if not indicator:
         return "missing"
@@ -5105,7 +5093,7 @@ def remove_catalog_indicator(conn: sqlite3.Connection, indicator_id: int) -> str
     return "archived"
 
 
-def restore_catalog_indicator(conn: sqlite3.Connection, indicator_id: int) -> str:
+def restore_catalog_indicator(conn: CatalogConnection, indicator_id: int) -> str:
     indicator = get_catalog_indicator(conn, indicator_id)
     if not indicator:
         return "missing"
@@ -5144,7 +5132,7 @@ def restore_catalog_indicator(conn: sqlite3.Connection, indicator_id: int) -> st
     return "restored"
 
 
-def resolve_directory_profile(conn: sqlite3.Connection) -> dict[str, Any] | None:
+def resolve_directory_profile(conn: CatalogConnection) -> dict[str, Any] | None:
     comparison_report = load_summary(DEFAULT_COMPARE_REPORT)
     preferred_name = comparison_report.get("profile_name") if isinstance(comparison_report, dict) else None
     if preferred_name:
@@ -5163,7 +5151,7 @@ def resolve_directory_profile(conn: sqlite3.Connection) -> dict[str, Any] | None
     )
 
 
-def has_directory_hierarchy(conn: sqlite3.Connection) -> bool:
+def has_directory_hierarchy(conn: CatalogConnection) -> bool:
     if not table_exists(conn, "typed_competency") or not table_exists(conn, "typed_competency_skill"):
         return False
     row = conn.execute("SELECT COUNT(*) AS cnt FROM typed_competency").fetchone()
@@ -5171,7 +5159,7 @@ def has_directory_hierarchy(conn: sqlite3.Connection) -> bool:
 
 
 def list_directory_hierarchy(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     query: str,
     scope: str,
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
@@ -5322,7 +5310,7 @@ def list_directory_hierarchy(
 
 
 def list_canonical_directory_additions(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     query: str,
     scope: str,
     existing_group_names: set[str],
@@ -5493,7 +5481,7 @@ def list_canonical_directory_additions(
     return groups
 
 
-def list_competencies(conn: sqlite3.Connection, query: str, scope: str) -> list[dict[str, Any]]:
+def list_competencies(conn: CatalogConnection, query: str, scope: str) -> list[dict[str, Any]]:
     params: list[object] = []
     where_parts: list[str] = []
     if query:
@@ -5571,7 +5559,7 @@ def list_competencies(conn: sqlite3.Connection, query: str, scope: str) -> list[
     return fetch_all(conn, sql, tuple(params))
 
 
-def get_competency(conn: sqlite3.Connection, competency_id: int) -> dict[str, Any] | None:
+def get_competency(conn: CatalogConnection, competency_id: int) -> dict[str, Any] | None:
     return fetch_one(
         conn,
         """
@@ -5594,7 +5582,7 @@ def get_competency(conn: sqlite3.Connection, competency_id: int) -> dict[str, An
     )
 
 
-def get_competency_skills(conn: sqlite3.Connection, competency_id: int) -> list[dict[str, Any]]:
+def get_competency_skills(conn: CatalogConnection, competency_id: int) -> list[dict[str, Any]]:
     rows = fetch_all(
         conn,
         """
@@ -5665,7 +5653,7 @@ def get_competency_skills(conn: sqlite3.Connection, competency_id: int) -> list[
     return list(skill_map.values())
 
 
-def list_profiles(conn: sqlite3.Connection, include_service: bool = False) -> list[dict[str, Any]]:
+def list_profiles(conn: CatalogConnection, include_service: bool = False) -> list[dict[str, Any]]:
     where_clause = "" if include_service else "WHERE p.slug != 'intake-accepted-skills'"
     return fetch_all(
         conn,
@@ -5690,7 +5678,7 @@ def list_profiles(conn: sqlite3.Connection, include_service: bool = False) -> li
     )
 
 
-def list_candidate_competencies(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+def list_candidate_competencies(conn: CatalogConnection) -> list[dict[str, Any]]:
     from content_factory.catalog.pipeline import competency_catalog
 
     if not all(table_exists(conn, name) for name in ("profile", "profile_competency", "competency")):
@@ -5742,7 +5730,7 @@ def list_candidate_competencies(conn: sqlite3.Connection) -> list[dict[str, Any]
     return rows
 
 
-def list_candidate_competency_skills(conn: sqlite3.Connection, profile_competency_id: int) -> list[dict[str, Any]]:
+def list_candidate_competency_skills(conn: CatalogConnection, profile_competency_id: int) -> list[dict[str, Any]]:
     if not all(table_exists(conn, name) for name in ("competency_skill", "skill")):
         return []
     return fetch_all(
@@ -5797,7 +5785,7 @@ def _competency_similarity_label(score: float) -> tuple[str, str]:
 
 
 def list_competency_similarity_candidates(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     competency_id: int,
     profile_competency_id: int,
     limit: int = 5,
@@ -5881,7 +5869,7 @@ def list_competency_similarity_candidates(
     return scored[:limit]
 
 
-def list_active_competency_options(conn: sqlite3.Connection, limit: int = 200) -> list[dict[str, Any]]:
+def list_active_competency_options(conn: CatalogConnection, limit: int = 200) -> list[dict[str, Any]]:
     if not table_exists(conn, "competency"):
         return []
     return fetch_all(
@@ -5908,7 +5896,7 @@ def display_catalog_title(value: object | None) -> str:
     return text[:1].upper() + text[1:] if text else ""
 
 
-def rename_candidate_competency(conn: sqlite3.Connection, competency_id: int, new_title: str) -> dict[str, Any]:
+def rename_candidate_competency(conn: CatalogConnection, competency_id: int, new_title: str) -> dict[str, Any]:
     title = " ".join(str(new_title or "").split())
     if not title:
         return {"status": "empty_title", "competency_id": competency_id}
@@ -5942,7 +5930,7 @@ def rename_candidate_competency(conn: sqlite3.Connection, competency_id: int, ne
     return {"status": "renamed", "competency_id": competency_id, "title": title}
 
 
-def ensure_service_profile_competency(conn: sqlite3.Connection, target_competency_id: int) -> int | None:
+def ensure_service_profile_competency(conn: CatalogConnection, target_competency_id: int) -> int | None:
     from content_factory.catalog.pipeline import competency_catalog
 
     context = competency_catalog.ensure_catalog_context(conn)
@@ -6001,7 +5989,7 @@ def ensure_service_profile_competency(conn: sqlite3.Connection, target_competenc
 
 
 def move_candidate_competency_skill(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     competency_skill_id: int,
     target_competency_id: int,
 ) -> dict[str, Any]:
@@ -6073,7 +6061,7 @@ def move_candidate_competency_skill(
 
 
 def merge_candidate_competency(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     competency_id: int,
     target_competency_id: int,
 ) -> dict[str, Any]:
@@ -6097,7 +6085,7 @@ def merge_candidate_competency(
     return {"status": "merged", "competency_id": competency_id, "target_competency_id": target_competency_id, "moved": moved}
 
 
-def prune_empty_profile_competencies(conn: sqlite3.Connection) -> int:
+def prune_empty_profile_competencies(conn: CatalogConnection) -> int:
     if not table_exists(conn, "profile_competency"):
         return 0
     deleted = conn.execute(
@@ -6112,7 +6100,7 @@ def prune_empty_profile_competencies(conn: sqlite3.Connection) -> int:
     return int(deleted or 0)
 
 
-def close_candidate_competency_if_empty(conn: sqlite3.Connection, competency_id: int, resolution_note: str) -> bool:
+def close_candidate_competency_if_empty(conn: CatalogConnection, competency_id: int, resolution_note: str) -> bool:
     if not all(table_exists(conn, name) for name in ("competency", "profile_competency", "competency_skill")):
         return False
     remaining = conn.execute(
@@ -6155,7 +6143,7 @@ def close_candidate_competency_if_empty(conn: sqlite3.Connection, competency_id:
     return True
 
 
-def count_open_candidate_competencies(conn: sqlite3.Connection) -> int:
+def count_open_candidate_competencies(conn: CatalogConnection) -> int:
     if not table_exists(conn, "review_queue"):
         return 0
     return int(
@@ -6172,7 +6160,7 @@ def count_open_candidate_competencies(conn: sqlite3.Connection) -> int:
 
 
 def resolve_candidate_competency(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     competency_id: int,
     action: str,
     resolution_note: str = "",
@@ -6211,7 +6199,7 @@ def resolve_candidate_competency(
     return result
 
 
-def get_profile(conn: sqlite3.Connection, profile_id: int) -> dict[str, Any] | None:
+def get_profile(conn: CatalogConnection, profile_id: int) -> dict[str, Any] | None:
     return fetch_one(
         conn,
         """
@@ -6233,7 +6221,7 @@ def get_profile(conn: sqlite3.Connection, profile_id: int) -> dict[str, Any] | N
     )
 
 
-def get_profile_tree(conn: sqlite3.Connection, profile_id: int) -> list[dict[str, Any]]:
+def get_profile_tree(conn: CatalogConnection, profile_id: int) -> list[dict[str, Any]]:
     rows = fetch_all(
         conn,
         """
@@ -6326,7 +6314,7 @@ def get_profile_tree(conn: sqlite3.Connection, profile_id: int) -> list[dict[str
 
 
 def list_reviews(
-    conn: sqlite3.Connection,
+    conn: CatalogConnection,
     status_filter: str,
     severity_filter: str,
     reason_filter: str,

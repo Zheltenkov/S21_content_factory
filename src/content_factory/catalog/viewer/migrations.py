@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-import sqlite3
+from content_factory.catalog.db import CatalogConnection, CatalogRow
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,7 +22,7 @@ def _checksum_sql(sql: str) -> str:
     return hashlib.sha256(sql.encode("utf-8")).hexdigest()
 
 
-def ensure_migration_table(conn: sqlite3.Connection) -> None:
+def ensure_migration_table(conn: CatalogConnection) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS schema_migration (
@@ -37,7 +37,7 @@ def ensure_migration_table(conn: sqlite3.Connection) -> None:
     )
 
 
-def apply_sql_migration(conn: sqlite3.Connection, migration_id: str, sql_path: Path) -> MigrationResult:
+def apply_sql_migration(conn: CatalogConnection, migration_id: str, sql_path: Path) -> MigrationResult:
     """Apply idempotent SQL and record a reproducible migration ledger entry."""
     sql = sql_path.read_text(encoding="utf-8")
     checksum = _checksum_sql(sql)
@@ -74,13 +74,13 @@ def apply_sql_migration(conn: sqlite3.Connection, migration_id: str, sql_path: P
         raise
 
 
-def _review_queue_allows_prerequisite_edge(conn: sqlite3.Connection) -> bool:
+def _review_queue_allows_prerequisite_edge(conn: CatalogConnection) -> bool:
     row = conn.execute(
         "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'review_queue'"
     ).fetchone()
     if not row:
         return False
-    create_sql = row["sql"] if isinstance(row, sqlite3.Row) else row[0]
+    create_sql = row["sql"] if isinstance(row, CatalogRow) else row[0]
     return "prerequisite_edge" in str(create_sql or "")
 
 

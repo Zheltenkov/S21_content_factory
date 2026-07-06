@@ -1,9 +1,11 @@
-"""Абстракция подключения каталога (SQLite→Postgres cutover, фундамент).
+"""Абстракция подключения каталога (Postgres-native, после полного cutover).
 
-Единая фабрика `open_catalog_connection` + диалектные хелперы. По умолчанию SQLite (без
-изменения поведения); Postgres — за флагом `CATALOG_DB=postgres`. Рервайринг call-sites и
-флип поведения — следующие слайсы.
+Единая фабрика `open_catalog_connection` (только Postgres) + диалектные хелперы и
+sqlite3-совместимая обёртка `PgConnection`. `CatalogConnection`/`CatalogRow` — тип-алиасы
+для аннотаций каталожного кода (заменили `sqlite3.Connection`/`sqlite3.Row`).
 """
+
+from typing import Any
 
 from .connection import (
     catalog_database_url,
@@ -13,6 +15,7 @@ from .connection import (
 from .dialect import (
     adapt_write_sql,
     is_pragma,
+    translate_current_timestamp,
     translate_group_concat,
     translate_like,
     translate_placeholders,
@@ -20,7 +23,13 @@ from .dialect import (
 from .introspection import column_exists, existing_columns, table_exists
 from .pg_compat import PgConnection, PgCursor, Row, is_postgres_connection
 
+# Тип-алиасы для аннотаций (каталог на Postgres; строки — Row из PgCursor).
+CatalogConnection = Any
+CatalogRow = Row
+
 __all__ = [
+    "CatalogConnection",
+    "CatalogRow",
     "PgConnection",
     "PgCursor",
     "Row",
@@ -33,6 +42,7 @@ __all__ = [
     "open_catalog_connection",
     "resolve_backend",
     "table_exists",
+    "translate_current_timestamp",
     "translate_group_concat",
     "translate_like",
     "translate_placeholders",

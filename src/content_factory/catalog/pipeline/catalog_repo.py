@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import difflib
 import re
-import sqlite3
+from content_factory.catalog.db import CatalogRow
 import unicodedata
 
 try:
@@ -31,7 +31,7 @@ class CatalogRepo:
     def __init__(self, db_path: str):
         # Backend по CATALOG_DB (default sqlite); PG игнорирует путь и берёт DATABASE_URL.
         self.con = open_catalog_connection(db_path)
-        self.con.row_factory = sqlite3.Row
+        self.con.row_factory = CatalogRow
         self._load_index()
 
     def close(self) -> None:
