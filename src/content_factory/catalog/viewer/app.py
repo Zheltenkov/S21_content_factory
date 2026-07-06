@@ -63,7 +63,6 @@ DEFAULT_DB = BASE_DIR.parent / "artifacts" / "skills_catalog.sqlite"
 DEFAULT_SUMMARY = BASE_DIR.parent / "artifacts" / "catalog_summary.json"
 DEFAULT_COMPARE_REPORT = BASE_DIR.parent / "artifacts" / "live_catalog_comparison.json"
 INTAKE_SCHEMA_SQL = BASE_DIR.parent / "sql" / "new_tables.sql"
-CATALOG_ADMIN_SCHEMA_READY: set[str] = set()
 INTAKE_SCHEMA_READY: set[str] = set()
 INTAKE_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="intake")
 ACTIVE_INTAKE_JOB_IDS: set[int] = set()
@@ -492,19 +491,6 @@ def column_exists(conn: Any, table_name: str, column_name: str) -> bool:
 
 def table_columns(conn: Any, table_name: str) -> set[str]:
     return _db_existing_columns(conn, table_name)
-
-
-def ensure_runtime_schema(conn: CatalogConnection) -> None:
-    review_columns = {
-        "resolution_note": "TEXT",
-        "reviewed_at": "TEXT",
-        "updated_at": "TEXT",
-    }
-    if table_exists(conn, "review_queue"):
-        for column_name, column_type in review_columns.items():
-            if not column_exists(conn, "review_queue", column_name):
-                conn.execute(f"ALTER TABLE review_queue ADD COLUMN {column_name} {column_type}")
-        conn.commit()
 
 
 def format_catalog_similarity(score: float | int | None) -> tuple[str | None, str | None]:
@@ -2548,131 +2534,6 @@ def list_dag_build_options(conn: CatalogConnection) -> list[dict[str, Any]]:
         state = get_brief_dag_state(conn, int(row["id"]))
         options.append(state)
     return options
-
-
-def ensure_catalog_admin_runtime_schema(conn: CatalogConnection) -> None:
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS skill_group (
-            id INTEGER PRIMARY KEY,
-            code TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL UNIQUE,
-            sort_order INTEGER NOT NULL DEFAULT 999,
-            status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'candidate', 'deprecated')),
-            source TEXT NOT NULL DEFAULT 'derived' CHECK (source IN ('live_snapshot', 'manual', 'derived')),
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS indicator (
-            id INTEGER PRIMARY KEY,
-            skill_id INTEGER NOT NULL REFERENCES skill(id) ON DELETE CASCADE,
-            indicator_type TEXT NOT NULL,
-            text TEXT NOT NULL,
-            normalized_text TEXT NOT NULL,
-            sort_order INTEGER NOT NULL DEFAULT 999,
-            complexity_band TEXT,
-            complexity_label TEXT,
-            complexity_sort_order INTEGER,
-            source_indicator_row_id INTEGER,
-            source_profile_name TEXT,
-            source_scale_title TEXT,
-            is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT,
-            UNIQUE (skill_id, indicator_type, normalized_text)
-        )
-        """
-    )
-    skill_columns = {
-        "group_id": "INTEGER REFERENCES skill_group(id) ON DELETE SET NULL",
-        "code": "TEXT",
-        "name": "TEXT",
-        "sort_order": "INTEGER NOT NULL DEFAULT 999",
-        "complexity_min_band": "TEXT",
-        "complexity_max_band": "TEXT",
-        "complexity_summary": "TEXT",
-        "source_scale_title": "TEXT",
-        "description": "TEXT",
-        "source_skill_id": "INTEGER",
-        "source_skill_name": "TEXT",
-        "resolution_status": "TEXT NOT NULL DEFAULT 'matched'",
-        "match_note": "TEXT",
-        "is_active": "INTEGER NOT NULL DEFAULT 1",
-        "created_at": "TEXT",
-        "updated_at": "TEXT",
-    }
-    indicator_columns = {
-        "complexity_band": "TEXT",
-        "complexity_label": "TEXT",
-        "complexity_sort_order": "INTEGER",
-        "source_scale_title": "TEXT",
-    }
-
-    if table_exists(conn, "skill") and not column_exists(conn, "skill", "group_id"):
-        conn.execute("ALTER TABLE skill ADD COLUMN group_id INTEGER REFERENCES skill_group(id) ON DELETE SET NULL")
-
-    if table_exists(conn, "skill") and not column_exists(conn, "skill", "sort_order"):
-        conn.execute("ALTER TABLE skill ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 999")
-
-        skill_rows = conn.execute(
-            """
-            SELECT id, group_id
-            FROM skill
-            ORDER BY group_id, id
-            """
-        ).fetchall()
-        current_group_id = None
-        next_sort_order = 0
-        for row in skill_rows:
-            if row["group_id"] != current_group_id:
-                current_group_id = row["group_id"]
-                next_sort_order = 1
-            else:
-                next_sort_order += 1
-            conn.execute("UPDATE skill SET sort_order = ? WHERE id = ?", (next_sort_order, row["id"]))
-
-    if table_exists(conn, "skill"):
-        for column_name, column_type in skill_columns.items():
-            if not column_exists(conn, "skill", column_name):
-                conn.execute(f"ALTER TABLE skill ADD COLUMN {column_name} {column_type}")
-
-        fallback_group_id = ensure_catalog_group(conn, "uncategorized", "Прочие навыки", 9999, "active", "derived")
-        if column_exists(conn, "skill", "canonical_name"):
-            conn.execute("UPDATE skill SET name = canonical_name WHERE name IS NULL OR TRIM(name) = ''")
-        conn.execute("UPDATE skill SET code = 'skill-' || id WHERE code IS NULL OR TRIM(code) = ''")
-        conn.execute("UPDATE skill SET group_id = ? WHERE group_id IS NULL", (fallback_group_id,))
-        conn.execute("UPDATE skill SET is_active = CASE WHEN status = 'deprecated' THEN 0 ELSE 1 END WHERE is_active IS NULL")
-        conn.execute("UPDATE skill SET resolution_status = 'matched' WHERE resolution_status IS NULL OR TRIM(resolution_status) = ''")
-
-    if table_exists(conn, "indicator"):
-        for column_name, column_type in indicator_columns.items():
-            if not column_exists(conn, "indicator", column_name):
-                conn.execute(f"ALTER TABLE indicator ADD COLUMN {column_name} {column_type}")
-
-    if table_exists(conn, "skill"):
-        conn.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_skill_group_id
-            ON skill (group_id, is_active, sort_order, name)
-            """
-        )
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_skill_code ON skill(code)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_skill_active_status ON skill(status, is_active)")
-
-    if table_exists(conn, "skill") and table_exists(conn, "indicator"):
-        conn.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_indicator_skill_active
-            ON indicator(skill_id, is_active, sort_order)
-            """
-        )
-        for row in conn.execute("SELECT id FROM skill ORDER BY id"):
-            refresh_catalog_skill_complexity(conn, row["id"], commit=False)
-    conn.commit()
 
 
 def ensure_catalog_group(
