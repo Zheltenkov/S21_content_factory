@@ -15,6 +15,7 @@ import tempfile
 import uuid
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 from content_factory.generation.subtitles.pipeline import build_srt, build_vtt, extract_audio
 from content_factory.generation.subtitles.pipeline import transcribe as openai_whisper_transcribe
@@ -205,7 +206,7 @@ def correct_asr_segments(
         "Количество элементов и id должны совпадать с входом. start/end — в секундах, не меняй."
     )
     batch_size = 25
-    result = [None] * len(segments)
+    result: list[dict | None] = [None] * len(segments)
     for i in range(0, len(segments), batch_size):
         batch = segments[i : i + batch_size]
         payload = [{"id": s["id"], "start": s["start"], "end": s["end"], "text": s.get("text", "")} for s in batch]
@@ -236,7 +237,7 @@ def correct_asr_segments(
     for idx in range(len(segments)):
         if result[idx] is None:
             result[idx] = dict(segments[idx])
-    return result
+    return cast("list[dict]", result)
 
 
 def _deduplicate_segments(segments: list[dict]) -> list[dict]:
@@ -327,7 +328,7 @@ def translate_segments_llm(
         "Переводи только поле text_ru, поля context_before/context_after используй только как контекст. "
         "Никаких дополнительных полей, заголовков или комментариев."
     )
-    result = [None] * len(segments)
+    result: list[dict | None] = [None] * len(segments)
     batch_size = TRANSLATE_BATCH_SIZE
     while batch_size >= 1:
         indices: list[int] = []
@@ -542,7 +543,7 @@ def translate_segments_llm(
     for i in range(len(segments)):
         if result[i] is None:
             result[i] = {**segments[i], "text": (segments[i].get("text") or "").strip()}
-    return result
+    return cast("list[dict]", result)
 
 
 def _normalize_translate_response(data) -> list[dict]:
@@ -725,7 +726,7 @@ def run_burned_subs_pipeline(
     target_lang: str,
     output_mode: str,
     subtitle_style: str,
-    output_dir: str,
+    output_dir: str | Path,
     progress_callback: Callable[[str], None] | None = None,
     llm_client=None,
 ) -> dict:
