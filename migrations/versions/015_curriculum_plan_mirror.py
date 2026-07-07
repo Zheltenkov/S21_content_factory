@@ -9,6 +9,7 @@ Revision ID: 015
 Revises: 014
 """
 
+import hashlib
 from pathlib import Path
 
 from alembic import op
@@ -18,6 +19,7 @@ down_revision = "014"
 branch_labels = None
 depends_on = None
 
+# Frozen for this migration (see 014 for the rationale): the sha256 pins the exact .sql content.
 _DDL_PATH = (
     Path(__file__).resolve().parents[2]
     / "src"
@@ -26,10 +28,23 @@ _DDL_PATH = (
     / "sql"
     / "catalog_curriculum_plan_postgres.sql"
 )
+_DDL_SHA256 = "19ec8e58245b0dfb5388ce6502dcc79da4b7b5dd22b04cb4a74dd0bb31e4abf5"
+
+
+def _read_frozen(path: Path, expected_sha: str) -> str:
+    raw = path.read_text(encoding="utf-8")
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    if digest != expected_sha:
+        raise RuntimeError(
+            f"{path.name} changed since migration {revision} was authored "
+            f"(sha {digest[:12]} != {expected_sha[:12]}). Never edit an applied migration's SQL — "
+            "add a NEW migration instead."
+        )
+    return raw
 
 
 def _statements() -> list[str]:
-    raw = _DDL_PATH.read_text(encoding="utf-8")
+    raw = _read_frozen(_DDL_PATH, _DDL_SHA256)
     stmts: list[str] = []
     for chunk in raw.split(";\n"):
         s = chunk.strip()

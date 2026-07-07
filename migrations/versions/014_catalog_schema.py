@@ -11,6 +11,7 @@ Revision ID: 014
 Revises: 013
 """
 
+import hashlib
 from pathlib import Path
 
 from alembic import op
@@ -20,7 +21,10 @@ down_revision = "013"
 branch_labels = None
 depends_on = None
 
-# Postgres DDL lives with the catalog package (single source of truth, reviewable).
+# Postgres DDL lives with the catalog package but is FROZEN for this migration: the sha256
+# below pins the exact content this revision was authored against. Editing the .sql after it is
+# applied would silently change history — the guard fails loud instead. Schema changes go in a
+# NEW migration, never by editing an applied one.
 _DDL_PATH = (
     Path(__file__).resolve().parents[2]
     / "src"
@@ -29,10 +33,23 @@ _DDL_PATH = (
     / "sql"
     / "catalog_schema_postgres.sql"
 )
+_DDL_SHA256 = "71fa2e5f929ae82591ac628373fcfcb936ac144420edb2efd18d8441d53d9d0a"
+
+
+def _read_frozen(path: Path, expected_sha: str) -> str:
+    raw = path.read_text(encoding="utf-8")
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    if digest != expected_sha:
+        raise RuntimeError(
+            f"{path.name} changed since migration {revision} was authored "
+            f"(sha {digest[:12]} != {expected_sha[:12]}). Never edit an applied migration's SQL — "
+            "add a NEW migration instead."
+        )
+    return raw
 
 
 def _statements() -> list[str]:
-    raw = _DDL_PATH.read_text(encoding="utf-8")
+    raw = _read_frozen(_DDL_PATH, _DDL_SHA256)
     # split on ";" that terminates a statement (statements are ";"-terminated, blank-line separated)
     stmts: list[str] = []
     for chunk in raw.split(";\n"):
