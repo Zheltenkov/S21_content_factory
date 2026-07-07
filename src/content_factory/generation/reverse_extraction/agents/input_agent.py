@@ -66,14 +66,14 @@ class InputAgent:
 
     def _extract_structure(self, text: str) -> dict[str, Any]:
         """Извлекает структуру документа (заголовки, списки)."""
-        structure = {
+        structure: dict[str, Any] = {
             "headings": [],
             "sections": [],
             "lists": []
         }
 
         lines = text.split('\n')
-        current_section = None
+        current_section: dict[str, Any] | None = None
 
         for i, line in enumerate(lines):
             # Заголовки
@@ -137,7 +137,7 @@ class InputAgent:
         if not chapters:
             lines = text.split('\n')
             current_chapter = None
-            current_content = []
+            current_content: list[str] = []
 
             for line in lines:
                 # Ищем заголовки вида "## Глава 1" или просто "## 1"

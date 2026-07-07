@@ -7,6 +7,7 @@ ClassifierAgent - определение метаданных проекта.
 import json
 import logging
 from pathlib import Path
+from typing import cast
 
 from content_factory.platform.llm.structured_output import StructuredLLMClient
 
@@ -42,7 +43,7 @@ class ClassifierAgent:
         if blocks_file.exists():
             try:
                 with open(blocks_file, encoding="utf-8") as f:
-                    return json.load(f)
+                    return cast("dict", json.load(f))
             except Exception as e:
                 logger.warning(f"Не удалось загрузить thematic_blocks.json: {e}")
 

@@ -53,7 +53,7 @@ class ReverseExtractionOrchestrator:
         Raises:
             Exception: Если произошла критичная ошибка на каком-то этапе
         """
-        metadata = {
+        metadata: dict[str, Any] = {
             "warnings": [],
             "errors": [],
             "extracted_fields": {}
@@ -169,7 +169,7 @@ class ReverseExtractionOrchestrator:
         Raises:
             Exception: Если произошла критичная ошибка на каком-то этапе
         """
-        metadata = {
+        metadata: dict[str, Any] = {
             "warnings": [],
             "errors": [],
             "extracted_fields": {}
