@@ -101,7 +101,7 @@ class DatasetGeneratorAgent(BaseAgent):
                     if content:
                         # Определяем путь для файла
                         file_path = evidence_spec.path if evidence_spec else self._determine_file_path(filename, task, idx)
-                        generated_file = {
+                        generated_file: dict[str, Any] = {
                             "path": file_path,
                             "data": content,
                         }

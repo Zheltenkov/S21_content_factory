@@ -200,8 +200,8 @@ class TheoryCompletenessAgent(BaseAgent):
         Returns:
             Tuple[enhanced_markdown, warnings, issues]
         """
-        warnings = []
-        issues = []
+        warnings: list[str] = []
+        issues: list[str] = []
 
         if not missing_topics and not missing_tools:
             return theory_markdown, warnings, issues

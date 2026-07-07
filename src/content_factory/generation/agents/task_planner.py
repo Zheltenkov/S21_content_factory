@@ -10,7 +10,7 @@ content_gen/agents/task_planner.py
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -153,7 +153,7 @@ class TaskPlanner:
             tasks_count=tasks,
             complexity=complexity,
             level_index=level_idx,
-            level_source=level_source,
+            level_source=cast("Literal['context+audience', 'audience_only', 'curriculum_adjusted']", level_source),
             rationale=rationale,
             explanation=explanation,
             curriculum_context=curriculum.to_dict(),
@@ -230,12 +230,12 @@ class TaskPlanner:
         progress = ""
         if curriculum.graph_available:
             progress = f"; прогресс по графу={curriculum.progress_ratio}"
-        return self.rationale_template.format(
+        return str(self.rationale_template.format(
             order=order or 0,
             context_level=context_level,
             audience_level=audience_idx,
             final_level=final_idx,
-        ) + progress
+        )) + progress
 
     def _build_explanation(
         self,
@@ -269,8 +269,8 @@ class TaskPlanner:
         parts.append(f"Уровень аудитории заявлен как {audience_label}.")
 
         if curriculum.graph_available:
-            prev_titles = ", ".join(node["title"] for node in curriculum.previous_nodes) or "нет данных"
-            next_titles = ", ".join(node["title"] for node in curriculum.next_nodes) or "нет рекомендаций"
+            prev_titles = ", ".join(str(node["title"]) for node in curriculum.previous_nodes) or "нет данных"
+            next_titles = ", ".join(str(node["title"]) for node in curriculum.next_nodes) or "нет рекомендаций"
             skills_to_prepare = ", ".join(curriculum.skills_to_prepare) or "актуальные навыки трека"
             parts.append(
                 f"Curriculum: учитываем предыдущие проекты ({prev_titles}) и готовим к следующим ({next_titles})."

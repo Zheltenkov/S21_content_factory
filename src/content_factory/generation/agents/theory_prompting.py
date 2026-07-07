@@ -167,7 +167,7 @@ def determine_theory_content_type(seed: ProjectSeed) -> str:
     """Classify content profile for formula/code restrictions."""
     explicit_type = getattr(seed, "project_content_type", None)
     if explicit_type in {"hard_code", "low_code", "no_code"}:
-        return explicit_type
+        return str(explicit_type)
 
     direction = (getattr(seed, "direction", "") or seed.thematic_block or "").upper()
     hard_code_directions = {

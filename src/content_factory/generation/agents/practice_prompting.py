@@ -32,7 +32,7 @@ def build_reference_practice_section(seed: ProjectSeed) -> str:
         "\n=== ЭТАЛОН (ОРИЕНТИРУЙСЯ НА СТРУКТУРУ И СТИЛЬ ЗАДАНИЙ) ===\n"
         "Ниже — фрагмент эталонного README с заданиями. Сохраняй похожую структуру формулировок "
         "и типы заданий, адаптируя под описание и LO текущего проекта.\n\n"
-        + reference_hint.strip()
+        + str(reference_hint.strip())
     )
 
 
@@ -155,7 +155,7 @@ def determine_practice_content_type(seed: ProjectSeed) -> str:
     """Classify practice prompt profile from project direction."""
     explicit_type = getattr(seed, "project_content_type", None)
     if explicit_type in {"hard_code", "low_code", "no_code"}:
-        return explicit_type
+        return str(explicit_type)
 
     direction = (getattr(seed, "direction", "") or seed.thematic_block or "").upper()
     hard_code_directions = {

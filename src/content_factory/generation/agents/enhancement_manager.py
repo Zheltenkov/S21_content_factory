@@ -10,6 +10,8 @@ content_gen/agents/enhancement_manager.py
 Принимает решения на основе анализа темы и навыков.
 """
 
+from typing import Any
+
 from ..models.enhancement_models import FormulaItem, TableItem, VisualItem
 from ..models.enhancement_plan import EnhancementExecutionLog, EnhancementPlan, ImportanceLevel
 from ..models.schemas import ProjectSeed, TheoryPart
@@ -48,8 +50,8 @@ class TheoryEnhancementManager:
 
         enhanced_parts = []
         execution_logs = []
-        all_formulas = []
-        all_tables = []
+        all_formulas: list[Any] = []
+        all_tables: list[Any] = []
         all_visuals = []
         all_code_examples = []
 
