@@ -7,15 +7,18 @@ decomposition. No dependency on domain logic — safe to import from every catal
 
 from __future__ import annotations
 
+import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.parser import BytesParser
 from email.policy import default as email_policy
+from pathlib import Path
 from typing import Any, cast
 from urllib.parse import parse_qs
 
-from content_factory.catalog.db import CatalogConnection
+from content_factory.catalog.db import CatalogConnection, open_catalog_connection
 from content_factory.catalog.db import existing_columns as _db_existing_columns
 from content_factory.catalog.db import table_exists as _db_table_exists
 
@@ -236,3 +239,54 @@ def format_catalog_similarity(score: float | int | None) -> tuple[str | None, st
         return None, None
     bounded_score = max(0.0, min(100.0, float(score)))
     return f"{bounded_score:.2f}", f"{100.0 - bounded_score:.2f}"
+
+
+def load_summary(summary_path: Path) -> dict[str, Any]:
+    if not summary_path.exists():
+        return {}
+    try:
+        loaded = json.loads(summary_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def refresh_summary_counts(summary: dict[str, Any], db_path: Path) -> dict[str, Any]:
+    refreshed = dict(summary or {})
+    counts = dict(refreshed.get("counts") or {})
+    try:
+        conn = open_catalog_connection(db_path)
+        counts.update(
+            {
+                "profiles": int(conn.execute("SELECT COUNT(*) FROM profile").fetchone()[0]) if table_exists(conn, "profile") else counts.get("profiles", 0),
+                "competencies": (
+                    int(conn.execute("SELECT COUNT(*) FROM competency").fetchone()[0])
+                    if table_exists(conn, "competency")
+                    else (
+                        int(conn.execute("SELECT COUNT(*) FROM profile_competency").fetchone()[0])
+                        if table_exists(conn, "profile_competency")
+                        else counts.get("competencies", 0)
+                    )
+                ),
+                "skills": int(conn.execute("SELECT COUNT(*) FROM skill WHERE status = 'active'").fetchone()[0]) if table_exists(conn, "skill") else counts.get("skills", 0),
+                "indicator_rows": int(conn.execute("SELECT COUNT(*) FROM indicator_row").fetchone()[0]) if table_exists(conn, "indicator_row") else counts.get("indicator_rows", 0),
+                "open_reviews": int(conn.execute("SELECT COUNT(*) FROM review_queue WHERE status = 'open'").fetchone()[0]) if table_exists(conn, "review_queue") else counts.get("open_reviews", 0),
+            }
+        )
+        conn.close()
+    except Exception:
+        # Summary counts — best-effort; degrade gracefully on either backend.
+        pass
+    refreshed["counts"] = counts
+    return refreshed
+
+
+def normalize_competency_title(value: object | None) -> str:
+    text = unicodedata.normalize("NFKC", str(value or "")).casefold().replace("ё", "е")
+    text = re.sub(r"[^0-9a-zа-я+]+", " ", text)
+    return " ".join(text.split())
+
+
+def display_catalog_title(value: object | None) -> str:
+    text = str(value or "").strip()
+    return text[:1].upper() + text[1:] if text else ""
