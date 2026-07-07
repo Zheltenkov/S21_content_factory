@@ -25,7 +25,9 @@ ArtifactLocationBuilder = Callable[..., str]
 class ArtifactChainPlannerProtocol(Protocol):
     """Minimal planner contract used by the practice finalization layer."""
 
-    def plan(self, seed: ProjectSeed, task_count: int, **kwargs: object) -> ArtifactChainPlan:
+    def plan(
+        self, seed: ProjectSeed, task_count: int, *, theory_summary: str = "", **kwargs: object
+    ) -> ArtifactChainPlan:
         """Build an artifact chain plan for tasks."""
 
     def apply(
