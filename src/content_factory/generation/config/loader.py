@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import yaml
 from pydantic import BaseModel, Field
@@ -167,7 +167,7 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
     with path.open("r", encoding="utf-8") as fh:
-        return yaml.safe_load(fh)
+        return cast("dict[str, Any]", yaml.safe_load(fh))
 
 
 def _hash_text(text: str) -> str:
@@ -237,4 +237,4 @@ def prompt_trace_kwargs(
     trace_builder = getattr(config, "prompt_trace_kwargs", None)
     if not callable(trace_builder):
         return {}
-    return trace_builder(*keys, output_schema=output_schema)
+    return cast("dict[str, Any]", trace_builder(*keys, output_schema=output_schema))

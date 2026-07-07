@@ -1,6 +1,6 @@
 """Утилиты для экспорта новой рубрики с плоской таблицей и детализацией."""
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -63,7 +63,7 @@ def criteria_to_json(report: CriteriaReport) -> dict[str, Any]:
     }
 
     # Конвертируем numpy типы в стандартные Python типы для JSON сериализации
-    return convert_numpy_types(result)
+    return cast("dict[str, Any]", convert_numpy_types(result))
 
 
 def criteria_to_markdown(report: CriteriaReport) -> str:

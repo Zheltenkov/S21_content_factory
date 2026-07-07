@@ -122,7 +122,7 @@ def coerce_bool(value: Any) -> bool:
 def get_workflow_profile(profile_id: str | None) -> WorkflowProfile:
     """Return a known profile, defaulting to the production-safe standard mode."""
     if profile_id in WORKFLOW_PROFILES:
-        return WORKFLOW_PROFILES[profile_id]  # type: ignore[index]
+        return WORKFLOW_PROFILES[profile_id]
     return STANDARD_WORKFLOW_PROFILE
 
 

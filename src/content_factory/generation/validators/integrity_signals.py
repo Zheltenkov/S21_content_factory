@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any
 
 from ..config.thresholds import THRESHOLDS
 
@@ -126,8 +126,8 @@ def verbatim_repetition(md: str) -> IntegritySignal:
                     examples.append(sents[i][:70])
 
     rr = round(_repetition_ratio(md), 3)
-    rr_max = cast(float, THRESHOLDS["repetition_ratio_max"])
-    ndup_max = cast(int, THRESHOLDS["near_dup_max"])
+    rr_max = THRESHOLDS["repetition_ratio_max"]
+    ndup_max = THRESHOLDS["near_dup_max"]
     fail = rr > rr_max or ndup > ndup_max
     comments = (
         [f"repetition_ratio={rr} (макс {rr_max}), почти-дублей={ndup} (макс {ndup_max})"]
@@ -167,7 +167,7 @@ def diagram_topic_matches(md: str) -> list[tuple[str | None, float]]:
 
 def diagram_topic_match(md: str) -> IntegritySignal:
     """Токены mermaid-диаграммы пересекаются с ближайшим заголовком (Jaccard)."""
-    min_jac = cast(float, THRESHOLDS["diagram_topic_min"])
+    min_jac = THRESHOLDS["diagram_topic_min"]
     mismatched = [(head, jac) for head, jac in diagram_topic_matches(md) if jac < min_jac]
 
     comments = (

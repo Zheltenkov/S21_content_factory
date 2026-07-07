@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn
 
 from .exceptions import ContentGenerationError
 from .methodology.trace import MethodologyTraceRecorder
@@ -31,7 +31,7 @@ class FlowResultFinalizer:
         return result
 
     @staticmethod
-    def _raise_missing_result(steps: list[FlowExecutionStep]) -> None:
+    def _raise_missing_result(steps: list[FlowExecutionStep]) -> NoReturn:
         last_step = steps[-1] if steps else None
         if last_step and last_step.status == "error":
             issue_summary = "; ".join(last_step.issues[:3]) or "критические проверки не пройдены"

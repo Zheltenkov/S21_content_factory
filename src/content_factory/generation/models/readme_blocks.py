@@ -119,7 +119,7 @@ def materialize_readme_blocks(markdown: str) -> list[ReadmeBlock]:
     for match in _CODE_RE.finditer(text):
         language = (match.group("language") or "").strip()
         block_cls = MermaidBlock if language.casefold().startswith("mermaid") else CodeBlock
-        block = block_cls(
+        block: ReadmeBlock = block_cls(
             source=match.group("source"),
             content=match.group("content").strip(),
             caption=_caption_near(text, match.start(), match.end()),

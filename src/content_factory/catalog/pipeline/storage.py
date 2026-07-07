@@ -820,7 +820,7 @@ def _skillset_code(*parts: object) -> str:
 def _accepted_atomic_skill_rows(con: CatalogConnection, brief_id: int) -> list[CatalogRow]:
     if not _table_exists(con, "skill_suggestion"):
         return []
-    return con.execute(
+    return con.execute(  # type: ignore[no-any-return]
         """
         SELECT
             ss.id AS suggestion_id,

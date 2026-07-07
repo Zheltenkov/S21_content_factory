@@ -71,7 +71,7 @@ class EvaluationHarness:
                 passed=not reasons,
                 metrics=metrics,
                 reasons=reasons,
-                model=output.model_name,
+                model_name=output.model_name,
                 provider=output.provider,
                 run_id=output.run_id,
             )
@@ -81,7 +81,7 @@ class EvaluationHarness:
                 title=case.title,
                 passed=False,
                 reasons=[f"evaluation failed: {exc}"],
-                model=output.model_name,
+                model_name=output.model_name,
                 provider=output.provider,
                 run_id=output.run_id,
                 error=str(exc),

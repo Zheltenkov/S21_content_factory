@@ -473,7 +473,7 @@ class TranslationNodeService:
             return "ru"
         if not isinstance(target_language, str):
             target_language = str(target_language)
-        return target_language.lower().strip()
+        return str(target_language.lower().strip())
 
 
 class PracticeNodeService:

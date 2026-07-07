@@ -122,7 +122,7 @@ def _build_narrative_anchor(
 def _execute_context_phase(
     orchestrator,
     raw_input: dict[str, Any],
-    track_files: list[str] = None
+    track_files: list[str] | None = None
 ) -> ContextPhaseResult:
     """Build seed and curriculum-aware context without retrieval."""
     orchestrator.intent = IntentMapper()
