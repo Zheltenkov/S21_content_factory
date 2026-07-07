@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any, Literal, get_args
+from typing import Any, Literal, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -262,7 +262,10 @@ class MethodologyAssistantCommandParser:
     ) -> SectionTarget | None:
         normalized_stage = self._normalize_stage(stage)
         if allowed and normalized_stage not in allowed:
-            normalized_stage = "theory" if "theory" in allowed else sorted(allowed)[0]
+            normalized_stage = "theory" if "theory" in allowed else cast(
+                "Literal['context', 'task_planning', 'title', 'annotation', 'skeleton', 'theory', 'practice', 'dataset', 'final']",
+                sorted(allowed)[0],
+            )
         for target in registry.targets:
             if target.stage == normalized_stage:
                 return target
@@ -314,7 +317,7 @@ class MethodologyAssistantCommandParser:
         if command_type == "simplify_task":
             return "task_only"
         if target and target.scope in _SCOPES:
-            return target.scope  # type: ignore[return-value]
+            return target.scope
         return "local_section_only"
 
     def _default_selector(self, context: MethodologyAssistantParseContext) -> str:

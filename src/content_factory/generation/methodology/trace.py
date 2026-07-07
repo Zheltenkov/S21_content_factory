@@ -173,7 +173,8 @@ class MethodologyTraceRecorder:
             blocking = blocking or bool(decision.get("blocking"))
             latest_stage = str(decision.get("stage", "")) or latest_stage
             latest_action = action
-            metrics = decision.get("metrics") if isinstance(decision.get("metrics"), dict) else {}
+            _metrics = decision.get("metrics")
+            metrics = _metrics if isinstance(_metrics, dict) else {}
             for severity, count in (metrics.get("severity_counts") or {}).items():
                 severity_name = str(severity)
                 severity_counts[severity_name] = severity_counts.get(severity_name, 0) + int(count or 0)
