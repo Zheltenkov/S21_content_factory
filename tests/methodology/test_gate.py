@@ -257,33 +257,43 @@ def test_evaluation_review_ignores_absent_didactic_axis() -> None:
     assert review.human_review_required is False
 
 
-def test_evaluation_review_maps_didactic_below_floor_and_split() -> None:
+def test_evaluation_review_maps_didactic_below_floor_and_split(monkeypatch) -> None:
+    # The real scorer sets needs_human_review=True whenever any reason exists. A soft
+    # below_floor / jury_split must NOT escalate beyond major / minor because of that bool.
+    monkeypatch.setattr("content_factory.generation.methodology.gate.is_promoted", lambda key: False)
     review = MethodologyGate().review(
         "evaluation",
         {
             "rubric_json": _rubric_json("passed"),
-            "didactic_json": _didactic_json(["below_floor:coherence", "jury_split:example_quality"], False),
+            "didactic_json": _didactic_json(["below_floor:coherence", "jury_split:example_quality"], needs_human=True),
         },
     )
 
     by_code = {issue.code: issue for issue in review.issues}
     assert by_code["evaluation.didactic_below_floor"].severity == "major"
     assert by_code["evaluation.didactic_jury_split"].severity == "minor"
+    assert "evaluation.didactic_needs_review" not in by_code  # no blanket critical
     assert review.human_review_required is False
     assert review.metrics["didactic_below_floor"] == 1
     assert review.metrics["didactic_jury_split"] == 1
 
 
-def test_evaluation_review_escalates_didactic_abstain_to_human() -> None:
+def test_evaluation_review_escalates_promoted_didactic_to_human(monkeypatch) -> None:
+    # A calibrated/enforced (promoted) dimension below floor is the only didactic hard block.
+    monkeypatch.setattr(
+        "content_factory.generation.methodology.gate.is_promoted",
+        lambda key: key == "didactic:naturalness",
+    )
     review = MethodologyGate().review(
         "evaluation",
         {
             "rubric_json": _rubric_json("passed"),
-            "didactic_json": _didactic_json(["below_floor:naturalness"], True),
+            "didactic_json": _didactic_json(["below_floor:naturalness"], needs_human=True),
         },
     )
 
-    assert review.status == "failed"
+    by_code = {issue.code: issue for issue in review.issues}
+    assert by_code["evaluation.didactic_promoted_failed"].severity == "critical"
+    assert "evaluation.didactic_needs_review" not in by_code
     assert review.human_review_required is True
-    codes = {issue.code for issue in review.issues}
-    assert "evaluation.didactic_needs_review" in codes
+    assert review.status == "failed"

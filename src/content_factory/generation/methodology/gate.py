@@ -653,10 +653,12 @@ class MethodologyGate:
     ) -> None:
         """Surface the didactic axis (jury of models) as gate issues.
 
-        Opt-in axis (`DIDACTIC_AXIS_ENABLED`); when it runs, its own escalation semantics
-        apply: ``below_floor`` dimensions → ``major`` + repair hint, ``jury_split`` → ``minor``
-        (diagnostic), and an explicit jury abstain (``needs_human_review``) → ``critical`` →
-        human review. Not merged with the 39 structural criteria — it is a second axis.
+        Opt-in axis (`DIDACTIC_AXIS_ENABLED`); severity is driven by the *typed* abstain
+        reasons, not a single bool: a soft ``below_floor`` dimension → ``major`` + repair hint,
+        ``jury_split`` → ``minor`` (diagnostic). The only hard block (``critical`` → human
+        review) is a **promoted** (calibration-enforced) dimension below floor. The advisory
+        ``needs_human_review`` bool is kept as a metric but no longer escalates on its own.
+        Not merged with the 39 structural criteria — it is a second axis.
         """
         abstain = didactic.get("abstain_reasons")
         abstain_list = [str(item) for item in abstain] if isinstance(abstain, list) else []
@@ -703,15 +705,6 @@ class MethodologyGate:
                 "minor",
                 None,
                 {"dimensions": jury_split},
-            )
-        if needs_human:
-            self._add_issue(
-                issues,
-                "evaluation.didactic_needs_review",
-                "Didactic jury abstained — route to human review.",
-                "critical",
-                "Have a methodologist adjudicate the flagged didactic dimensions.",
-                {"abstain_reasons": abstain_list},
             )
 
     def _review_finalize(
