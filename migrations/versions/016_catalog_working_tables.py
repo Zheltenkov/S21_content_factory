@@ -12,6 +12,7 @@ Revision ID: 016
 Revises: 015
 """
 
+import hashlib
 from pathlib import Path
 
 from alembic import op
@@ -31,6 +32,22 @@ _SQL_DIR = (
 _DDL_PATH = _SQL_DIR / "working_tables_postgres.sql"
 # Compatibility functions (plpgsql bodies contain ';') — applied WHOLE, not statement-split.
 _FUNCTIONS_PATH = _SQL_DIR / "catalog_functions_postgres.sql"
+
+# Frozen for this migration (see 014): sha256 pins the exact .sql content authored against.
+_DDL_SHA256 = "bc58a4cbd5933b0e23ceac409687952f634dbea749acd58807c3aa8afe2507b7"
+_FUNCTIONS_SHA256 = "fbb9aa88ca4b35a8619fc3a163c5718fe3e54d2b23c7a8aa47b434bb04cbc95a"
+
+
+def _read_frozen(path: Path, expected_sha: str) -> str:
+    raw = path.read_text(encoding="utf-8")
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    if digest != expected_sha:
+        raise RuntimeError(
+            f"{path.name} changed since migration {revision} was authored "
+            f"(sha {digest[:12]} != {expected_sha[:12]}). Never edit an applied migration's SQL — "
+            "add a NEW migration instead."
+        )
+    return raw
 
 _FUNCTIONS = ["search_norm(text)", "json_valid(text)", "json_extract(text, text)"]
 
@@ -53,7 +70,7 @@ _WORKING_TABLES = [
 
 
 def _statements() -> list[str]:
-    raw = _DDL_PATH.read_text(encoding="utf-8")
+    raw = _read_frozen(_DDL_PATH, _DDL_SHA256)
     stmts: list[str] = []
     for chunk in raw.split(";\n"):
         s = chunk.strip()
@@ -71,7 +88,7 @@ def upgrade() -> None:
     for stmt in _statements():
         op.execute(stmt)
     # Functions applied whole (dollar-quoted plpgsql bodies contain ';').
-    op.execute(_FUNCTIONS_PATH.read_text(encoding="utf-8"))
+    op.execute(_read_frozen(_FUNCTIONS_PATH, _FUNCTIONS_SHA256))
 
 
 def downgrade() -> None:

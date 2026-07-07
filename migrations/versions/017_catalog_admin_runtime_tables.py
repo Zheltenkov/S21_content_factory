@@ -18,6 +18,7 @@ Revision ID: 017
 Revises: 016
 """
 
+import hashlib
 from pathlib import Path
 
 from alembic import op
@@ -36,14 +37,37 @@ _DDL_PATH = (
     / "sql"
     / "admin_runtime_tables_postgres.sql"
 )
+# Frozen for this migration (see 014): sha256 pins the exact .sql content authored against.
+_DDL_SHA256 = "c4c48ca6b46fd3d0ecb6e9a8a49e6a8613eccdd12251ea7156ce8e2c4c6000cd"
 
 # New tables created by this migration (already IDENTITY in the DDL — excluded from promotion).
 _NEW_TABLES = ["indicator", "skill_group"]
 _NEW_INDEXES = ["idx_skill_group_id", "idx_skill_code", "idx_skill_active_status"]
+# Working tables from migration 016 already had IDENTITY before 017, so 017's upgrade did NOT
+# promote them — the downgrade must NOT strip their identity (only what 017 itself promoted:
+# the 014 canonical + 015 curriculum_plan tables).
+_IDENTITY_FROM_016 = [
+    "profile_brief", "evidence_source", "skill_suggestion", "skill_prerequisite",
+    "prerequisite_edge_decision", "intake_job", "curriculum_artifact_template",
+    "curriculum_artifact_template_scope", "skill_set", "skill_set_item",
+    "curriculum_artifact_template_proposal", "skill_promotion_log",
+]
+
+
+def _read_frozen(path: Path, expected_sha: str) -> str:
+    raw = path.read_text(encoding="utf-8")
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    if digest != expected_sha:
+        raise RuntimeError(
+            f"{path.name} changed since migration {revision} was authored "
+            f"(sha {digest[:12]} != {expected_sha[:12]}). Never edit an applied migration's SQL — "
+            "add a NEW migration instead."
+        )
+    return raw
 
 
 def _statements() -> list[str]:
-    raw = _DDL_PATH.read_text(encoding="utf-8")
+    raw = _read_frozen(_DDL_PATH, _DDL_SHA256)
     stmts: list[str] = []
     for chunk in raw.split(";\n"):
         lines = [ln for ln in chunk.splitlines() if ln.strip() and not ln.strip().startswith("--")]
@@ -99,8 +123,9 @@ def downgrade() -> None:
         ),
         {"s": _SCHEMA},
     ).fetchall()
+    skip = set(_NEW_TABLES) | set(_IDENTITY_FROM_016)
     for (table,) in rows:
-        if table in _NEW_TABLES:
+        if table in skip:
             continue
         op.execute(f'ALTER TABLE {_SCHEMA}."{table}" ALTER COLUMN id DROP IDENTITY IF EXISTS')
     for index in _NEW_INDEXES:
