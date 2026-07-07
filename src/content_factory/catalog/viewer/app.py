@@ -41,7 +41,6 @@ from content_factory.catalog.db import (
 from content_factory.catalog.db import (
     table_exists as _db_table_exists,
 )
-from content_factory.catalog.viewer.migrations import apply_runtime_migrations, migrate_review_queue_entity_types
 from content_factory.catalog.viewer.observability import (
     build_decision_rationale,
     build_intake_quality_metrics,  # noqa: F401  re-exported for catalog.web.routers.intake
@@ -63,7 +62,6 @@ def _as_list(value: Any) -> list[Any]:
 DEFAULT_DB = BASE_DIR.parent / "artifacts" / "skills_catalog.sqlite"
 DEFAULT_SUMMARY = BASE_DIR.parent / "artifacts" / "catalog_summary.json"
 DEFAULT_COMPARE_REPORT = BASE_DIR.parent / "artifacts" / "live_catalog_comparison.json"
-INTAKE_SCHEMA_SQL = BASE_DIR.parent / "sql" / "new_tables.sql"
 INTAKE_SCHEMA_READY: set[str] = set()
 INTAKE_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="intake")
 ACTIVE_INTAKE_JOB_IDS: set[int] = set()
@@ -721,32 +719,13 @@ def load_nearest_skill_preview(conn: CatalogConnection, skill_id: int | None, in
 
 
 def ensure_intake_runtime_schema(conn: CatalogConnection, db_path: Path) -> None:
+    """Per-request intake pre-flight. The catalog schema is Postgres/alembic-managed,
+    so this only runs the runtime repairs: a one-time review-link repair per database
+    plus stale-intake-job recovery on every call."""
     resolved = str(db_path.resolve())
-    schema_ready = (
-        table_exists(conn, "profile_brief")
-        and table_exists(conn, "curriculum_plan")
-        and table_exists(conn, "curriculum_plan_row")
-        and table_exists(conn, "curriculum_artifact_template")
-        and table_exists(conn, "curriculum_artifact_template_scope")
-        and table_exists(conn, "curriculum_artifact_template_proposal")
-        and table_exists(conn, "skill_set")
-        and table_exists(conn, "skill_set_item")
-        and table_exists(conn, "prerequisite_edge_decision")
-        and column_exists(conn, "skill_suggestion", "coverage_area")
-        and column_exists(conn, "skill_suggestion", "source_name")
-        and column_exists(conn, "skill_suggestion", "indicators_json")
-        and column_exists(conn, "skill_suggestion", "match_score")
-        and column_exists(conn, "skill_suggestion", "nearest_skill_id")
-        and column_exists(conn, "skill_suggestion", "nearest_name")
-        and column_exists(conn, "curriculum_plan_row", "weighted_skills")
-        and column_exists(conn, "curriculum_plan_row", "completion_percent")
-        and column_exists(conn, "curriculum_plan_row", "validation_criteria")
-    )
-    if resolved not in INTAKE_SCHEMA_READY or not schema_ready:
-        apply_runtime_migrations(conn, INTAKE_SCHEMA_SQL)
+    if resolved not in INTAKE_SCHEMA_READY:
         repair_intake_review_links(conn)
         INTAKE_SCHEMA_READY.add(resolved)
-    migrate_review_queue_entity_types(conn)
     repair_stale_intake_jobs(conn)
 
 

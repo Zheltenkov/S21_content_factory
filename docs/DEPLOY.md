@@ -53,11 +53,17 @@ Flags: `--verify-only` (just the post-deploy checks), `--no-truncate` (append in
 - The original catalog data is preserved in `src/content_factory/catalog/artifacts/skills_catalog.sqlite`
   (gitignored) — the migrate source, kept as a cold backup.
 
-## 6. Post-deploy cleanup (GATED — only after prod is confirmed on PG)
+## 6. Post-deploy cleanup
 
-Still present intentionally until prod is stable:
+Done (branch `catalog-ui-cleanup`): removed the SQLite-only runtime-migration machinery now
+that the catalog is Postgres/alembic-managed — deleted `catalog/viewer/migrations.py`
+(`apply_runtime_migrations` / `migrate_review_queue_entity_types` / `apply_sql_migration`) and
+the SQLite `.sql` sources (`catalog_schema.sql`, `new_tables.sql`). `ensure_intake_runtime_schema`
+is trimmed to its Postgres-real work (per-DB review-link repair + stale-job recovery); the dead
+18-query schema check and no-op migration calls are gone.
+
+Still present intentionally:
 
 - `skills_catalog.sqlite` — **keep** as the cold re-seed backup (gitignored, never read at
-  runtime). Delete only if you accept losing the re-migration source.
-- SQLite `.sql` (`catalog_schema.sql`, `new_tables.sql`) + the dead `apply_runtime_migrations` /
-  `ensure_intake_runtime_schema` no-op path — safe to remove in a follow-up once PG is confirmed.
+  runtime). Delete only if you accept losing the re-migration source for
+  `scripts/migrate_catalog_to_postgres.py`.
