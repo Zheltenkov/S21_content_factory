@@ -2,7 +2,7 @@
 
 import re
 from math import sqrt
-from typing import Any
+from typing import Any, cast
 
 from ...config.active_goals import has_active_goal_verb
 from ...config.banned_phrases import BAD_GOAL_PATTERNS, BANNED_BY_LANG
@@ -27,7 +27,7 @@ class Chapter3Checker:
         "Артефакт",
     )
 
-    def __init__(self, llm_client=None, embedding_function=None, language: str = "ru", regex_patterns: dict = None):
+    def __init__(self, llm_client=None, embedding_function=None, language: str = "ru", regex_patterns: dict | None = None):
         """
         Инициализация checker'а.
 
@@ -700,7 +700,7 @@ class Chapter3Checker:
             json_end = response.rfind("}") + 1
             if json_start >= 0 and json_end > json_start:
                 data = json.loads(response[json_start:json_end])
-                return data.get("is_p2p_verifiable", False)
+                return bool(data.get("is_p2p_verifiable", False))
         except Exception:
             pass
 
@@ -777,7 +777,7 @@ class Chapter3Checker:
         if not self.embedding_function:
             return []
         try:
-            return self.embedding_function(texts)
+            return cast("list[list[float]]", self.embedding_function(texts))
         except Exception as e:
             safe_print(f"[RUBRIC] Embedding failed: {e}", flush=True)
             return []
@@ -882,7 +882,7 @@ class Chapter3Checker:
                     return avg, scores
 
         # Fallback: вычисляем similarity для каждого текста отдельно через bag-of-words
-        scores: list[float] = []
+        scores = []
         for text in texts:
             va = bag(tokens(reference_text, self.lang))
             vb = bag(tokens(text, self.lang))

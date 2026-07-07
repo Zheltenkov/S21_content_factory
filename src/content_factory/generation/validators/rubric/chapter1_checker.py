@@ -12,7 +12,7 @@ from .document_utils import section_prose_text
 class Chapter1Checker:
     """Проверяет Главу 1 (введение и инструкция)."""
 
-    def __init__(self, llm_client=None, language: str = "ru", regex_patterns: dict = None):
+    def __init__(self, llm_client=None, language: str = "ru", regex_patterns: dict | None = None):
         """
         Инициализация checker'а.
 
@@ -420,7 +420,7 @@ class Chapter1Checker:
             json_end = response.rfind("}") + 1
             if json_start >= 0 and json_end > json_start:
                 data = json.loads(response[json_start:json_end])
-                return data.get("has_markers", False)
+                return bool(data.get("has_markers", False))
         except Exception:
             pass
 
@@ -455,7 +455,7 @@ class Chapter1Checker:
             json_end = response.rfind("}") + 1
             if json_start >= 0 and json_end > json_start:
                 data = json.loads(response[json_start:json_end])
-                return data.get("correct_format", False)
+                return bool(data.get("correct_format", False))
         except Exception:
             pass
 
@@ -545,7 +545,7 @@ class Chapter1Checker:
                     safe_print("      [2.3.6] Обнаружена подсказка об автономности, но LLM вернул False. Принудительно устанавливаем True.", flush=True)
                     return True
 
-                return is_autonomous
+                return bool(is_autonomous)
         except Exception as e:
             safe_print(f"      [2.3.6] Ошибка при проверке автономности: {e}", flush=True)
             pass
@@ -594,7 +594,7 @@ class Chapter1Checker:
             json_end = response.rfind("}") + 1
             if json_start >= 0 and json_end > json_start:
                 data = json.loads(response[json_start:json_end])
-                return data.get("has_constraints", False)
+                return bool(data.get("has_constraints", False))
         except Exception:
             pass
 

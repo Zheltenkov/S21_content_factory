@@ -126,7 +126,7 @@ def semantic_similarity(text1: str, text2: str, lang: str = "ru", embedding_func
             norm_a = sqrt(sum(a * a for a in va))
             norm_b = sqrt(sum(b * b for b in vb))
             if norm_a > 0 and norm_b > 0:
-                return dot_product / (norm_a * norm_b)
+                return float(dot_product / (norm_a * norm_b))
             else:
                 safe_print(f"[SEMANTIC] Нулевая норма векторов: norm_a={norm_a}, norm_b={norm_b}", flush=True)
                 return 0.0

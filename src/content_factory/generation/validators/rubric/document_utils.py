@@ -282,7 +282,7 @@ def toc_section(document: ReadmeDocument) -> ReadmeSection | None:
         if section.metadata.get("section_kind") == "toc" and section.level == 2:
             return section
     for fragment in ("Содержание", "Оглавление", "Content", "Table of contents", "Мазмун"):
-        section = document.section_by_title_fragment(fragment)
-        if section is not None and section.level == 2:
-            return section
+        frag_section = document.section_by_title_fragment(fragment)
+        if frag_section is not None and frag_section.level == 2:
+            return frag_section
     return None

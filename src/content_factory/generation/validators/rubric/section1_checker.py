@@ -1,6 +1,7 @@
 """Проверка Раздела 1: Соответствие шаблону структуры (1.1-1.6)."""
 
 import re
+from typing import Any
 
 from ...models.criteria_models import CheckMethod, CriteriaItem
 from ...models.readme_document import ReadmeDocument
@@ -22,11 +23,11 @@ class Section1Checker:
         Args:
             regex_patterns: Словарь с регулярными выражениями для парсинга
         """
-        self.rx_h1 = regex_patterns.get("rx_h1")
-        self.rx_toc = regex_patterns.get("rx_toc")
-        self.rx_chapter1 = regex_patterns.get("rx_chapter1")
-        self.rx_chapter2 = regex_patterns.get("rx_chapter2")
-        self.rx_chapter3 = regex_patterns.get("rx_chapter3")
+        self.rx_h1: Any = regex_patterns.get("rx_h1")
+        self.rx_toc: Any = regex_patterns.get("rx_toc")
+        self.rx_chapter1: Any = regex_patterns.get("rx_chapter1")
+        self.rx_chapter2: Any = regex_patterns.get("rx_chapter2")
+        self.rx_chapter3: Any = regex_patterns.get("rx_chapter3")
 
     def check(self, md: str) -> list[CriteriaItem]:
         """Проверяет раздел 1: Соответствие шаблону структуры (1.1-1.6)."""

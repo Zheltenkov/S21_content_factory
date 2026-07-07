@@ -38,7 +38,7 @@ class Chapter2Checker:
         "with", "for", "from", "into", "using",
     }
 
-    def __init__(self, llm_client=None, language: str = "ru", regex_patterns: dict = None):
+    def __init__(self, llm_client=None, language: str = "ru", regex_patterns: dict | None = None):
         """
         Инициализация checker'а.
 

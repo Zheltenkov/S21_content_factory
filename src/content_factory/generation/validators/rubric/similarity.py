@@ -3,6 +3,7 @@
 import hashlib
 from collections.abc import Sequence
 from math import sqrt
+from typing import cast
 
 from ...utils.logging import safe_print
 from .utils import bag, cosine, tokens
@@ -90,7 +91,7 @@ class SimilarityCalculator:
                     return None
 
             # Собираем все векторы в правильном порядке
-            result_vectors = [None] * len(non_empty_texts)
+            result_vectors: list[Sequence[float] | None] = [None] * len(non_empty_texts)
 
             # Добавляем закэшированные векторы
             for i, vector in cached_vectors:
@@ -105,7 +106,7 @@ class SimilarityCalculator:
             if any(v is None for v in result_vectors):
                 return None
 
-            return result_vectors
+            return cast("list[Sequence[float]]", result_vectors)
         except Exception as e:
             safe_print(f"[SIMILARITY] Ошибка batch embedding: {e}", flush=True)
             return None
@@ -192,7 +193,7 @@ class SimilarityCalculator:
                     return avg, scores
 
         # Fallback: вычисляем similarity для каждого текста отдельно
-        scores: list[float] = []
+        scores = []
         for text in texts:
             sim = self.text_similarity(reference_text, text, use_sbert=use_batch_embedding)
             scores.append(sim)
@@ -248,7 +249,7 @@ class SimilarityCalculator:
                     return avg, scores
 
         # Fallback: вычисляем similarity для каждой пары отдельно
-        scores: list[float] = []
+        scores = []
         for a, b in zip(texts, texts[1:], strict=False):
             sim = self.text_similarity(a, b, use_sbert=use_batch_embedding)
             scores.append(sim)

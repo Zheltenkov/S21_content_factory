@@ -1,6 +1,7 @@
 """Проверка Раздела 4: Tone of voice и редактура (4.1-4.3)."""
 
 import re
+from typing import cast
 
 from ...models.criteria_models import CheckMethod, CriteriaItem, StrictnessLevel
 from ...models.readme_document import ReadmeDocument
@@ -11,7 +12,7 @@ from .document_utils import document_prose_text
 class Section4Checker:
     """Проверяет Tone of Voice и редактуру."""
 
-    def __init__(self, llm_client=None, regex_patterns: dict = None):
+    def __init__(self, llm_client=None, regex_patterns: dict | None = None):
         """
         Инициализация checker'а.
 
@@ -28,7 +29,7 @@ class Section4Checker:
         """Поддерживает и строки regex, и уже скомпилированные паттерны."""
         if hasattr(pattern, "search"):
             return bool(pattern.search(text or ""))
-        return bool(re.search(pattern, text or "", flags=flags))
+        return bool(re.search(cast("str | re.Pattern[str]", pattern), text or "", flags=flags))
 
     def _ai_check_tov(self, md: str) -> bool:
         """ИИ-проверка Tone of Voice."""
@@ -77,7 +78,7 @@ class Section4Checker:
                     safe_print(f"        {'✅' if result else '❌'} ИИ-проверка ToV: {reason}", flush=True)
                 else:
                     safe_print(f"        {'✅' if result else '❌'} ИИ-проверка ToV завершена", flush=True)
-                return result
+                return bool(result)
         except Exception as e:
             safe_print(f"        ⚠️ Ошибка ИИ-проверки ToV: {str(e)}", flush=True)
             pass
@@ -122,7 +123,7 @@ class Section4Checker:
                 data = json.loads(response[json_start:json_end])
                 result = data.get("is_neutral", False)
                 safe_print(f"        {'✅' if result else '❌'} ИИ-проверка нейтральности завершена", flush=True)
-                return result
+                return bool(result)
         except Exception as e:
             safe_print(f"        ⚠️ Ошибка ИИ-проверки нейтральности: {str(e)}", flush=True)
             pass

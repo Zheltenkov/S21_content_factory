@@ -5,7 +5,7 @@ import json
 import re
 
 from ...agents.base.llm_client import LLMClientProtocol
-from ...embeddings import create_embedding_function
+from ...embeddings import OpenAIEmbeddingFunction, create_embedding_function
 from ...models.criteria_models import CriteriaItem, CriteriaReport
 from ...models.readme_document import ReadmeDocument
 from ...utils.logging import safe_print
@@ -38,7 +38,7 @@ class RubricScorer:
 
         # Инициализируем embedding function для SBERT (если доступен)
         try:
-            self.embedding_function = create_embedding_function()
+            self.embedding_function: OpenAIEmbeddingFunction | None = create_embedding_function()
         except Exception as e:
             safe_print(f"[RUBRIC] SBERT embeddings недоступны: {e}", flush=True)
             self.embedding_function = None
