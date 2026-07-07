@@ -1,6 +1,32 @@
 """Пороговые значения для валидации и автокоррекции."""
 
-THRESHOLDS = {
+from __future__ import annotations
+
+from typing import TypedDict
+
+
+class Thresholds(TypedDict):
+    annotation_chars: tuple[int, int]
+    intro_words: tuple[int, int]
+    instruction_words: tuple[int, int]
+    theory_parts: tuple[int, int]
+    theory_words_per_part: tuple[int, int]
+    practice_tasks_range: tuple[int, int]
+    practice_tasks_recommend: tuple[int, int]
+    approach_words_max: int
+    approach_bullets_min: int
+    approach_bullets_max: int
+    coherence_sbert_threshold: float
+    paragraph_min_length: int
+    theory_practice_sbert_threshold: float
+    theory_practice_overlap_threshold: float
+    readability_band: tuple[int, int]
+    repetition_ratio_max: float
+    near_dup_max: int
+    diagram_topic_min: float
+
+
+THRESHOLDS: Thresholds = {
     "annotation_chars": (300, 800),  # Teaser 2-4 предложения без раскрытия решения (методолог: 300-800)
     "intro_words": (70, 180),
     "instruction_words": (80, 250),  # Длина инструкции в словах

@@ -1,5 +1,9 @@
 # Phase 5 — план переноса catalog-UI (viewer) WSGI → FastAPI
 
+> Historical note: Phase 5/5.5 cutover is complete. The catalog UI is now served
+> by native FastAPI routers under `/app/spravochnik`; this document is retained as
+> the migration plan and route inventory, not as the current runtime contract.
+
 ## Context
 
 `src/content_factory/catalog/viewer/app.py` — единственный оставшийся legacy-веб-сервер:

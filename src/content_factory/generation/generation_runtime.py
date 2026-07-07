@@ -15,6 +15,7 @@ from .agents.practice_critic import PracticeCriticAgent
 from .agents.readability_agent import ReadabilityAgent
 from .agents.regeneration import RegenerationAgent
 from .agents.theory import TheoryAgent
+from .agents.theory_completeness_agent import TheoryCompletenessAgent
 from .agents.theory_enhancement_agent import TheoryEnhancementAgent
 from .agents.title_annotation import TitleAnnotationAgent
 from .agents.translator import TranslatorAgent
@@ -24,6 +25,8 @@ from .renderers.skeleton import SkeletonRenderer
 from .renderers.toc import TOCRenderer
 from .repair.style_guard import StyleGuardRepair
 from .validators.practice import PracticeValidator
+from .validators.practice_checks import PracticeChecks
+from .validators.rubric.scorer import RubricScorer
 from .validators.structural_preflight import StructuralPreflight
 from .validators.structure import IntroValidator
 from .validators.theory import TheoryValidator
@@ -37,6 +40,7 @@ class GenerationRuntimeContainer:
         self.llm = llm_client
         self.cancellation_token = cancellation_token
         self.progress_tracker = progress_tracker
+        self.observability_sink: Any | None = None
 
         # Generation dependencies are grouped by boundary: LLM agents,
         # deterministic renderers/repair components, and validators.
@@ -46,7 +50,7 @@ class GenerationRuntimeContainer:
         self.intro = IntroRulesAgent(self.llm_for("skeleton", "IntroRulesAgent"))
         self.theory = TheoryAgent(self.llm_for("theory", "TheoryAgent"))
         self.theory_enhancement = TheoryEnhancementAgent(self.llm_for("theory", "TheoryEnhancementAgent"))
-        self.theory_completeness = None
+        self.theory_completeness: TheoryCompletenessAgent | None = None
         self.content_editor = ContentEditorAgent(self.llm_for("quality", "ContentEditorAgent"))
         self.definitions_agent = DefinitionsAgent(self.llm_for("theory", "DefinitionsAgent"))
         self.length_agent = LengthAgent(self.llm_for("theory", "LengthAgent"))
@@ -62,11 +66,11 @@ class GenerationRuntimeContainer:
         # Validators are deterministic services shared by phase executors.
         self.structural_preflight = StructuralPreflight()
         self.theory_checks = TheoryChecks()
-        self.practice_checks = None
+        self.practice_checks: PracticeChecks | None = None
         self.intro_validator = IntroValidator()
         self.theory_validator = TheoryValidator()
         self.practice_validator = PracticeValidator()
-        self.rubric = None
+        self.rubric: RubricScorer | None = None
 
         # Mutable artifacts are runtime state, not orchestration API.
         self.practice_critic_issues: list[dict[str, Any]] = []

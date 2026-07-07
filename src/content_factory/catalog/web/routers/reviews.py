@@ -1,9 +1,8 @@
-"""Review queue UI ported to native FastAPI (Phase 5.4).
+"""Review queue UI served by the native FastAPI catalog router.
 
 GET renders the same ``reviews.html`` as the legacy viewer; POST updates a review
 status (PRG, preserving the active filters in the redirect) and the two brief-level
-actions (build-dag / apply-catalog) that jump to the resulting intake job. All data
-logic reuses the viewer functions unchanged.
+actions (build-dag / apply-catalog) that jump to the resulting intake job.
 """
 
 from __future__ import annotations
@@ -12,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from content_factory.catalog.db import CatalogConnection
-from content_factory.catalog.viewer.app import (
+from content_factory.catalog.viewer.intake_ops import (
     apply_brief_catalog_decisions,
     build_dag_for_brief,
     ensure_intake_runtime_schema,

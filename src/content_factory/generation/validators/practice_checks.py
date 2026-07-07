@@ -51,7 +51,7 @@ class PracticeChecks:
     def __init__(
         self,
         language: str = "ru",
-        expected_tasks: int = None,
+        expected_tasks: int | None = None,
         *,
         check_task_count: bool = True,
     ):

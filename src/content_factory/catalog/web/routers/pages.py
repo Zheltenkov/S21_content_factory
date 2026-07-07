@@ -1,9 +1,4 @@
-"""Read-only catalog pages ported to native FastAPI (Phase 5.1).
-
-These paths have no POST sibling, so they can be served natively while the rest of
-the viewer stays WSGI-mounted. The router is registered before the WSGI mount, so
-these exact paths are handled here and everything else falls through to the mount.
-"""
+"""Read-only catalog pages served by the native FastAPI catalog UI."""
 
 from __future__ import annotations
 
@@ -11,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from content_factory.catalog.db import CatalogConnection
-from content_factory.catalog.viewer.app import (
+from content_factory.catalog.viewer.read_queries import (
     get_competency,
     get_competency_skills,
     get_profile,

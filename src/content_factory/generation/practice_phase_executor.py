@@ -481,13 +481,15 @@ class PracticePhaseExecutor:
             regen_prompt = self._build_regeneration_prompt(task, task_idx, issue_descriptions, theory_summary, seed)
             try:
                 system_prompt = self.runtime.practice.config.get_prompt("system").format(language=seed.language)
-                regen_kwargs = {"temperature": 0.3}
-                regen_kwargs.update(
-                    prompt_trace_kwargs(self.runtime.practice.config, "system", output_schema="PracticeTask")
+                regen_kwargs: dict[str, Any] = prompt_trace_kwargs(
+                    self.runtime.practice.config,
+                    "system",
+                    output_schema="PracticeTask",
                 )
                 regen_md = self.runtime.practice.llm.complete(
                     system=system_prompt,
                     user=regen_prompt,
+                    temperature=0.3,
                     **regen_kwargs,
                 )
                 if self._apply_regenerated_task(task, regen_md, seed, task_idx, theory_summary):
@@ -744,8 +746,9 @@ SJM / кейс:
     def validate_practice(self, practice_res: Any, seed: ProjectSeed, issues: list[Any]) -> None:
         """Run final practice checks after critic/regeneration."""
         logger.info("🔄 Phase 3 | PracticeChecks")
-        self.runtime.practice_checks = PracticeChecks(language=seed.language, expected_tasks=seed.tasks_count)
-        practice_checks_result = self.runtime.practice_checks.check(practice_res.tasks)
+        practice_checks = PracticeChecks(language=seed.language, expected_tasks=seed.tasks_count)
+        self.runtime.practice_checks = practice_checks
+        practice_checks_result = practice_checks.check(practice_res.tasks)
 
         if not practice_checks_result.passed:
             logger.warning(f"⚠️ Practice Checks: {len(practice_checks_result.hard_issues)} HARD проблем")

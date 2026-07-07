@@ -3,7 +3,7 @@
 Два флага независимы: `CALIBRATION_ENABLED` включает запись исходов + пересчёт состояния
 (безопасно, только данные), `CALIBRATION_ENFORCE` — применение промотированного HARD в
 пайплайне (реальная блокировка). Оба default off: сначала shadow-накопление, потом enforce.
-Пути — под `artifacts/` (runtime, gitignored), переопределяются env.
+Пути — под runtime artifacts dir, переопределяются env.
 """
 
 from __future__ import annotations
@@ -11,9 +11,15 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-_ARTIFACTS_DIR = Path(__file__).resolve().parents[2] / "artifacts"
-
 _TRUTHY = {"1", "true", "yes", "on"}
+
+
+def runtime_artifacts_dir() -> Path:
+    """Return the writable runtime directory for calibration artifacts."""
+
+    override = os.getenv("CONTENT_FACTORY_RUNTIME_DIR", "").strip()
+    base_dir = Path(override).expanduser() if override else Path.cwd() / "artifacts"
+    return base_dir / "generation"
 
 
 def _flag(name: str) -> bool:
@@ -77,10 +83,10 @@ def denylist() -> frozenset[str]:
 def log_path() -> Path:
     """Путь к append-логу исходов калибровки (jsonl)."""
     override = os.getenv("CALIBRATION_LOG_PATH", "").strip()
-    return Path(override) if override else _ARTIFACTS_DIR / "calibration_log.jsonl"
+    return Path(override).expanduser() if override else runtime_artifacts_dir() / "calibration_log.jsonl"
 
 
 def state_path() -> Path:
     """Путь к состоянию strictness (json, с аудит-логом промоушенов)."""
     override = os.getenv("CALIBRATION_STATE_PATH", "").strip()
-    return Path(override) if override else _ARTIFACTS_DIR / "strictness_state.json"
+    return Path(override).expanduser() if override else runtime_artifacts_dir() / "strictness_state.json"

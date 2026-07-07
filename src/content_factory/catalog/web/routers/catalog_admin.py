@@ -1,8 +1,7 @@
-"""catalog-admin pages ported to native FastAPI (Phase 5.2).
+"""Catalog-admin pages served by the native FastAPI catalog router.
 
 GET renders the same templates as the legacy viewer; POST reads the form via
-``request.form()`` (like the old ``parse_post_data``), dispatches on ``action`` and
-redirects (PRG, 303). All mutation/query logic reuses the viewer's data functions.
+``request.form()``, dispatches on ``action`` and redirects (PRG, 303).
 """
 
 from __future__ import annotations
@@ -15,39 +14,38 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.pipeline import competency_catalog
 from content_factory.catalog.pipeline import storage as intake_storage
-from content_factory.catalog.viewer.app import (
-    ARTIFACT_FAMILY_OPTIONS,
-    ARTIFACT_SCOPE_TYPE_OPTIONS,
+from content_factory.catalog.viewer._common import parse_optional_int, utc_now_iso
+from content_factory.catalog.viewer.candidate_competency_ops import (
+    list_active_competency_options,
+    list_candidate_competencies,
+    merge_candidate_competency,
+    move_candidate_competency_skill,
+    rename_candidate_competency,
+    resolve_candidate_competency,
+)
+from content_factory.catalog.viewer.catalog_admin_ops import (
     add_skill_alias,
     create_catalog_group,
     create_catalog_indicator,
     create_catalog_skill,
-    ensure_intake_runtime_schema,
     get_catalog_group,
     get_catalog_skill,
     get_skill_set,
-    list_active_competency_options,
     list_archived_groups,
     list_archived_indicators,
     list_archived_skills,
-    list_candidate_competencies,
     list_catalog_group_skills,
     list_catalog_groups,
     list_catalog_indicators,
     list_skill_aliases,
     list_skill_set_items,
     list_skill_sets,
-    merge_candidate_competency,
     merge_catalog_skills,
-    move_candidate_competency_skill,
     parse_artifact_template_scopes,
-    parse_optional_int,
     remove_catalog_group,
     remove_catalog_indicator,
     remove_catalog_skill,
     remove_skill_alias,
-    rename_candidate_competency,
-    resolve_candidate_competency,
     restore_catalog_group,
     restore_catalog_indicator,
     restore_catalog_skill,
@@ -55,8 +53,9 @@ from content_factory.catalog.viewer.app import (
     update_catalog_group,
     update_catalog_indicator,
     update_catalog_skill,
-    utc_now_iso,
 )
+from content_factory.catalog.viewer.intake_ops import ensure_intake_runtime_schema
+from content_factory.catalog.viewer.ui_constants import ARTIFACT_FAMILY_OPTIONS, ARTIFACT_SCOPE_TYPE_OPTIONS
 from content_factory.catalog.web.deps import catalog_db_path, get_conn
 from content_factory.catalog.web.rendering import CATALOG_URL_PREFIX, render
 

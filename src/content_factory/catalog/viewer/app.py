@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-import sys
 from collections.abc import Callable
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from content_factory.catalog.db import CatalogConnection
@@ -11,12 +9,6 @@ from content_factory.catalog.db import CatalogConnection
 if TYPE_CHECKING:
     pass
 
-BASE_DIR = Path(__file__).resolve().parent
-TEMPLATES_DIR = BASE_DIR / "templates"
-STATIC_DIR = BASE_DIR / "static"
-PROJECT_ROOT = BASE_DIR.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 from content_factory.catalog.viewer._common import (
     UploadedFile,  # noqa: F401  re-exported for catalog/web routers
     _read_request_body,  # noqa: F401  re-exported for catalog/web routers
@@ -192,37 +184,15 @@ from content_factory.catalog.viewer.read_queries import (
     list_profiles,  # noqa: F401  re-exported for catalog/web routers
     resolve_directory_profile,  # noqa: F401  re-exported for catalog/web routers
 )
-
-DEFAULT_DB = BASE_DIR.parent / "artifacts" / "skills_catalog.sqlite"
-DEFAULT_SUMMARY = BASE_DIR.parent / "artifacts" / "catalog_summary.json"
-
-
-ARTIFACT_FAMILY_OPTIONS = [
-    ("analysis", "Аналитический вывод"),
-    ("document", "Комплект документов"),
-    ("configuration", "Рабочая настройка"),
-    ("design", "Проектное решение"),
-    ("production", "Созданный продуктовый результат"),
-    ("practice", "Практический результат"),
-]
-ARTIFACT_SCOPE_TYPE_OPTIONS = [
-    ("coverage_area", "Область покрытия"),
-    ("skill_group", "Группа навыков"),
-    ("taxonomy_node", "Узел таксономии"),
-    ("any", "Любая область"),
-]
-INTAKE_PROGRESS_STEPS = [
-    {"code": "queued", "label": "Очередь"},
-    {"code": "decompose", "label": "Декомпозиция"},
-    {"code": "draft", "label": "Черновик"},
-    {"code": "normalize", "label": "Нормализация"},
-    {"code": "resolve", "label": "Сопоставление"},
-    {"code": "search", "label": "Поиск"},
-    {"code": "council", "label": "Жюри"},
-    {"code": "persist", "label": "Запись"},
-    {"code": "ready_for_review", "label": "Проверка"},
-    {"code": "completed", "label": "Готово"},
-]
+from content_factory.catalog.viewer.ui_constants import (
+    ARTIFACT_FAMILY_OPTIONS,  # noqa: F401
+    ARTIFACT_SCOPE_TYPE_OPTIONS,  # noqa: F401
+    DEFAULT_DB,  # noqa: F401
+    DEFAULT_SUMMARY,  # noqa: F401
+    INTAKE_PROGRESS_STEPS,  # noqa: F401
+    STATIC_DIR,  # noqa: F401
+    TEMPLATES_DIR,  # noqa: F401
+)
 
 
 def repair_dirty_profile_names(conn: CatalogConnection) -> int:

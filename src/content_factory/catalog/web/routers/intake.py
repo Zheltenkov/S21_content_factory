@@ -1,13 +1,10 @@
-"""Intake pipeline UI ported to native FastAPI (Phase 5.3).
+"""Intake pipeline UI served by the native FastAPI catalog router.
 
 Covers the brief workspace (GET/POST), the async job view + JSON status polling
 (same contract the inline ``intake.html`` JS expects), the workflow actions
 (next-step / build-dag / apply-catalog / candidate-decision) and the curriculum
-plan CSV export. All pipeline/data logic reuses the legacy viewer functions; only
-the transport (WSGI ``environ`` -> Starlette ``Request``) changes.
-
-The catalog viewer (WSGI) still serves the same routes so legacy can be run
-side-by-side for parity checks during the migration.
+plan CSV export. Pipeline/data logic lives in ``catalog.viewer`` modules; this
+file owns only Starlette/FastAPI transport concerns.
 """
 
 from __future__ import annotations
@@ -17,30 +14,31 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from content_factory.catalog.db import CatalogConnection
-from content_factory.catalog.viewer.app import (
-    UploadedFile,
+from content_factory.catalog.viewer._common import UploadedFile
+from content_factory.catalog.viewer.curriculum_ops import curriculum_plan_to_csv_bytes
+from content_factory.catalog.viewer.intake_ops import (
     apply_brief_catalog_decisions,
     apply_candidate_decision,
     build_dag_for_brief,
-    build_intake_quality_metrics,
     build_intake_workflow_steps,
     build_intake_workspace_state,
-    build_job_observability,
     clear_intake_workspace,
     create_intake_job,
-    curriculum_plan_to_csv_bytes,
     ensure_intake_runtime_schema,
     get_brief_dag_state,
     get_intake_job,
     get_intake_job_brief_id,
     hydrate_job_result_payload,
-    intake_job_status_label,
-    intake_stage_label,
     list_recent_intake_jobs,
     load_brief_text,
-    load_llm_usage_summary,
     normalize_existing_brief_file_path,
     queue_intake_job,
+)
+from content_factory.catalog.viewer.labels import intake_job_status_label, intake_stage_label
+from content_factory.catalog.viewer.observability import (
+    build_intake_quality_metrics,
+    build_job_observability,
+    load_llm_usage_summary,
 )
 from content_factory.catalog.web.deps import catalog_db_path, get_conn
 from content_factory.catalog.web.rendering import CATALOG_URL_PREFIX, render

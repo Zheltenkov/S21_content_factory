@@ -124,7 +124,7 @@ def excel_to_json(file_bytes: bytes) -> list[dict[str, Any]]:
     # Проверяем формат: если есть колонка "Параметр", это новый формат
     if "Параметр" in df.columns:
         # Новый формат (шаблон)
-        result = {}
+        template_result: dict[str, Any] = {}
         value_col = "Значение" if "Значение" in df.columns else df.columns[1]
 
         for _, row in df.iterrows():
@@ -141,52 +141,52 @@ def excel_to_json(file_bytes: bytes) -> list[dict[str, Any]]:
             # Обрабатываем специальные поля
             if key in ["learning_outcomes", "skills", "required_tools"]:
                 if pd.isna(value) or (isinstance(value, str) and not value.strip()):
-                    result[key] = []
+                    template_result[key] = []
                 else:
                     value_str = str(value)
                     if "\n" in value_str:
                         parsed_list = [x.strip() for x in value_str.split("\n") if x.strip()]
                     else:
                         parsed_list = [x.strip() for x in value_str.split(",") if x.strip()]
-                    result[key] = parsed_list
+                    template_result[key] = parsed_list
             elif key == "group_size":
                 if pd.isna(value) or (isinstance(value, str) and not value.strip()):
-                    result[key] = None
+                    template_result[key] = None
                 else:
                     try:
-                        result[key] = int(float(value))
+                        template_result[key] = int(float(str(value)))
                     except (ValueError, TypeError):
-                        result[key] = None
+                        template_result[key] = None
             elif key in ["bonus_wish", "repo_base_url", "repo_path_template"]:
                 if pd.isna(value) or (isinstance(value, str) and not value.strip()):
-                    result[key] = None
+                    template_result[key] = None
                 else:
-                    result[key] = str(value)
+                    template_result[key] = str(value)
             else:
                 if pd.isna(value) or (isinstance(value, str) and not value.strip()):
-                    result[key] = None
+                    template_result[key] = None
                 else:
-                    result[key] = str(value)
+                    template_result[key] = str(value)
 
         # Обратная совместимость
-        if "track" in result and "thematic_block" not in result:
-            result["thematic_block"] = result["track"]
+        if "track" in template_result and "thematic_block" not in template_result:
+            template_result["thematic_block"] = template_result["track"]
 
-        if "project_type" in result:
-            if result["project_type"] == "индивидуальный":
-                result["project_type"] = "individual"
-            elif result["project_type"] == "групповой":
-                result["project_type"] = "group"
+        if "project_type" in template_result:
+            if template_result["project_type"] == "индивидуальный":
+                template_result["project_type"] = "individual"
+            elif template_result["project_type"] == "групповой":
+                template_result["project_type"] = "group"
 
         # Маппинг старых полей на новые
-        if "project_title" in result and "title_seed" not in result:
-            result["title_seed"] = result["project_title"]
+        if "project_title" in template_result and "title_seed" not in template_result:
+            template_result["title_seed"] = template_result["project_title"]
 
-        return [result]
+        return [template_result]
     else:
         # Старый формат (простой список записей)
         records = df.to_dict(orient="records")
-        result = []
+        items: list[dict[str, Any]] = []
         for r in records:
             lo_raw = r.get("learning_outcomes", "")
             lo_list = [x.strip() for x in str(lo_raw).split("\n") if x.strip()] if lo_raw else []
@@ -194,7 +194,7 @@ def excel_to_json(file_bytes: bytes) -> list[dict[str, Any]]:
             skills_raw = r.get("skills", "")
             skills_list = [x.strip() for x in str(skills_raw).split(",") if x.strip()] if skills_raw else []
 
-            item = {
+            item: dict[str, Any] = {
                 "thematic_block": r.get("thematic_block", r.get("track", "")),
                 "title_seed": r.get("project_title", r.get("title_seed", "")),
                 "project_description": r.get("project_description", ""),
@@ -217,9 +217,9 @@ def excel_to_json(file_bytes: bytes) -> list[dict[str, Any]]:
                     else:
                         item[key] = r[key]
 
-            result.append(item)
+            items.append(item)
 
-        return result
+        return items
 
 
 def json_to_excel(data: list[dict[str, Any]]) -> io.BytesIO:

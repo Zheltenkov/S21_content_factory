@@ -1,8 +1,8 @@
-"""Curriculum-plan (УП) UI ported to native FastAPI (Phase 5.4).
+"""Curriculum-plan (УП) UI served by the native FastAPI catalog router.
 
 Covers the plan index, plan detail, CSV export (409 when the DAG order is invalid),
 row create/edit/delete, and the artifact-template proposal workflow
-(generate / save / accept / reject). All data logic reuses the viewer functions.
+(generate / save / accept / reject).
 
 Route order matters: ``/rows/new`` is declared before ``/rows/{row_id}`` so the
 literal segment is not swallowed by the int converter.
@@ -18,23 +18,21 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.pipeline import storage as intake_storage
-from content_factory.catalog.viewer.app import (
-    ARTIFACT_FAMILY_OPTIONS,
-    ARTIFACT_SCOPE_TYPE_OPTIONS,
-    build_curriculum_plan_for_brief,
+from content_factory.catalog.viewer._common import parse_optional_float
+from content_factory.catalog.viewer.curriculum_ops import (
     cleanup_empty_curriculum_plans,
     create_curriculum_plan_row,
     curriculum_plan_to_csv_bytes,
     delete_curriculum_plan,
     delete_curriculum_plan_row,
-    ensure_intake_runtime_schema,
     get_curriculum_plan,
     get_curriculum_plan_row,
     list_curriculum_plans,
-    parse_optional_float,
     parse_scope_names,
     update_curriculum_plan_row,
 )
+from content_factory.catalog.viewer.intake_ops import build_curriculum_plan_for_brief, ensure_intake_runtime_schema
+from content_factory.catalog.viewer.ui_constants import ARTIFACT_FAMILY_OPTIONS, ARTIFACT_SCOPE_TYPE_OPTIONS
 from content_factory.catalog.web.deps import catalog_db_path, get_conn
 from content_factory.catalog.web.rendering import CATALOG_URL_PREFIX, render
 

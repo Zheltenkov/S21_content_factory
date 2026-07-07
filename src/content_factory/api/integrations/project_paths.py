@@ -1,9 +1,10 @@
-"""Resolve in-package data paths for the unified service.
+"""Resolve in-package artifact paths for the unified service.
 
 Audit and catalog now live inside ``content_factory``; the former sibling-folder
-resolution (sys.path injection, ``resolve_project_root``) is gone. What remains is
-the catalog SQLite source used by the (transitional) SQLite->Postgres sync, until
-the catalog is fully merged into Postgres.
+resolution (sys.path injection, ``resolve_project_root``) is gone. Catalog runtime
+uses Postgres; the SQLite path helper remains as a compatibility/import-artifact
+location for historical catalog migrations and call sites whose argument is ignored
+by the Postgres connection factory.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ _CATALOG_ARTIFACTS = GENERATOR_ROOT / "catalog" / "artifacts"
 
 
 def spravochnik_sqlite_path() -> Path:
-    """Return the catalog SQLite path used as the migration source."""
+    """Return the historical catalog SQLite artifact path."""
 
     configured = os.getenv("SPRAVOCHNIK_SQLITE_PATH")
     if configured:

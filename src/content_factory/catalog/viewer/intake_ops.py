@@ -15,6 +15,7 @@ imports inside the bodies. Owns the intake runtime-state globals. No back-import
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import re
@@ -27,7 +28,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from content_factory.catalog.db import CatalogConnection, CatalogRow, open_catalog_connection
+from content_factory.catalog.db import (
+    CatalogConnection,
+    CatalogRow,
+    catalog_database_url,
+    open_catalog_connection,
+    resolve_backend,
+)
 from content_factory.catalog.viewer._common import (
     UploadedFile,
     _as_dict,
@@ -66,6 +73,17 @@ INTAKE_SCHEMA_READY: set[str] = set()
 INTAKE_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="intake")
 ACTIVE_INTAKE_JOB_IDS: set[int] = set()
 INTAKE_STALE_TIMEOUT_SECONDS = 180
+
+
+def _intake_schema_ready_key(db_path: Path) -> str:
+    """Return the backend-specific identity used for one-time intake repairs."""
+
+    backend = resolve_backend()
+    if backend == "postgres":
+        url = catalog_database_url() or ""
+        digest = hashlib.sha256(url.encode("utf-8")).hexdigest() if url else "missing-url"
+        return f"postgres:{digest}"
+    return f"{backend}:{db_path.resolve()}"
 
 
 def _reason_set(reasons: list[str] | tuple[str, ...] | str | None) -> set[str]:
@@ -290,10 +308,10 @@ def ensure_intake_runtime_schema(conn: CatalogConnection, db_path: Path) -> None
     """Per-request intake pre-flight. The catalog schema is Postgres/alembic-managed,
     so this only runs the runtime repairs: a one-time review-link repair per database
     plus stale-intake-job recovery on every call."""
-    resolved = str(db_path.resolve())
-    if resolved not in INTAKE_SCHEMA_READY:
+    ready_key = _intake_schema_ready_key(db_path)
+    if ready_key not in INTAKE_SCHEMA_READY:
         repair_intake_review_links(conn)
-        INTAKE_SCHEMA_READY.add(resolved)
+        INTAKE_SCHEMA_READY.add(ready_key)
     repair_stale_intake_jobs(conn)
 
 

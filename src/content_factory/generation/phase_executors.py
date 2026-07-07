@@ -226,7 +226,10 @@ class EvaluationPhaseExecutor:
 
     def _score_rubric(self, markdown: str, readme_document: ReadmeDocument, seed: ProjectSeed) -> Any:
         """Run typed rubric scoring."""
-        return self.runtime.rubric.score_document(readme_document, learning_outcomes=seed.learning_outcomes)
+        rubric = self.runtime.rubric
+        if rubric is None:
+            raise RuntimeError("Rubric scorer is not initialized")
+        return rubric.score_document(readme_document, learning_outcomes=seed.learning_outcomes)
 
     def _score_didactic(self, markdown: str, seed: ProjectSeed) -> dict[str, Any] | None:
         """Run the didactic axis (jury of models). Advisory, opt-in, never breaks the pipeline.
