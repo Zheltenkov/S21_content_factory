@@ -119,7 +119,7 @@ def fix_common_latex_issues_in_md(md: str) -> str:
 
         # Если тело формулы не изменилось, возвращаем оригинал без изменений
         if fixed == original_body:
-            return m.group(0)  # Возвращаем оригинальную формулу целиком
+            return str(m.group(0))  # Возвращаем оригинальную формулу целиком
 
         # Только если были реальные исправления, возвращаем исправленную версию
         return f"$${fixed}$$"
@@ -133,7 +133,7 @@ def fix_common_latex_issues_in_md(md: str) -> str:
 
         # Если тело формулы не изменилось, возвращаем оригинал без изменений
         if fixed == original_body:
-            return m.group(0)
+            return str(m.group(0))
 
         # Только если были реальные исправления, возвращаем исправленную версию
         return f"${fixed}$"
@@ -412,7 +412,7 @@ def restore_blocks(md_with_markers: str, blocks: list[BlockInfo]) -> str:
                 if not _validate_block_content(block_content, block_info.block_type):
                     # Если блок невалиден, логируем и оставляем маркер
                     missing_blocks.append((idx, block_info.block_type, "invalid_content"))
-                    return match.group(0)
+                    return str(match.group(0))
 
                 # Нормализуем Mermaid-блоки для исправления проблем с форматированием
                 if block_info.block_type == "mermaid":
@@ -420,17 +420,17 @@ def restore_blocks(md_with_markers: str, blocks: list[BlockInfo]) -> str:
                     # Повторная валидация после нормализации
                     if not _validate_block_content(block_content, block_info.block_type):
                         missing_blocks.append((idx, block_info.block_type, "normalization_failed"))
-                        return match.group(0)
+                        return str(match.group(0))
 
                 return block_content
             else:
                 # Индекс вне диапазона
                 missing_blocks.append((idx, "unknown", "index_out_of_range"))
-                return match.group(0)
+                return str(match.group(0))
         except (ValueError, IndexError) as e:
             # Ошибка при парсинге индекса или доступе к блоку
             missing_blocks.append((match.group(1), "unknown", f"error: {str(e)}"))
-            return match.group(0)
+            return str(match.group(0))
 
     # Заменяем маркеры на блоки, сохраняя контекст вокруг них
     restored = BLOCK_PLACEHOLDER_RE.sub(repl, md_with_markers)
