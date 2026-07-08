@@ -112,6 +112,10 @@ from content_factory.catalog.viewer.intake_catalog_apply import (
     load_brief_catalog_promotion_summary,  # noqa: F401
     update_jobs_catalog_payload,  # noqa: F401
 )
+from content_factory.catalog.viewer.intake_cleanup import (
+    clear_intake_workspace,  # noqa: F401
+    prune_empty_generated_catalog_nodes,  # noqa: F401
+)
 from content_factory.catalog.viewer.intake_dag import (
     build_curriculum_plan_for_brief,  # noqa: F401
     build_dag_for_brief,  # noqa: F401
@@ -137,10 +141,8 @@ from content_factory.catalog.viewer.intake_jobs import (
     update_intake_job,  # noqa: F401
 )
 from content_factory.catalog.viewer.intake_ops import (
-    clear_intake_workspace,  # noqa: F401
     ensure_intake_runtime_schema,  # noqa: F401
     execute_intake_job,  # noqa: F401
-    prune_empty_generated_catalog_nodes,  # noqa: F401
     queue_intake_job,  # noqa: F401
     repair_stale_intake_jobs,  # noqa: F401
     run_intake_pipeline,  # noqa: F401
