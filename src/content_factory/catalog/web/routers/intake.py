@@ -17,6 +17,12 @@ from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.viewer._common import UploadedFile
 from content_factory.catalog.viewer.curriculum_ops import curriculum_plan_to_csv_bytes
 from content_factory.catalog.viewer.intake_brief_io import load_brief_text
+from content_factory.catalog.viewer.intake_jobs import (
+    create_intake_job,
+    get_intake_job,
+    get_intake_job_brief_id,
+    list_recent_intake_jobs,
+)
 from content_factory.catalog.viewer.intake_ops import (
     apply_brief_catalog_decisions,
     apply_candidate_decision,
@@ -24,13 +30,9 @@ from content_factory.catalog.viewer.intake_ops import (
     build_intake_workflow_steps,
     build_intake_workspace_state,
     clear_intake_workspace,
-    create_intake_job,
     ensure_intake_runtime_schema,
     get_brief_dag_state,
-    get_intake_job,
-    get_intake_job_brief_id,
     hydrate_job_result_payload,
-    list_recent_intake_jobs,
     queue_intake_job,
 )
 from content_factory.catalog.viewer.labels import intake_job_status_label, intake_stage_label
