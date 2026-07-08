@@ -7,15 +7,15 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import pytest
 from fastapi import HTTPException
 
-from content_factory.api.routers.readme_translate import (
+from content_factory.api.routers.document_translation import (
+    TRANSLATION_DOCUMENT_EXTENSIONS,
     _build_translated_docx,
-    _iter_docx_text_units,
     _extract_translation_document_text,
+    _iter_docx_text_units,
     _safe_translation_filename,
     _translate_docx_units,
-    _translation_job_for_user,
-    TRANSLATION_DOCUMENT_EXTENSIONS,
 )
+from content_factory.api.routers.readme_translate import _translation_job_for_user
 from content_factory.api.utils.result_cache import _translation_jobs, set_translation_job
 
 
