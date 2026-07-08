@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException, Response
+from fastapi import HTTPException, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import ValidationError
 from sqlalchemy import create_engine
@@ -258,10 +258,110 @@ async def test_get_current_user_rejects_revoked_session() -> None:
     )
 
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+    request = Request({"type": "http", "headers": []})
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(credentials=credentials, db=db)
+        await get_current_user(request=request, credentials=credentials, db=db)
     assert exc_info.value.status_code == 401
 
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_accepts_httponly_cookie_without_bearer() -> None:
+    """Cookie-only auth: no Authorization header, JWT delivered via the HttpOnly cookie."""
+    session_factory = _session_factory()
+    db = session_factory()
+    user = User(
+        email="cookie@21-school.ru",
+        username="cookie-user",
+        hashed_password=User.hash_password("password-123"),
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    db.add(
+        UserSession(
+            user_id=f"user_{user.id}",
+            user_id_fk=user.id,
+            username=user.username,
+            session_token="cookie-session",
+            token_hash=auth.hash_token("cookie-session"),
+            is_active="true",
+        )
+    )
+    db.commit()
+    token = auth.create_access_token(
+        {
+            "sub": f"user_{user.id}",
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "session_token": "cookie-session",
+        }
+    )
+
+    request = Request({"type": "http", "headers": [(b"cookie", f"content_gen_auth={token}".encode())]})
+    result = await get_current_user(request=request, credentials=None, db=db)
+
+    assert result["id"] == f"user_{user.id}"
+    assert result["session_token"] == "cookie-session"
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_without_bearer_or_cookie_is_401() -> None:
+    session_factory = _session_factory()
+    db = session_factory()
+    request = Request({"type": "http", "headers": []})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_current_user(request=request, credentials=None, db=db)
+
+    assert exc_info.value.status_code == 401
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_null_bearer_falls_back_to_cookie() -> None:
+    """A migrated client that sends `Authorization: Bearer null` must still auth via cookie."""
+    session_factory = _session_factory()
+    db = session_factory()
+    user = User(
+        email="nullbearer@21-school.ru",
+        username="null-bearer",
+        hashed_password=User.hash_password("password-123"),
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    db.add(
+        UserSession(
+            user_id=f"user_{user.id}",
+            user_id_fk=user.id,
+            username=user.username,
+            session_token="nb-session",
+            token_hash=auth.hash_token("nb-session"),
+            is_active="true",
+        )
+    )
+    db.commit()
+    token = auth.create_access_token(
+        {
+            "sub": f"user_{user.id}",
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "session_token": "nb-session",
+        }
+    )
+
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="null")
+    request = Request({"type": "http", "headers": [(b"cookie", f"content_gen_auth={token}".encode())]})
+    result = await get_current_user(request=request, credentials=credentials, db=db)
+
+    assert result["id"] == f"user_{user.id}"
     db.close()
 
 

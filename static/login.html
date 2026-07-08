@@ -116,11 +116,11 @@
             });
         }
         
-        // Проверяем, есть ли уже сохраненный токен
-        const savedToken = localStorage.getItem('auth_token');
-        if (savedToken) {
-            // Если токен есть, перенаправляем на главную страницу
-            // app.html сам проверит валидность токена и перенаправит обратно, если нужно
+        // Проверяем, есть ли уже активная сессия — по не-секретной подсказке.
+        // Сам токен хранится в HttpOnly-cookie, недоступной JS.
+        const savedSession = localStorage.getItem('username') || localStorage.getItem('user_id');
+        if (savedSession) {
+            // app.html проверит cookie через /auth/me и вернёт сюда, если сессия истекла.
             window.location.replace(loginRedirectTarget());
         }
         
@@ -194,14 +194,15 @@
                     throw new Error('Не получен токен доступа от сервера');
                 }
                 
-                // Сохраняем токен в localStorage
+                // Токен доступа приходит в HttpOnly-cookie (Set-Cookie от /login) и НЕ
+                // сохраняется в localStorage — иначе он был бы уязвим к краже через XSS.
+                // В localStorage держим только не-секретные подсказки для UI/гейтов.
                 try {
-                    localStorage.setItem('auth_token', data.access_token);
+                    localStorage.removeItem('auth_token');  // purge any legacy token
                     localStorage.setItem('user_id', data.user_id || '');
                     localStorage.setItem('username', data.username || email);
                     localStorage.setItem('email', email);
                     localStorage.setItem('session_id', (data.session_id || '').toString());
-                    console.log('Данные сохранены в localStorage');
                 } catch (storageError) {
                     console.error('Ошибка сохранения в localStorage:', storageError);
                     throw new Error('Не удалось сохранить данные авторизации. Проверьте настройки браузера.');

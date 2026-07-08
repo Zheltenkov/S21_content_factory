@@ -3,7 +3,7 @@
 import os
 from typing import Any
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -14,19 +14,24 @@ from content_factory.api.db.session import get_db_session
 # JWT настройки
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
+# HttpOnly cookie the browser sends automatically on same-origin API calls (set at
+# login). Auth reads it as a fallback so the SPA never stores the token in JS.
+AUTH_COOKIE_NAME = "content_gen_auth"
 
 security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: Session = Depends(get_db_session),
 ) -> dict[str, Any]:
     """
     Проверяет JWT токен и возвращает данные пользователя.
 
-    Args:
-        credentials: JWT токен из заголовка Authorization
+    Токен берётся из заголовка ``Authorization: Bearer`` либо, если его нет, из
+    HttpOnly-cookie ``content_gen_auth`` (её браузер шлёт сам для same-origin
+    запросов). Так SPA не хранит токен в JS и не уязвим к его краже через XSS.
 
     Returns:
         Словарь с данными пользователя
@@ -38,7 +43,13 @@ async def get_current_user(
     if os.getenv("DISABLE_AUTH", "false").lower() == "true":
         return {"id": "dev_user", "username": "dev"}
 
-    if not credentials:
+    # Prefer the Authorization header, but fall back to the HttpOnly cookie. A
+    # blank/"null"/"undefined" bearer (e.g. a migrated client that dropped the
+    # localStorage token) is treated as absent so the cookie still authenticates.
+    token = credentials.credentials.strip() if credentials else ""
+    if token.lower() in {"", "null", "undefined"}:
+        token = request.cookies.get(AUTH_COOKIE_NAME, "").strip()
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Требуется аутентификация",
@@ -47,7 +58,7 @@ async def get_current_user(
 
     try:
         payload = jwt.decode(
-            credentials.credentials,
+            token,
             JWT_SECRET_KEY,
             algorithms=[JWT_ALGORITHM]
         )

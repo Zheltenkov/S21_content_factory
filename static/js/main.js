@@ -48,10 +48,11 @@
             window.ContentGenApiUrl = API_URL;
             const REGENERATION_TEMPLATE = 'Примени точечно правки к документу по пунктам ниже не нарушая его структуру и стиль.';
             
-            // Проверка аутентификации
+            // Проверка аутентификации по не-секретной подсказке (токен — в HttpOnly-cookie).
             const authToken = localStorage.getItem('auth_token');
-            if (!authToken) {
-                console.log('Токен не найден, перенаправление на страницу входа');
+            const sessionHint = authToken || localStorage.getItem('username') || localStorage.getItem('user_id');
+            if (!sessionHint) {
+                console.log('Сессия не найдена, перенаправление на страницу входа');
                 window.location.replace('/');
                 return; // Теперь return работает, так как мы внутри функции
             }
@@ -69,9 +70,11 @@
         
         // Функция для добавления токена в заголовки запросов
         function getAuthHeaders() {
+            // Auth normally rides the HttpOnly cookie; only add a Bearer if a legacy
+            // token is still present. Never send `Bearer null`.
             const token = localStorage.getItem('auth_token');
             return {
-                'Authorization': `Bearer ${token}`,
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
                 'Content-Type': 'application/json'
             };
         }
@@ -1001,7 +1004,7 @@
                 const response = await fetch(`${API_URL}/generate`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                     },
                     body: formData,
                     signal: controller.signal
@@ -1112,7 +1115,7 @@
                 const response = await fetch(`${API_URL}/generate/cancel/${currentRequestId}`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                     }
                 });
                 
@@ -2065,7 +2068,8 @@
             
             // Проверяем наличие токена перед запросом
             const token = localStorage.getItem('auth_token');
-            if (!token) {
+            const sessionHint = token || localStorage.getItem('username') || localStorage.getItem('user_id');
+            if (!sessionHint) {
                 alert('Требуется авторизация. Перенаправление на страницу входа...');
                 // Очищаем sessionStorage при редиректе на авторизацию
                 sessionStorage.removeItem('generation_state');
@@ -2414,7 +2418,8 @@
             
             try {
                 const token = localStorage.getItem('auth_token');
-                if (!token) {
+                const sessionHint = token || localStorage.getItem('username') || localStorage.getItem('user_id');
+                if (!sessionHint) {
                     alert('Требуется авторизация');
                     return;
                 }
@@ -2471,7 +2476,7 @@
                 const url = `${API_URL}/download/${currentRequestId}${includeRegenerated ? '?include_regenerated=true' : ''}`;
                 const response = await fetch(url, {
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                     }
                 });
 
@@ -2537,15 +2542,15 @@
             }
             
             try {
+                // Always call logout so the server clears the HttpOnly cookie and
+                // revokes the session, even when no legacy token is present.
                 const token = localStorage.getItem('auth_token');
-                if (token) {
-                    await fetch(`${API_URL}/logout`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-                }
+                await fetch(`${API_URL}/logout`, {
+                    method: 'POST',
+                    headers: {
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    }
+                });
             } catch (error) {
                 console.error('Ошибка при выходе:', error);
             } finally {

@@ -29,7 +29,7 @@ function getGenerationAuthHeaders() {
     if (typeof window.getAuthHeaders === 'function') return window.getAuthHeaders();
     const token = localStorage.getItem('auth_token');
     return {
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         'Content-Type': 'application/json'
     };
 }

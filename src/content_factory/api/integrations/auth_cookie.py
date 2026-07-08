@@ -14,9 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.types import ASGIApp
 
 from content_factory.api.db.session import SessionLocal
-from content_factory.api.dependencies import get_current_user
-
-AUTH_COOKIE_NAME = "content_gen_auth"
+from content_factory.api.dependencies import AUTH_COOKIE_NAME, get_current_user
 
 # HTTP methods that mutate server state; admin-gated on catalog write prefixes.
 _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -68,7 +66,7 @@ async def validate_request_user(request: Request, db: Session | None = None) -> 
     session = db or SessionLocal()
     try:
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
-        return await get_current_user(credentials=credentials, db=session)
+        return await get_current_user(request=request, credentials=credentials, db=session)
     finally:
         if owns_session:
             session.close()

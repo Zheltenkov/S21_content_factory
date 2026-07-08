@@ -25,7 +25,15 @@
     }
 
     function getToken() {
+        // Legacy: the token is no longer persisted (it lives in the HttpOnly cookie).
+        // Kept for backward-compat with any still-stored token during migration.
         return localStorage.getItem('auth_token') || '';
+    }
+
+    function hasSessionHint() {
+        // Non-secret marker that a session exists; the real credential is the
+        // HttpOnly cookie, which JS cannot read.
+        return !!(localStorage.getItem('username') || localStorage.getItem('user_id'));
     }
 
     function getAuthHeaders(extraHeaders) {
@@ -108,7 +116,9 @@
     }
 
     function ensureAuthPresent() {
-        if (getToken()) return true;
+        // Cookie auth is unreadable from JS, so gate on the non-secret session hint.
+        // The server still enforces the cookie on every request (401 -> redirect).
+        if (hasSessionHint() || getToken()) return true;
         redirectToLogin('Требуется вход в систему.');
         return false;
     }

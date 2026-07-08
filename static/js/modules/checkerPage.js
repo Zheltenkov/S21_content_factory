@@ -3,8 +3,11 @@
 // README preview, diff rendering and metrics switching.
 
 (function () {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
+    // Gate on the non-secret session hint; the JWT lives in the HttpOnly cookie.
+    const sessionHint = localStorage.getItem('auth_token')
+        || localStorage.getItem('username')
+        || localStorage.getItem('user_id');
+    if (!sessionHint) {
         window.location.replace('/');
         return;
     }
