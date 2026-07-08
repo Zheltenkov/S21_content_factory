@@ -8,6 +8,10 @@ from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from content_factory.api.db.curriculum_project_runs_db import (
+    mark_curriculum_project_generation_run,
+    record_curriculum_project_generation_run,
+)
 from content_factory.api.db.generation_results_db import list_recent_generation_results_for_user, save_generation_result
 from content_factory.api.db.logging_db import write_log_async
 from content_factory.api.db.paused_generation_db import (
@@ -271,6 +275,7 @@ def _generation_resume_service() -> GenerationResumeService:
         ),
         orchestrator_cls=Orchestrator,
         completed_saver=_save_completed_generation,
+        curriculum_run_marker=mark_curriculum_project_generation_run,
     )
 
 
@@ -282,6 +287,7 @@ def _generation_start_service() -> GenerationStartService:
         background_runner=_run_generation_background,
         log_writer=write_log_async,
         logger=logger,
+        curriculum_run_recorder=record_curriculum_project_generation_run,
     )
 
 
@@ -656,6 +662,15 @@ async def cancel_generation_endpoint(
             title="Генерация README",
             result_url=f"/api/v1/download/{request_id}",
         )
+        try:
+            await asyncio.to_thread(
+                mark_curriculum_project_generation_run,
+                request_id=request_id,
+                status="cancelled",
+                stage="cancelled",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to mark curriculum project run cancelled %s: %s", request_id, exc)
         return response
     except GenerationServiceError as error:
         cancelled_row = await asyncio.to_thread(
@@ -683,6 +698,15 @@ async def submit_generation_workflow_command(
     if request.command == "cancel":
         try:
             await _generation_status_service().cancel(request_id, user_id=user_id)
+            try:
+                await asyncio.to_thread(
+                    mark_curriculum_project_generation_run,
+                    request_id=request_id,
+                    status="cancelled",
+                    stage="workflow_cancelled",
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Failed to mark curriculum project workflow cancelled %s: %s", request_id, exc)
             return GenerateStartResponse(request_id=request_id, status="cancelled")
         except GenerationServiceError as error:
             _raise_generation_error(error)

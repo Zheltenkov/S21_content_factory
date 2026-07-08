@@ -229,6 +229,7 @@ async def test_brief_up_snapshot_to_single_project_generation_start(monkeypatch:
     }
 
     background_calls: list[dict[str, Any]] = []
+    recorded_runs: list[dict[str, Any]] = []
     tasks = []
     workflow = _WorkflowService()
 
@@ -251,6 +252,10 @@ async def test_brief_up_snapshot_to_single_project_generation_start(monkeypatch:
     async def log_writer(**_kwargs: Any) -> None:
         return None
 
+    def curriculum_run_recorder(**kwargs: Any) -> dict[str, Any]:
+        recorded_runs.append(kwargs)
+        return {"status": kwargs["status"], "request_id": kwargs["request_id"]}
+
     service = GenerationStartService(
         status_setter=lambda *_args: None,
         error_store=lambda *_args: None,
@@ -260,6 +265,7 @@ async def test_brief_up_snapshot_to_single_project_generation_start(monkeypatch:
         logger=_Logger(),
         request_id_factory=lambda: "req-up-1",
         workflow_service=workflow,  # type: ignore[arg-type]
+        curriculum_run_recorder=curriculum_run_recorder,
     )
 
     response = await service.start_from_request(
@@ -271,6 +277,9 @@ async def test_brief_up_snapshot_to_single_project_generation_start(monkeypatch:
         await task
 
     assert response.request_id == "req-up-1"
+    assert recorded_runs[0]["request_id"] == "req-up-1"
+    assert recorded_runs[0]["seed_payload"]["pipeline_run_id"] == origin["pipeline_run_id"]
+    assert recorded_runs[0]["seed_payload"]["plan_row_id"] == 100
     assert workflow.created[0]["seed_metadata"]["source_plan_id"] == 10
     assert workflow.created[0]["seed_metadata"]["plan_row_id"] == 100
     assert background_calls[0]["seed"]["pipeline_run_id"] == origin["pipeline_run_id"]

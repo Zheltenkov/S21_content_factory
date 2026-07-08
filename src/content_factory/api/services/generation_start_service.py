@@ -38,6 +38,7 @@ class GenerationStartService:
         logger: Any,
         request_id_factory: Callable[[], str] | None = None,
         workflow_service: GenerationWorkflowService | None = None,
+        curriculum_run_recorder: Callable[..., Any] | None = None,
     ) -> None:
         self._status_setter = status_setter
         self._error_store = error_store
@@ -47,6 +48,7 @@ class GenerationStartService:
         self._logger = logger
         self._request_id_factory = request_id_factory or (lambda: str(uuid.uuid4()))
         self._workflow_service = workflow_service or GenerationWorkflowService()
+        self._curriculum_run_recorder = curriculum_run_recorder
 
     async def start_from_request(
         self,
@@ -101,6 +103,25 @@ class GenerationStartService:
                 raise GenerationServiceError(400, f"Ошибка валидации данных: {str(exc)}") from exc
 
             project_seed_dict = project_seed.model_dump()
+            try:
+                await self._record_curriculum_project_run(
+                    request_id=request_id,
+                    user_id=user_id,
+                    project_seed_payload=project_seed_dict,
+                )
+            except Exception as exc:  # noqa: BLE001
+                self._status_setter(request_id, "failed")
+                self._error_store(request_id, f"Не удалось зафиксировать snapshot УП: {str(exc)}")
+                self._workflow_service.mark_failed(
+                    request_id=request_id,
+                    user_id=user_id,
+                    error=f"Не удалось зафиксировать snapshot УП: {str(exc)}",
+                )
+                raise GenerationServiceError(
+                    500,
+                    "Не удалось зафиксировать snapshot учебного проекта перед генерацией",
+                ) from exc
+
             workflow_profile = resolve_workflow_profile(project_seed_dict)
             workflow_profile_data = workflow_profile_payload(workflow_profile)
             self._workflow_service.create(
@@ -254,3 +275,21 @@ class GenerationStartService:
             return list(track_files)
         except (TypeError, ValueError):
             return []
+
+    async def _record_curriculum_project_run(
+        self,
+        *,
+        request_id: str,
+        user_id: str,
+        project_seed_payload: dict[str, Any],
+    ) -> None:
+        if self._curriculum_run_recorder is None:
+            return
+        await asyncio.to_thread(
+            self._curriculum_run_recorder,
+            request_id=request_id,
+            user_id=user_id,
+            seed_payload=project_seed_payload,
+            status="pending",
+            stage="queued",
+        )

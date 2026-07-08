@@ -63,7 +63,7 @@ def test_intake_post_empty_brief_is_400(client: TestClient) -> None:
 
 
 def test_intake_post_file_upload_creates_job(client: TestClient) -> None:
-    payload = "Разработчик бэкенда: Python, FastAPI, PostgreSQL.".encode("utf-8")
+    payload = "Разработчик бэкенда: Python, FastAPI, PostgreSQL.".encode()
     r = client.post(
         f"{_PREFIX}/intake",
         files={"brief_file": ("brief.txt", io.BytesIO(payload), "text/plain")},
@@ -75,7 +75,7 @@ def test_intake_post_file_upload_creates_job(client: TestClient) -> None:
 
 def _seed_job(client: TestClient, *, status: str = "queued", result_payload=None) -> int:
     from content_factory.catalog.db import open_catalog_connection
-    from content_factory.catalog.viewer.app import create_intake_job
+    from content_factory.catalog.viewer.intake_ops import create_intake_job
 
     conn = open_catalog_connection("unused-on-postgres")
     try:

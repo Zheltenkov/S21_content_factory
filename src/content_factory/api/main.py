@@ -27,6 +27,7 @@ from content_factory.api.routers import (
     auditor,
     auth,
     curriculum,
+    curriculum_projects,
     download,
     excel_parser,
     generation,
@@ -92,7 +93,13 @@ app.add_middleware(ActivityTrackingMiddleware, update_interval_seconds=update_in
 # Browser-mounted tools use normal navigation, so they receive the shared auth cookie.
 app.add_middleware(
     ToolAuthCookieMiddleware,
-    protected_prefixes=("/app/auditor", "/app/check", "/app/curriculum", "/app/spravochnik"),
+    protected_prefixes=(
+        "/app/auditor",
+        "/app/check",
+        "/app/curriculum",
+        "/app/learning-projects",
+        "/app/spravochnik",
+    ),
     # Catalog mutations (intake, reviews, admin, curriculum-plan edits) require the
     # admin role; read-only catalog pages stay open to any authenticated user.
     admin_write_prefixes=("/app/spravochnik",),
@@ -216,6 +223,18 @@ if static_dir.exists():
         """Учебный план живёт в контуре справочника."""
         return RedirectResponse("/app/spravochnik/up", status_code=303)
 
+    @app.get("/app/learning-projects")
+    async def read_app_learning_projects() -> Response:
+        """Операционный контур генерации проектов из утвержденного УП."""
+        learning_projects_path = static_path / "learning-projects.html"
+        if not learning_projects_path.exists():
+            logger.error(f"❌ Файл learning-projects.html не найден: {learning_projects_path}")
+            return JSONResponse(
+                status_code=500,
+                content={"detail": f"Файл learning-projects.html не найден: {learning_projects_path}"}
+            )
+        return FileResponse(str(learning_projects_path), headers={"Cache-Control": "no-store"})
+
     @app.get("/app/spravochnik")
     @app.get("/app/spravochnik/")
     async def read_app_spravochnik() -> Response:
@@ -263,6 +282,7 @@ app.include_router(readme_check.router, prefix="/api/v1", tags=["readme-check"])
 app.include_router(readme_improvement.router, prefix="/api/v1", tags=["readme-improvement"])
 app.include_router(readme_translate.router, prefix="/api/v1", tags=["readme-translate"])
 app.include_router(curriculum.router, prefix="/api/v1", tags=["curriculum"])
+app.include_router(curriculum_projects.router, prefix="/api/v1", tags=["curriculum-projects"])
 
 # Limiter уже настроен в generation.py через декоратор
 

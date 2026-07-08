@@ -3,8 +3,8 @@
 import sqlite3
 from typing import Any
 
+from content_factory.catalog.db import table_exists
 from content_factory.catalog.db.pg_compat import PgConnection, is_postgres_connection
-from content_factory.catalog.viewer.app import table_exists
 
 
 class _FakeCursor:

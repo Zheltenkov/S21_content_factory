@@ -13,8 +13,11 @@ src/content_factory/catalog/
   web/
     routers/intake.py         # FastAPI transport for /app/spravochnik/intake*
     routers/reviews.py        # FastAPI transport for /app/spravochnik/reviews*
+src/content_factory/api/
+  routers/curriculum_projects.py      # /api/v1/curriculum-projects/* operational overlay
+  db/curriculum_project_runs_db.py    # snapshot/run status, без мутации канонического УП
 migrations/
-  014-017                     # Postgres schema for catalog/intake/DAG/curriculum
+  014-018                     # Postgres schema for catalog/intake/DAG/curriculum + UP generation runs
 ```
 
 ## Как это работает сейчас
@@ -27,6 +30,9 @@ migrations/
    - `entity_type = skill`
    - `atomicity = atomic`
    - `decision = accepted`
+6. После утверждения УП раздел `/app/learning-projects` показывает projects cockpit:
+   readiness gate, snapshot lineage, историю генераций и переход в `/app/generate`
+   для одного проекта. Runtime-статусы не записываются в таблицы канонического УП.
 
 ## Ключевой инвариант
 Схема каталога/intake управляется Alembic-миграциями. Runtime preflight в

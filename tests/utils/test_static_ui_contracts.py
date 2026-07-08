@@ -31,6 +31,7 @@ def test_dashboard_mode_cards_use_direct_links_instead_of_js_only_navigation():
         "/app/auditor",
         "/app/translate",
         "/app/curriculum",
+        "/app/learning-projects",
         "/app/spravochnik",
     ]
     for target in expected_targets:
@@ -70,6 +71,23 @@ def test_native_up_router_mirrors_curriculum_after_mutations():
     assert "_redirect_synced" not in detail_src
 
 
+def test_active_code_does_not_import_legacy_catalog_viewer_app():
+    offenders = []
+    import_pattern = re.compile(
+        r"^\s*(?:from\s+content_factory\.catalog\.viewer\.app\s+import|import\s+content_factory\.catalog\.viewer\.app)",
+        re.M,
+    )
+    for root in [PKG, ROOT / "tests"]:
+        for path in root.rglob("*.py"):
+            if path == PKG / "catalog" / "viewer" / "app.py":
+                continue
+            text = path.read_text(encoding="utf-8")
+            if import_pattern.search(text):
+                offenders.append(str(path.relative_to(ROOT)))
+
+    assert offenders == []
+
+
 def test_markdown_preview_loads_heavy_vendors_lazily_from_local_static():
     html = (ROOT / "static" / "checker.html").read_text(encoding="utf-8")
     renderer = (ROOT / "static" / "js" / "modules" / "markdownRendering.js").read_text(encoding="utf-8")
@@ -99,7 +117,15 @@ def test_app_pages_enable_safe_navigation_prefetch():
 
 def test_protected_pages_use_central_auth_session_guard():
     auth_js = (ROOT / "static" / "js" / "utils" / "authSession.js").read_text(encoding="utf-8")
-    for page_name in ["app.html", "index.html", "auditor.html", "checker.html", "translator.html", "instruction.html"]:
+    for page_name in [
+        "app.html",
+        "index.html",
+        "auditor.html",
+        "checker.html",
+        "translator.html",
+        "instruction.html",
+        "learning-projects.html",
+    ]:
         html = (ROOT / "static" / page_name).read_text(encoding="utf-8")
         assert "/static/js/utils/authSession.js?v=20260702-auth-cookie-sync" in html
 
@@ -110,6 +136,7 @@ def test_protected_pages_use_central_auth_session_guard():
     assert "await ensureNavigationCookie();\n                return true;" in auth_js
     assert "'/app/auditor'" in auth_js
     assert "'/app/curriculum'" in auth_js
+    assert "'/app/learning-projects'" in auth_js
     assert "'/app/spravochnik'" in auth_js
     assert "response.status === 401" in auth_js
     assert "clearAuthState" in auth_js
@@ -132,6 +159,35 @@ def test_auth_router_exposes_navigation_cookie_sync_routes():
     assert ("/auth/me", "GET") in routes
     assert ("/session-cookie", "POST") in routes
     assert ("/auth/session-cookie", "POST") in routes
+
+
+def test_learning_projects_cockpit_is_wired_without_mutating_up_document():
+    main_py = (PKG / "api" / "main.py").read_text(encoding="utf-8")
+    app_html = (ROOT / "static" / "app.html").read_text(encoding="utf-8")
+    page_html = (ROOT / "static" / "learning-projects.html").read_text(encoding="utf-8")
+    page_js = (ROOT / "static" / "js" / "modules" / "learningProjects.js").read_text(encoding="utf-8")
+    curriculum_js = (ROOT / "static" / "js" / "modules" / "curriculumForm.js").read_text(encoding="utf-8")
+    models_py = (PKG / "api" / "db" / "models.py").read_text(encoding="utf-8")
+
+    assert '@app.get("/app/learning-projects")' in main_py
+    assert "curriculum_projects.router" in main_py
+    assert 'href="/app/learning-projects"' in app_html
+    assert "Учебные проекты" in app_html
+    assert "/static/js/modules/learningProjects.js?v=20260708-operational-up" in page_html
+    assert 'id="learningProjectStatusFilter"' in page_html
+    assert 'id="learningProjectSearch"' in page_html
+    assert "/curriculum-projects/plans" in page_js
+    assert "sessionStorage.setItem('generation_state'" in page_js
+    assert "function renderGenerationHistory" in page_js
+    assert "function renderFilteredProjects" in page_js
+    assert "generation_history" in page_js
+    assert "pipeline_run_id" in page_js
+    assert "/app/spravochnik/reviews?status=open" in page_js
+    assert "plan_id" in page_js
+    assert "project_order" in page_js
+    assert "function applyCurriculumDeepLink" in curriculum_js
+    assert "curriculum_project_snapshots" in models_py
+    assert "curriculum_project_generation_runs" in models_py
 
 
 def test_markdown_renderer_cache_version_matches_diagram_fit():
