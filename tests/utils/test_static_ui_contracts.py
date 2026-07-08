@@ -336,6 +336,7 @@ def test_translator_accepts_common_document_upload_formats():
     html = (ROOT / "static" / "translator.html").read_text(encoding="utf-8")
     js = (ROOT / "static" / "js" / "modules" / "translationPage.js").read_text(encoding="utf-8")
     router = (PKG / "api" / "routers" / "readme_translate.py").read_text(encoding="utf-8")
+    doc_service = (PKG / "api" / "routers" / "document_translation.py").read_text(encoding="utf-8")
 
     assert 'accept=".md,.markdown,.txt,.html,.htm,.docx,.pdf"' in html
     assert "TXT, Markdown, HTML, DOCX, PDF" in html
@@ -345,7 +346,8 @@ def test_translator_accepts_common_document_upload_formats():
     assert "/translate/document" in js
     assert "TRANSLATION_CLIENT_READABLE_EXTENSIONS" in js
     assert "@router.post(\"/translate/document\"" in router
-    assert "TRANSLATION_DOCUMENT_EXTENSIONS = {\".md\", \".markdown\", \".txt\", \".html\", \".htm\", \".docx\", \".pdf\"}" in router
+    # The document extraction service (extensions constant) was extracted out of the router.
+    assert "TRANSLATION_DOCUMENT_EXTENSIONS = {\".md\", \".markdown\", \".txt\", \".html\", \".htm\", \".docx\", \".pdf\"}" in doc_service
 
 
 def test_checker_heading_uses_generic_readme_copy():
