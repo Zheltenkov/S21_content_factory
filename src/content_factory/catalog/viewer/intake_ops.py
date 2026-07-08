@@ -2065,47 +2065,22 @@ def extract_brief_text_from_bytes(data: bytes, suffix: str) -> str:
     raise ValueError("Поддерживаются только файлы .txt, .md, .csv и .docx.")
 
 
-def load_brief_text_from_path(file_path_raw: str) -> tuple[str, str]:
-    file_path = Path(file_path_raw.strip().strip('"')).expanduser()
-    if not file_path.exists():
-        raise ValueError(f"Файл не найден: {file_path}")
-    if not file_path.is_file():
-        raise ValueError(f"Указанный путь не является файлом: {file_path}")
-
-    suffix = file_path.suffix.casefold()
-    data = file_path.read_bytes()
-    return extract_brief_text_from_bytes(data, suffix), file_path.name
-
-
-def normalize_existing_brief_file_path(file_path_raw: str | None) -> str:
-    if not file_path_raw:
-        return ""
-    file_path = Path(file_path_raw.strip().strip('"')).expanduser()
-    if not file_path.exists() or not file_path.is_file():
-        return ""
-    return str(file_path)
-
-
 def load_brief_text(
     form_data: dict[str, str],
     files: dict[str, UploadedFile],
 ) -> tuple[str, str | None, str, str | None]:
+    """Resolve the intake brief from an uploaded file or pasted text.
+
+    Server-side filesystem paths are intentionally NOT accepted here: reading an
+    arbitrary process-local path from web form data was a local file-disclosure
+    vector, so only multipart upload (``brief_file``) and pasted ``brief`` text are
+    supported. The 4th tuple element (legacy ``file_path``) is always ``None``.
+    """
     uploaded_file = files.get("brief_file")
     if uploaded_file:
         suffix = Path(uploaded_file.filename).suffix.casefold()
         brief_text = extract_brief_text_from_bytes(uploaded_file.data, suffix)
         return brief_text, uploaded_file.filename, "file", None
-
-    file_path_raw = form_data.get("brief_file_path", "").strip()
-    if file_path_raw:
-        try:
-            brief_text, source_name = load_brief_text_from_path(file_path_raw)
-            return brief_text, source_name, "file", file_path_raw
-        except ValueError:
-            brief_text = form_data.get("brief", "").strip()
-            if brief_text:
-                return brief_text, None, "text", None
-            raise
 
     brief_text = form_data.get("brief", "").strip()
     if brief_text:

@@ -31,7 +31,6 @@ from content_factory.catalog.viewer.intake_ops import (
     hydrate_job_result_payload,
     list_recent_intake_jobs,
     load_brief_text,
-    normalize_existing_brief_file_path,
     queue_intake_job,
 )
 from content_factory.catalog.viewer.labels import intake_job_status_label, intake_stage_label
@@ -94,7 +93,6 @@ def intake_get(conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
         {
             "title": "Бриф",
             "brief": "",
-            "brief_file_path": "",
             "job": None,
             "recent_jobs": list_recent_intake_jobs(conn),
             "result": None,
@@ -116,7 +114,6 @@ async def intake_post(request: Request, conn: CatalogConnection = Depends(get_co
             {
                 "title": "Бриф",
                 "brief": form_data.get("brief", ""),
-                "brief_file_path": normalize_existing_brief_file_path(form_data.get("brief_file_path", "")),
                 "job": None,
                 "recent_jobs": list_recent_intake_jobs(conn),
                 "result": None,
@@ -131,7 +128,6 @@ async def intake_post(request: Request, conn: CatalogConnection = Depends(get_co
             {
                 "title": "Бриф",
                 "brief": "",
-                "brief_file_path": normalize_existing_brief_file_path(form_data.get("brief_file_path", "")),
                 "job": None,
                 "recent_jobs": list_recent_intake_jobs(conn),
                 "result": None,
@@ -336,7 +332,6 @@ def intake_job_detail(job_id: int, conn: CatalogConnection = Depends(get_conn)) 
         {
             "title": f"Бриф #{job_id}",
             "brief": job.get("brief_text", ""),
-            "brief_file_path": normalize_existing_brief_file_path(job.get("file_path", "")),
             "job": job,
             "recent_jobs": list_recent_intake_jobs(conn),
             "result": result,

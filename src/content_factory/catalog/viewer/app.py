@@ -138,10 +138,8 @@ from content_factory.catalog.viewer.intake_ops import (
     load_brief_catalog_promotion_summary,  # noqa: F401
     load_brief_spec_for_plan,  # noqa: F401
     load_brief_text,  # noqa: F401
-    load_brief_text_from_path,  # noqa: F401
     load_nearest_skill_preview,  # noqa: F401
     load_prerequisite_edge_decisions,  # noqa: F401
-    normalize_existing_brief_file_path,  # noqa: F401
     parse_review_details_json,  # noqa: F401
     prune_empty_generated_catalog_nodes,  # noqa: F401
     queue_intake_job,  # noqa: F401
