@@ -894,37 +894,18 @@ async def build_curriculum_context(
                 "user_id": user.get("id"),
             }
 
-        # Восстанавливаем CurriculumPlan из данных
-        blocks = []
-        for block_data in request.curriculum_data.get("blocks", []):
-            projects = [
-                CurriculumProject(
-                    block_name=block_data["name"],
-                    block_goals=block_data.get("goals", []),
-                    **p,
-                )
-                for p in block_data.get("projects", [])
-            ]
-            blocks.append(ThematicBlock(
-                name=block_data["name"],
-                code=block_data.get("code", "UNK"),
-                goals=block_data.get("goals", []),
-                projects=projects
-            ))
-
-        curriculum = CurriculumPlan(
-            direction=request.curriculum_data.get("direction", "Unknown"),
-            direction_code=request.curriculum_data.get("direction_code", "UNK"),
-            blocks=blocks
+        # Без source_plan_id контекст строился бы из ad-hoc curriculum_data в обход
+        # контракта (нет plan_hash / readiness / lineage). Это дыра: любой клиент мог
+        # бы сгенерировать проект из непроверенного, несохранённого плана. Отклоняем —
+        # генерация обязана идти от сохранённого проверенного УП.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Генерация требует сохранённый учебный план: передайте source_plan_id "
+                "(или plan_id) сохранённого УП. Контекст из ad-hoc curriculum_data не "
+                "поддерживается — план должен пройти сохранение и проверку готовности."
+            ),
         )
-
-        # Строим контекст
-        context = curriculum.build_context(request.block_name, request.project_order)
-
-        if not context:
-            raise HTTPException(404, f"Проект #{request.project_order} в блоке '{request.block_name}' не найден")
-
-        return context.model_dump()
 
     except HTTPException:
         raise

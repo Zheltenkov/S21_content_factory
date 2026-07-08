@@ -47,7 +47,9 @@ def test_curriculum_router_exposes_persisted_plan_routes():
 def test_spravochnik_plan_payload_converts_to_generator_contract():
     """Payload УП из справочника превращается в блоки и проекты генератора."""
 
-    from content_factory.api.integrations.spravochnik_curriculum_sync import convert_spravochnik_plan_to_generator_curriculum
+    from content_factory.api.integrations.spravochnik_curriculum_sync import (
+        convert_spravochnik_plan_to_generator_curriculum,
+    )
 
     data = convert_spravochnik_plan_to_generator_curriculum(
         {
@@ -296,45 +298,28 @@ class TestCurriculumUpload:
 
         assert response.status_code == 400
 
-    def test_curriculum_context_building(self, client):
-        """Проверка построения контекста для генерации."""
+    def test_build_context_rejects_ad_hoc_without_source_plan_id(self, client):
+        """build-context без source_plan_id (ad-hoc curriculum_data) отклоняется 400.
+
+        Генерация обязана идти от сохранённого проверенного УП (freeze/readiness
+        contract); ad-hoc-путь обходил бы plan_hash/readiness/lineage. Структуру
+        контекста на уровне модели покрывает test_curriculum_plan_build_context."""
         csv_bytes = SAMPLE_CSV_CONTENT.encode('utf-8-sig')
         files = {"file": ("curriculum.csv", BytesIO(csv_bytes), "text/csv")}
 
-        # Загружаем УП
         response = client.post("/api/v1/curriculum/upload", files=files)
         assert response.status_code == 200
-        curriculum_data = response.json()
+        curriculum_data = response.json()  # no source_plan_id (not persisted)
 
-        # Строим контекст для второго проекта первого блока
         context_request = {
             "block_name": curriculum_data["blocks"][0]["name"],
             "project_order": 2,
-            "curriculum_data": curriculum_data
+            "curriculum_data": curriculum_data,
         }
 
         response = client.post("/api/v1/curriculum/build-context", json=context_request)
-        assert response.status_code == 200
-
-        context = response.json()
-
-        # Проверяем структуру контекста
-        assert context["block_name"] == curriculum_data["blocks"][0]["name"]
-        assert context["current_project_order"] == 2
-        assert "current_project_description" in context
-        assert "current_project_skills" in context
-        assert "current_project_audience_level" in context
-        assert "current_project_required_tools" in context
-
-        # У второго проекта должен быть один предыдущий проект
-        assert len(context["previous_projects"]) == 1
-        assert context["previous_projects"][0]["order"] == 1
-
-        # У второго проекта в первом блоке нет следующих проектов
-        assert len(context["next_projects"]) == 0
-
-        # Проверяем кросс-блочные связи (должны быть проекты из следующего блока)
-        assert len(context["next_block_projects"]) >= 1
+        assert response.status_code == 400
+        assert "source_plan_id" in response.json()["detail"]
 
 
 class TestCurriculumModels:
