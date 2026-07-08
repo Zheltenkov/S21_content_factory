@@ -58,6 +58,12 @@ def _normalize_catalog_key(value: str) -> str:
     return re.sub(r"\s+", " ", normalized)
 
 
+def _slug_catalog_key(value: str) -> str:
+    normalized = _normalize_catalog_key(value)
+    slug = "-".join(part for part in normalized.split() if part)
+    return slug or "item"
+
+
 def _as_dict(value: Any) -> dict[str, Any]:
     """Return value when it is a dict, else an empty dict (JSON payload guard)."""
     return value if isinstance(value, dict) else {}
