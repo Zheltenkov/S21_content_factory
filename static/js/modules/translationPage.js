@@ -583,7 +583,8 @@
                                 if (window.sanitize) {
                                     window.sanitize.safeSetErrorMessage(status, `Ошибка перевода: ${errMsg}`);
                                 } else {
-                                    status.innerHTML = `<div class="error-msg">Ошибка перевода: ${errMsg}</div>`;
+                                    // Safe fallback: textContent auto-escapes the server-provided message.
+                                    status.textContent = `Ошибка перевода: ${errMsg}`;
                                 }
                             }
                             if (window.toast) window.toast.error(errMsg);
@@ -652,7 +653,8 @@
                                 if (window.sanitize) {
                                     window.sanitize.safeSetHTML(status, '<div class="success-msg">' + (isVideoResult ? 'Субтитры готовы' : 'Перевод завершён') + '</div>');
                                 } else {
-                                    status.innerHTML = '<div class="success-msg">' + (isVideoResult ? 'Субтитры готовы' : 'Перевод завершён') + '</div>';
+                                    // Safe fallback: plain text avoids any unsanitized HTML injection.
+                                    status.textContent = isVideoResult ? 'Субтитры готовы' : 'Перевод завершён';
                                 }
                             }
                             if (window.toast) window.toast.success(isVideoResult ? 'Субтитры успешно сгенерированы' : 'Перевод успешно выполнен');
@@ -669,7 +671,8 @@
                                 if (window.sanitize) {
                                     window.sanitize.safeSetErrorMessage(status, `Ошибка перевода: ${errMsg}`);
                                 } else {
-                                    status.innerHTML = `<div class="error-msg">Ошибка перевода: ${errMsg}</div>`;
+                                    // Safe fallback: textContent auto-escapes the server-provided message.
+                                    status.textContent = `Ошибка перевода: ${errMsg}`;
                                 }
                             }
                             if (window.toast) window.toast.error(errMsg);
@@ -689,7 +692,8 @@
                     if (window.sanitize) {
                         window.sanitize.safeSetErrorMessage(status, `Ошибка перевода: ${error.message}`);
                     } else {
-                        status.innerHTML = `<div class="error-msg">Ошибка перевода: ${error.message}</div>`;
+                        // Safe fallback: textContent auto-escapes the exception message.
+                        status.textContent = `Ошибка перевода: ${error.message}`;
                     }
                 }
                 if (window.toast) {
