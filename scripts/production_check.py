@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_ENV_KEYS = {
@@ -41,6 +40,13 @@ OPTIONAL_MISSING_ENV_KEYS = {
 STALE_KEY_PREFIXES = ("RAG_", "OPEN_ROUTER_", "OPENROUTER_")
 KNOWN_STALE_KEYS = {"ACCESS_PASSWORD", "OPENAI_USE_RESPONSES"}
 GENERATED_SECRET_KEYS = {"JWT_SECRET_KEY"}
+
+# Hardcoded fallback secrets that must never reach any deployed environment.
+INSECURE_JWT_DEFAULTS = {"your-secret-key-change-in-production"}
+# Values treated as "on" for boolean env flags (mirrors runtime parsing).
+TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
+# ENVIRONMENT values that switch on the production security gate.
+PRODUCTION_ENV_VALUES = {"production", "prod"}
 
 IMPORT_CHECKS = {
     "pydantic[email]": "pydantic",
@@ -235,6 +241,9 @@ def check_env_files(
     if missing_required:
         report.error(f"Required production env values are empty/placeholders: {', '.join(missing_required)}")
 
+    if env.get("JWT_SECRET_KEY", "").strip() in INSECURE_JWT_DEFAULTS:
+        report.error("JWT_SECRET_KEY is set to a known insecure default; generate a strong secret")
+
     active_provider = _active_llm_provider(env)
     active_provider_keys = PROVIDER_REQUIRED_ENV_KEYS.get(active_provider, ())
     if not any(not _is_placeholder(env.get(key, "")) for key in active_provider_keys):
@@ -316,6 +325,38 @@ def _check_mermaid_env(report: CheckReport, mode: str) -> None:
         report.warn("MERMAID_EXPORT_MODE uses remote rendering; keep 'none' or 'local' for isolated production")
 
 
+def _is_truthy(value: str) -> bool:
+    return value.strip().lower() in TRUTHY_ENV_VALUES
+
+
+def _is_production(env: dict[str, str], force_production: bool) -> bool:
+    """Production is signalled by --production or ENVIRONMENT=production in .env."""
+    if force_production:
+        return True
+    return env.get("ENVIRONMENT", "").strip().lower() in PRODUCTION_ENV_VALUES
+
+
+def check_production_security(report: CheckReport, env: dict[str, str], force_production: bool) -> None:
+    """Hard-fail on unsafe auth/secret/cookie config when targeting production.
+
+    These are advisory outside production so the dev ``.env`` (auth bypass on,
+    non-secure cookies) still passes the check locally.
+    """
+    if not _is_production(env, force_production):
+        report.ok("Environment is non-production; auth/cookie hardening checks are advisory")
+        return
+
+    if _is_truthy(env.get("DISABLE_AUTH", "false")):
+        report.error("DISABLE_AUTH must not be enabled in production (authentication bypass)")
+    if not _is_truthy(env.get("AUTH_COOKIE_SECURE", "false")):
+        report.error("AUTH_COOKIE_SECURE must be true in production (auth cookie must be HTTPS-only)")
+    if _is_truthy(env.get("RELOAD", "false")):
+        report.error("RELOAD must be false in production")
+    jwt_value = env.get("JWT_SECRET_KEY", "").strip()
+    if jwt_value in INSECURE_JWT_DEFAULTS or _is_placeholder(jwt_value):
+        report.error("JWT_SECRET_KEY must be a strong non-default secret in production")
+
+
 def check_imports(report: CheckReport) -> None:
     """Verify that runtime packages from requirements can be imported."""
     missing: list[str] = []
@@ -356,8 +397,9 @@ def run_checks(args: argparse.Namespace) -> CheckReport:
         dedupe_env=args.dedupe_env,
     )
     check_imports(report)
+    env, _ = parse_env_file(PROJECT_ROOT / ".env")
+    check_production_security(report, env, force_production=args.production)
     if args.check_db:
-        env, _ = parse_env_file(PROJECT_ROOT / ".env")
         check_database_connection(report, env.get("DATABASE_URL", ""), args.db_timeout)
     return report
 
@@ -375,6 +417,11 @@ def print_report(report: CheckReport) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Check production readiness without printing secrets.")
     parser.add_argument("--check-db", action="store_true", help="Run SELECT 1 against DATABASE_URL.")
+    parser.add_argument(
+        "--production",
+        action="store_true",
+        help="Enforce production security (fail on DISABLE_AUTH, insecure cookie, default/placeholder secret, RELOAD).",
+    )
     parser.add_argument("--db-timeout", type=int, default=3, help="PostgreSQL connect timeout in seconds.")
     parser.add_argument(
         "--write-missing-defaults",
