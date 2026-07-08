@@ -106,6 +106,13 @@ from content_factory.catalog.viewer.intake_brief_io import (
     extract_docx_text,  # noqa: F401
     load_brief_text,  # noqa: F401
 )
+from content_factory.catalog.viewer.intake_jobs import (
+    create_intake_job,  # noqa: F401
+    get_intake_job,  # noqa: F401
+    get_intake_job_brief_id,  # noqa: F401
+    list_recent_intake_jobs,  # noqa: F401
+    update_intake_job,  # noqa: F401
+)
 from content_factory.catalog.viewer.intake_ops import (
     _reason_set,  # noqa: F401
     apply_brief_catalog_decisions,  # noqa: F401
@@ -124,18 +131,14 @@ from content_factory.catalog.viewer.intake_ops import (
     count_open_candidate_competencies,  # noqa: F401
     count_open_prerequisite_edge_reviews_for_brief,  # noqa: F401
     count_open_skill_reviews_for_brief,  # noqa: F401
-    create_intake_job,  # noqa: F401
     ensure_intake_runtime_schema,  # noqa: F401
     execute_intake_job,  # noqa: F401
     format_prerequisite_edge_review,  # noqa: F401
     get_brief_catalog_apply_state,  # noqa: F401
     get_brief_dag_state,  # noqa: F401
-    get_intake_job,  # noqa: F401
-    get_intake_job_brief_id,  # noqa: F401
     get_latest_job_id_for_brief,  # noqa: F401
     hydrate_job_result_payload,  # noqa: F401
     list_dag_build_options,  # noqa: F401
-    list_recent_intake_jobs,  # noqa: F401
     list_reviews,  # noqa: F401
     load_accepted_skill_candidates,  # noqa: F401
     load_brief_catalog_promotion_summary,  # noqa: F401
@@ -152,7 +155,6 @@ from content_factory.catalog.viewer.intake_ops import (
     save_prerequisite_edge_decision,  # noqa: F401
     split_edge_label,  # noqa: F401
     split_review_reason_codes,  # noqa: F401
-    update_intake_job,  # noqa: F401
     update_jobs_catalog_payload,  # noqa: F401
     update_jobs_dag_payload,  # noqa: F401
     update_review_status,  # noqa: F401
