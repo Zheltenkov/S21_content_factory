@@ -1,6 +1,7 @@
 """Offline evaluation harness for generated educational projects."""
 
 from .dataset import load_generated_outputs, load_golden_dataset
+from .gate import evaluation_gate_failures
 from .models import (
     EvalCaseResult,
     EvalMetricBreakdown,
@@ -31,6 +32,7 @@ __all__ = [
     "EvalRunSummary",
     "EvalThresholds",
     "EvaluationHarness",
+    "evaluation_gate_failures",
     "GeneratedProjectOutput",
     "GoldenDataset",
     "GoldenProjectCase",
