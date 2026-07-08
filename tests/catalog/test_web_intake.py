@@ -63,7 +63,7 @@ def test_intake_post_empty_brief_is_400(client: TestClient) -> None:
 
 
 def test_intake_post_file_upload_creates_job(client: TestClient) -> None:
-    payload = "Разработчик бэкенда: Python, FastAPI, PostgreSQL.".encode("utf-8")
+    payload = "Разработчик бэкенда: Python, FastAPI, PostgreSQL.".encode()
     r = client.post(
         f"{_PREFIX}/intake",
         files={"brief_file": ("brief.txt", io.BytesIO(payload), "text/plain")},

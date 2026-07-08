@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from content_factory.catalog.viewer.intake_worker import (
@@ -101,6 +102,17 @@ def test_reclaim_fails_when_attempts_exhausted(catalog_conn: Any) -> None:
     assert _job(catalog_conn, job_id)["status"] == "failed"
 
 
+def test_reclaim_requeues_legacy_running_job_without_lease(catalog_conn: Any) -> None:
+    # A job left 'running' before the lease columns existed (or by a crash mid-claim)
+    # has a NULL lease and must still be reclaimed on restart.
+    job_id = _create_job(catalog_conn, status="running")
+    assert _job(catalog_conn, job_id)["lease_expires_at"] is None
+
+    result = reclaim_expired_intake_jobs(catalog_conn, max_attempts=3)
+    assert result == {"requeued": 1, "failed": 0}
+    assert _job(catalog_conn, job_id)["status"] == "pending"
+
+
 def test_reclaim_ignores_live_leases(catalog_conn: Any) -> None:
     job_id = _create_job(catalog_conn)
     claim_intake_job(catalog_conn, job_id, "worker-a")  # live lease, not expired
@@ -108,3 +120,21 @@ def test_reclaim_ignores_live_leases(catalog_conn: Any) -> None:
     result = reclaim_expired_intake_jobs(catalog_conn, max_attempts=3)
     assert result == {"requeued": 0, "failed": 0}
     assert _job(catalog_conn, job_id)["status"] == "running"
+
+
+def test_dispatch_pending_submits_only_pending_jobs(catalog_conn: Any, monkeypatch: Any) -> None:
+    from content_factory.catalog.viewer import intake_ops
+
+    submitted: list[int] = []
+    monkeypatch.setattr(
+        intake_ops.INTAKE_EXECUTOR,
+        "submit",
+        lambda _fn, _db_path, job_id: submitted.append(job_id),
+    )
+    pending_a = _create_job(catalog_conn, status="pending")
+    _create_job(catalog_conn, status="running")  # not pending -> not dispatched
+    pending_b = _create_job(catalog_conn, status="pending")
+
+    intake_ops._dispatch_pending_intake_jobs(catalog_conn, Path("unused-on-postgres"))
+
+    assert sorted(submitted) == sorted([pending_a, pending_b])

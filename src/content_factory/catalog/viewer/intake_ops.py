@@ -19,6 +19,7 @@ import hashlib
 import io
 import json
 import re
+import threading
 import xml.etree.ElementTree as ET
 import zipfile
 from collections import defaultdict
@@ -44,7 +45,6 @@ from content_factory.catalog.viewer._common import (
     format_catalog_similarity,
     format_percent,
     parse_brief_id,
-    parse_iso_datetime,
     parse_optional_float,
     table_columns,
     table_exists,
@@ -53,6 +53,14 @@ from content_factory.catalog.viewer._common import (
 from content_factory.catalog.viewer.curriculum_ops import (
     build_deferred_curriculum_plan_payload,
     update_jobs_curriculum_plan_payload,
+)
+from content_factory.catalog.viewer.intake_worker import (
+    HEARTBEAT_INTERVAL_SECONDS,
+    claim_intake_job,
+    heartbeat_intake_job,
+    reclaim_expired_intake_jobs,
+    release_intake_job,
+    worker_identity,
 )
 from content_factory.catalog.viewer.labels import (
     intake_job_status_label,
@@ -71,7 +79,6 @@ if TYPE_CHECKING:
 
 INTAKE_SCHEMA_READY: set[str] = set()
 INTAKE_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="intake")
-ACTIVE_INTAKE_JOB_IDS: set[int] = set()
 INTAKE_STALE_TIMEOUT_SECONDS = 180
 
 
@@ -304,14 +311,43 @@ def load_nearest_skill_preview(conn: CatalogConnection, skill_id: int | None, in
     return preview
 
 
-def ensure_intake_runtime_schema(conn: CatalogConnection, db_path: Path) -> None:
-    """Per-request intake pre-flight. The catalog schema is Postgres/alembic-managed,
-    so this only runs the runtime repairs: a one-time review-link repair per database
-    plus stale-intake-job recovery on every call."""
+def _ensure_intake_review_schema(conn: CatalogConnection, db_path: Path) -> None:
+    """One-time-per-database review-link repair (schema readiness only).
+
+    Kept separate from the recovery path so the worker can call it without
+    triggering job re-dispatch (which would recurse)."""
     ready_key = _intake_schema_ready_key(db_path)
     if ready_key not in INTAKE_SCHEMA_READY:
         repair_intake_review_links(conn)
         INTAKE_SCHEMA_READY.add(ready_key)
+
+
+def _dispatch_pending_intake_jobs(conn: CatalogConnection, db_path: Path) -> None:
+    """Submit pending jobs to the executor — those reclaimed after a restart, or
+    created but not yet picked up. Idempotent: ``claim_intake_job`` gates double-run,
+    so a redundant submit is a fast no-op.
+
+    Intentionally NOT called per-request: a read page-load must not kick off intake
+    pipelines, and per-request submits would bypass tests that stub ``queue_intake_job``.
+    Wired into a background recovery poller in slice 3."""
+    if not table_exists(conn, "intake_job"):
+        return
+    rows = conn.execute(
+        "SELECT id FROM intake_job WHERE status = 'pending' ORDER BY created_at LIMIT 20"
+    ).fetchall()
+    for row in rows:
+        INTAKE_EXECUTOR.submit(execute_intake_job, db_path, int(row["id"]))
+
+
+def ensure_intake_runtime_schema(conn: CatalogConnection, db_path: Path) -> None:
+    """Per-request intake pre-flight (web): schema readiness + crashed-job recovery.
+
+    The catalog schema is Postgres/alembic-managed, so this runs the runtime repairs:
+    a one-time review-link repair per database, plus reclaim of jobs whose worker lease
+    expired (crash / app restart) — requeued for retry while attempts remain, else
+    failed, so in-flight work is never silently lost. The worker itself calls only
+    ``_ensure_intake_review_schema`` (no reclaim on every progress tick)."""
+    _ensure_intake_review_schema(conn, db_path)
     repair_stale_intake_jobs(conn)
 
 
@@ -398,50 +434,17 @@ def prune_empty_generated_catalog_nodes(conn: CatalogConnection) -> dict[str, in
 
 
 def repair_stale_intake_jobs(conn: CatalogConnection, stale_after_seconds: int = INTAKE_STALE_TIMEOUT_SECONDS) -> int:
+    """Recover intake jobs whose worker lease expired (crash / app restart).
+
+    Requeues them for retry while attempts remain, else fails them — so in-flight
+    work survives a restart instead of being silently dropped. Lease-based (see
+    ``intake_worker``); supersedes the old in-memory active-set + fixed-timeout
+    heuristic. ``stale_after_seconds`` is kept for signature/backward compatibility.
+    """
     if not table_exists(conn, "intake_job"):
         return 0
-
-    now = datetime.now(UTC)
-    rows = conn.execute(
-        """
-        SELECT id, status, current_stage, updated_at, started_at
-        FROM intake_job
-        WHERE status IN ('pending', 'running')
-        """
-    ).fetchall()
-
-    stale_ids: list[int] = []
-    for row in rows:
-        job_id = int(row["id"])
-        if job_id in ACTIVE_INTAKE_JOB_IDS:
-            continue
-        pivot = parse_iso_datetime(row["updated_at"]) or parse_iso_datetime(row["started_at"])
-        if pivot is None:
-            stale_ids.append(job_id)
-            continue
-        age_seconds = (now - pivot).total_seconds()
-        if age_seconds >= stale_after_seconds:
-            stale_ids.append(job_id)
-
-    if not stale_ids:
-        return 0
-
-    finished_at = utc_now_iso()
-    conn.executemany(
-        """
-        UPDATE intake_job
-        SET status = 'failed',
-            current_stage = 'failed',
-            progress_note = 'Обработка была прервана: активный worker не найден.',
-            error_text = 'Фоновая задача была потеряна после перезапуска приложения или сбоя worker-процесса.',
-            updated_at = ?,
-            finished_at = ?
-        WHERE id = ?
-        """,
-        [(finished_at, finished_at, job_id) for job_id in stale_ids],
-    )
-    conn.commit()
-    return len(stale_ids)
+    result = reclaim_expired_intake_jobs(conn)
+    return result["requeued"] + result["failed"]
 
 
 def create_intake_job(
@@ -2281,27 +2284,39 @@ def run_intake_pipeline(
 
 
 def execute_intake_job(db_path: Path, job_id: int) -> None:
-    ACTIVE_INTAKE_JOB_IDS.add(job_id)
+    owner = worker_identity()
     conn = open_catalog_connection(db_path)
+    heartbeat_stop = threading.Event()
+    heartbeat_thread: threading.Thread | None = None
     try:
-        ensure_intake_runtime_schema(conn, db_path)
+        _ensure_intake_review_schema(conn, db_path)
+        # Atomically take the lease. If another worker holds it (or the job is gone),
+        # do nothing — this is what prevents a double-run across workers/retries.
+        if not claim_intake_job(conn, job_id, owner):
+            return
         job = get_intake_job(conn, job_id)
         if not job:
+            release_intake_job(conn, job_id, owner)
             return
+        update_intake_job(conn, job_id, progress_note="Запуск intake-пайплайна.")
 
-        update_intake_job(
-            conn,
-            job_id,
-            status="running",
-            current_stage="starting",
-            progress_note="Запуск intake-пайплайна.",
-            mark_started=True,
+        def _run_heartbeat() -> None:
+            heartbeat_conn = open_catalog_connection(db_path)
+            try:
+                while not heartbeat_stop.wait(HEARTBEAT_INTERVAL_SECONDS):
+                    heartbeat_intake_job(heartbeat_conn, job_id, owner)
+            finally:
+                heartbeat_conn.close()
+
+        heartbeat_thread = threading.Thread(
+            target=_run_heartbeat, name=f"intake-hb-{job_id}", daemon=True
         )
+        heartbeat_thread.start()
 
         def progress(stage: str, note: str) -> None:
             worker_conn = open_catalog_connection(db_path)
             try:
-                ensure_intake_runtime_schema(worker_conn, db_path)
+                _ensure_intake_review_schema(worker_conn, db_path)
                 update_intake_job(worker_conn, job_id, current_stage=stage, progress_note=note)
             finally:
                 worker_conn.close()
@@ -2322,6 +2337,7 @@ def execute_intake_job(db_path: Path, job_id: int) -> None:
             result_payload=result,
             mark_finished=True,
         )
+        release_intake_job(conn, job_id, owner)
     except Exception as exc:
         update_intake_job(
             conn,
@@ -2332,13 +2348,18 @@ def execute_intake_job(db_path: Path, job_id: int) -> None:
             error_text=str(exc),
             mark_finished=True,
         )
+        try:
+            release_intake_job(conn, job_id, owner)
+        except Exception:
+            pass
     finally:
+        heartbeat_stop.set()
+        if heartbeat_thread is not None:
+            heartbeat_thread.join(timeout=5)
         conn.close()
-        ACTIVE_INTAKE_JOB_IDS.discard(job_id)
 
 
 def queue_intake_job(db_path: Path, job_id: int) -> None:
-    ACTIVE_INTAKE_JOB_IDS.add(job_id)
     INTAKE_EXECUTOR.submit(execute_intake_job, db_path, job_id)
 
 
@@ -2631,7 +2652,6 @@ def clear_intake_workspace(conn: CatalogConnection) -> dict[str, int]:
     if table_exists(conn, "profile_brief"):
         stats["profile_brief"] = conn.execute("DELETE FROM profile_brief").rowcount
 
-    ACTIVE_INTAKE_JOB_IDS.clear()
     prune_stats = prune_empty_generated_catalog_nodes(conn)
     stats.update({f"prune_{key}": value for key, value in prune_stats.items()})
     conn.commit()

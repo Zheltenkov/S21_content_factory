@@ -127,8 +127,7 @@ def reclaim_expired_intake_jobs(
             progress_note = 'Worker потерян; задача возвращена в очередь для повтора.',
             updated_at = ?
         WHERE status = 'running'
-          AND lease_expires_at IS NOT NULL
-          AND lease_expires_at < now()
+          AND (lease_expires_at IS NULL OR lease_expires_at < now())
           AND attempt_count < ?
         """,
         (now_iso, max_attempts),
@@ -145,8 +144,7 @@ def reclaim_expired_intake_jobs(
             updated_at = ?,
             finished_at = ?
         WHERE status = 'running'
-          AND lease_expires_at IS NOT NULL
-          AND lease_expires_at < now()
+          AND (lease_expires_at IS NULL OR lease_expires_at < now())
           AND attempt_count >= ?
         """,
         (now_iso, now_iso, max_attempts),
