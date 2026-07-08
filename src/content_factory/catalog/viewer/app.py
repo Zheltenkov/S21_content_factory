@@ -137,16 +137,9 @@ from content_factory.catalog.viewer.intake_jobs import (
     update_intake_job,  # noqa: F401
 )
 from content_factory.catalog.viewer.intake_ops import (
-    _reason_set,  # noqa: F401
-    build_candidate_recommended_action,  # noqa: F401
-    build_intake_workflow_steps,  # noqa: F401
-    build_intake_workspace_state,  # noqa: F401
-    build_similarity_hint,  # noqa: F401
     clear_intake_workspace,  # noqa: F401
     ensure_intake_runtime_schema,  # noqa: F401
     execute_intake_job,  # noqa: F401
-    hydrate_job_result_payload,  # noqa: F401
-    load_nearest_skill_preview,  # noqa: F401
     prune_empty_generated_catalog_nodes,  # noqa: F401
     queue_intake_job,  # noqa: F401
     repair_stale_intake_jobs,  # noqa: F401
@@ -164,6 +157,15 @@ from content_factory.catalog.viewer.intake_reviews import (
     split_edge_label,  # noqa: F401
     split_review_reason_codes,  # noqa: F401
     update_review_status,  # noqa: F401
+)
+from content_factory.catalog.viewer.intake_workspace import (
+    _reason_set,  # noqa: F401
+    build_candidate_recommended_action,  # noqa: F401
+    build_intake_workflow_steps,  # noqa: F401
+    build_intake_workspace_state,  # noqa: F401
+    build_similarity_hint,  # noqa: F401
+    hydrate_job_result_payload,  # noqa: F401
+    load_nearest_skill_preview,  # noqa: F401
 )
 from content_factory.catalog.viewer.labels import (
     edge_reason_label,  # noqa: F401  re-exported for catalog/web routers
