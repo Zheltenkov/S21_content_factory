@@ -128,35 +128,37 @@ from content_factory.catalog.viewer.intake_ops import (
     clear_brief_dag_artifacts,  # noqa: F401
     clear_intake_workspace,  # noqa: F401
     count_brief_template_proposals,  # noqa: F401
-    count_open_candidate_competencies,  # noqa: F401
-    count_open_prerequisite_edge_reviews_for_brief,  # noqa: F401
-    count_open_skill_reviews_for_brief,  # noqa: F401
     ensure_intake_runtime_schema,  # noqa: F401
     execute_intake_job,  # noqa: F401
-    format_prerequisite_edge_review,  # noqa: F401
     get_brief_catalog_apply_state,  # noqa: F401
     get_brief_dag_state,  # noqa: F401
     get_latest_job_id_for_brief,  # noqa: F401
     hydrate_job_result_payload,  # noqa: F401
     list_dag_build_options,  # noqa: F401
-    list_reviews,  # noqa: F401
     load_accepted_skill_candidates,  # noqa: F401
     load_brief_catalog_promotion_summary,  # noqa: F401
     load_brief_spec_for_plan,  # noqa: F401
     load_nearest_skill_preview,  # noqa: F401
     load_prerequisite_edge_decisions,  # noqa: F401
-    parse_review_details_json,  # noqa: F401
     prune_empty_generated_catalog_nodes,  # noqa: F401
     queue_intake_job,  # noqa: F401
     refresh_brief_dag_state,  # noqa: F401
-    repair_intake_review_links,  # noqa: F401
     repair_stale_intake_jobs,  # noqa: F401
     run_intake_pipeline,  # noqa: F401
+    update_jobs_catalog_payload,  # noqa: F401
+    update_jobs_dag_payload,  # noqa: F401
+)
+from content_factory.catalog.viewer.intake_reviews import (
+    count_open_candidate_competencies,  # noqa: F401
+    count_open_prerequisite_edge_reviews_for_brief,  # noqa: F401
+    count_open_skill_reviews_for_brief,  # noqa: F401
+    format_prerequisite_edge_review,  # noqa: F401
+    list_reviews,  # noqa: F401
+    parse_review_details_json,  # noqa: F401
+    repair_intake_review_links,  # noqa: F401
     save_prerequisite_edge_decision,  # noqa: F401
     split_edge_label,  # noqa: F401
     split_review_reason_codes,  # noqa: F401
-    update_jobs_catalog_payload,  # noqa: F401
-    update_jobs_dag_payload,  # noqa: F401
     update_review_status,  # noqa: F401
 )
 from content_factory.catalog.viewer.labels import (
