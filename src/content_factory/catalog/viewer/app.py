@@ -99,6 +99,13 @@ from content_factory.catalog.viewer.curriculum_ops import (
     update_curriculum_plan_row,  # noqa: F401
     weighted_skills_from_row,  # noqa: F401
 )
+from content_factory.catalog.viewer.intake_brief_io import (
+    decode_uploaded_text,  # noqa: F401
+    extract_brief_text_from_bytes,  # noqa: F401
+    extract_csv_text,  # noqa: F401
+    extract_docx_text,  # noqa: F401
+    load_brief_text,  # noqa: F401
+)
 from content_factory.catalog.viewer.intake_ops import (
     _reason_set,  # noqa: F401
     apply_brief_catalog_decisions,  # noqa: F401
@@ -118,12 +125,8 @@ from content_factory.catalog.viewer.intake_ops import (
     count_open_prerequisite_edge_reviews_for_brief,  # noqa: F401
     count_open_skill_reviews_for_brief,  # noqa: F401
     create_intake_job,  # noqa: F401
-    decode_uploaded_text,  # noqa: F401
     ensure_intake_runtime_schema,  # noqa: F401
     execute_intake_job,  # noqa: F401
-    extract_brief_text_from_bytes,  # noqa: F401
-    extract_csv_text,  # noqa: F401
-    extract_docx_text,  # noqa: F401
     format_prerequisite_edge_review,  # noqa: F401
     get_brief_catalog_apply_state,  # noqa: F401
     get_brief_dag_state,  # noqa: F401
@@ -137,7 +140,6 @@ from content_factory.catalog.viewer.intake_ops import (
     load_accepted_skill_candidates,  # noqa: F401
     load_brief_catalog_promotion_summary,  # noqa: F401
     load_brief_spec_for_plan,  # noqa: F401
-    load_brief_text,  # noqa: F401
     load_nearest_skill_preview,  # noqa: F401
     load_prerequisite_edge_decisions,  # noqa: F401
     parse_review_details_json,  # noqa: F401
