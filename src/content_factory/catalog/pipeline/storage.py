@@ -3,17 +3,24 @@ from __future__ import annotations
 
 import json
 import re
-import unicodedata
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 from content_factory.catalog.db import (
     CatalogConnection,
     CatalogRow,
-    existing_columns,
     is_postgres_connection,
-    table_exists,
+)
+from content_factory.catalog.pipeline._storage_common import (
+    _as_dict,
+    _existing_cols,
+    _json_list,
+    _normalize_catalog_key,
+    _quoted_columns,
+    _review_queue_entity_type,
+    _supports_superseded,
+    _table_exists,
+    _utc_now_iso,
 )
 
 from . import competency_catalog, config
@@ -50,31 +57,14 @@ _REQUIRED_COLS = {
     ],
 }
 
-_REVIEW_QUEUE_ENTITY_TYPE_MAP = {
-    "skill": "skill",
-    "competency_block": "block",
-    "curriculum_section": "block",
-}
 
 
-def _existing_cols(con: Any, table: str) -> set[str]:
-    return existing_columns(con, table)
 
 
-def _table_exists(con: Any, table: str) -> bool:
-    return table_exists(con, table)
 
 
-def _supports_superseded(con: Any) -> bool:
-    if is_postgres_connection(con):
-        # PG-схема (alembic 016) всегда допускает decision='superseded'.
-        return True
-    row = con.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='skill_suggestion'").fetchone()
-    return bool(row and row[0] and "superseded" in row[0])
 
 
-def _quoted_columns(columns: list[str]) -> str:
-    return ", ".join(f'"{column}"' for column in columns)
 
 
 def _copy_common_columns(con: CatalogConnection, source_table: str, target_table: str) -> None:
@@ -130,8 +120,6 @@ def _ensure_curriculum_plan_accepts_invalid(con: CatalogConnection, sql_path: st
         con.execute(f"PRAGMA foreign_keys = {fk_state}")
 
 
-def _review_queue_entity_type(candidate: SkillCandidate) -> str:
-    return _REVIEW_QUEUE_ENTITY_TYPE_MAP.get(candidate.entity_type, "block")
 
 
 def apply_migration(con: CatalogConnection, sql_path: str) -> None:
@@ -156,14 +144,8 @@ def apply_migration(con: CatalogConnection, sql_path: str) -> None:
     con.commit()
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(UTC).isoformat()
 
 
-def _normalize_catalog_key(value: str) -> str:
-    normalized = unicodedata.normalize("NFKC", value).lower().strip()
-    normalized = re.sub(r"[^0-9a-zа-яё+ ]", " ", normalized)
-    return re.sub(r"\s+", " ", normalized)
 
 
 def load_curriculum_artifact_templates(con: CatalogConnection, active_only: bool = True) -> list[dict[str, Any]]:
@@ -287,21 +269,8 @@ def upsert_curriculum_artifact_template(
     return template_id
 
 
-def _as_dict(value: Any) -> dict[str, Any]:
-    """Return value when it is a dict, else an empty dict (JSON payload guard)."""
-    return value if isinstance(value, dict) else {}
 
 
-def _json_list(value: object) -> list[Any]:
-    if isinstance(value, list):
-        return value
-    if not isinstance(value, str) or not value.strip():
-        return []
-    try:
-        data = json.loads(value)
-    except json.JSONDecodeError:
-        return []
-    return data if isinstance(data, list) else []
 
 
 def load_curriculum_artifact_template_proposals(
