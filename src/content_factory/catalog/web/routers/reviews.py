@@ -11,11 +11,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from content_factory.catalog.db import CatalogConnection
+from content_factory.catalog.viewer.intake_catalog_apply import apply_brief_catalog_decisions
 from content_factory.catalog.viewer.intake_dag import build_dag_for_brief, list_dag_build_options
-from content_factory.catalog.viewer.intake_ops import (
-    apply_brief_catalog_decisions,
-    ensure_intake_runtime_schema,
-)
+from content_factory.catalog.viewer.intake_ops import ensure_intake_runtime_schema
 from content_factory.catalog.viewer.intake_reviews import (
     list_reviews,
     update_review_status,
