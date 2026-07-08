@@ -42,6 +42,11 @@ dependencies = [
     "python-docx>=1.0",
 ]
 
+[project.optional-dependencies]
+# Playwright visual E2E smoke (tests/e2e, opt-in via RUN_E2E=1). Install with
+#   pip install -e ".[e2e]" && python -m playwright install chromium
+e2e = ["pytest-playwright>=0.8"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
@@ -76,6 +81,7 @@ markers = [
     "integration: Интеграционные тесты",
     "slow: Медленные тесты (требуют LLM API)",
     "asyncio: Асинхронные тесты",
+    "e2e: Playwright visual end-to-end (needs live server + Postgres; opt-in via RUN_E2E=1)",
 ]
 
 [tool.mypy]

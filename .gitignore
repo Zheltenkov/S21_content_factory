@@ -111,3 +111,7 @@ __MACOSX/
 
 # ---- Alembic ----
 alembic.ini.bak
+
+# Playwright visual E2E artifacts
+tests/e2e/screenshots/
+tests/e2e/.server.log
