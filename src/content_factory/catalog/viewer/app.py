@@ -141,10 +141,6 @@ from content_factory.catalog.viewer.intake_jobs import (
     update_intake_job,  # noqa: F401
 )
 from content_factory.catalog.viewer.intake_ops import (
-    ensure_intake_runtime_schema,  # noqa: F401
-    execute_intake_job,  # noqa: F401
-    queue_intake_job,  # noqa: F401
-    repair_stale_intake_jobs,  # noqa: F401
     run_intake_pipeline,  # noqa: F401
 )
 from content_factory.catalog.viewer.intake_reviews import (
@@ -159,6 +155,12 @@ from content_factory.catalog.viewer.intake_reviews import (
     split_edge_label,  # noqa: F401
     split_review_reason_codes,  # noqa: F401
     update_review_status,  # noqa: F401
+)
+from content_factory.catalog.viewer.intake_runtime import (
+    ensure_intake_runtime_schema,  # noqa: F401
+    execute_intake_job,  # noqa: F401
+    queue_intake_job,  # noqa: F401
+    repair_stale_intake_jobs,  # noqa: F401
 )
 from content_factory.catalog.viewer.intake_workspace import (
     _reason_set,  # noqa: F401
