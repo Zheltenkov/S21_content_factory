@@ -21,6 +21,7 @@ from content_factory.catalog.viewer.intake_catalog_apply import (
     apply_brief_catalog_decisions,
     apply_candidate_decision,
 )
+from content_factory.catalog.viewer.intake_cleanup import clear_intake_workspace
 from content_factory.catalog.viewer.intake_dag import build_dag_for_brief, get_brief_dag_state
 from content_factory.catalog.viewer.intake_jobs import (
     create_intake_job,
@@ -29,7 +30,6 @@ from content_factory.catalog.viewer.intake_jobs import (
     list_recent_intake_jobs,
 )
 from content_factory.catalog.viewer.intake_ops import (
-    clear_intake_workspace,
     ensure_intake_runtime_schema,
     queue_intake_job,
 )
