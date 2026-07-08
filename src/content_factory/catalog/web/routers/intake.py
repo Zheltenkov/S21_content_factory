@@ -29,7 +29,7 @@ from content_factory.catalog.viewer.intake_jobs import (
     get_intake_job_brief_id,
     list_recent_intake_jobs,
 )
-from content_factory.catalog.viewer.intake_ops import (
+from content_factory.catalog.viewer.intake_runtime import (
     ensure_intake_runtime_schema,
     queue_intake_job,
 )

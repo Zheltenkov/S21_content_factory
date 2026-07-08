@@ -123,11 +123,11 @@ def test_reclaim_ignores_live_leases(catalog_conn: Any) -> None:
 
 
 def test_dispatch_pending_submits_only_pending_jobs(catalog_conn: Any, monkeypatch: Any) -> None:
-    from content_factory.catalog.viewer import intake_ops
+    from content_factory.catalog.viewer import intake_runtime
 
     submitted: list[int] = []
     monkeypatch.setattr(
-        intake_ops.INTAKE_EXECUTOR,
+        intake_runtime.INTAKE_EXECUTOR,
         "submit",
         lambda _fn, _db_path, job_id: submitted.append(job_id),
     )
@@ -135,6 +135,6 @@ def test_dispatch_pending_submits_only_pending_jobs(catalog_conn: Any, monkeypat
     _create_job(catalog_conn, status="running")  # not pending -> not dispatched
     pending_b = _create_job(catalog_conn, status="pending")
 
-    intake_ops._dispatch_pending_intake_jobs(catalog_conn, Path("unused-on-postgres"))
+    intake_runtime._dispatch_pending_intake_jobs(catalog_conn, Path("unused-on-postgres"))
 
     assert sorted(submitted) == sorted([pending_a, pending_b])
