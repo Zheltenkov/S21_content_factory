@@ -22,7 +22,6 @@
 {% if not job %}
 <section class="filter-panel">
     <form class="admin-form" method="post" action="{{ base }}/intake" enctype="multipart/form-data" id="intake-form">
-        <input type="hidden" name="brief_file_path" id="brief-file-path" value="{{ brief_file_path or '' }}">
         <div class="brief-compose-grid">
             <div class="brief-upload-panel">
                 <label class="upload-dropzone" id="brief-dropzone" for="brief-file-input" role="button" tabindex="0" aria-controls="brief-file-input">
@@ -1102,7 +1101,6 @@
     const intakeForm = document.getElementById("intake-form");
     const dropzone = document.getElementById("brief-dropzone");
     const fileInput = document.getElementById("brief-file-input");
-    const pathInput = document.getElementById("brief-file-path");
     const briefText = document.getElementById("brief-text");
     const briefSubmitWrap = document.getElementById("brief-submit-wrap");
     const statusNode = document.getElementById("picker-status");
@@ -1315,7 +1313,7 @@
     };
 
     const submitFileSelection = (files) => {
-        if (!fileInput || !pathInput || !briefText || !statusNode || !intakeForm) {
+        if (!fileInput || !briefText || !statusNode || !intakeForm) {
             return;
         }
         const file = files?.[0];
@@ -1325,14 +1323,13 @@
         const transfer = new DataTransfer();
         transfer.items.add(file);
         fileInput.files = transfer.files;
-        pathInput.value = "";
         briefText.value = "";
         syncTextSubmitVisibility();
         statusNode.textContent = `Загружаю: ${file.name}`;
         intakeForm.requestSubmit();
     };
 
-    if (intakeForm && dropzone && fileInput && pathInput && briefText && statusNode) {
+    if (intakeForm && dropzone && fileInput && briefText && statusNode) {
         dropzone.addEventListener("keydown", (event) => {
             if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
@@ -1365,7 +1362,6 @@
 
         briefText.addEventListener("input", () => {
             if (!fileInput.files || fileInput.files.length === 0) {
-                pathInput.value = "";
                 statusNode.textContent = "Файл пока не выбран.";
             }
             syncTextSubmitVisibility();
@@ -1374,7 +1370,6 @@
         intakeForm.addEventListener("submit", () => {
             const hasSelectedFile = Boolean(fileInput.files && fileInput.files.length > 0);
             if (!hasSelectedFile && briefText.value.trim()) {
-                pathInput.value = "";
                 statusNode.textContent = "Обрабатываю текстовый бриф.";
             }
         });

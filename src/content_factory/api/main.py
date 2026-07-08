@@ -93,6 +93,9 @@ app.add_middleware(ActivityTrackingMiddleware, update_interval_seconds=update_in
 app.add_middleware(
     ToolAuthCookieMiddleware,
     protected_prefixes=("/app/auditor", "/app/check", "/app/curriculum", "/app/spravochnik"),
+    # Catalog mutations (intake, reviews, admin, curriculum-plan edits) require the
+    # admin role; read-only catalog pages stay open to any authenticated user.
+    admin_write_prefixes=("/app/spravochnik",),
 )
 
 # CORS (настраивается через переменные окружения)
