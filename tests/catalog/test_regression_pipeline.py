@@ -1815,7 +1815,7 @@ def test_prerequisite_edge_review_decision_does_not_rebuild_dag_inline(monkeypat
         rebuild_calls.append(rebuilt_brief_id)
         raise AssertionError("Edge review decisions must not rebuild DAG synchronously")
 
-    monkeypatch.setattr("content_factory.catalog.viewer.intake_ops.build_dag_for_brief", fail_if_rebuilt)
+    monkeypatch.setattr("content_factory.catalog.viewer.intake_dag.build_dag_for_brief", fail_if_rebuilt)
     db_path = _runtime_db_path("edge-review-fast")
     conn = _create_base_catalog_db(db_path)
     try:

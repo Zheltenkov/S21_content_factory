@@ -31,7 +31,8 @@ from content_factory.catalog.viewer.curriculum_ops import (
     parse_scope_names,
     update_curriculum_plan_row,
 )
-from content_factory.catalog.viewer.intake_ops import build_curriculum_plan_for_brief, ensure_intake_runtime_schema
+from content_factory.catalog.viewer.intake_dag import build_curriculum_plan_for_brief
+from content_factory.catalog.viewer.intake_ops import ensure_intake_runtime_schema
 from content_factory.catalog.viewer.ui_constants import ARTIFACT_FAMILY_OPTIONS, ARTIFACT_SCOPE_TYPE_OPTIONS
 from content_factory.catalog.web.deps import catalog_db_path, get_conn
 from content_factory.catalog.web.rendering import CATALOG_URL_PREFIX, render

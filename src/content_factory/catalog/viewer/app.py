@@ -106,6 +106,23 @@ from content_factory.catalog.viewer.intake_brief_io import (
     extract_docx_text,  # noqa: F401
     load_brief_text,  # noqa: F401
 )
+from content_factory.catalog.viewer.intake_dag import (
+    build_curriculum_plan_for_brief,  # noqa: F401
+    build_dag_for_brief,  # noqa: F401
+    build_deferred_dag_payload,  # noqa: F401
+    clear_brief_curriculum_plan_artifacts,  # noqa: F401
+    clear_brief_dag_artifacts,  # noqa: F401
+    count_brief_template_proposals,  # noqa: F401
+    get_brief_catalog_apply_state,  # noqa: F401
+    get_brief_dag_state,  # noqa: F401
+    get_latest_job_id_for_brief,  # noqa: F401
+    list_dag_build_options,  # noqa: F401
+    load_accepted_skill_candidates,  # noqa: F401
+    load_brief_spec_for_plan,  # noqa: F401
+    load_prerequisite_edge_decisions,  # noqa: F401
+    refresh_brief_dag_state,  # noqa: F401
+    update_jobs_dag_payload,  # noqa: F401
+)
 from content_factory.catalog.viewer.intake_jobs import (
     create_intake_job,  # noqa: F401
     get_intake_job,  # noqa: F401
@@ -118,35 +135,20 @@ from content_factory.catalog.viewer.intake_ops import (
     apply_brief_catalog_decisions,  # noqa: F401
     apply_candidate_decision,  # noqa: F401
     build_candidate_recommended_action,  # noqa: F401
-    build_curriculum_plan_for_brief,  # noqa: F401
-    build_dag_for_brief,  # noqa: F401
-    build_deferred_dag_payload,  # noqa: F401
     build_intake_workflow_steps,  # noqa: F401
     build_intake_workspace_state,  # noqa: F401
     build_similarity_hint,  # noqa: F401
-    clear_brief_curriculum_plan_artifacts,  # noqa: F401
-    clear_brief_dag_artifacts,  # noqa: F401
     clear_intake_workspace,  # noqa: F401
-    count_brief_template_proposals,  # noqa: F401
     ensure_intake_runtime_schema,  # noqa: F401
     execute_intake_job,  # noqa: F401
-    get_brief_catalog_apply_state,  # noqa: F401
-    get_brief_dag_state,  # noqa: F401
-    get_latest_job_id_for_brief,  # noqa: F401
     hydrate_job_result_payload,  # noqa: F401
-    list_dag_build_options,  # noqa: F401
-    load_accepted_skill_candidates,  # noqa: F401
     load_brief_catalog_promotion_summary,  # noqa: F401
-    load_brief_spec_for_plan,  # noqa: F401
     load_nearest_skill_preview,  # noqa: F401
-    load_prerequisite_edge_decisions,  # noqa: F401
     prune_empty_generated_catalog_nodes,  # noqa: F401
     queue_intake_job,  # noqa: F401
-    refresh_brief_dag_state,  # noqa: F401
     repair_stale_intake_jobs,  # noqa: F401
     run_intake_pipeline,  # noqa: F401
     update_jobs_catalog_payload,  # noqa: F401
-    update_jobs_dag_payload,  # noqa: F401
 )
 from content_factory.catalog.viewer.intake_reviews import (
     count_open_candidate_competencies,  # noqa: F401
