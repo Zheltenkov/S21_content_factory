@@ -306,12 +306,12 @@ def update_review_status(conn: CatalogConnection, review_id: int, new_status: st
                 "DELETE FROM prerequisite_edge_decision WHERE brief_id = ? AND edge_key = ?",
                 (brief_id, str(details.get("edge_key") or "")),
             )
-        from content_factory.catalog.viewer.intake_ops import clear_brief_dag_artifacts
+        from content_factory.catalog.viewer.intake_dag import clear_brief_dag_artifacts
 
         clear_brief_dag_artifacts(conn, brief_id)
     elif suggestion_id and brief_id is not None:
         from content_factory.catalog.pipeline import storage
-        from content_factory.catalog.viewer.intake_ops import clear_brief_dag_artifacts
+        from content_factory.catalog.viewer.intake_dag import clear_brief_dag_artifacts
 
         mapped_decision = "needs_review"
         if new_status == "resolved":
@@ -330,7 +330,7 @@ def update_review_status(conn: CatalogConnection, review_id: int, new_status: st
         rebuild_brief_id = brief_id
     conn.commit()
     if rebuild_brief_id is not None:
-        from content_factory.catalog.viewer.intake_ops import build_dag_for_brief
+        from content_factory.catalog.viewer.intake_dag import build_dag_for_brief
 
         build_dag_for_brief(conn, rebuild_brief_id)
 
