@@ -331,6 +331,30 @@ function fillFormFromData(data) {
                 if (projectData.additional_materials) seed.additional_materials = projectData.additional_materials;
                 if (projectData.storytelling_type) seed.storytelling_type = projectData.storytelling_type;
                 if (!seed.sjm && projectData.sjm) seed.sjm = projectData.sjm;
+                const origin = projectData.curriculum_origin || (
+                    projectData.source_plan_id
+                        ? {
+                            ...(seed.curriculum_origin || {}),
+                            source: 'catalog.curriculum_plan',
+                            plan_id: Number(projectData.source_plan_id),
+                            source_plan_id: Number(projectData.source_plan_id),
+                            plan_version: projectData.plan_version || seed.curriculum_origin?.plan_version || null,
+                            plan_hash: projectData.plan_hash || seed.curriculum_origin?.plan_hash || null,
+                            plan_row_id: projectData.plan_row_id ? Number(projectData.plan_row_id) : null,
+                            block_index: projectData.block_index ? Number(projectData.block_index) : null,
+                            row_number: projectData.row_number ? Number(projectData.row_number) : null,
+                            project_index: projectData.project_index ? Number(projectData.project_index) : Number(projectData.order || 0)
+                        }
+                        : null
+                );
+                if (origin) {
+                    seed.curriculum_origin = origin;
+                    seed.source_plan_id = origin.source_plan_id || origin.plan_id;
+                    seed.plan_version = origin.plan_version || null;
+                    seed.plan_hash = origin.plan_hash || null;
+                    seed.plan_row_id = origin.plan_row_id || null;
+                    seed.project_index = origin.project_index || null;
+                }
             } catch (error) {
                 console.warn('Failed to parse selected curriculum project:', error);
             }
@@ -371,7 +395,19 @@ function fillFormFromData(data) {
             }
 
             const resolvedCurriculumContext = readCurriculumContext(curriculumContext);
-            if (resolvedCurriculumContext) seed.curriculum_context = resolvedCurriculumContext;
+            if (resolvedCurriculumContext) {
+                seed.curriculum_context = resolvedCurriculumContext;
+                const contextOrigin = resolvedCurriculumContext.curriculum_origin;
+                if (contextOrigin) {
+                    seed.curriculum_origin = contextOrigin;
+                    seed.pipeline_run_id = contextOrigin.pipeline_run_id || null;
+                    seed.source_plan_id = contextOrigin.source_plan_id || contextOrigin.plan_id || null;
+                    seed.plan_version = contextOrigin.plan_version || null;
+                    seed.plan_hash = contextOrigin.plan_hash || null;
+                    seed.plan_row_id = contextOrigin.plan_row_id || null;
+                    seed.project_index = contextOrigin.project_index || null;
+                }
+            }
             applySelectedCurriculumProject(seed);
 
             applyOptionalTextSeedField(seed, 'platformName', 'platform_name');

@@ -150,14 +150,19 @@ function onCurriculumBlockChange() {
         const option = document.createElement('option');
         option.value = project.order;
         option.textContent = `${project.order}. ${project.title}`;
-        option.dataset.project = JSON.stringify(project);
+        option.dataset.project = JSON.stringify({
+            ...project,
+            source_plan_id: currentCurriculum.source_plan_id || null,
+            plan_version: currentCurriculum.plan_version || null,
+            plan_hash: currentCurriculum.plan_hash || null
+        });
         projectSelect.appendChild(option);
     }
 
     projectGroup.style.display = 'block';
 }
 
-function onCurriculumProjectChange() {
+async function onCurriculumProjectChange() {
     const projectSelect = document.getElementById('curriculumProject');
     const selectedOption = projectSelect?.selectedOptions?.[0];
     if (!selectedOption || !selectedOption.dataset.project || !currentCurriculum) return;
@@ -211,8 +216,16 @@ function onCurriculumProjectChange() {
         setCurriculumFieldValue('direction', block.code);
     }
 
-    currentCurriculumContext = buildCurriculumContext(block, project);
-    sessionStorage.setItem('curriculum_context', JSON.stringify(currentCurriculumContext));
+    try {
+        currentCurriculumContext = await buildCurriculumContext(block, project);
+        sessionStorage.setItem('curriculum_context', JSON.stringify(currentCurriculumContext));
+    } catch (error) {
+        currentCurriculumContext = null;
+        sessionStorage.removeItem('curriculum_context');
+        console.error('❌ Контекст УП не готов:', error);
+        window.toast?.error(error.message || 'УП не готов к генерации');
+        return;
+    }
 
     console.log('✅ Данные проекта загружены из УП:', project.title);
     console.log('📋 Контекст УП:', currentCurriculumContext);
@@ -224,7 +237,7 @@ function setCurriculumFieldValue(id, value) {
     if (element) element.value = value ?? '';
 }
 
-function buildCurriculumContext(block, currentProject) {
+function buildLocalCurriculumContext(block, currentProject) {
     if (!currentCurriculum || !block || !currentProject) return null;
 
     const blockIndex = currentCurriculum.blocks.findIndex(b => b.name === block.name);
@@ -298,6 +311,38 @@ function buildCurriculumContext(block, currentProject) {
         expert_development_notes: currentProject.expert_notes || null,
         additional_materials: currentProject.additional_materials || null
     };
+}
+
+async function buildCurriculumContext(block, currentProject) {
+    if (!currentCurriculum || !block || !currentProject) return null;
+
+    if (currentCurriculum.source_plan_id) {
+        const response = await fetch(`${getCurriculumApiUrl()}/curriculum/build-context`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getCurriculumAuthHeader()
+            },
+            body: JSON.stringify({
+                block_name: block.name,
+                project_order: currentProject.order,
+                plan_id: currentCurriculum.source_plan_id,
+                plan_hash: currentCurriculum.plan_hash || null,
+                curriculum_data: currentCurriculum
+            })
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: 'УП не готов к генерации' }));
+            const detail = error.detail;
+            const message = typeof detail === 'string'
+                ? detail
+                : detail?.message || 'УП не готов к генерации';
+            throw new Error(message);
+        }
+        return response.json();
+    }
+
+    return buildLocalCurriculumContext(block, currentProject);
 }
 
 function onDirectionChange() {
@@ -486,6 +531,9 @@ async function loadPersistedCurriculumPlan(sourceId = null) {
         const data = await response.json();
         applyCurriculumData(data.curriculum, data.plan?.title || `УП #${selectedId}`);
         setPersistedPlanStatus(`Загружен: ${data.plan?.blocks || currentCurriculum.blocks.length} блоков`);
+        if (data.readiness && data.readiness.ready === false) {
+            setPersistedPlanStatus('Есть блокеры перед генерацией', true);
+        }
         window.toast?.success(`УП загружен из базы: ${data.plan?.title || currentCurriculum.direction}`);
         console.log('✅ УП загружен из базы:', currentCurriculum);
     } catch (error) {
