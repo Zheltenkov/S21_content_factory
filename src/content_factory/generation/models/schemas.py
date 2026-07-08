@@ -136,6 +136,34 @@ class ProjectSeed(BaseModel):
         default=None,
         description="Контекст из УП: цели блока, соседние проекты, кросс-блочные связи"
     )
+    pipeline_run_id: str | None = Field(
+        default=None,
+        description="Сквозной идентификатор pipeline-run от УП до генерации проекта",
+    )
+    source_plan_id: int | None = Field(
+        default=None,
+        description="ID исходного catalog.curriculum_plan, если генерация запущена из сохраненного УП",
+    )
+    plan_version: str | None = Field(
+        default=None,
+        description="Content-addressed версия frozen snapshot УП",
+    )
+    plan_hash: str | None = Field(
+        default=None,
+        description="SHA-256 hash frozen snapshot УП на момент подготовки генерации",
+    )
+    plan_row_id: int | None = Field(
+        default=None,
+        description="ID строки catalog.curriculum_plan_row для генерируемого проекта",
+    )
+    project_index: int | None = Field(
+        default=None,
+        description="Стабильный индекс проекта внутри блока исходного УП",
+    )
+    curriculum_origin: dict[str, Any] | None = Field(
+        default=None,
+        description="Полная lineage-запись: plan_id/version/hash/row_id/project_index/pipeline_run_id",
+    )
 
     # Общий эталонный фрагмент/идеальный образ проекта для ориентира по структуре и стилю
     reference_project_hint: str | None = Field(

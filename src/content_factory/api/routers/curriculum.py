@@ -23,9 +23,11 @@ from sqlalchemy.orm import Session
 
 from content_factory.api.db.session import get_db_session
 from content_factory.api.dependencies import get_current_user
-from content_factory.api.integrations.spravochnik_curriculum_sync import (
-    convert_spravochnik_plan_to_generator_curriculum,
-    sync_spravochnik_curriculum_plans,
+from content_factory.api.integrations.spravochnik_curriculum_sync import sync_spravochnik_curriculum_plans
+from content_factory.api.services.curriculum_generation_contract import (
+    CurriculumContractError,
+    build_generation_context_from_persisted_plan,
+    load_persisted_curriculum_snapshot,
 )
 from content_factory.api.utils.file_validation import MAX_FILE_SIZE, read_upload_limited, validate_file
 from content_factory.generation.models.curriculum import (
@@ -85,6 +87,9 @@ class BuildCurriculumContextRequest(BaseModel):
     block_name: str
     project_order: int
     curriculum_data: dict[str, Any]
+    plan_id: int | None = None
+    plan_hash: str | None = None
+    pipeline_run_id: str | None = None
 
 
 def _mirror_plan_summary(plan: Mapping[str, Any]) -> dict[str, Any]:
@@ -841,29 +846,13 @@ async def get_persisted_curriculum_plan(
     except (TypeError, ValueError):
         raise HTTPException(404, "Учебный план не найден в общей базе") from None
 
-    plan = (
-        db.execute(text("SELECT * FROM catalog.curriculum_plan WHERE id = :id"), {"id": plan_id})
-        .mappings()
-        .first()
-    )
-    if plan is None:
-        raise HTTPException(404, "Учебный план не найден в общей базе")
+    try:
+        snapshot = load_persisted_curriculum_snapshot(db, plan_id)
+    except CurriculumContractError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
 
-    rows = (
-        db.execute(
-            text(
-                "SELECT * FROM catalog.curriculum_plan_row WHERE plan_id = :id "
-                "ORDER BY block_index, row_number, id"
-            ),
-            {"id": plan_id},
-        )
-        .mappings()
-        .all()
-    )
-    plan_dict = dict(plan)
-    curriculum = convert_spravochnik_plan_to_generator_curriculum(
-        _assemble_plan_payload(plan_dict, [dict(row) for row in rows])
-    )
+    plan_dict = snapshot["plan"]
+    curriculum = snapshot["curriculum"]
     if not curriculum or not curriculum.get("blocks"):
         raise HTTPException(422, "Учебный план сохранен без структуры блоков и проектов")
 
@@ -871,6 +860,8 @@ async def get_persisted_curriculum_plan(
         "user_id": user.get("id"),
         "plan": _mirror_plan_summary(plan_dict),
         "curriculum": curriculum,
+        "snapshot": snapshot["snapshot"],
+        "readiness": snapshot["readiness"],
     }
 
 
@@ -878,6 +869,7 @@ async def get_persisted_curriculum_plan(
 async def build_curriculum_context(
     request: BuildCurriculumContextRequest,
     user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db_session),
 ) -> dict[str, Any]:
     """
     Строит контекст для генерации на основе выбранного проекта.
@@ -885,6 +877,23 @@ async def build_curriculum_context(
     Вызывается после выбора проекта в каскадном селекторе.
     """
     try:
+        source_plan_id = request.plan_id or request.curriculum_data.get("source_plan_id")
+        if source_plan_id:
+            result = build_generation_context_from_persisted_plan(
+                db,
+                plan_id=int(source_plan_id),
+                block_name=request.block_name,
+                project_order=request.project_order,
+                expected_plan_hash=request.plan_hash or request.curriculum_data.get("plan_hash"),
+                pipeline_run_id=request.pipeline_run_id,
+            )
+            return {
+                **result["context"],
+                "plan_snapshot": result["snapshot"],
+                "readiness": result["readiness"],
+                "user_id": user.get("id"),
+            }
+
         # Восстанавливаем CurriculumPlan из данных
         blocks = []
         for block_data in request.curriculum_data.get("blocks", []):
@@ -919,6 +928,8 @@ async def build_curriculum_context(
 
     except HTTPException:
         raise
+    except CurriculumContractError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
     except Exception as e:
         logger.exception(f"Ошибка построения контекста: {e}")
         raise HTTPException(500, "Ошибка построения контекста") from e

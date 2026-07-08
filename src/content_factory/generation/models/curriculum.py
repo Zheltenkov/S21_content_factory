@@ -89,6 +89,12 @@ class CurriculumContext(BaseModel):
         description="Дополнительные материалы для проекта"
     )
 
+    # Immutable source snapshot used when a project is generated from a persisted UP.
+    curriculum_origin: dict[str, Any] | None = Field(
+        default=None,
+        description="Stable source identity: plan/version/row/project hash metadata",
+    )
+
 
 class CurriculumProject(BaseModel):
     """Полная информация о проекте из учебного плана."""
@@ -97,6 +103,10 @@ class CurriculumProject(BaseModel):
     block_name: str = Field(..., description="Название тематического блока")
     block_goals: list[str] = Field(default_factory=list, description="Цели блока")
     order: int = Field(..., description="Номер проекта в блоке")
+    plan_row_id: int | None = Field(default=None, description="ID строки УП в catalog.curriculum_plan_row")
+    block_index: int | None = Field(default=None, description="Индекс блока в исходном УП")
+    row_number: int | None = Field(default=None, description="Номер строки в исходном УП")
+    project_index: int | None = Field(default=None, description="Стабильный индекс проекта в блоке исходного УП")
 
     # Основная информация
     title: str = Field(..., description="Название проекта")
@@ -263,6 +273,10 @@ class CurriculumPlan(BaseModel):
                     "projects": [
                         {
                             "order": p.order,
+                            "plan_row_id": p.plan_row_id,
+                            "block_index": p.block_index,
+                            "row_number": p.row_number,
+                            "project_index": p.project_index,
                             "title": p.title,
                             "description": p.description,
                             "learning_outcomes": p.learning_outcomes,

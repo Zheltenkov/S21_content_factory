@@ -17,6 +17,7 @@ from content_factory.generation.exceptions import ValidationError
 from content_factory.generation.models.schemas import ProjectSeed
 from content_factory.generation.workflow_profiles import resolve_workflow_profile, workflow_profile_payload
 
+from .curriculum_generation_contract import CurriculumContractError, validate_generation_seed_curriculum_contract
 from .generation_errors import GenerationServiceError
 from .generation_workflow_service import GenerationWorkflowService
 
@@ -74,6 +75,10 @@ class GenerationStartService:
 
         try:
             seed_data = await self._parse_seed_payload(request)
+            try:
+                validate_generation_seed_curriculum_contract(seed_data)
+            except CurriculumContractError as exc:
+                raise GenerationServiceError(exc.status_code, exc.detail) from exc
             await self._log_seed_metadata(request_id=request_id, user_id=user_id, seed_data=seed_data)
             seed_size = len(str(seed_data))
             self._logger.info("🔍 generate endpoint: язык из seed_data: %r", seed_data.get("language"))
@@ -221,6 +226,11 @@ class GenerationStartService:
                 "project_type": seed_data.get("project_type"),
                 "audience_level": seed_data.get("audience_level"),
                 "project_title": seed_data.get("title_seed") or seed_data.get("platform_name"),
+                "pipeline_run_id": seed_data.get("pipeline_run_id"),
+                "source_plan_id": seed_data.get("source_plan_id"),
+                "plan_version": seed_data.get("plan_version"),
+                "plan_row_id": seed_data.get("plan_row_id"),
+                "project_index": seed_data.get("project_index"),
                 "methodology_human_review": seed_data.get("methodology_human_review", False),
                 "workflow_profile_id": (workflow_profile or {}).get("id"),
             }
