@@ -1,9 +1,9 @@
-from content_factory.generation.methodology import MethodologyGate
-from content_factory.generation.models.flow_state import ProjectContextBundle
-from content_factory.generation.models.schemas import PracticeTask, ProjectContextMeta, ProjectSeed
 from content_factory.generation.agents.context_analysis import ContextAnalysisResult
 from content_factory.generation.artifact_chain import EvidenceSpec
 from content_factory.generation.domain_contracts import build_narrative_contract
+from content_factory.generation.methodology import MethodologyGate
+from content_factory.generation.models.flow_state import ProjectContextBundle
+from content_factory.generation.models.schemas import PracticeTask, ProjectContextMeta, ProjectSeed
 
 
 def _valid_context() -> dict:
@@ -202,3 +202,98 @@ def test_dataset_generation_review_passes_for_raw_evidence_contract() -> None:
     )
 
     assert review.status == "passed"
+
+
+def _rubric_json(integrity_status: str | None) -> dict:
+    items = [{"id": "1.1", "status": "passed", "parent_id": None}]
+    if integrity_status is not None:
+        items.append({"id": "N.1", "status": integrity_status, "parent_id": "N"})
+    return {"total": 1, "max_score": len(items), "items": items}
+
+
+def test_evaluation_review_passes_when_integrity_clean() -> None:
+    review = MethodologyGate().review("evaluation", {"rubric_json": _rubric_json("passed")})
+
+    assert review.status == "passed"
+    assert review.metrics["integrity_checked"] == 1
+    assert review.metrics["integrity_warnings"] == 0
+    assert review.human_review_required is False
+
+
+def test_evaluation_review_surfaces_integrity_advisory_without_blocking() -> None:
+    review = MethodologyGate().review("evaluation", {"rubric_json": _rubric_json("warning")})
+
+    assert review.status == "warning"
+    assert review.human_review_required is False
+    codes = {issue.code for issue in review.issues}
+    assert "evaluation.integrity_advisory" in codes
+
+
+def test_evaluation_review_escalates_hard_integrity_failure() -> None:
+    """После промоушена в HARD провал целостности эскалируется в human review."""
+    review = MethodologyGate().review("evaluation", {"rubric_json": _rubric_json("failed")})
+
+    assert review.status == "failed"
+    assert review.human_review_required is True
+    codes = {issue.code for issue in review.issues}
+    assert "evaluation.integrity_hard_failed" in codes
+
+
+def _didactic_json(abstain_reasons: list[str], needs_human: bool) -> dict:
+    return {
+        "overall_raw": 2.5,
+        "needs_human_review": needs_human,
+        "abstain_reasons": abstain_reasons,
+        "jury": ["deepseek/deepseek-v4", "google/gemini-3.1-pro"],
+        "n_jury": 2,
+        "dimensions": [],
+    }
+
+
+def test_evaluation_review_ignores_absent_didactic_axis() -> None:
+    review = MethodologyGate().review("evaluation", {"rubric_json": _rubric_json("passed")})
+
+    assert "didactic_below_floor" not in review.metrics
+    assert review.human_review_required is False
+
+
+def test_evaluation_review_maps_didactic_below_floor_and_split(monkeypatch) -> None:
+    # The real scorer sets needs_human_review=True whenever any reason exists. A soft
+    # below_floor / jury_split must NOT escalate beyond major / minor because of that bool.
+    monkeypatch.setattr("content_factory.generation.methodology.gate.is_promoted", lambda key: False)
+    review = MethodologyGate().review(
+        "evaluation",
+        {
+            "rubric_json": _rubric_json("passed"),
+            "didactic_json": _didactic_json(["below_floor:coherence", "jury_split:example_quality"], needs_human=True),
+        },
+    )
+
+    by_code = {issue.code: issue for issue in review.issues}
+    assert by_code["evaluation.didactic_below_floor"].severity == "major"
+    assert by_code["evaluation.didactic_jury_split"].severity == "minor"
+    assert "evaluation.didactic_needs_review" not in by_code  # no blanket critical
+    assert review.human_review_required is False
+    assert review.metrics["didactic_below_floor"] == 1
+    assert review.metrics["didactic_jury_split"] == 1
+
+
+def test_evaluation_review_escalates_promoted_didactic_to_human(monkeypatch) -> None:
+    # A calibrated/enforced (promoted) dimension below floor is the only didactic hard block.
+    monkeypatch.setattr(
+        "content_factory.generation.methodology.gate.is_promoted",
+        lambda key: key == "didactic:naturalness",
+    )
+    review = MethodologyGate().review(
+        "evaluation",
+        {
+            "rubric_json": _rubric_json("passed"),
+            "didactic_json": _didactic_json(["below_floor:naturalness"], needs_human=True),
+        },
+    )
+
+    by_code = {issue.code: issue for issue in review.issues}
+    assert by_code["evaluation.didactic_promoted_failed"].severity == "critical"
+    assert "evaluation.didactic_needs_review" not in by_code
+    assert review.human_review_required is True
+    assert review.status == "failed"

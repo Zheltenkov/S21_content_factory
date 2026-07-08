@@ -1,16 +1,19 @@
-"""Доступ к реальному skills_catalog.sqlite: канон + резолв кандидатов."""
+"""Доступ к каталогу (Postgres): канон навыков/синонимов + резолв кандидатов."""
 from __future__ import annotations
 
 import difflib
 import re
-import sqlite3
 import unicodedata
+
+from content_factory.catalog.db import CatalogRow
 
 try:
     from rapidfuzz import fuzz, process
 except ImportError:  # pragma: no cover - depends on local environment
     fuzz = None
     process = None
+
+from content_factory.catalog.db import open_catalog_connection, table_exists
 
 from . import config
 from .models import SkillCandidate
@@ -27,8 +30,9 @@ class CatalogRepo:
     """Читает канонические навыки и синонимы; резолвит кандидата против них."""
 
     def __init__(self, db_path: str):
-        self.con = sqlite3.connect(db_path)
-        self.con.row_factory = sqlite3.Row
+        # Каталог на Postgres: путь игнорируется, подключение берёт CATALOG_DATABASE_URL/DATABASE_URL.
+        self.con = open_catalog_connection(db_path)
+        self.con.row_factory = CatalogRow
         self._load_index()
 
     def close(self) -> None:
@@ -38,9 +42,7 @@ class CatalogRepo:
         cur = self.con.cursor()
         self.by_norm: dict[str, tuple[int, str, str | None]] = {}   # normalized -> (skill_id, canonical_name, canonical_group)
         self.skill_meta: dict[int, tuple[str, str | None]] = {}
-        has_skill_group = cur.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='skill_group'"
-        ).fetchone() is not None
+        has_skill_group = table_exists(self.con, "skill_group")
         if has_skill_group:
             skill_rows = cur.execute(
                 """

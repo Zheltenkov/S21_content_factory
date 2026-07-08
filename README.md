@@ -18,13 +18,13 @@ src/content_factory/
                  workflow, validators, evaluation, didactics)
   audit/         аудитор контента (ex-Proverka): checks, extraction, ingestion,
                  exporters, web-render — 39 критериев README
-  catalog/       каталог компетенций (ex-Spravochnik): intake-пайплайн + viewer (WSGI)
+  catalog/       каталог компетенций (ex-Spravochnik): intake-пайплайн + нативный FastAPI UI
   api/           FastAPI: routers, db (SQLAlchemy + Alembic), services, integrations,
                  templates, static
   config/        model_registry.yaml (данные)
   didactics/     дидактические фрагменты (данные)
 
-migrations/      единый Alembic (001–014; 014 = схема каталога в Postgres)
+migrations/      единый Alembic (001–017; 014–017 = каталог/intake/DAG в Postgres)
 tests/           единый pytest: generation + audit + catalog
 scripts/         эксплуатационные скрипты (в т.ч. migrate_catalog_to_postgres.py)
 docs/            документация (+ MIGRATION_LOG.md)
@@ -36,19 +36,20 @@ LLM — только там, где нужен содержательный те
 
 ## Быстрый старт
 
-Требования: Python 3.10+ (пол репозитория — **3.12**: audit/catalog используют `StrEnum`/
-`datetime.UTC`), PostgreSQL, LLM-ключ (по умолчанию `POLZA_AI_API_KEY`), ffmpeg для видео-перевода.
+Требования: Python **3.12**, PostgreSQL, LLM-ключ (по умолчанию `POLZA_AI_API_KEY`),
+ffmpeg для видео-перевода.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e .
 Copy-Item .env.example .env    # заполнить секреты (как минимум POLZA_AI_API_KEY, DATABASE_URL, JWT_SECRET_KEY)
-alembic upgrade head           # применить схему (001–014)
+alembic upgrade head           # применить схему (001–017)
 python run.py                  # http://127.0.0.1:8000
 ```
 
-Загрузка каталога в Postgres (гибрид — канон каталога в Postgres, intake пока в SQLite):
+Каталог и intake работают в Postgres. Исторический импорт из SQLite-артефакта нужен
+только для переноса старого каталога в новую БД:
 
 ```bash
 python scripts/migrate_catalog_to_postgres.py \
@@ -60,7 +61,7 @@ python scripts/migrate_catalog_to_postgres.py \
 
 - `/app/generate` — генерация учебного проекта (README, практика, метрики, архив).
 - `/app/auditor` — аудит README по критериям качества (FastAPI-нативно).
-- `/app/spravochnik` — каталог компетенций / intake (viewer, пока WSGI-mount).
+- `/app/spravochnik` — каталог компетенций / intake (нативный FastAPI UI).
 - API: `/api/v1/generate`, `/api/v1/auditor/*`, `/api/v1/spravochnik/*`, `/api/v1/curriculum/*`.
 
 ## Проверки

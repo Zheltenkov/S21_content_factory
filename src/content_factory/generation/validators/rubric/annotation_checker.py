@@ -280,7 +280,7 @@ class AnnotationChecker:
                 )
                 summary = response.strip()
                 if summary:
-                    return summary
+                    return str(summary)
             except Exception as exc:
                 safe_print(f"        ⚠️ Не удалось суммаризировать главу 2: {exc}", flush=True)
         return cleaned[:800]

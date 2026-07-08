@@ -1,18 +1,12 @@
-"""Read-only catalog pages ported to native FastAPI (Phase 5.1).
-
-These paths have no POST sibling, so they can be served natively while the rest of
-the viewer stays WSGI-mounted. The router is registered before the WSGI mount, so
-these exact paths are handled here and everything else falls through to the mount.
-"""
+"""Read-only catalog pages served by the native FastAPI catalog UI."""
 
 from __future__ import annotations
-
-import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
-from content_factory.catalog.viewer.app import (
+from content_factory.catalog.db import CatalogConnection
+from content_factory.catalog.viewer.read_queries import (
     get_competency,
     get_competency_skills,
     get_profile,
@@ -45,7 +39,7 @@ def catalog_favicon() -> Response:
 def competencies_page(
     q: str = Query(default=""),
     scope: str = Query(default="all"),
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: CatalogConnection = Depends(get_conn),
 ) -> HTMLResponse:
     query = q.strip()
     hierarchy_enabled = has_directory_hierarchy(conn)
@@ -72,7 +66,7 @@ def competencies_page(
 @router.get("/competencies/{competency_id}", response_class=HTMLResponse)
 def competency_detail_page(
     competency_id: int,
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: CatalogConnection = Depends(get_conn),
 ) -> HTMLResponse:
     competency = get_competency(conn, competency_id)
     if not competency:
@@ -89,7 +83,7 @@ def competency_detail_page(
 @router.get("/profiles", response_class=HTMLResponse)
 def profiles_page(
     service: str = Query(default="0"),
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: CatalogConnection = Depends(get_conn),
 ) -> HTMLResponse:
     include_service_profiles = service == "1"
     profiles = list_profiles(conn, include_service=include_service_profiles)
@@ -108,7 +102,7 @@ def profiles_page(
 @router.get("/profiles/{profile_id}", response_class=HTMLResponse)
 def profile_detail_page(
     profile_id: int,
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: CatalogConnection = Depends(get_conn),
 ) -> HTMLResponse:
     profile = get_profile(conn, profile_id)
     if not profile:

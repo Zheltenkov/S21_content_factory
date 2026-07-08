@@ -20,7 +20,7 @@ content_gen/agents/formula_table.py
 
 import json
 import re
-from typing import Any
+from typing import Any, cast
 
 from ..models.enhancement_models import FormulaItem, FormulaTableResult, GenerationResponse, TableItem, VisualItem
 from ..models.schemas import ProjectSeed
@@ -206,7 +206,7 @@ class FormulaTableAgent:
 
         # Попытка 1: Прямой парсинг
         try:
-            return json.loads(text_clean)
+            return cast("dict[str, Any]", json.loads(text_clean))
         except json.JSONDecodeError:
             pass
 
@@ -217,7 +217,7 @@ class FormulaTableAgent:
         if json_start != -1 and json_end > json_start:
             json_str = text_clean[json_start:json_end + 1]
             try:
-                return json.loads(json_str)
+                return cast("dict[str, Any]", json.loads(json_str))
             except json.JSONDecodeError:
                 pass
 
@@ -226,7 +226,7 @@ class FormulaTableAgent:
         matches = re.findall(code_block_pattern, text_clean, re.DOTALL | re.IGNORECASE)
         for match in matches:
             try:
-                return json.loads(match.strip())
+                return cast("dict[str, Any]", json.loads(match.strip()))
             except json.JSONDecodeError:
                 continue
 
@@ -247,7 +247,7 @@ class FormulaTableAgent:
         if json_lines:
             json_str = '\n'.join(json_lines)
             try:
-                return json.loads(json_str)
+                return cast("dict[str, Any]", json.loads(json_str))
             except json.JSONDecodeError:
                 pass
 
@@ -262,7 +262,7 @@ class FormulaTableAgent:
         if json_start != -1 and json_end > json_start:
             json_str = text_fixed[json_start:json_end + 1]
             try:
-                return json.loads(json_str)
+                return cast("dict[str, Any]", json.loads(json_str))
             except json.JSONDecodeError:
                 pass
 
@@ -283,7 +283,7 @@ class FormulaTableAgent:
             safe_print(f"  ⚠️ Данные не являются словарем: {type(data)}", flush=True)
             return {"formulas": [], "tables": [], "visuals": []}
 
-        cleaned = {
+        cleaned: dict[str, Any] = {
             "formulas": [],
             "tables": [],
             "visuals": []
@@ -366,9 +366,9 @@ class FormulaTableAgent:
         topic: str,
         theory_text: str,
         seed: ProjectSeed,
-        existing_formulas: list[FormulaItem] = None,
-        existing_tables: list[TableItem] = None,
-        existing_enhancements: dict = None
+        existing_formulas: list[FormulaItem] | None = None,
+        existing_tables: list[TableItem] | None = None,
+        existing_enhancements: dict | None = None
     ) -> FormulaTableResult:
         """
         Анализирует, нужны ли формулы, таблицы или визуализации.
@@ -547,8 +547,8 @@ class FormulaTableAgent:
         needs_formulas: bool,
         needs_tables: bool,
         needs_visuals: bool,
-        existing_formulas: list[FormulaItem] = None,
-        existing_tables: list[TableItem] = None
+        existing_formulas: list[FormulaItem] | None = None,
+        existing_tables: list[TableItem] | None = None
     ) -> dict:
         """Генерирует формулы, таблицы или визуализации."""
         instructions = []
@@ -764,8 +764,8 @@ class FormulaTableAgent:
             content = match.group(2)  # текст внутри кавычек
             suffix = match.group(3)   # |
             if content and not content.isascii():
-                return prefix + "label" + suffix
-            return match.group(0)
+                return str(prefix) + "label" + str(suffix)
+            return str(match.group(0))
         code = re.sub(r'(-->\|)"([^"]*)"(\|)', _sanitize_edge_label, code)
         code = re.sub(r'(--\|)"([^"]*)"(\|)', _sanitize_edge_label, code)
 
@@ -939,7 +939,7 @@ class FormulaTableAgent:
 
         # ШАГ 5: Разбиваем на строки и очищаем каждую
         lines = code.split("\n")
-        cleaned_lines = []
+        cleaned_lines: list[str] = []
         for line in lines:
             cleaned_line = line.rstrip()  # Убираем пробелы в конце строки
             # Пропускаем полностью пустые строки в начале

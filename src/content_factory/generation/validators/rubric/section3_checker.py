@@ -292,10 +292,11 @@ class Section3Checker:
                 },
             ))
 
+        last_details = items[-1].details or {}
         safe_print(
             f"      {'✅' if items[-1].score == 1 else '❌'} 3.1: "
-            f"Связность {items[-1].details.get('average_similarity', 0):.2f} "
-            f"(порог: {items[-1].details.get('threshold', 0)})",
+            f"Связность {last_details.get('average_similarity', 0):.2f} "
+            f"(порог: {last_details.get('threshold', 0)})",
             flush=True,
         )
 

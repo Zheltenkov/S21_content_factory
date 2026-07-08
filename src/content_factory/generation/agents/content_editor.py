@@ -141,7 +141,7 @@ class ContentEditorAgent:
             safe_print(f"     Детали: {traceback.format_exc()[:500]}", flush=True)
             return part
 
-    def improve_coherence(self, part1: TheoryPart, part2: TheoryPart, seed: ProjectSeed, previous_parts: list[TheoryPart] = None) -> TheoryPart:
+    def improve_coherence(self, part1: TheoryPart, part2: TheoryPart, seed: ProjectSeed, previous_parts: list[TheoryPart] | None = None) -> TheoryPart:
         """
         Улучшает связность между двумя частями теории.
 

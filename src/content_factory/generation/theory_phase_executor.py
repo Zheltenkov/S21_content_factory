@@ -4,7 +4,7 @@ import logging
 import random
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any
+from typing import Any, cast
 
 from .config.thresholds import THRESHOLDS
 from .domain_contracts import StaticInstructionLeakGuard
@@ -38,7 +38,7 @@ def _polish_theory_part(orchestrator: Any, part: TheoryPart, seed: ProjectSeed) 
     """Applies optional local post-processing when the theory agent supports it."""
     polisher = getattr(getattr(orchestrator, "theory", None), "polish_part", None)
     if callable(polisher):
-        return polisher(part, seed)
+        return cast(TheoryPart, polisher(part, seed))
     try:
         from .agents.theory import _sanitize_theory_body_text, _sanitize_theory_example_text
 
@@ -475,9 +475,10 @@ class TheoryPhaseExecutor:
                     else self.runtime.llm
                 )
                 self.runtime.theory_completeness = TheoryCompletenessAgent(llm_client)
+            theory_completeness = self.runtime.theory_completeness
 
             markdown = readme_document.to_markdown()
-            enhanced_md, completeness_warnings, completeness_issues = self.runtime.theory_completeness.check_and_enhance(
+            enhanced_md, completeness_warnings, completeness_issues = theory_completeness.check_and_enhance(
                 theory_markdown=markdown,
                 original_readme=original_readme,
                 extracted_topics=extracted_topics,

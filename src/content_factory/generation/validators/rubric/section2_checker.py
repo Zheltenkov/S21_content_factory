@@ -11,7 +11,7 @@ from .document_utils import chapter_prose_text
 class Section2Checker:
     """Проверяет соответствие требованиям (аннотация, оглавление, главы)."""
 
-    def __init__(self, llm_client=None, embedding_function=None, language: str = "ru", regex_patterns: dict = None):
+    def __init__(self, llm_client=None, embedding_function=None, language: str = "ru", regex_patterns: dict | None = None):
         """
         Инициализация checker'а.
 

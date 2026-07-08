@@ -497,7 +497,8 @@ def _selected_titles(case: RegenerationEvalCase, output: RegenerationEvalOutput)
 def _validation_counts(validation_report: dict[str, Any] | None) -> tuple[int, int]:
     if not isinstance(validation_report, dict):
         return 0, 0
-    issues = validation_report.get("issues") if isinstance(validation_report.get("issues"), list) else []
+    _issues = validation_report.get("issues")
+    issues = _issues if isinstance(_issues, list) else []
     errors = sum(1 for issue in issues if isinstance(issue, dict) and issue.get("severity") == "error")
     failed_patches = int(validation_report.get("failed_patch_count") or 0)
     return errors, failed_patches

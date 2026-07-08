@@ -5,7 +5,7 @@ from __future__ import annotations
 import difflib
 import hashlib
 import re
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
@@ -103,7 +103,8 @@ class ScopedRevisionExecutor:
         for index, action in enumerate(actions):
             if not isinstance(action, dict) or action.get("action") != "changes_requested":
                 continue
-            details = action.get("details") if isinstance(action.get("details"), dict) else {}
+            _det = action.get("details")
+            details = _det if isinstance(_det, dict) else {}
             payload = details.get("change_request") if isinstance(details, dict) else None
             if not isinstance(payload, dict):
                 continue
@@ -353,7 +354,8 @@ class ScopedRevisionExecutor:
         for action in actions:
             if not isinstance(action, dict) or action.get("action") != "diff_approved":
                 continue
-            details = action.get("details") if isinstance(action.get("details"), dict) else {}
+            _det = action.get("details")
+            details = _det if isinstance(_det, dict) else {}
             approved_ids.update(str(item) for item in details.get("approved_action_ids") or [] if item)
         return approved_ids
 
@@ -680,7 +682,10 @@ class ScopedRevisionExecutor:
         kind: str,
     ) -> SectionTarget | None:
         registry = build_section_target_registry(context)
-        target = registry.find(request.target_selector, kind=kind)
+        target = registry.find(
+            request.target_selector,
+            kind=cast("Literal['field', 'markdown_section', 'material_file'] | None", kind),
+        )
         if target is not None:
             return target
         if kind == "markdown_section":
@@ -700,7 +705,7 @@ class ScopedRevisionExecutor:
         annotation = context.get("annotation")
         if isinstance(annotation, dict):
             return str(annotation.get("text") or "")
-        if hasattr(annotation, "text"):
+        if annotation is not None and hasattr(annotation, "text"):
             return str(annotation.text or "")
         return ""
 
@@ -717,7 +722,7 @@ class ScopedRevisionExecutor:
         if isinstance(annotation, dict):
             annotation["text"] = value
             annotation["chars"] = len(value)
-        elif hasattr(annotation, "text") and hasattr(annotation, "chars"):
+        elif annotation is not None and hasattr(annotation, "text") and hasattr(annotation, "chars"):
             annotation.text = value
             annotation.chars = len(value)
         else:
@@ -861,7 +866,7 @@ class ScopedRevisionExecutor:
         if isinstance(annotation, dict):
             annotation["text"] = annotation_text
             annotation["chars"] = len(annotation_text)
-        elif hasattr(annotation, "text") and hasattr(annotation, "chars"):
+        elif annotation is not None and hasattr(annotation, "text") and hasattr(annotation, "chars"):
             annotation.text = annotation_text
             annotation.chars = len(annotation_text)
         else:
@@ -898,5 +903,5 @@ class ScopedRevisionExecutor:
     @staticmethod
     def _sync_state(context: dict[str, Any]) -> None:
         state = context.get("state")
-        if hasattr(state, "sync_from_context"):
+        if state is not None and hasattr(state, "sync_from_context"):
             state.sync_from_context(context)

@@ -34,7 +34,7 @@ def normalize_heading_for_search(h: str) -> str:
 class TOCChecker:
     """Проверяет оглавление проекта."""
 
-    def __init__(self, llm_client=None, embedding_function=None, language: str = "ru", regex_patterns: dict = None):
+    def __init__(self, llm_client=None, embedding_function=None, language: str = "ru", regex_patterns: dict | None = None):
         """
         Инициализация checker'а.
 
@@ -189,7 +189,7 @@ class TOCChecker:
                 section_length = len(section_content)
                 if any(g in normalized_heading.lower() for g in GENERIC_HEADINGS):
                     safe_print(f"      [2.2.4] ✅ Заголовок '{heading[:50]}': общий заголовок из whitelist, считаем точным (раздел: {section_length} символов)", flush=True)
-                    heading_accurate = True
+                    heading_accurate: bool | None = True
                     total_checked += 1
                     accurate_count += 1
                     continue

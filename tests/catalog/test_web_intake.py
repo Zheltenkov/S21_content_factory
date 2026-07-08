@@ -9,33 +9,18 @@ from __future__ import annotations
 
 import io
 import json
-import sqlite3
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-_REPO = Path(__file__).resolve().parents[2]
-_CATALOG_SCHEMA = _REPO / "src" / "content_factory" / "catalog" / "sql" / "catalog_schema.sql"
 _PREFIX = "/app/spravochnik"
 
 
 @pytest.fixture()
-def client(tmp_path, monkeypatch) -> TestClient:
-    db = tmp_path / "catalog.sqlite"
-    con = sqlite3.connect(db)
-    con.executescript(_CATALOG_SCHEMA.read_text(encoding="utf-8"))
-    con.commit()
-    con.close()
-    monkeypatch.setenv("SPRAVOCHNIK_SQLITE_PATH", str(db))
+def client(catalog_conn, tmp_path, monkeypatch) -> TestClient:
+    # working tables (intake/DAG) already exist in the PG catalog schema (alembic 016)
     monkeypatch.setenv("SPRAVOCHNIK_SUMMARY_PATH", str(tmp_path / "missing_summary.json"))
     monkeypatch.setenv("DISABLE_AUTH", "true")
-
-    from content_factory.catalog.viewer.app import ensure_intake_runtime_schema, open_db
-
-    conn = open_db(db)
-    ensure_intake_runtime_schema(conn, db)
-    conn.close()
 
     # never run the real pipeline (would call the LLM in a background thread)
     import content_factory.catalog.web.routers.intake as intake_router
@@ -89,11 +74,10 @@ def test_intake_post_file_upload_creates_job(client: TestClient) -> None:
 
 
 def _seed_job(client: TestClient, *, status: str = "queued", result_payload=None) -> int:
-    from content_factory.api.integrations.project_paths import spravochnik_sqlite_path
-    from content_factory.catalog.viewer.app import create_intake_job, open_db
+    from content_factory.catalog.db import open_catalog_connection
+    from content_factory.catalog.viewer.app import create_intake_job
 
-    db = spravochnik_sqlite_path()
-    conn = open_db(db)
+    conn = open_catalog_connection("unused-on-postgres")
     try:
         job_id = create_intake_job(
             conn,

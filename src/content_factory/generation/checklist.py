@@ -50,13 +50,13 @@ class ProjectChecklist(BaseModel):
     def to_yaml(self) -> str:
         """Serialize with multiline strings close to the repository examples."""
         payload = _literalize_multiline_strings(self.model_dump(mode="json"))
-        return yaml.safe_dump(
+        return str(yaml.safe_dump(
             payload,
             allow_unicode=True,
             default_flow_style=False,
             sort_keys=False,
             width=120,
-        )
+        ))
 
 
 class _LiteralString(str):

@@ -1,19 +1,17 @@
-"""Review queue UI ported to native FastAPI (Phase 5.4).
+"""Review queue UI served by the native FastAPI catalog router.
 
 GET renders the same ``reviews.html`` as the legacy viewer; POST updates a review
 status (PRG, preserving the active filters in the redirect) and the two brief-level
-actions (build-dag / apply-catalog) that jump to the resulting intake job. All data
-logic reuses the viewer functions unchanged.
+actions (build-dag / apply-catalog) that jump to the resulting intake job.
 """
 
 from __future__ import annotations
 
-import sqlite3
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from content_factory.catalog.viewer.app import (
+from content_factory.catalog.db import CatalogConnection
+from content_factory.catalog.viewer.intake_ops import (
     apply_brief_catalog_decisions,
     build_dag_for_brief,
     ensure_intake_runtime_schema,
@@ -42,7 +40,7 @@ def reviews_get(
     severity: str = Query(default="all"),
     reason: str = Query(default="all"),
     entity_type: str = Query(default="all"),
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: CatalogConnection = Depends(get_conn),
 ) -> HTMLResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     status_totals, breakdown, items, reason_codes, entity_type_codes = list_reviews(
@@ -73,7 +71,7 @@ def reviews_get(
 
 
 @router.post("/reviews")
-async def reviews_post(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+async def reviews_post(request: Request, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     form = await _form(request)
     try:
@@ -100,7 +98,7 @@ async def reviews_post(request: Request, conn: sqlite3.Connection = Depends(get_
 
 
 @router.post("/reviews/build-dag")
-async def reviews_build_dag(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+async def reviews_build_dag(request: Request, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     form = await _form(request)
     try:
@@ -115,7 +113,7 @@ async def reviews_build_dag(request: Request, conn: sqlite3.Connection = Depends
 
 
 @router.post("/reviews/apply-catalog")
-async def reviews_apply_catalog(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+async def reviews_apply_catalog(request: Request, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     form = await _form(request)
     try:

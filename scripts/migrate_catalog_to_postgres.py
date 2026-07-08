@@ -53,7 +53,7 @@ def connect_with_retry(url: str, attempts: int = 8, delay: float = 4.0):
     raise SystemExit(f"could not establish a stable connection after {attempts} attempts: {last}")
 
 # FK-safe order (parents first).
-TABLES = [
+CANONICAL_TABLES = [
     "ingest_run", "source_workbook", "source_sheet", "source_block", "profile",
     "profile_source", "proficiency_scale", "proficiency_level", "dimension",
     "competency", "typed_competency", "profile_competency", "skill", "skill_alias",
@@ -62,6 +62,21 @@ TABLES = [
     "course", "project", "project_indicator", "ai_analysis_run",
     "ai_analysis_suggestion", "review_queue",
 ]
+
+# Working/intake tables (FK-safe, parents first; reference canonical, so loaded after it).
+# skill_group/indicator (migration 017): admin-runtime tables; indicator FKs skill (canonical,
+# loaded earlier), skill_group is standalone. skill.group_id is a soft integer (no FK).
+WORKING_TABLES = [
+    "profile_brief", "evidence_source", "evidence_query_cache", "skill_suggestion",
+    "skill_prerequisite", "prerequisite_edge_decision", "intake_job",
+    "curriculum_plan", "curriculum_plan_row", "curriculum_artifact_template",
+    "curriculum_artifact_template_scope", "skill_set", "skill_set_item",
+    "curriculum_artifact_template_proposal", "skill_promotion_log",
+    "skill_group", "indicator",
+]
+
+# Full-PG cutover: migrate canonical first, then working tables (FK-safe overall).
+TABLES = CANONICAL_TABLES + WORKING_TABLES
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -85,6 +100,10 @@ def main(argv: list[str] | None = None) -> int:
     dst_counts: dict[str, int] = {}
     try:
         with pg.cursor() as cur:
+            # Bulk-load mode: defer FK/trigger enforcement so the copy faithfully mirrors
+            # SQLite (which does not enforce FKs — the source may hold dangling references).
+            # Requires a superuser/replication role; the local dev PG user has it.
+            cur.execute("SET session_replication_role = replica")
             # guard: non-empty target
             if not args.truncate:
                 for t in TABLES:
@@ -117,10 +136,34 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 print(f"loaded {t}: {len(rows)}")
 
+            # Reset IDENTITY sequences to max(id)+1 so runtime INSERTs don't collide
+            # with the explicit ids we just copied. Only tables that actually have an `id`
+            # column (some canonical join tables have composite PKs and no `id`); of those,
+            # non-identity tables return NULL from pg_get_serial_sequence and are skipped.
+            cur.execute(
+                "SELECT table_name FROM information_schema.columns "
+                "WHERE table_schema = %s AND column_name = 'id'",
+                (args.schema,),
+            )
+            id_tables = {r[0] for r in cur.fetchall()}
+            for t in TABLES:
+                if t not in id_tables:
+                    continue
+                cur.execute("SELECT pg_get_serial_sequence(%s, 'id')", (f"{args.schema}.{t}",))
+                seq_row = cur.fetchone()
+                seq = seq_row[0] if seq_row else None
+                if not seq:
+                    continue
+                cur.execute(
+                    f"SELECT setval(%s, COALESCE((SELECT MAX(id) FROM {args.schema}.{t}), 0) + 1, false)",
+                    (seq,),
+                )
+
             # verify counts inside the same tx
             for t in TABLES:
                 cur.execute(f"SELECT count(*) FROM {args.schema}.{t}")
                 dst_counts[t] = cur.fetchone()[0]
+            cur.execute("SET session_replication_role = origin")
         pg.commit()
     except Exception:
         pg.rollback()

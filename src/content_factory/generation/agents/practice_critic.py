@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -341,9 +341,9 @@ class PracticeCriticAgent:
             r"заказчик",
         ]
         for pattern in keyword_patterns:
-            m = re.search(pattern, text_low)
-            if m:
-                anchors.append(m.group(0))
+            mm = re.search(pattern, text_low)
+            if mm:
+                anchors.append(mm.group(0))
 
         # Капитализированные сущности (например, Домклик)
         for token in re.findall(r"\b[А-ЯA-Z][А-Яа-яA-Za-z0-9_-]{2,}\b", text):
@@ -434,4 +434,4 @@ class PracticeCriticAgent:
         end = stripped.rfind("}") + 1
         if start != -1 and end > start:
             stripped = stripped[start:end]
-        return json.loads(stripped)
+        return cast("dict", json.loads(stripped))

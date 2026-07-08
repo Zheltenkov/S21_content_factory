@@ -13,16 +13,14 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from content_factory.catalog.viewer.app import (
-    COMPLEXITY_OPTIONS,
-    DEFAULT_DB,
-    DEFAULT_SUMMARY,
-    INTAKE_PROGRESS_STEPS,
-    TEMPLATES_DIR,
-    edge_reason_label,
+from content_factory.catalog.viewer._common import (
     format_local_datetime,
     load_summary,
     refresh_summary_counts,
+)
+from content_factory.catalog.viewer.catalog_admin_ops import COMPLEXITY_OPTIONS
+from content_factory.catalog.viewer.labels import (
+    edge_reason_label,
     review_entity_label,
     review_severity_label,
     review_source_label,
@@ -35,6 +33,12 @@ from content_factory.catalog.viewer.route_zones import (
     get_main_nav,
     get_secondary_nav,
     show_secondary_nav,
+)
+from content_factory.catalog.viewer.ui_constants import (
+    DEFAULT_DB,
+    DEFAULT_SUMMARY,
+    INTAKE_PROGRESS_STEPS,
+    TEMPLATES_DIR,
 )
 
 #: URL prefix the catalog UI router is mounted under.

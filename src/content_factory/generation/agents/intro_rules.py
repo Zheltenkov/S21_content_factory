@@ -36,7 +36,7 @@ def _soft_clamp_words(text: str, lo: int, hi: int, language: str = "ru") -> str:
             text += " Блок задаёт рамки и помогает понять ожидаемый результат."
     elif word_count > hi:
         sents = re.split(r"(?<=[\.\!\?])\s+", text.strip())
-        acc = []
+        acc: list[str] = []
         for s in sents:
             if _count_words(" ".join(acc + [s]), language) <= hi:
                 acc.append(s)
@@ -482,7 +482,7 @@ class IntroRulesAgent:
         """
         explicit_type = getattr(seed, "project_content_type", None)
         if explicit_type in {"hard_code", "low_code", "no_code"}:
-            return explicit_type
+            return str(explicit_type)
 
         direction = (getattr(seed, 'direction', '') or seed.thematic_block or "").upper()
 

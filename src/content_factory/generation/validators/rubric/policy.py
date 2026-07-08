@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ...calibration.strictness import effective_strictness
 from ...models.criteria_models import CheckMethod, CriteriaItem, StrictnessLevel
 
 WARNING_PREFIX = "Предупреждение:"
@@ -40,6 +41,12 @@ def apply_rubric_warning_policy(items: list[CriteriaItem]) -> list[CriteriaItem]
 
 
 def _normalize_item(item: CriteriaItem) -> CriteriaItem:
+    # Авто-калибровка: промотированный (enforce) критерий поднимается в HARD до маскировки,
+    # поэтому его провал перестаёт быть предупреждением и блокирует.
+    promoted_strictness = effective_strictness(item.id, item.strictness)
+    if promoted_strictness != item.strictness:
+        item = item.model_copy(update={"strictness": promoted_strictness})
+
     if item.score != 0 or not _is_non_blocking_failure(item):
         return item
 

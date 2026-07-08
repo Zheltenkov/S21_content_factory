@@ -85,6 +85,8 @@ viewer/server.err
 **/artifacts/*.before_unified_*.sqlite
 **/artifacts/llm_usage.jsonl
 **/artifacts/local-skill-names.json
+**/artifacts/calibration_log.jsonl
+**/artifacts/strictness_state.json
 
 # ---- Vector / RAG stores ----
 chroma_db/

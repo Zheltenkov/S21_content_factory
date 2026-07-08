@@ -131,7 +131,7 @@ class PracticeGenerationService:
         system_prompt = self.config.get_prompt("system").format(language=seed.language)
         if self.didactics_context:
             system_prompt = f"{system_prompt}\n\n=== DIDACTICS CONTEXT ===\n{self.didactics_context}"
-        return system_prompt
+        return str(system_prompt)
 
     def _build_user_prompt(
         self,

@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import requests
 
@@ -81,7 +82,7 @@ def convert_mermaid_blocks(
         logger.info("Mermaid PNG export disabled: %s; source blocks preserved", unavailable_reason)
         return md, []
 
-    assets: list[dict[str, bytes]] = []
+    assets: list[dict[str, Any]] = []
     attempts = 0
     max_diagrams = _int_env("MERMAID_EXPORT_MAX_DIAGRAMS", DEFAULT_MAX_DIAGRAMS)
     reported_failures: set[str] = set()
@@ -90,13 +91,13 @@ def convert_mermaid_blocks(
         nonlocal attempts
         code = match.group("body").strip()
         if not code:
-            return match.group(0)
+            return str(match.group(0))
         if attempts >= max_diagrams:
             logger.info(
                 "Mermaid PNG export skipped after %s diagrams; source block preserved",
                 max_diagrams,
             )
-            return match.group(0)
+            return str(match.group(0))
 
         attempts += 1
         image_name = f"diagram_{attempts}.png"
@@ -109,7 +110,7 @@ def convert_mermaid_blocks(
                 reported_failures.add(failure)
             else:
                 logger.info("Mermaid PNG export skipped for %s after repeated renderer failure", image_name)
-            return match.group(0)
+            return str(match.group(0))
 
         assets.append({"name": image_name, "data": png_bytes})
         return f"![Диаграмма {len(assets)}](images/{image_name})"
@@ -192,7 +193,8 @@ def _render_mermaid_kroki(code: str) -> bytes:
         headers={"Content-Type": "text/plain; charset=utf-8"},
     )
     resp.raise_for_status()
-    return resp.content
+    content: bytes = resp.content
+    return content
 
 
 def _ensure_theme(code: str) -> str:

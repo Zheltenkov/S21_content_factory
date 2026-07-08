@@ -88,8 +88,10 @@ class ProjectSeedProvider:
         if not isinstance(payload, dict) or not payload:
             return None
 
-        project = payload.get("project") if isinstance(payload.get("project"), dict) else payload
-        block = payload.get("block") if isinstance(payload.get("block"), dict) else {}
+        project_raw = payload.get("project")
+        project: dict[str, Any] = project_raw if isinstance(project_raw, dict) else payload
+        block_raw = payload.get("block")
+        block: dict[str, Any] = block_raw if isinstance(block_raw, dict) else {}
 
         direction = (
             payload.get("direction")

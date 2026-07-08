@@ -94,8 +94,8 @@ class AgentFlowRunner:
     def __init__(
         self,
         definition: FlowDefinition,
-        cancellation_token: CancellationToken = None,
-        progress_tracker: ProgressTracker = None,
+        cancellation_token: CancellationToken | None = None,
+        progress_tracker: ProgressTracker | None = None,
         stage_review_hook: Callable[[FlowNodeConfig, dict[str, object], FlowNodeOutput], list[str]] | None = None,
         workflow_checkpoint_hook: Callable[[dict[str, Any]], None] | None = None,
         workflow_node_started_hook: Callable[[dict[str, Any]], None] | None = None,
@@ -150,7 +150,7 @@ class AgentFlowRunner:
                     issues=["condition=false"],
                     output_schema=None,
                 )
-                context.setdefault("node_traces", []).append(trace_event.model_dump(mode="json"))
+                self._append_node_trace(context, trace_event)
                 skip_step = FlowExecutionStep(
                     node_id=node.id,
                     node_name=node.name,
@@ -210,7 +210,7 @@ class AgentFlowRunner:
                     issues=[*(output.issues or []), *review_issues],
                     output_schema=",".join(sorted((output.updates or {}).keys())) or None,
                 )
-                context.setdefault("node_traces", []).append(trace_event.model_dump(mode="json"))
+                self._append_node_trace(context, trace_event)
                 step = FlowExecutionStep(
                     node_id=node.id,
                     node_name=node.name,
@@ -243,7 +243,7 @@ class AgentFlowRunner:
                     issues=[str(exc)],
                     output_schema=None,
                 )
-                context.setdefault("node_traces", []).append(trace_event.model_dump(mode="json"))
+                self._append_node_trace(context, trace_event)
                 pause_step = FlowExecutionStep(
                     node_id=node.id,
                     node_name=node.name,
@@ -277,7 +277,7 @@ class AgentFlowRunner:
                     issues=[f"Отменено: {exc.reason}"],
                     output_schema=None,
                 )
-                context.setdefault("node_traces", []).append(trace_event.model_dump(mode="json"))
+                self._append_node_trace(context, trace_event)
                 cancel_step = FlowExecutionStep(
                     node_id=node.id,
                     node_name=node.name,
@@ -305,7 +305,7 @@ class AgentFlowRunner:
                     issues=[str(exc)],
                     output_schema=None,
                 )
-                context.setdefault("node_traces", []).append(trace_event.model_dump(mode="json"))
+                self._append_node_trace(context, trace_event)
                 error_step = FlowExecutionStep(
                     node_id=node.id,
                     node_name=node.name,
@@ -360,6 +360,16 @@ class AgentFlowRunner:
             output_schema=output_schema or declared_output_schema,
             metadata=metadata,
         )
+
+    @staticmethod
+    def _append_node_trace(context: dict[str, object], trace_event: NodeTraceEvent) -> None:
+        """Append a trace event while preserving the typed shape of the flow context."""
+
+        traces = context.get("node_traces")
+        if not isinstance(traces, list):
+            traces = []
+            context["node_traces"] = traces
+        traces.append(trace_event.model_dump(mode="json"))
 
     @staticmethod
     def _load_node_contracts() -> dict[str, NodeContract]:
@@ -481,7 +491,7 @@ class AgentFlowRunner:
 
     def _evaluate_condition(self, expression: str, context: dict[str, object]) -> bool:
         """Safely evaluate a small boolean expression against the flow context."""
-        safe_globals = {"__builtins__": {}}
+        safe_globals: dict[str, object] = {"__builtins__": {}}
         safe_locals = {
             key: value
             for key, value in context.items()

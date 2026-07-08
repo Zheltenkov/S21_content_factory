@@ -1,53 +1,51 @@
-"""catalog-admin pages ported to native FastAPI (Phase 5.2).
+"""Catalog-admin pages served by the native FastAPI catalog router.
 
 GET renders the same templates as the legacy viewer; POST reads the form via
-``request.form()`` (like the old ``parse_post_data``), dispatches on ``action`` and
-redirects (PRG, 303). All mutation/query logic reuses the viewer's data functions.
+``request.form()``, dispatches on ``action`` and redirects (PRG, 303).
 """
 
 from __future__ import annotations
 
-import sqlite3
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.pipeline import competency_catalog
 from content_factory.catalog.pipeline import storage as intake_storage
-from content_factory.catalog.viewer.app import (
-    ARTIFACT_FAMILY_OPTIONS,
-    ARTIFACT_SCOPE_TYPE_OPTIONS,
+from content_factory.catalog.viewer._common import parse_optional_int, utc_now_iso
+from content_factory.catalog.viewer.candidate_competency_ops import (
+    list_active_competency_options,
+    list_candidate_competencies,
+    merge_candidate_competency,
+    move_candidate_competency_skill,
+    rename_candidate_competency,
+    resolve_candidate_competency,
+)
+from content_factory.catalog.viewer.catalog_admin_ops import (
     add_skill_alias,
     create_catalog_group,
     create_catalog_indicator,
     create_catalog_skill,
-    ensure_intake_runtime_schema,
     get_catalog_group,
     get_catalog_skill,
     get_skill_set,
-    list_active_competency_options,
     list_archived_groups,
     list_archived_indicators,
     list_archived_skills,
-    list_candidate_competencies,
     list_catalog_group_skills,
     list_catalog_groups,
     list_catalog_indicators,
     list_skill_aliases,
     list_skill_set_items,
     list_skill_sets,
-    merge_candidate_competency,
     merge_catalog_skills,
-    move_candidate_competency_skill,
     parse_artifact_template_scopes,
-    parse_optional_int,
     remove_catalog_group,
     remove_catalog_indicator,
     remove_catalog_skill,
     remove_skill_alias,
-    rename_candidate_competency,
-    resolve_candidate_competency,
     restore_catalog_group,
     restore_catalog_indicator,
     restore_catalog_skill,
@@ -55,8 +53,9 @@ from content_factory.catalog.viewer.app import (
     update_catalog_group,
     update_catalog_indicator,
     update_catalog_skill,
-    utc_now_iso,
 )
+from content_factory.catalog.viewer.intake_ops import ensure_intake_runtime_schema
+from content_factory.catalog.viewer.ui_constants import ARTIFACT_FAMILY_OPTIONS, ARTIFACT_SCOPE_TYPE_OPTIONS
 from content_factory.catalog.web.deps import catalog_db_path, get_conn
 from content_factory.catalog.web.rendering import CATALOG_URL_PREFIX, render
 
@@ -83,7 +82,7 @@ def catalog_admin_root() -> RedirectResponse:
 # candidate competencies
 # --------------------------------------------------------------------------- #
 @router.get("/catalog-admin/candidate-competencies", response_class=HTMLResponse)
-def candidate_competencies_get(conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
+def candidate_competencies_get(conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     candidates = list_candidate_competencies(conn)
     html = render(
@@ -100,7 +99,7 @@ def candidate_competencies_get(conn: sqlite3.Connection = Depends(get_conn)) -> 
 
 
 @router.post("/catalog-admin/candidate-competencies")
-async def candidate_competencies_post(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+async def candidate_competencies_post(request: Request, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     form = await _form(request)
     competency_id = int(form.get("competency_id", "0") or 0)
@@ -132,7 +131,7 @@ async def candidate_competencies_post(request: Request, conn: sqlite3.Connection
 def archive_get(
     q: str = Query(default=""),
     scope: str = Query(default="all"),
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: CatalogConnection = Depends(get_conn),
 ) -> HTMLResponse:
     archive_query = q.strip()
     archive_scope = scope.strip() or "all"
@@ -157,7 +156,7 @@ def archive_get(
 
 
 @router.post("/catalog-admin/archive")
-async def archive_post(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+async def archive_post(request: Request, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     form = await _form(request)
     action = form.get("action", "")
     if action == "restore_group":
@@ -183,7 +182,7 @@ async def archive_post(request: Request, conn: sqlite3.Connection = Depends(get_
 @router.get("/catalog-admin/artifact-templates", response_class=HTMLResponse)
 def artifact_templates_get(
     edit: str = Query(default=""),
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: CatalogConnection = Depends(get_conn),
 ) -> HTMLResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     templates = intake_storage.load_curriculum_artifact_templates(conn, active_only=False)
@@ -214,7 +213,7 @@ def artifact_templates_get(
 
 
 @router.post("/catalog-admin/artifact-templates")
-async def artifact_templates_post(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+async def artifact_templates_post(request: Request, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     form = await _form(request)
     action = form.get("action", "")
@@ -249,7 +248,7 @@ async def artifact_templates_post(request: Request, conn: sqlite3.Connection = D
 # skill sets
 # --------------------------------------------------------------------------- #
 @router.get("/catalog-admin/skillsets", response_class=HTMLResponse)
-def skillsets_get(conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
+def skillsets_get(conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     html = render(
         "catalog_admin_skillsets.html",
@@ -260,7 +259,7 @@ def skillsets_get(conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
 
 
 @router.get("/catalog-admin/skillsets/{skill_set_id}", response_class=HTMLResponse)
-def skillset_detail_get(skill_set_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
+def skillset_detail_get(skill_set_id: int, conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     skill_set = get_skill_set(conn, skill_set_id)
     if not skill_set:
@@ -277,7 +276,7 @@ def skillset_detail_get(skill_set_id: int, conn: sqlite3.Connection = Depends(ge
 # groups
 # --------------------------------------------------------------------------- #
 @router.get("/catalog-admin/groups", response_class=HTMLResponse)
-def groups_get(conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
+def groups_get(conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
     html = render(
         "catalog_admin_groups.html",
         {"title": "Каталог DB", "groups": list_catalog_groups(conn)},
@@ -287,7 +286,7 @@ def groups_get(conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
 
 
 @router.post("/catalog-admin/groups")
-async def groups_post(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+async def groups_post(request: Request, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     form = await _form(request)
     action = form.get("action", "")
     if action == "create_group":
@@ -300,7 +299,7 @@ async def groups_post(request: Request, conn: sqlite3.Connection = Depends(get_c
 
 
 @router.get("/catalog-admin/groups/{group_id}", response_class=HTMLResponse)
-def group_detail_get(group_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> HTMLResponse:
+def group_detail_get(group_id: int, conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
     group = get_catalog_group(conn, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -313,7 +312,7 @@ def group_detail_get(group_id: int, conn: sqlite3.Connection = Depends(get_conn)
 
 
 @router.post("/catalog-admin/groups/{group_id}")
-async def group_detail_post(group_id: int, request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+async def group_detail_post(group_id: int, request: Request, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     form = await _form(request)
     action = form.get("action", "")
     if action == "update_group":
@@ -348,7 +347,7 @@ def skill_detail_get(
     skill_id: int,
     merge_query: str = Query(default=""),
     competency_query: str = Query(default=""),
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: CatalogConnection = Depends(get_conn),
 ) -> HTMLResponse:
     skill = get_catalog_skill(conn, skill_id)
     if not skill:
@@ -374,7 +373,7 @@ def skill_detail_get(
 
 
 @router.post("/catalog-admin/skills/{skill_id}")
-async def skill_detail_post(skill_id: int, request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> RedirectResponse:
+async def skill_detail_post(skill_id: int, request: Request, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     form = await _form(request)
     action = form.get("action", "")
     if action == "update_skill":

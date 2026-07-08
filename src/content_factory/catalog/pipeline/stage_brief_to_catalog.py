@@ -8,9 +8,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import sqlite3
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, cast
+
+from content_factory.catalog.db import CatalogConnection
 
 from . import config, language, llm, stage_atomize, stage_normalize
 from .catalog_repo import CatalogRepo
@@ -622,7 +623,7 @@ def _evidence_cache_key(query: str) -> str:
     return hashlib.sha256(_normalize_evidence_query(query).encode("utf-8")).hexdigest()
 
 
-def ensure_evidence_cache_table(conn: sqlite3.Connection) -> None:
+def ensure_evidence_cache_table(conn: CatalogConnection) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS evidence_query_cache (
@@ -640,7 +641,7 @@ def ensure_evidence_cache_table(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _load_cached_search(cache_conn: sqlite3.Connection | None, query: str) -> list[dict] | None:
+def _load_cached_search(cache_conn: CatalogConnection | None, query: str) -> list[dict] | None:
     if cache_conn is None:
         return None
     ensure_evidence_cache_table(cache_conn)
@@ -665,7 +666,7 @@ def _load_cached_search(cache_conn: sqlite3.Connection | None, query: str) -> li
     return payload if isinstance(payload, list) else None
 
 
-def _store_cached_search(cache_conn: sqlite3.Connection | None, query: str, items: list[dict]) -> None:
+def _store_cached_search(cache_conn: CatalogConnection | None, query: str, items: list[dict]) -> None:
     if cache_conn is None:
         return
     ensure_evidence_cache_table(cache_conn)
@@ -695,7 +696,7 @@ def _store_cached_search(cache_conn: sqlite3.Connection | None, query: str, item
 
 
 # --------- grounded-поиск -> evidence ---------
-def search(query: str, cache_conn: sqlite3.Connection | None = None) -> list[dict]:
+def search(query: str, cache_conn: CatalogConnection | None = None) -> list[dict]:
     cached = _load_cached_search(cache_conn, query)
     if cached is not None:
         return cached
@@ -745,7 +746,7 @@ def search(query: str, cache_conn: sqlite3.Connection | None = None) -> list[dic
     return out
 
 
-def gather_evidence(sub_queries: list[str], cache_conn: sqlite3.Connection | None = None) -> list[Evidence]:
+def gather_evidence(sub_queries: list[str], cache_conn: CatalogConnection | None = None) -> list[Evidence]:
     ev, n = [], 0
     for q in sub_queries:
         for h in search(q, cache_conn=cache_conn):
@@ -895,7 +896,7 @@ def select_evidence_enrichment_candidates(cands: list[SkillCandidate]) -> list[S
 def gather_evidence_for_gray_zone(
     cands: list[SkillCandidate],
     spec: dict,
-    cache_conn: sqlite3.Connection | None = None,
+    cache_conn: CatalogConnection | None = None,
 ) -> list[Evidence]:
     """Ищет evidence только для кандидатов, которые не закрылись каноном."""
     grouped: dict[str, list[SkillCandidate]] = {}

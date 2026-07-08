@@ -156,7 +156,7 @@ class TheoryGenerationService:
         system_prompt = self.config.get_prompt("system").format(language=seed.language)
         if self.didactics_context:
             system_prompt = f"{system_prompt}\n\n=== DIDACTICS CONTEXT ===\n{self.didactics_context}"
-        return system_prompt
+        return str(system_prompt)
 
     def _build_user_prompt(
         self,
@@ -243,7 +243,7 @@ class TheoryGenerationService:
                 " но не копируй формулировки и не подменяй им темы текущего проекта из УП.\n\n"
                 f"{seed.reference_project_hint.strip()}"
             )
-        return user_prompt
+        return str(user_prompt)
 
     def _fill_missing_examples(
         self,

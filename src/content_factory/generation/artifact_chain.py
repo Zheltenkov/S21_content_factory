@@ -105,7 +105,9 @@ class GenericArtifactChainPlanner:
         "оценку качества выполненной студентом работы",
     ]
 
-    def plan(self, seed: ProjectSeed, task_count: int, *, theory_summary: str = "") -> ArtifactChainPlan:
+    def plan(
+        self, seed: ProjectSeed, task_count: int, *, theory_summary: str = "", **_kwargs: object
+    ) -> ArtifactChainPlan:
         """Create a deterministic chain before LLM practice generation."""
         raw_input_path = raw_material_path_for_task(1)
         steps: list[ArtifactStep] = []

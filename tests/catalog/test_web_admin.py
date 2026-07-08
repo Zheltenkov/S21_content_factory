@@ -2,33 +2,17 @@
 
 from __future__ import annotations
 
-import sqlite3
-from pathlib import Path
-
 import pytest
 from fastapi.testclient import TestClient
 
-_REPO = Path(__file__).resolve().parents[2]
-_CATALOG_SCHEMA = _REPO / "src" / "content_factory" / "catalog" / "sql" / "catalog_schema.sql"
 _PREFIX = "/app/spravochnik"
 
 
 @pytest.fixture()
-def client(tmp_path, monkeypatch) -> TestClient:
-    db = tmp_path / "catalog.sqlite"
-    con = sqlite3.connect(db)
-    con.executescript(_CATALOG_SCHEMA.read_text(encoding="utf-8"))
-    con.commit()
-    con.close()
-    monkeypatch.setenv("SPRAVOCHNIK_SQLITE_PATH", str(db))
+def client(catalog_conn, tmp_path, monkeypatch) -> TestClient:
+    # working tables (intake/DAG) already exist in the PG catalog schema (alembic 016)
     monkeypatch.setenv("SPRAVOCHNIK_SUMMARY_PATH", str(tmp_path / "missing_summary.json"))
     monkeypatch.setenv("DISABLE_AUTH", "true")
-    # intake/DAG working tables live in new_tables.sql; catalog-admin needs them
-    from content_factory.catalog.viewer.app import ensure_intake_runtime_schema, open_db
-
-    conn = open_db(db)
-    ensure_intake_runtime_schema(conn, db)
-    conn.close()
     from content_factory.api.main import app
 
     return TestClient(app)

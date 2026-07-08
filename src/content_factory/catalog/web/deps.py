@@ -1,31 +1,31 @@
-"""FastAPI dependencies for the catalog UI (per-request SQLite connection).
+"""FastAPI dependencies for the catalog UI (per-request Postgres connection).
 
-The catalog runs on its SQLite store (hybrid Phase-4b); the connection path honours
-the same ``SPRAVOCHNIK_SQLITE_PATH`` override used elsewhere.
+The catalog runs on Postgres (full cutover). ``catalog_db_path()`` is a legacy artifact
+path kept only as an (ignored) positional argument for call sites that still pass it.
 """
 
 from __future__ import annotations
 
-import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 from content_factory.api.integrations.project_paths import spravochnik_sqlite_path
-from content_factory.catalog.viewer.app import open_db
+from content_factory.catalog.db import open_catalog_connection
 
 
 def catalog_db_path() -> Path:
-    """Path to the catalog SQLite store (honours SPRAVOCHNIK_SQLITE_PATH)."""
+    """Legacy catalog artifact path (ignored by the Postgres connection factory)."""
 
     return spravochnik_sqlite_path()
 
 
-def get_conn() -> Iterator[sqlite3.Connection]:
-    """Yield a per-request SQLite connection to the catalog store."""
+def get_conn() -> Iterator[Any]:
+    """Yield a per-request Postgres catalog connection (backend fixed to Postgres)."""
 
     # check_same_thread=False: FastAPI may create this connection in a threadpool
     # thread and use it in the event-loop thread; access is sequential per request.
-    conn = open_db(catalog_db_path(), check_same_thread=False)
+    conn = open_catalog_connection(catalog_db_path(), check_same_thread=False)
     try:
         yield conn
     finally:

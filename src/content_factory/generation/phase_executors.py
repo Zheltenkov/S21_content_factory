@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
+import uuid
 from typing import Any
 
+from .calibration import record_and_calibrate
+from .calibration.config import calibration_enabled
+from .evaluation.didactic import DidacticQualityScorer
 from .generation_runtime import GenerationRuntimeContainer
 from .models.phase_results import EvaluationPhaseResult, QualityPhaseResult, TranslationPhaseResult
 from .models.readme_document import ReadmeDocument
@@ -14,6 +19,8 @@ from .utils.markdown_display_normalizer import normalize_markdown_display_blocks
 from .utils.markdown_helpers import clean_duplicate_chapter_headers
 from .utils.rubric_export import criteria_to_json
 from .validators.rubric import RubricScorer
+
+_DIDACTIC_TRUTHY = {"1", "true", "yes", "on"}
 
 logger = logging.getLogger("content_factory.generation.phase_executors")
 
@@ -186,6 +193,9 @@ class EvaluationPhaseExecutor:
         criteria_report = self._score_rubric(markdown, readme_document, seed)
         rubric_json = criteria_to_json(criteria_report)
 
+        didactic_json = self._score_didactic(markdown, seed)
+        self._record_calibration(rubric_json, didactic_json)
+
         all_issues = (
             [issue.__dict__ for issue in issues_intro]
             + [issue.__dict__ for issue in issues_theory]
@@ -195,6 +205,7 @@ class EvaluationPhaseExecutor:
             rubric_json=rubric_json,
             issues=all_issues,
             readme_document=readme_document,
+            didactic_json=didactic_json,
         )
 
     def _validate_intro(self, markdown: str, readme_document: ReadmeDocument) -> list[Any]:
@@ -215,7 +226,48 @@ class EvaluationPhaseExecutor:
 
     def _score_rubric(self, markdown: str, readme_document: ReadmeDocument, seed: ProjectSeed) -> Any:
         """Run typed rubric scoring."""
-        return self.runtime.rubric.score_document(readme_document, learning_outcomes=seed.learning_outcomes)
+        rubric = self.runtime.rubric
+        if rubric is None:
+            raise RuntimeError("Rubric scorer is not initialized")
+        return rubric.score_document(readme_document, learning_outcomes=seed.learning_outcomes)
+
+    def _score_didactic(self, markdown: str, seed: ProjectSeed) -> dict[str, Any] | None:
+        """Run the didactic axis (jury of models). Advisory, opt-in, never breaks the pipeline.
+
+        Off by default (real LLM cost per generation). Enable via `DIDACTIC_AXIS_ENABLED`.
+        Falls back to a deterministic mock per juror when a model is unavailable.
+        """
+        if os.getenv("DIDACTIC_AXIS_ENABLED", "false").strip().lower() not in _DIDACTIC_TRUTHY:
+            return None
+        try:
+            report = DidacticQualityScorer().score(
+                markdown,
+                learning_outcomes=seed.learning_outcomes,
+                generator_model=self._generator_model(),
+            )
+            return report.model_dump(mode="json")
+        except Exception:
+            logger.warning("Didactic axis scoring failed; skipping (advisory).", exc_info=True)
+            return None
+
+    @staticmethod
+    def _record_calibration(rubric_json: dict[str, Any], didactic_json: dict[str, Any] | None) -> None:
+        """Записать per-criterion исходы и пересчитать strictness. Opt-in, никогда не роняет пайплайн."""
+        if not calibration_enabled():
+            return
+        try:
+            record_and_calibrate(rubric_json, didactic_json, run_id=uuid.uuid4().hex)
+        except Exception:
+            logger.warning("Calibration recording failed; skipping (advisory).", exc_info=True)
+
+    @staticmethod
+    def _generator_model() -> str:
+        """Resolve the content-generator model, excluded from the jury (anti-self-bias)."""
+        return (
+            os.getenv("POLZA_AI_THEORY_MODEL")
+            or os.getenv("POLZA_AI_MODEL")
+            or "openai/gpt-5.4-mini"
+        )
 
 
 class TranslationPhaseExecutor:

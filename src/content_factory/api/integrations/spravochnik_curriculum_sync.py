@@ -1,22 +1,19 @@
-"""Mirror Spravochnik curriculum plans into the shared generator catalog."""
+"""Convert Spravochnik curriculum plans to the generator contract (Postgres-native catalog).
+
+The former SQLite→Postgres mirror is gone: curriculum plans are authored directly in the
+Postgres ``catalog`` schema, so ``sync_spravochnik_curriculum_plans`` is now a no-op.
+"""
 
 from __future__ import annotations
 
-import logging
 import re
-import sqlite3
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from content_factory.api.db.session import SessionLocal
-from content_factory.api.integrations.project_paths import spravochnik_sqlite_path
 from content_factory.generation.models.curriculum import CurriculumPlan, CurriculumProject, ThematicBlock
-
-logger = logging.getLogger("content_factory.api.integrations.spravochnik_curriculum_sync")
 
 _DIRECTION_NAMES = {
     "BSA": "Бизнес аналитика",
@@ -288,89 +285,9 @@ def convert_spravochnik_plan_to_generator_curriculum(plan_payload: Mapping[str, 
 
 
 # --------------------------------------------------------------------------- #
-# Relational mirror (Phase 4c, B-lite): faithful copy of the SQLite UP tables
-# into catalog.curriculum_plan / catalog.curriculum_plan_row — no lossy JSON blob.
+# Curriculum plans now live natively in Postgres (``catalog.curriculum_plan(+_row)``).
+# The intake pipeline writes them directly, so the former SQLite→PG mirror is obsolete.
 # --------------------------------------------------------------------------- #
-
-_PLAN_COLUMNS = (
-    "id", "brief_id", "source_policy", "status", "title", "audience_level",
-    "total_blocks", "total_projects", "total_hours", "total_days", "total_xp",
-    "payload_json", "created_at", "updated_at", "profile_id", "direction",
-    "version", "author_ref", "metadata_json",
-)
-_ROW_COLUMNS = (
-    "id", "plan_id", "block_index", "row_number", "project_index_in_block",
-    "block_title", "block_goal", "project_name", "project_summary",
-    "outcomes_know", "outcomes_can", "outcomes_skills", "learning_outcomes",
-    "skills_list", "audience_level", "required_tools", "materials", "storytelling",
-    "delivery_format", "group_size", "effort_hours", "effort_days",
-    "cumulative_days", "xp", "platform_project_name", "artifact_links",
-    "completion_percent", "p2p_checks", "weighted_skills", "validation_criteria",
-)
-# ``metadata_json`` is ``jsonb`` in Postgres; cast the copied JSON text on insert.
-_PLAN_JSONB = frozenset({"metadata_json"})
-
-
-def _read_sqlite_up(
-    sqlite_path: Path, limit: int
-) -> tuple[list[dict[str, object]], dict[int, list[dict[str, object]]]]:
-    """Read raw ``curriculum_plan`` + ``curriculum_plan_row`` rows from SQLite."""
-
-    from content_factory.catalog.viewer.app import ensure_intake_runtime_schema, table_exists
-
-    with sqlite3.connect(sqlite_path) as conn:
-        conn.row_factory = sqlite3.Row
-        ensure_intake_runtime_schema(conn, sqlite_path)
-        if not table_exists(conn, "curriculum_plan"):
-            return [], {}
-        plans = [dict(r) for r in conn.execute("SELECT * FROM curriculum_plan ORDER BY id LIMIT ?", (limit,))]
-        rows_by_plan: dict[int, list[dict[str, object]]] = {}
-        for plan in plans:
-            pid = _parse_int(plan.get("id"))
-            if pid is None:
-                continue
-            rows_by_plan[pid] = [
-                dict(r)
-                for r in conn.execute("SELECT * FROM curriculum_plan_row WHERE plan_id = ? ORDER BY id", (pid,))
-            ]
-        return plans, rows_by_plan
-
-
-def _upsert_plan(db: Session, plan: Mapping[str, object]) -> None:
-    cols = [c for c in _PLAN_COLUMNS if c in plan]
-    values = ", ".join(f"CAST(:{c} AS jsonb)" if c in _PLAN_JSONB else f":{c}" for c in cols)
-    updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c != "id")
-    db.execute(
-        text(
-            f"INSERT INTO catalog.curriculum_plan ({', '.join(cols)}) VALUES ({values}) "
-            f"ON CONFLICT (id) DO UPDATE SET {updates}"
-        ),
-        {c: plan.get(c) for c in cols},
-    )
-
-
-def _replace_plan_rows(db: Session, plan_id: int, rows: list[dict[str, object]]) -> None:
-    db.execute(text("DELETE FROM catalog.curriculum_plan_row WHERE plan_id = :pid"), {"pid": plan_id})
-    for row in rows:
-        cols = [c for c in _ROW_COLUMNS if c in row]
-        placeholders = ", ".join(f":{c}" for c in cols)
-        db.execute(
-            text(f"INSERT INTO catalog.curriculum_plan_row ({', '.join(cols)}) VALUES ({placeholders})"),
-            {c: row.get(c) for c in cols},
-        )
-
-
-def _delete_stale_plans(db: Session, active_ids: list[int]) -> int:
-    """Drop mirror plans (and their rows via FK cascade) no longer in SQLite."""
-
-    if active_ids:
-        res = db.execute(
-            text("DELETE FROM catalog.curriculum_plan WHERE id <> ALL(:ids)"),
-            {"ids": active_ids},
-        )
-    else:
-        res = db.execute(text("DELETE FROM catalog.curriculum_plan"))
-    return int(getattr(res, "rowcount", 0) or 0)
 
 
 def sync_spravochnik_curriculum_plans(
@@ -379,47 +296,11 @@ def sync_spravochnik_curriculum_plans(
     *,
     limit: int = 500,
 ) -> dict[str, object]:
-    """Mirror the SQLite curriculum plans into ``catalog.curriculum_plan(+_row)``.
+    """No-op: the catalog is Postgres-native, so no SQLite→PG mirror step is needed.
 
-    Faithful relational copy — the generator reads the mirror tables directly
-    (no lossy JSON blob). Authoring stays in the SQLite intake pipeline (4b hybrid).
+    Historically this copied the SQLite catalog's curriculum plans into
+    ``catalog.curriculum_plan(+_row)``. After the full-PG cutover the intake pipeline writes
+    those tables directly and the generator reads them in place — nothing to sync. Kept as a
+    stable no-op so the existing curriculum router endpoints keep their response shape.
     """
-
-    if db is None:
-        with SessionLocal() as session:
-            return sync_spravochnik_curriculum_plans(session, sqlite_path, limit=limit)
-
-    source_path = sqlite_path or spravochnik_sqlite_path()
-    result: dict[str, object] = {
-        "source": str(source_path),
-        "source_exists": source_path.exists(),
-        "seen": 0,
-        "synced": 0,
-        "archived": 0,
-    }
-    if not source_path.exists():
-        return result
-
-    try:
-        plans, rows_by_plan = _read_sqlite_up(source_path, limit)
-    except Exception as exc:
-        logger.exception("Failed to load Spravochnik curriculum plans from %s", source_path)
-        result["error"] = str(exc)
-        return result
-
-    active_ids: list[int] = []
-    synced = 0
-    for plan in plans:
-        pid = _parse_int(plan.get("id"))
-        if pid is None:
-            continue
-        active_ids.append(pid)
-        _upsert_plan(db, plan)  # plan before rows: rows FK the mirror plan
-        _replace_plan_rows(db, pid, rows_by_plan.get(pid, []))
-        synced += 1
-
-    result["seen"] = len(plans)
-    result["synced"] = synced
-    result["archived"] = _delete_stale_plans(db, active_ids)
-    db.commit()
-    return result
+    return {"source": "catalog.curriculum_plan", "seen": 0, "synced": 0, "archived": 0, "native": True}

@@ -6,6 +6,7 @@ import re
 import time
 from typing import Any
 
+from content_factory.generation.calibration import is_promoted
 from content_factory.generation.config.thresholds import THRESHOLDS
 from content_factory.generation.domain_contracts import (
     LearningActivityContract,
@@ -587,6 +588,124 @@ class MethodologyGate:
             )
         else:
             evidence["rubric_keys"] = sorted(rubric.keys())[:20]
+            self._review_integrity_signals(rubric, issues, metrics, evidence)
+
+        didactic = context.get("didactic_json")
+        if isinstance(didactic, dict) and didactic:
+            self._review_didactic_axis(didactic, issues, metrics, evidence)
+
+    def _review_integrity_signals(
+        self,
+        rubric: dict[str, Any],
+        issues: list[StageReviewIssue],
+        metrics: dict[str, Any],
+        evidence: dict[str, Any],
+    ) -> None:
+        """Surface structural-integrity criteria (N.1–N.5) from the rubric report.
+
+        Advisory-first rollout: integrity criteria ship as SOFT, so failures arrive
+        as ``status == "warning"`` and raise only a non-blocking ``minor`` issue.
+        When calibration promotes any criterion to HARD, its failure becomes
+        ``status == "failed"`` and this seam escalates to ``critical`` → human review
+        (via ``human_review_required``), with no extra plumbing.
+        """
+        raw_items = rubric.get("items")
+        integrity_items = (
+            [it for it in raw_items if isinstance(it, dict) and it.get("parent_id") == "N"]
+            if isinstance(raw_items, list)
+            else []
+        )
+        failed_ids = sorted(str(it.get("id")) for it in integrity_items if it.get("status") == "failed")
+        warning_ids = sorted(str(it.get("id")) for it in integrity_items if it.get("status") == "warning")
+        metrics["integrity_checked"] = len(integrity_items)
+        metrics["integrity_failed"] = len(failed_ids)
+        metrics["integrity_warnings"] = len(warning_ids)
+
+        if failed_ids:
+            self._add_issue(
+                issues,
+                "evaluation.integrity_hard_failed",
+                "Integrity checks (structural v2) hard-failed: " + ", ".join(failed_ids) + ".",
+                "critical",
+                "Repair or regenerate README to fix structural defects "
+                "(tables, verbatim repetition, off-topic diagrams, orphaned quotes, project id).",
+                {"failed_ids": failed_ids},
+            )
+        elif warning_ids:
+            self._add_issue(
+                issues,
+                "evaluation.integrity_advisory",
+                "Integrity checks (structural v2) raised advisory warnings: " + ", ".join(warning_ids) + ".",
+                "minor",
+                None,
+                {
+                    "warning_ids": warning_ids,
+                    "note": "advisory-first rollout: SOFT, non-blocking; calibrate before HARD promotion",
+                },
+            )
+
+    def _review_didactic_axis(
+        self,
+        didactic: dict[str, Any],
+        issues: list[StageReviewIssue],
+        metrics: dict[str, Any],
+        evidence: dict[str, Any],
+    ) -> None:
+        """Surface the didactic axis (jury of models) as gate issues.
+
+        Opt-in axis (`DIDACTIC_AXIS_ENABLED`); severity is driven by the *typed* abstain
+        reasons, not a single bool: a soft ``below_floor`` dimension → ``major`` + repair hint,
+        ``jury_split`` → ``minor`` (diagnostic). The only hard block (``critical`` → human
+        review) is a **promoted** (calibration-enforced) dimension below floor. The advisory
+        ``needs_human_review`` bool is kept as a metric but no longer escalates on its own.
+        Not merged with the 39 structural criteria — it is a second axis.
+        """
+        abstain = didactic.get("abstain_reasons")
+        abstain_list = [str(item) for item in abstain] if isinstance(abstain, list) else []
+        below_floor = sorted(
+            reason.split(":", 1)[1] for reason in abstain_list if reason.startswith("below_floor:")
+        )
+        jury_split = sorted(
+            reason.split(":", 1)[1] for reason in abstain_list if reason.startswith("jury_split:")
+        )
+        needs_human = bool(didactic.get("needs_human_review"))
+        # Авто-калибровка: промотированный (enforce) дименшен блокирует (critical), иначе major.
+        promoted_below = [dim for dim in below_floor if is_promoted(f"didactic:{dim}")]
+        soft_below = [dim for dim in below_floor if dim not in promoted_below]
+        metrics["didactic_overall"] = didactic.get("overall_raw")
+        metrics["didactic_below_floor"] = len(below_floor)
+        metrics["didactic_jury_split"] = len(jury_split)
+        metrics["didactic_needs_review"] = needs_human
+        evidence["didactic_jury"] = didactic.get("jury")
+
+        if soft_below:
+            self._add_issue(
+                issues,
+                "evaluation.didactic_below_floor",
+                "Didactic dimensions below floor: " + ", ".join(soft_below) + ".",
+                "major",
+                "Improve the flagged didactic dimensions (coherence, scaffolding, examples, "
+                "cognitive load, tone, naturalness) before final export.",
+                {"dimensions": soft_below},
+            )
+        if promoted_below:
+            self._add_issue(
+                issues,
+                "evaluation.didactic_promoted_failed",
+                "Promoted didactic dimensions below floor: " + ", ".join(promoted_below) + ".",
+                "critical",
+                "Calibrated didactic dimensions must pass; repair or route to human review.",
+                {"dimensions": promoted_below},
+            )
+        if jury_split:
+            self._add_issue(
+                issues,
+                "evaluation.didactic_jury_split",
+                "Didactic jury disagreed on: " + ", ".join(jury_split) + ".",
+                "minor",
+                None,
+                {"dimensions": jury_split},
+            )
 
     def _review_finalize(
         self,

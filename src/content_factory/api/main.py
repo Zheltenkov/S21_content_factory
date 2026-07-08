@@ -39,7 +39,7 @@ from content_factory.api.routers import (
     thematic_blocks,
 )
 from content_factory.api.utils.logger import setup_logging
-from content_factory.catalog.viewer.app import STATIC_DIR as CATALOG_STATIC_DIR
+from content_factory.catalog.viewer.ui_constants import STATIC_DIR as CATALOG_STATIC_DIR
 from content_factory.catalog.web.routers import catalog_admin as catalog_admin_ui
 from content_factory.catalog.web.routers import intake as catalog_intake_ui
 from content_factory.catalog.web.routers import pages as catalog_pages

@@ -1,7 +1,33 @@
 """Пороговые значения для валидации и автокоррекции."""
 
-THRESHOLDS = {
-    "annotation_chars": (220, 520),  # Короткий teaser: 2-4 предложения без раскрытия решения
+from __future__ import annotations
+
+from typing import TypedDict
+
+
+class Thresholds(TypedDict):
+    annotation_chars: tuple[int, int]
+    intro_words: tuple[int, int]
+    instruction_words: tuple[int, int]
+    theory_parts: tuple[int, int]
+    theory_words_per_part: tuple[int, int]
+    practice_tasks_range: tuple[int, int]
+    practice_tasks_recommend: tuple[int, int]
+    approach_words_max: int
+    approach_bullets_min: int
+    approach_bullets_max: int
+    coherence_sbert_threshold: float
+    paragraph_min_length: int
+    theory_practice_sbert_threshold: float
+    theory_practice_overlap_threshold: float
+    readability_band: tuple[int, int]
+    repetition_ratio_max: float
+    near_dup_max: int
+    diagram_topic_min: float
+
+
+THRESHOLDS: Thresholds = {
+    "annotation_chars": (300, 800),  # Teaser 2-4 предложения без раскрытия решения (методолог: 300-800)
     "intro_words": (70, 180),
     "instruction_words": (80, 250),  # Длина инструкции в словах
     "theory_parts": (3, 7),  # Изменено с (2, 5) на (3, 5) - минимум 3 части
@@ -15,6 +41,11 @@ THRESHOLDS = {
     "paragraph_min_length": 40,  # Минимальная длина абзаца для анализа
     "theory_practice_sbert_threshold": 0.40,  # Порог для проверки связи теории и практики (0.40-0.45)
     "theory_practice_overlap_threshold": 0.10,  # Порог пересечения терминов для fallback (10%)
+    # --- Структурная ось v2 (провизорны, требуют калибровки на корпусе) ---
+    "readability_band": (45, 80),  # Полоса индекса Флеша-Оборневой для теории (2.4.7)
+    "repetition_ratio_max": 0.06,  # Макс. доля повторяющихся 8-грамм (verbatim repetition)
+    "near_dup_max": 4,  # Макс. число почти-дублей предложений (Jaccard >= 0.7)
+    "diagram_topic_min": 0.15,  # Мин. Jaccard узлов mermaid с ближайшим заголовком
 }
 
 # Настройки для CodeExampleAgent

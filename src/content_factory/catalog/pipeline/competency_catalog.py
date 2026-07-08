@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 import unicodedata
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any
+
+from content_factory.catalog.db import CatalogConnection, existing_columns, table_exists
 
 SERVICE_PROFILE_SLUG = "intake-accepted-skills"
 SERVICE_PROFILE_NAME = "Живой справочник intake"
@@ -94,18 +95,15 @@ def _utc_now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _table_exists(con: sqlite3.Connection, table: str) -> bool:
-    return con.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
-        (table,),
-    ).fetchone() is not None
+def _table_exists(con: Any, table: str) -> bool:
+    return table_exists(con, table)
 
 
-def _existing_cols(con: sqlite3.Connection, table: str) -> set[str]:
-    return {str(row[1]) for row in con.execute(f"PRAGMA table_info({table})")}
+def _existing_cols(con: Any, table: str) -> set[str]:
+    return existing_columns(con, table)
 
 
-def has_competency_structure(con: sqlite3.Connection) -> bool:
+def has_competency_structure(con: CatalogConnection) -> bool:
     return all(_table_exists(con, table) for table in REQUIRED_STRUCTURAL_TABLES)
 
 
@@ -122,12 +120,12 @@ def _clean_title(value: object | None, fallback: str = DEFAULT_COMPETENCY_TITLE)
     return title or fallback
 
 
-def _select_id(con: sqlite3.Connection, query: str, params: tuple[object, ...]) -> int | None:
+def _select_id(con: CatalogConnection, query: str, params: tuple[object, ...]) -> int | None:
     row = con.execute(query, params).fetchone()
     return int(row[0]) if row else None
 
 
-def _ensure_ingest_run(con: sqlite3.Connection) -> int:
+def _ensure_ingest_run(con: CatalogConnection) -> int:
     existing_id = _select_id(
         con,
         "SELECT id FROM ingest_run WHERE source_root = ? AND status = 'completed' ORDER BY id LIMIT 1",
@@ -150,7 +148,7 @@ def _ensure_ingest_run(con: sqlite3.Connection) -> int:
     return int(cur.lastrowid or 0)
 
 
-def _ensure_workbook(con: sqlite3.Connection, ingest_run_id: int) -> int:
+def _ensure_workbook(con: CatalogConnection, ingest_run_id: int) -> int:
     existing_id = _select_id(
         con,
         "SELECT id FROM source_workbook WHERE ingest_run_id = ? AND file_path = ?",
@@ -174,7 +172,7 @@ def _ensure_workbook(con: sqlite3.Connection, ingest_run_id: int) -> int:
     return int(cur.lastrowid or 0)
 
 
-def _ensure_sheet(con: sqlite3.Connection, source_workbook_id: int) -> int:
+def _ensure_sheet(con: CatalogConnection, source_workbook_id: int) -> int:
     existing_id = _select_id(
         con,
         "SELECT id FROM source_sheet WHERE source_workbook_id = ? AND sheet_order = 1",
@@ -192,7 +190,7 @@ def _ensure_sheet(con: sqlite3.Connection, source_workbook_id: int) -> int:
     return int(cur.lastrowid or 0)
 
 
-def _ensure_profile(con: sqlite3.Connection, source_workbook_id: int) -> int:
+def _ensure_profile(con: CatalogConnection, source_workbook_id: int) -> int:
     profile_id = _select_id(con, "SELECT id FROM profile WHERE slug = ?", (SERVICE_PROFILE_SLUG,))
     if profile_id is None:
         cur = con.execute(
@@ -229,7 +227,7 @@ def _ensure_profile(con: sqlite3.Connection, source_workbook_id: int) -> int:
     return profile_id
 
 
-def ensure_catalog_context(con: sqlite3.Connection) -> CatalogContext | None:
+def ensure_catalog_context(con: CatalogConnection) -> CatalogContext | None:
     if not has_competency_structure(con):
         return None
     ingest_run_id = _ensure_ingest_run(con)
@@ -244,7 +242,7 @@ def ensure_catalog_context(con: sqlite3.Connection) -> CatalogContext | None:
     )
 
 
-def _ensure_competency(con: sqlite3.Connection, title: str) -> tuple[int, bool, str, str]:
+def _ensure_competency(con: CatalogConnection, title: str) -> tuple[int, bool, str, str]:
     cleaned_title = _clean_title(title)
     normalized_title = _normalize_text(cleaned_title)
     existing = con.execute(
@@ -275,7 +273,7 @@ def _ensure_competency(con: sqlite3.Connection, title: str) -> tuple[int, bool, 
 
 
 def _ensure_competency_review(
-    con: sqlite3.Connection,
+    con: CatalogConnection,
     *,
     competency_id: int,
     competency_title: str,
@@ -313,7 +311,7 @@ def _ensure_competency_review(
     return True
 
 
-def _ensure_source_block(con: sqlite3.Connection, source_sheet_id: int, competency_title: str) -> int:
+def _ensure_source_block(con: CatalogConnection, source_sheet_id: int, competency_title: str) -> int:
     existing_id = _select_id(
         con,
         "SELECT id FROM source_block WHERE source_sheet_id = ? AND raw_title = ? ORDER BY id LIMIT 1",
@@ -348,7 +346,7 @@ def _ensure_source_block(con: sqlite3.Connection, source_sheet_id: int, competen
 
 
 def _ensure_profile_competency(
-    con: sqlite3.Connection,
+    con: CatalogConnection,
     *,
     profile_id: int,
     competency_id: int,
@@ -410,7 +408,7 @@ def _ensure_profile_competency(
 
 
 def _ensure_competency_skill(
-    con: sqlite3.Connection,
+    con: CatalogConnection,
     *,
     profile_competency_id: int,
     skill_id: int,
@@ -467,7 +465,7 @@ def _ensure_competency_skill(
     return int(cur.lastrowid or 0), True
 
 
-def _ensure_dimension(con: sqlite3.Connection, code: str) -> int:
+def _ensure_dimension(con: CatalogConnection, code: str) -> int:
     code = code if code in DIMENSION_TITLES else "unspecified"
     existing_id = _select_id(con, "SELECT id FROM dimension WHERE code = ?", (code,))
     if existing_id is not None:
@@ -512,7 +510,7 @@ def _parse_indicators(raw_indicators: object | None) -> list[dict[str, Any]]:
     return parsed
 
 
-def _load_existing_indicator_specs(con: sqlite3.Connection, skill_id: int) -> list[dict[str, Any]]:
+def _load_existing_indicator_specs(con: CatalogConnection, skill_id: int) -> list[dict[str, Any]]:
     if not _table_exists(con, "indicator"):
         return []
     return [
@@ -533,7 +531,7 @@ def _load_existing_indicator_specs(con: sqlite3.Connection, skill_id: int) -> li
     ]
 
 
-def _next_indicator_row_number(con: sqlite3.Connection, competency_skill_id: int) -> int:
+def _next_indicator_row_number(con: CatalogConnection, competency_skill_id: int) -> int:
     return int(
         con.execute(
             "SELECT COALESCE(MAX(source_row_number), 0) + 1 FROM indicator_row WHERE competency_skill_id = ?",
@@ -544,7 +542,7 @@ def _next_indicator_row_number(con: sqlite3.Connection, competency_skill_id: int
 
 
 def _ensure_indicator_row(
-    con: sqlite3.Connection,
+    con: CatalogConnection,
     *,
     competency_skill_id: int,
     dimension_id: int,
@@ -588,7 +586,7 @@ def _level_label_for_dimension(dimension_code: str) -> str:
 
 
 def _ensure_indicator_level_cell(
-    con: sqlite3.Connection,
+    con: CatalogConnection,
     *,
     indicator_row_id: int,
     raw_level_label: str,
@@ -630,7 +628,7 @@ def _ensure_indicator_level_cell(
 
 
 def _ensure_flat_indicator(
-    con: sqlite3.Connection,
+    con: CatalogConnection,
     *,
     skill_id: int,
     indicator_type: str,
@@ -702,7 +700,7 @@ def _ensure_flat_indicator(
 
 
 def _ensure_indicators(
-    con: sqlite3.Connection,
+    con: CatalogConnection,
     *,
     skill_id: int,
     competency_skill_id: int,
@@ -748,7 +746,7 @@ def _ensure_indicators(
 
 
 def ensure_skill_competency_link(
-    con: sqlite3.Connection,
+    con: CatalogConnection,
     *,
     skill_id: int,
     skill_name: str,
@@ -811,7 +809,7 @@ def ensure_skill_competency_link(
 
 
 def resolve_competency_candidate(
-    con: sqlite3.Connection,
+    con: CatalogConnection,
     *,
     competency_id: int,
     accepted: bool,
@@ -871,7 +869,7 @@ def resolve_competency_candidate(
     return {"status": "rejected", "competency_id": competency_id}
 
 
-def reopen_competency_candidate(con: sqlite3.Connection, *, competency_id: int) -> dict[str, object]:
+def reopen_competency_candidate(con: CatalogConnection, *, competency_id: int) -> dict[str, object]:
     if not has_competency_structure(con):
         return {"status": "skipped_missing_structure", "competency_id": competency_id}
     existing = con.execute(
@@ -900,7 +898,7 @@ def reopen_competency_candidate(con: sqlite3.Connection, *, competency_id: int) 
     return {"status": "reopened", "competency_id": competency_id}
 
 
-def remove_intake_competency_links_for_skill(con: sqlite3.Connection, skill_id: int) -> int:
+def remove_intake_competency_links_for_skill(con: CatalogConnection, skill_id: int) -> int:
     context = ensure_catalog_context(con)
     if context is None:
         return 0
@@ -918,7 +916,7 @@ def remove_intake_competency_links_for_skill(con: sqlite3.Connection, skill_id: 
     return len(rows)
 
 
-def remove_competency_skill_link(con: sqlite3.Connection, competency_skill_id: int) -> dict[str, object]:
+def remove_competency_skill_link(con: CatalogConnection, competency_skill_id: int) -> dict[str, object]:
     if not _table_exists(con, "competency_skill"):
         return {"status": "skipped_missing_structure", "competency_skill_id": competency_skill_id}
     existing = con.execute(
@@ -936,7 +934,7 @@ def remove_competency_skill_link(con: sqlite3.Connection, competency_skill_id: i
     }
 
 
-def list_skill_competency_links(con: sqlite3.Connection, skill_id: int) -> list[dict[str, object]]:
+def list_skill_competency_links(con: CatalogConnection, skill_id: int) -> list[dict[str, object]]:
     if not has_competency_structure(con):
         return []
     return [
@@ -961,7 +959,8 @@ def list_skill_competency_links(con: sqlite3.Connection, skill_id: int) -> list[
             JOIN profile p ON p.id = pc.profile_id
             LEFT JOIN indicator_row ir ON ir.competency_skill_id = cs.id
             WHERE cs.skill_id = ?
-            GROUP BY cs.id, pc.id, c.id, p.id
+            GROUP BY cs.id, cs.review_state, cs.skill_order, pc.id, pc.review_state,
+                     c.id, c.title, c.status, p.id, p.name
             ORDER BY p.name, c.title, cs.skill_order, cs.id
             """,
             (skill_id,),
@@ -969,7 +968,7 @@ def list_skill_competency_links(con: sqlite3.Connection, skill_id: int) -> list[
     ]
 
 
-def list_competency_options(con: sqlite3.Connection, query: str = "", limit: int = 40) -> list[dict[str, object]]:
+def list_competency_options(con: CatalogConnection, query: str = "", limit: int = 40) -> list[dict[str, object]]:
     if not _table_exists(con, "competency"):
         return []
     cleaned_query = _normalize_text(query)

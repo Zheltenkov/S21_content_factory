@@ -45,7 +45,6 @@ from content_factory.catalog.viewer.app import (
     create_catalog_skill,
     curriculum_plan_to_csv_bytes,
     ensure_catalog_group,
-    ensure_intake_runtime_schema,
     get_intake_job,
     get_brief_catalog_apply_state,
     merge_catalog_skills,
@@ -56,13 +55,11 @@ from content_factory.catalog.viewer.app import (
     list_skill_sets,
     merge_candidate_competency,
     move_candidate_competency_skill,
-    open_db,
     repair_dirty_profile_names,
     rename_candidate_competency,
     update_review_status,
     update_intake_job,
 )
-from content_factory.catalog.viewer.migrations import apply_runtime_migrations
 from content_factory.catalog.viewer.observability import build_decision_rationale, build_job_observability
 from content_factory.catalog.viewer.route_zones import detect_route_zone, get_secondary_nav, show_secondary_nav
 
@@ -70,13 +67,36 @@ RUNTIME_DIR = PROJECT_ROOT / "test_runtime"
 RUNTIME_DIR.mkdir(exist_ok=True)
 
 
+@pytest.fixture(autouse=True)
+def _require_pg(catalog_pg: str) -> None:
+    """Every test in this module runs against the shared PG catalog (skips if PG unavailable)."""
+
+
 def _runtime_db_path(prefix: str) -> Path:
     return RUNTIME_DIR / f"{prefix}-{uuid.uuid4().hex}.sqlite"
 
 
-def _create_base_catalog_db(db_path: Path) -> sqlite3.Connection:
-    raw = sqlite3.connect(db_path)
-    raw.executescript(
+def _truncate_all_catalog(conn: Any) -> None:
+    """Reset the shared PG catalog schema to empty (per-test isolation)."""
+    cur = conn.cursor()
+    cur.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'catalog'")
+    tables = [row[0] for row in cur.fetchall()]
+    if tables:
+        joined = ", ".join(f"catalog.{t}" for t in tables)
+        cur.execute(f"TRUNCATE {joined} RESTART IDENTITY CASCADE")
+    conn.commit()
+
+
+def _create_base_catalog_db(_db_path: Path | None = None) -> Any:
+    """Clean shared-PG catalog connection seeded with base ``dimension`` rows.
+
+    The full catalog schema is provided by alembic; historically this helper built a SQLite
+    subset inline. The legacy DDL below is retained only for reference (not executed — Postgres
+    already has these tables); only the ``dimension`` seed is still required.
+    """
+    from content_factory.catalog.db import open_catalog_connection
+
+    _legacy_reference_ddl = (  # noqa: F841 - reference during the SQLite→PG migration
         """
         CREATE TABLE skill (
             id INTEGER PRIMARY KEY,
@@ -241,11 +261,15 @@ def _create_base_catalog_db(db_path: Path) -> sqlite3.Connection:
             ('unspecified', 'Не указано');
         """
     )
-    raw.commit()
-    raw.close()
 
-    conn = open_db(db_path)
-    ensure_intake_runtime_schema(conn, db_path)
+    conn = open_catalog_connection("unused-on-postgres")
+    _truncate_all_catalog(conn)
+    conn.execute(
+        "INSERT INTO dimension(code, title) VALUES "
+        "('knowledge', 'Знает'), ('understanding', 'Понимает'), ('ability', 'Умеет'), "
+        "('proficiency', 'Владеет'), ('unspecified', 'Не указано')"
+    )
+    conn.commit()
     return conn
 
 
@@ -327,7 +351,7 @@ def test_accept_then_batch_apply_promotes_skill_and_alias(monkeypatch: pytest.Mo
             JOIN profile p ON p.id = pc.profile_id
             LEFT JOIN indicator_row ir ON ir.competency_skill_id = cs.id
             WHERE cs.skill_id = ?
-            GROUP BY cs.id, c.id, p.id
+            GROUP BY cs.id, cs.review_state, c.id, c.title, c.status, p.id, p.slug, pc.review_state
             """,
             (suggestion["canonical_skill_id"],),
         ).fetchone()
@@ -881,27 +905,6 @@ def test_ui_route_state_hides_catalog_secondary_nav_outside_catalog() -> None:
         "Шаблоны УП",
         "Архив",
     ]
-
-
-def test_runtime_migration_ledger_is_recorded() -> None:
-    db_path = _runtime_db_path("migration-ledger")
-    conn = _create_base_catalog_db(db_path)
-    try:
-        row = conn.execute(
-            "SELECT migration_id, status, checksum FROM schema_migration WHERE migration_id = 'intake_runtime_schema'"
-        ).fetchone()
-        assert row is not None
-        assert row["status"] == "applied"
-        assert len(row["checksum"]) == 64
-
-        from content_factory.catalog.viewer.app import INTAKE_SCHEMA_SQL
-
-        results = apply_runtime_migrations(conn, INTAKE_SCHEMA_SQL)
-        assert results[0].migration_id == "intake_runtime_schema"
-        assert results[0].applied is True
-    finally:
-        conn.close()
-        db_path.unlink(missing_ok=True)
 
 
 def test_job_observability_keeps_prompt_versions_and_stage_latency() -> None:
@@ -1812,7 +1815,7 @@ def test_prerequisite_edge_review_decision_does_not_rebuild_dag_inline(monkeypat
         rebuild_calls.append(rebuilt_brief_id)
         raise AssertionError("Edge review decisions must not rebuild DAG synchronously")
 
-    monkeypatch.setattr("viewer.app.build_dag_for_brief", fail_if_rebuilt)
+    monkeypatch.setattr("content_factory.catalog.viewer.intake_ops.build_dag_for_brief", fail_if_rebuilt)
     db_path = _runtime_db_path("edge-review-fast")
     conn = _create_base_catalog_db(db_path)
     try:

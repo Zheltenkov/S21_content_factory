@@ -94,7 +94,7 @@ def _field_targets(context: dict[str, Any], markdown: str) -> list[SectionTarget
     annotation_text = ""
     if isinstance(annotation, dict):
         annotation_text = str(annotation.get("text") or "")
-    elif hasattr(annotation, "text"):
+    elif annotation is not None and hasattr(annotation, "text"):
         annotation_text = str(annotation.text or "")
     has_markdown_annotation = bool(markdown and re.search(r"^#\s+.+?$", markdown, flags=re.MULTILINE))
     if annotation_text.strip() and not has_markdown_annotation:

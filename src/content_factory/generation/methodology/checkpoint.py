@@ -993,7 +993,8 @@ def _checkpoint_already_approved(context: dict[str, Any], checkpoint: dict[str, 
     for action in reversed(list(context.get("methodology_review_actions") or [])):
         if not isinstance(action, dict) or action.get("action") != "approved":
             continue
-        details = action.get("details") if isinstance(action.get("details"), dict) else {}
+        _det = action.get("details")
+        details = _det if isinstance(_det, dict) else {}
         if (
             str(details.get("checkpoint_id") or "") == checkpoint_id
             and str(details.get("checkpoint_hash") or "") == checkpoint_hash

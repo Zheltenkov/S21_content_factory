@@ -82,15 +82,23 @@ class CurriculumGraph:
 
     @staticmethod
     def from_dict(data: dict[str, object]) -> CurriculumGraph:
-        graph = CurriculumGraph(track=data["track"])
-        graph.version = data.get("version", GRAPH_VERSION)
-        graph.built_at = data.get("built_at", datetime.utcnow().isoformat())
+        graph = CurriculumGraph(track=str(data.get("track") or ""))
+        graph.version = str(data.get("version") or GRAPH_VERSION)
+        graph.built_at = str(data.get("built_at") or datetime.utcnow().isoformat())
         nodes = data.get("nodes", {})
         adjacency = data.get("adjacency", {})
-        for node_id, node_data in nodes.items():
-            graph.nodes[node_id] = CurriculumNode(**node_data)
-        for node_id, edges in adjacency.items():
-            graph.adjacency[node_id] = [CurriculumEdge(**edge) for edge in edges]
+        if isinstance(nodes, dict):
+            for node_id, node_data in nodes.items():
+                if isinstance(node_data, dict):
+                    graph.nodes[str(node_id)] = CurriculumNode(**node_data)
+        if isinstance(adjacency, dict):
+            for node_id, edges in adjacency.items():
+                if isinstance(edges, list):
+                    graph.adjacency[str(node_id)] = [
+                        CurriculumEdge(**edge)
+                        for edge in edges
+                        if isinstance(edge, dict)
+                    ]
         return graph
 
 

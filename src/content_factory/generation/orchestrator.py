@@ -57,8 +57,8 @@ class Orchestrator:
     def __init__(
         self,
         llm_client,
-        cancellation_token: CancellationToken = None,
-        progress_tracker: ProgressTracker = None,
+        cancellation_token: CancellationToken | None = None,
+        progress_tracker: ProgressTracker | None = None,
         methodology_progress_callback: Callable[[dict[str, Any]], None] | None = None,
         human_approval_enabled: bool | None = None,
         workflow_checkpoint_callback: Callable[[dict[str, Any]], None] | None = None,
@@ -288,9 +288,9 @@ class Orchestrator:
         if decision.blocking:
             context["methodology_gate_blocking_decision"] = decision
             state = context.get("state")
-            if hasattr(state, "stopped_at"):
+            if state is not None and hasattr(state, "stopped_at"):
                 state.stopped_at = decision.stage
-            if hasattr(state, "stopped_reason"):
+            if state is not None and hasattr(state, "stopped_reason"):
                 state.stopped_reason = decision.summary
             raise self.methodology_gate_policy.interrupt(decision)
 
@@ -311,7 +311,7 @@ class Orchestrator:
         """Extract human-readable messages from validator issues."""
         return GenerationFlowHandlers._issue_messages(issues)
 
-    def run(self, raw_input: dict[str, Any], track_files: list[str] = None) -> OrchestratorResult:
+    def run(self, raw_input: dict[str, Any], track_files: list[str] | None = None) -> OrchestratorResult:
         """
         Запускает полный пайплайн генерации.
 
@@ -326,7 +326,7 @@ class Orchestrator:
         """
         return self.run_v2(raw_input, track_files)
 
-    def run_v2(self, raw_input: dict[str, Any], track_files: list[str] = None) -> OrchestratorResult:
+    def run_v2(self, raw_input: dict[str, Any], track_files: list[str] | None = None) -> OrchestratorResult:
         """
         Запускает пайплайн генерации через AgentFlow.
         """
@@ -350,7 +350,7 @@ class Orchestrator:
         )
         context["methodology_resume_plan"] = resume_plan.model_dump(mode="json")
         state = context.get("state")
-        if hasattr(state, "sync_from_context"):
+        if state is not None and hasattr(state, "sync_from_context"):
             state.sync_from_context(context)
         previous_steps = self.scoped_revision_executor.trim_previous_steps_for_resume(
             previous_steps,
@@ -371,7 +371,7 @@ class Orchestrator:
     ) -> OrchestratorResult:
         """Continue from a durable workflow checkpoint without methodology-specific edits."""
         state = context.get("state")
-        if hasattr(state, "sync_from_context"):
+        if state is not None and hasattr(state, "sync_from_context"):
             state.sync_from_context(context)
         return self._run_flow_from_context(
             context,

@@ -6,6 +6,7 @@ This module is intentionally independent from Chroma or any retrieval store.
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -36,13 +37,13 @@ def create_openai_embeddings(
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is not configured")
 
-    client_kwargs = {"api_key": api_key}
+    client_kwargs: dict[str, Any] = {"api_key": api_key}
     resolved_base_url = base_url or os.getenv("OPENAI_BASE_URL")
     if resolved_base_url:
         client_kwargs["base_url"] = resolved_base_url
 
     client = OpenAI(**client_kwargs)
-    request_params = {"model": model}
+    request_params: dict[str, Any] = {"model": model}
     if dimensions is not None:
         request_params["dimensions"] = dimensions
 

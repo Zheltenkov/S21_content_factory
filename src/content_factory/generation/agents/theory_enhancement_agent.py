@@ -7,6 +7,7 @@
 
 
 from ..models.enhancement_plan import EnhancementExecutionLog, EnhancementPlan
+from ..models.generation_profile import GenerationProfile
 from ..models.schemas import ProjectSeed, TheoryPart
 from ..utils.logging import safe_print
 from .base.llm_client import LLMClientProtocol
@@ -40,7 +41,7 @@ class TheoryEnhancementAgent:
         self,
         parts: list[TheoryPart],
         seed: ProjectSeed,
-        profile: str | None = None,
+        profile: GenerationProfile | None = None,
     ) -> tuple[list[TheoryPart], EnhancementPlan, list[EnhancementExecutionLog]]:
         """
         Выполняет полный цикл улучшения теории: планирование + применение.

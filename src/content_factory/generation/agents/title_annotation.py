@@ -3,7 +3,7 @@ content_gen/agents/title_annotation.py
 
 Агент генерации заголовка и аннотации.
 
-Генерирует H1 заголовок (1-3 слова) и аннотацию (220-520 символов).
+Генерирует H1 заголовок (1-3 слова) и аннотацию (300-800 символов).
 Использует curriculum context для выравнивания с предыдущими проектами.
 """
 
@@ -378,12 +378,12 @@ class TitleAnnotationAgent:
         # Проверяем наличие ключевых слов из названия.
         # Требование адаптивное: для коротких заголовков достаточно 1-2 совпадений,
         # иначе мы зря уходим в несколько дорогих перегенераций.
-        title_words = set(re.findall(r"[А-Яа-яЁёA-Za-z]+", title.lower()))
+        title_word_set = set(re.findall(r"[А-Яа-яЁёA-Za-z]+", title.lower()))
         annotation_words = set(re.findall(r"[А-Яа-яЁёA-Za-z]+", txt.lower()))
-        common_words = title_words.intersection(annotation_words)
+        common_words = title_word_set.intersection(annotation_words)
         # Фильтруем стоп-слова
         stop_words = {"это", "для", "проект", "проекта", "проекту", "проектом", "проекте", "проекты", "проектов", "проектам", "проектами", "проектах", "в", "на", "с", "и", "или", "а", "но", "как", "что", "то", "из", "от", "до", "по", "при", "без", "над", "под", "за", "перед", "после", "между", "среди", "около", "вокруг", "внутри", "вне", "через", "про", "ради", "благодаря", "вопреки", "согласно", "вместо", "кроме", "сверх", "вроде", "подобно", "наподобие", "вследствие", "ввиду", "вслед", "навстречу", "наперекор", "наперерез", "наперехват", "наперегонки", "наперебой", "наперевес"}
-        title_keywords = {w for w in title_words if w not in stop_words and len(w) > 2}
+        title_keywords = {w for w in title_word_set if w not in stop_words and len(w) > 2}
         common_words = {w for w in common_words if w not in stop_words and len(w) > 2}
         required_keyword_hits = min(2, len(title_keywords)) if title_keywords else 0
         has_keywords = len(common_words) >= required_keyword_hits if required_keyword_hits else True
@@ -418,7 +418,7 @@ class TitleAnnotationAgent:
 
         if needs_regeneration and seed:
             print(f"  ⚠️ Аннотация: {regeneration_reason}. Перегенерация...", file=sys.stderr, flush=True)
-            target_length = (lo + hi) // 2  # Контрольная точка ~500
+            target_length = (lo + hi) // 2  # Контрольная точка ~550
 
             # Перегенерируем с явным указанием на отсутствующие компоненты
             max_attempts = 3
