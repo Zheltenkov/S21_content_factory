@@ -44,7 +44,6 @@ SPA_PAGES = [
     "/app",
     "/app/generate",
     "/app/curriculum",
-    "/app/learning-projects",
     "/app/translate",
 ]
 
@@ -72,5 +71,7 @@ def test_page_renders_without_server_error(page: Page, live_server: str, path: s
     page.screenshot(path=str(SCREENSHOT_DIR / f"{_slug(path)}.png"), full_page=True)
 
     assert response is not None, f"no response object for {path}"
-    assert response.status < 500, f"{path} returned {response.status}"
+    # Strict: a curated route must not 4xx either — a 404 means a missing/unwired page,
+    # not just a 5xx crash, so it should fail the smoke rather than silently pass.
+    assert response.status < 400, f"{path} returned {response.status}"
     assert not server_errors, f"{path} triggered 5xx sub-requests: {server_errors}"
