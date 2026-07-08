@@ -46,6 +46,13 @@ dependencies = [
 # Playwright visual E2E smoke (tests/e2e, opt-in via RUN_E2E=1). Install with
 #   pip install -e ".[e2e]" && python -m playwright install chromium
 e2e = ["pytest-playwright>=0.8"]
+# Dev/CI tooling. ruff+mypy pinned exactly — they are gates, and a version bump can
+# introduce new findings that fail CI. Install with: pip install -e ".[dev]"
+dev = [
+    "pytest>=9,<10",
+    "ruff==0.15.20",
+    "mypy==2.1.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
