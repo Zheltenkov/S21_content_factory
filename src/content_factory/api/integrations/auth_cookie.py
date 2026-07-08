@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import quote
 
 from fastapi import HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -17,6 +17,9 @@ from content_factory.api.db.session import SessionLocal
 from content_factory.api.dependencies import get_current_user
 
 AUTH_COOKIE_NAME = "content_gen_auth"
+
+# HTTP methods that mutate server state; admin-gated on catalog write prefixes.
+_MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 
 def _cookie_secure() -> bool:
@@ -57,7 +60,7 @@ async def validate_request_user(request: Request, db: Session | None = None) -> 
     """Validate a request using the existing generator auth dependency contract."""
 
     if os.getenv("DISABLE_AUTH", "false").lower() == "true":
-        return {"id": "dev_user", "username": "dev"}
+        return {"id": "dev_user", "username": "dev", "role": "admin"}
     token = request_token(request)
     if not token:
         raise HTTPException(status_code=401, detail="Требуется аутентификация")
@@ -71,20 +74,45 @@ async def validate_request_user(request: Request, db: Session | None = None) -> 
             session.close()
 
 
-class ToolAuthCookieMiddleware(BaseHTTPMiddleware):
-    """Require generator login before mounted browser-only tools are served."""
+def _path_matches(path: str, prefixes: tuple[str, ...]) -> bool:
+    return any(path == prefix or path.startswith(f"{prefix}/") for prefix in prefixes)
 
-    def __init__(self, app: ASGIApp, protected_prefixes: tuple[str, ...]) -> None:
+
+class ToolAuthCookieMiddleware(BaseHTTPMiddleware):
+    """Require generator login before mounted browser-only tools are served.
+
+    ``admin_write_prefixes`` additionally gate *mutating* requests (POST/PUT/PATCH/
+    DELETE) under those prefixes behind the ``admin`` role, so a merely-logged-in
+    user cannot change catalog data / templates / review decisions. Read (GET/HEAD)
+    stays open to any authenticated user. ``DISABLE_AUTH`` resolves to a dev admin.
+    """
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        protected_prefixes: tuple[str, ...],
+        admin_write_prefixes: tuple[str, ...] = (),
+    ) -> None:
         super().__init__(app)
         self.protected_prefixes = protected_prefixes
+        self.admin_write_prefixes = admin_write_prefixes
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         path = request.url.path
-        if any(path == prefix or path.startswith(f"{prefix}/") for prefix in self.protected_prefixes):
+        if _path_matches(path, self.protected_prefixes):
             try:
-                await validate_request_user(request)
+                user = await validate_request_user(request)
             except HTTPException:
                 # Preserve the requested page so login can send the user back to it.
                 return RedirectResponse(f"/?next={quote(path, safe='/')}", status_code=303)
+            if (
+                request.method in _MUTATING_METHODS
+                and _path_matches(path, self.admin_write_prefixes)
+                and user.get("role") != "admin"
+            ):
+                return PlainTextResponse(
+                    "Недостаточно прав: изменение каталога доступно только администратору.",
+                    status_code=403,
+                )
         return await call_next(request)
 
