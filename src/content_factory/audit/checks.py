@@ -71,11 +71,8 @@ from content_factory.audit.domain import (
     Verdict,
 )
 from content_factory.audit.fact_claims import (
-    _extract_fact_claims,
-    _extract_readme_fact_batches,
-    _fact_check_prompt,
-    _is_allowed_readme_fact_item,
-    _readme_fact_check_prompt,
+    FactCheckerPerplexity,
+    ReadmeFactActualityChecker,
 )
 from content_factory.audit.image_rights import (
     image_evidence_queries,
@@ -2929,104 +2926,6 @@ success_metrics=true ставь только если есть бизнес-ме
         )
 
 
-class FactCheckerPerplexity(BaseChecker):
-    """Проверяет фактологические утверждения через поисковую модель Perplexity."""
-
-    name = "fact_checker_perplexity"
-    prompt_version = "fact_checker_perplexity:v1"
-    max_claims = 8
-    SYSTEM_PROMPT = """Ты проверяешь фактологическое утверждение из учебного контента через внешние источники.
-Верни только JSON: {"verdict":"pass|warning|fail|unknown","confidence":0.0,"evidence":"","sources":[{"title":"","url":""}],"recommendation":""}.
-verdict='pass' ставь только если утверждение подтверждено надёжным источником.
-verdict='warning' ставь, если утверждение частично устарело, неполное или требует уточнения.
-verdict='fail' ставь, если утверждение противоречит актуальным источникам.
-verdict='unknown' ставь, если источников недостаточно.
-Не придумывай источники; если ссылки нет, оставь sources пустым списком.
-Все пояснения и рекомендации пиши на русском языке."""
-
-    def check(self, unit: ContentUnit, entities: list[ExtractedEntity], context: CheckContext) -> list[Finding]:
-        del entities
-        if context.fact_model_client is None:
-            return []
-
-        claims = _extract_fact_claims(unit, self.max_claims)
-        findings: list[Finding] = []
-        for claim in claims:
-            cache_key = _hash_cache_key("fact", str(claim["claim"]))
-            prompt = _fact_check_prompt(claim)
-            try:
-                record, cache_hit = _cached_model_json(
-                    context,
-                    "fact",
-                    cache_key,
-                    context.fact_model_client,
-                    self.SYSTEM_PROMPT,
-                    prompt,
-                    self.prompt_version,
-                )
-            except OpenRouterError as exc:
-                findings.append(_external_check_error(unit, self.name, Criterion.FACTS, exc))
-                break
-
-            item = _first_result_item(record.get("response"))
-            if item is None:
-                continue
-            findings.append(_finding_from_fact_item(unit, self.name, claim, item, record, cache_hit, self.prompt_version))
-        return findings
-
-
-class ReadmeFactActualityChecker(BaseChecker):
-    """Проверяет фактологию и актуальность только в README.md и README_RUS.md."""
-
-    name = "readme_fact_actuality_checker"
-    prompt_version = "readme_fact_actuality_checker:v1"
-    max_lines_per_batch = 90
-    max_batches = 8
-    SYSTEM_PROMPT = """Ты проверяешь README учебного проекта через внешние источники.
-Твоя задача — найти только утверждения, которые требуют внимания методолога:
-фактологические ошибки, устаревшие даты, неверные определения, устаревшие или конфликтующие стеки технологий, версии, стандарты, библиотеки и инструменты.
-Игнорируй правила выполнения задания, требования курса, навигацию, оглавление, вкусовые оценки и формулировки без проверяемого внешнего факта.
-Если во фрагменте нет проблемы, верни пустой список findings.
-Верни только JSON: {"findings":[{"claim":"","verdict":"warning|fail|unknown","severity":"info|minor|major|critical","confidence":0.0,"file_path":"","line_start":1,"evidence":"","sources":[{"title":"","url":""}],"recommendation":"","support_status":"","latest_version":"","recommended_version":""}]}.
-Все найденные проблемы относятся к критерию «Точность и корректность», включая даты, версии, поддержку технологий, библиотеки, стандарты и стеки.
-verdict='fail' ставь, если утверждение противоречит источникам.
-verdict='warning' ставь, если утверждение частично устарело, неполное или нуждается в уточнении.
-verdict='unknown' ставь только для важного утверждения, которое нельзя подтвердить источниками.
-Не придумывай источники; если ссылки нет, оставь sources пустым списком.
-Все пояснения и рекомендации пиши на русском языке."""
-
-    def check(self, unit: ContentUnit, entities: list[ExtractedEntity], context: CheckContext) -> list[Finding]:
-        del entities
-        if context.fact_model_client is None:
-            return []
-
-        findings: list[Finding] = []
-        for batch in _extract_readme_fact_batches(unit, self.max_lines_per_batch, self.max_batches):
-            cache_key = _hash_cache_key("readme_fact", f"{self.prompt_version}|{batch['file_path']}|{batch['text']}")
-            prompt = _readme_fact_check_prompt(batch)
-            try:
-                record, cache_hit = _cached_model_json(
-                    context,
-                    "readme_fact",
-                    cache_key,
-                    context.fact_model_client,
-                    self.SYSTEM_PROMPT,
-                    prompt,
-                    self.prompt_version,
-                )
-            except OpenRouterError as exc:
-                findings.append(_external_check_error(unit, self.name, Criterion.FACTS, exc))
-                break
-
-            for item in _result_items(record.get("response")):
-                if _is_uninformative_readme_fact_item(item) or not _is_allowed_readme_fact_item(item, batch):
-                    continue
-                finding = _finding_from_readme_fact_item(unit, self.name, batch, item, record, cache_hit, self.prompt_version)
-                if finding.verdict != Verdict.PASS:
-                    findings.append(finding)
-        return findings
-
-
 class TechFreshnessChecker(BaseChecker):
     """Проверяет актуальность технологий и версий с источниками."""
 
@@ -4489,96 +4388,6 @@ def _dependency_name_with_spec(name: str, spec: str) -> str:
     """Склеивает имя и ограничение версии без лишних пробелов."""
 
     return f"{name}{spec}" if spec else f"{name}: не указано"
-
-
-def _finding_from_fact_item(
-    unit: ContentUnit,
-    checker_name: str,
-    claim: dict[str, Any],
-    item: dict[str, Any],
-    record: dict[str, Any],
-    cache_hit: bool,
-    prompt_version: str,
-) -> Finding:
-    """Преобразуем результат фактологической проверки в строку отчёта."""
-
-    verdict = _verdict_from_model_value(item.get("verdict"), Verdict.UNKNOWN)
-    evidence_text = _model_text(item, ("evidence", "reason", "explanation"), "Фактологическая проверка без отдельного пояснения.")
-    sources = _sources_from_item(item)
-    location = claim.get("location")
-    return _finding(
-        unit,
-        checker_name,
-        Criterion.FACTS,
-        _severity_from_verdict(verdict),
-        verdict,
-        _parse_confidence(item.get("confidence")),
-        str(claim.get("claim") or "") or None,
-        location if isinstance(location, TextLocation) else None,
-        [Evidence(title="Фактологическая проверка", detail=evidence_text, url=_first_source_url(sources))],
-        _model_text(item, ("recommendation",), "Проверить утверждение вручную и обновить материал при расхождении с источниками."),
-        verdict != Verdict.PASS,
-        extra={"cache_hit": cache_hit, "model": record.get("model"), "claim": claim.get("claim")},
-        source=_source_summary(sources),
-        checked_at=_checked_at_from_record(record),
-        prompt_version=prompt_version,
-    )
-
-
-def _finding_from_readme_fact_item(
-    unit: ContentUnit,
-    checker_name: str,
-    batch: dict[str, Any],
-    item: dict[str, Any],
-    record: dict[str, Any],
-    cache_hit: bool,
-    prompt_version: str,
-) -> Finding:
-    """Преобразует результат специальной проверки README в строку отчёта."""
-
-    verdict = _verdict_from_model_value(item.get("verdict"), Verdict.UNKNOWN)
-    severity = _enum_or_default(Severity, item.get("severity"), _severity_from_verdict(verdict))
-    evidence_text = _model_text(item, ("evidence", "reason", "explanation"), "Проверка README без отдельного пояснения.")
-    sources = _sources_from_item(item)
-    line_start = _parse_optional_int(item.get("line_start")) or int(batch["line_start"])
-    location = TextLocation(file_path=str(item.get("file_path") or batch["file_path"]), line_start=line_start, line_end=line_start)
-    quote = _model_text(item, ("claim", "quote"), "")
-    return _finding(
-        unit,
-        checker_name,
-        Criterion.FACTS,
-        severity,
-        verdict,
-        _parse_confidence(item.get("confidence")),
-        quote or None,
-        location,
-        [Evidence(title="Проверка README", detail=evidence_text, url=_first_source_url(sources))],
-        _model_text(item, ("recommendation",), "Проверить утверждение по источнику и обновить README."),
-        verdict != Verdict.PASS,
-        extra={"cache_hit": cache_hit, "model": record.get("model"), "claim": quote, "scope": "readme_fact_check"},
-        source=_source_summary(sources),
-        checked_at=_checked_at_from_record(record),
-        support_status=_optional_model_text(item.get("support_status")),
-        latest_version=_optional_model_text(item.get("latest_version")),
-        recommended_version=_optional_model_text(item.get("recommended_version")),
-        prompt_version=prompt_version,
-    )
-
-
-def _is_uninformative_readme_fact_item(item: dict[str, Any]) -> bool:
-    """Отбрасывает пустые ответы, чтобы в отчёт не попадали технические заглушки."""
-
-    verdict = _verdict_from_model_value(item.get("verdict"), Verdict.UNKNOWN)
-    if verdict == Verdict.PASS:
-        return True
-    if verdict != Verdict.UNKNOWN:
-        return False
-    if _sources_from_item(item):
-        return False
-    return not any(
-        _optional_model_text(item.get(key))
-        for key in ("claim", "quote", "evidence", "reason", "explanation", "recommendation")
-    )
 
 
 def _finding_from_technology_item(
