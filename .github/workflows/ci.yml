@@ -63,6 +63,31 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Migrate content DB (alembic upgrade — also a from-scratch migration smoke)
         run: python -m alembic upgrade head
+      - name: Production readiness check
+        run: |
+          trap 'rm -f .env' EXIT
+          cat > .env <<'EOF'
+          ENVIRONMENT=production
+          DATABASE_URL=postgresql://content_user:ci_password@127.0.0.1:5432/content_generator
+          CATALOG_DB=postgres
+          JWT_SECRET_KEY=ci-production-check-secret-value-32chars-minimum
+          DISABLE_AUTH=false
+          AUTH_COOKIE_SECURE=true
+          RELOAD=false
+          LLM_PROVIDER=polza
+          POLZA_AI_API_KEY=ci-dummy-polza-key
+          METHODOLOGY_GATE_MODE=observe
+          MERMAID_EXPORT_MODE=none
+          EOF
+          python scripts/production_check.py --production --check-db
+      - name: Golden evaluation gate
+        run: >
+          python scripts/run_evaluation.py
+          --dataset evals/golden_projects.example.yaml
+          --outputs evals/generated_outputs.example.json
+          --out reports/evaluation/golden_ci_report.json
+          --strict
+          --require-cases 1
       - name: Pytest
         # Skip tests/e2e — it needs a live server + Playwright (opt-in via RUN_E2E) and
         # would fail collection here without the playwright dep.
