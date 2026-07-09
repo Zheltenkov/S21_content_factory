@@ -15,7 +15,8 @@ import hashlib
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from datetime import datetime
-from typing import Any
+from enum import Enum
+from typing import Any, TypeVar
 
 from content_factory.audit.cache import AuditCache
 from content_factory.audit.domain import (
@@ -31,6 +32,9 @@ from content_factory.audit.domain import (
     Verdict,
 )
 from content_factory.audit.openrouter import OpenRouterClient
+from content_factory.audit.text_utils import normalize_for_match
+
+_EnumT = TypeVar("_EnumT", bound=Enum)
 
 SEVERITY_RANK: dict[Severity, int] = {
     Severity.INFO: 0,
@@ -203,3 +207,65 @@ def _infer_issue_kind(
         if issue_type in {"missing_key_topic", "topic_review", "outdated_approach", "language_tooling_conflict"}:
             return IssueKind.IMPROVEMENT
     return IssueKind.DEFECT
+
+
+def _hash_cache_key(namespace: str, value: str) -> str:
+    """Создаём стабильный ключ кэша без хранения длинных утверждений в имени."""
+
+    normalized = normalize_for_match(value)
+    digest = hashlib.sha1(f"{namespace}|{normalized}".encode()).hexdigest()
+    return digest
+
+
+def _model_context_priority(kind: str, relative_path: str) -> tuple[int, str]:
+    """Сначала даём модели README, затем чек-лист, затем дополнительные материалы."""
+
+    order = {"readme": 0, "checklist": 1, "material": 2}
+    return order.get(kind, 9), relative_path.lower()
+
+
+def _enum_or_default(enum_class: type[_EnumT], value: object, default: _EnumT) -> _EnumT:
+    """Безопасно разбираем строковое значение перечисления."""
+
+    if value is None:
+        return default
+    try:
+        return enum_class(str(value).strip().lower())
+    except Exception:  # noqa: BLE001 - модель может вернуть произвольную строку.
+        return default
+
+
+def _parse_confidence(value: object) -> float:
+    """Приводит уверенность модели к числу от 0 до 1."""
+
+    if isinstance(value, int | float):
+        return max(0.0, min(1.0, float(value)))
+    if value is None:
+        return 0.5
+    normalized = str(value).strip().lower()
+    aliases = {
+        "low": 0.35,
+        "низкая": 0.35,
+        "medium": 0.6,
+        "средняя": 0.6,
+        "high": 0.85,
+        "высокая": 0.85,
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    try:
+        return max(0.0, min(1.0, float(normalized)))
+    except ValueError:
+        return 0.5
+
+
+def _parse_optional_int(value: object) -> int | None:
+    """Безопасно разбирает номер строки из ответа модели."""
+
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return None

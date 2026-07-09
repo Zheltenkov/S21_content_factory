@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from collections.abc import Iterable
 from datetime import UTC, datetime
-from enum import Enum
 from pathlib import Path
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 from urllib.parse import urldefrag, urlparse
 
 import yaml
@@ -18,7 +16,12 @@ from content_factory.audit.artifacts import build_artifact_text_index
 from content_factory.audit.checker_base import (
     BaseChecker,
     CheckContext,
+    _enum_or_default,
     _finding,
+    _hash_cache_key,
+    _model_context_priority,
+    _parse_confidence,
+    _parse_optional_int,
 )
 from content_factory.audit.checklist_grounding import assess_checklist_grounding
 from content_factory.audit.checklist_matching import (
@@ -4343,14 +4346,6 @@ def _technology_root(value: str) -> str | None:
     return None
 
 
-def _hash_cache_key(namespace: str, value: str) -> str:
-    """Создаём стабильный ключ кэша без хранения длинных утверждений в имени."""
-
-    normalized = normalize_for_match(value)
-    digest = hashlib.sha1(f"{namespace}|{normalized}".encode()).hexdigest()
-    return digest
-
-
 def _compact_unit_context(unit: ContentUnit, limit: int = 12000) -> str:
     """Собираем компактный контекст для модельной проверки."""
 
@@ -4364,13 +4359,6 @@ def _compact_unit_context(unit: ContentUnit, limit: int = 12000) -> str:
         if sum(len(chunk) for chunk in chunks) >= limit:
             break
     return "\n\n---\n\n".join(chunks)[:limit]
-
-
-def _model_context_priority(kind: str, relative_path: str) -> tuple[int, str]:
-    """Сначала даём модели README, затем чек-лист, затем дополнительные материалы."""
-
-    order = {"readme": 0, "checklist": 1, "material": 2}
-    return order.get(kind, 9), relative_path.lower()
 
 
 def _extract_fact_claims(unit: ContentUnit, limit: int) -> list[dict[str, Any]]:
@@ -5225,54 +5213,6 @@ def _is_actionable_model_rubric_finding(finding: Finding) -> bool:
     return True
 
 
-_EnumT = TypeVar("_EnumT", bound=Enum)
-
-
-def _enum_or_default(enum_class: type[_EnumT], value: object, default: _EnumT) -> _EnumT:
-    """Безопасно разбираем строковое значение перечисления."""
-
-    if value is None:
-        return default
-    try:
-        return enum_class(str(value).strip().lower())
-    except Exception:  # noqa: BLE001 - модель может вернуть произвольную строку.
-        return default
-
-
-def _parse_confidence(value: object) -> float:
-    """Приводит уверенность модели к числу от 0 до 1."""
-
-    if isinstance(value, int | float):
-        return max(0.0, min(1.0, float(value)))
-    if value is None:
-        return 0.5
-    normalized = str(value).strip().lower()
-    aliases = {
-        "low": 0.35,
-        "низкая": 0.35,
-        "medium": 0.6,
-        "средняя": 0.6,
-        "high": 0.85,
-        "высокая": 0.85,
-    }
-    if normalized in aliases:
-        return aliases[normalized]
-    try:
-        return max(0.0, min(1.0, float(normalized)))
-    except ValueError:
-        return 0.5
-
-
-def _parse_optional_int(value: object) -> int | None:
-    """Безопасно разбирает номер строки из ответа модели."""
-
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(value)
-    if isinstance(value, str) and value.strip().isdigit():
-        return int(value.strip())
-    return None
 
 
 def _readability_problem_lines(value: object) -> list[int]:
