@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from content_factory.audit import checks as checks_module
+from content_factory.audit import link_checks as link_checks_module
 from content_factory.audit.cache import AuditCache
 from content_factory.audit.checks import (
     BrokenUrlSyntaxChecker,
@@ -1741,7 +1742,7 @@ def test_link_checker_treats_transient_status_as_recheck(workspace_tmp_path: Pat
     unit = load_unit_files(discover_content_units(project)[0], max_file_bytes=1000)
     entities = extract_entities(unit)
     settings = _settings(workspace_tmp_path, project).model_copy(update={"allow_network": True})
-    monkeypatch.setattr(checks_module, "_check_url", lambda *_args: (503, "https://example.com/slow", None))
+    monkeypatch.setattr(link_checks_module, "_check_url", lambda *_args: (503, "https://example.com/slow", None))
 
     findings = LinkChecker().check(unit, entities, CheckContext(settings))
 
@@ -1757,7 +1758,7 @@ def test_link_checker_does_not_make_first_404_critical(workspace_tmp_path: Path,
     unit = load_unit_files(discover_content_units(project)[0], max_file_bytes=1000)
     entities = extract_entities(unit)
     settings = _settings(workspace_tmp_path, project).model_copy(update={"allow_network": True})
-    monkeypatch.setattr(checks_module, "_check_url", lambda *_args: (404, "https://example.com/missing", None))
+    monkeypatch.setattr(link_checks_module, "_check_url", lambda *_args: (404, "https://example.com/missing", None))
 
     findings = LinkChecker().check(unit, entities, CheckContext(settings))
 
@@ -1773,7 +1774,7 @@ def test_link_checker_accepts_oprosso_short_link_redirect(workspace_tmp_path: Pa
     entities = extract_entities(unit)
     settings = _settings(workspace_tmp_path, project).model_copy(update={"allow_network": True})
     monkeypatch.setattr(
-        checks_module,
+        link_checks_module,
         "_check_url",
         lambda *_args: (200, "https://oprosso.ru/p/4cb31ec3f47a4596bc758ea1861fb624", None),
     )
