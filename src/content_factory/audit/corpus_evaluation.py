@@ -10,60 +10,24 @@ from typing import Any
 from content_factory.audit import corpus_evaluation_exports as _corpus_evaluation_exports
 from content_factory.audit import corpus_evaluation_gold as _corpus_evaluation_gold
 from content_factory.audit import corpus_evaluation_matching as _corpus_evaluation_matching
+from content_factory.audit import corpus_evaluation_metrics as _metrics
 from content_factory.audit.corpus_evaluation_models import (
     CorpusEvaluationKey,
     CorpusEvaluationMatch,
     CorpusEvaluationSummary,
-    CostQualityMetrics,
-    CriterionMetrics,
     FalseNegativeAnalysisItem,
-    GoldCorpusCase,
     GoldCorpusItem,
     PredictedCorpusItem,
-    PredictionSliceMetrics,
     _ProjectCandidate,
+)
+from content_factory.audit.corpus_evaluation_models import (
+    GoldCorpusCase as GoldCorpusCase,
 )
 from content_factory.audit.domain import AuditReport, Criterion, Finding
 
-_match_project = _corpus_evaluation_gold._match_project
 _split_gold_detail_cases = _corpus_evaluation_gold._split_gold_detail_cases
-_criterion_label = _corpus_evaluation_matching.criterion_label
-_format_prediction_range = _corpus_evaluation_matching.format_prediction_range
-_format_range = _corpus_evaluation_matching.format_range
-_line_relation = _corpus_evaluation_matching.line_relation
 _match_gold_cases = _corpus_evaluation_matching.match_gold_cases
 _normalize_match_text = _corpus_evaluation_matching.normalize_match_text
-_same_missing_artifact_signal = _corpus_evaluation_matching.same_missing_artifact_signal
-
-
-CHECKER_GROUPS: dict[str, str] = {
-    "broken_url_syntax_checker": "deterministic_rules",
-    "label_punctuation_checker": "deterministic_rules",
-    "local_consistency_checker": "deterministic_rules",
-    "markdown_structure_checker": "deterministic_rules",
-    "spelling_wording_checker": "editorial_rules",
-    "link_checker": "links_and_resources",
-    "local_link_checker": "links_and_resources",
-    "resource_availability_checker": "links_and_resources",
-    "checklist_checker": "checklist_and_artifacts",
-    "fact_checker_perplexity": "factcheck",
-    "readme_fact_actuality_checker": "factcheck",
-    "tech_freshness_checker": "factcheck",
-    "dependency_freshness_checker": "factcheck",
-    "curriculum_relevance_checker": "methodology",
-    "market_fit_checker": "methodology",
-    "model_rubric_checker": "methodology",
-}
-
-CHECKER_GROUP_LABELS: dict[str, str] = {
-    "deterministic_rules": "Детерминированные правила",
-    "editorial_rules": "Редакторские правила",
-    "links_and_resources": "Ссылки и ресурсы",
-    "checklist_and_artifacts": "Чек-лист и артефакты",
-    "factcheck": "Фактчек и актуальность",
-    "methodology": "Методические критерии",
-    "other": "Прочие проверки",
-}
 
 
 def evaluate_corpus_report(
@@ -139,31 +103,35 @@ def evaluate_corpus_report(
     detailed_true_positive = sum(1 for item in matches if item.counted)
     detailed_false_negative = len(gold_cases) - detailed_true_positive
     detailed_false_positive = len(detailed_false_positive_items)
-    per_criterion = _per_criterion_detail_metrics(gold_cases, predicted_items_in_scope, matches)
-    actionable_metrics = _prediction_slice_metrics(
+    per_criterion = _metrics.per_criterion_detail_metrics(gold_cases, predicted_items_in_scope, matches)
+    actionable_metrics = _metrics.prediction_slice_metrics(
         "actionable",
         "Действенные находки",
-        [item for item in predicted_items_in_scope if _is_actionable_prediction(item)],
+        [item for item in predicted_items_in_scope if _metrics.is_actionable_prediction(item)],
         matched_prediction_ids,
         detailed_false_positive,
     )
-    checker_metrics = _checker_metrics(predicted_items_in_scope, matched_prediction_ids, detailed_false_positive)
-    checker_group_metrics = _checker_group_metrics(predicted_items_in_scope, matched_prediction_ids, detailed_false_positive)
+    checker_metrics = _metrics.checker_metrics(predicted_items_in_scope, matched_prediction_ids, detailed_false_positive)
+    checker_group_metrics = _metrics.checker_group_metrics(
+        predicted_items_in_scope,
+        matched_prediction_ids,
+        detailed_false_positive,
+    )
     false_negative_analysis = _false_negative_analysis(matches)
     false_negative_reason_counts = _false_negative_reason_counts(false_negative_analysis)
-    cost_quality = _cost_quality_metrics(report, detailed_true_positive, actionable_metrics)
+    cost_quality = _metrics.cost_quality_metrics(report, detailed_true_positive, actionable_metrics)
 
     overview_gold_keys = {
         CorpusEvaluationKey(project_id=item.project_id, criterion=criterion)
         for item in gold_items
         for criterion in item.criteria
     }
-    overview_predicted_keys = _predicted_keys_from_report(report)
+    overview_predicted_keys = _metrics.predicted_keys_from_report(report)
 
     overview_true_positive_keys = overview_gold_keys & overview_predicted_keys
     overview_false_positive_keys = overview_predicted_keys - overview_gold_keys
     overview_false_negative_keys = overview_gold_keys - overview_predicted_keys
-    overview_per_criterion = _per_criterion_metrics(overview_gold_keys, overview_predicted_keys)
+    overview_per_criterion = _metrics.per_criterion_metrics(overview_gold_keys, overview_predicted_keys)
 
     return CorpusEvaluationSummary(
         evaluated_criteria=evaluated_criteria,
@@ -172,53 +140,53 @@ def evaluate_corpus_report(
         true_positive=detailed_true_positive,
         false_positive=detailed_false_positive,
         false_negative=detailed_false_negative,
-        precision=_safe_ratio(detailed_true_positive, detailed_true_positive + detailed_false_positive),
-        recall=_safe_ratio(detailed_true_positive, detailed_true_positive + detailed_false_negative),
-        f1_score=_f1(detailed_true_positive, detailed_false_positive, detailed_false_negative),
-        macro_precision=_mean([item.precision for item in per_criterion]),
-        macro_recall=_mean([item.recall for item in per_criterion]),
-        macro_f1_score=_mean([item.f1_score for item in per_criterion]),
+        precision=_metrics.safe_ratio(detailed_true_positive, detailed_true_positive + detailed_false_positive),
+        recall=_metrics.safe_ratio(detailed_true_positive, detailed_true_positive + detailed_false_negative),
+        f1_score=_metrics.f1(detailed_true_positive, detailed_false_positive, detailed_false_negative),
+        macro_precision=_metrics.mean([item.precision for item in per_criterion]),
+        macro_recall=_metrics.mean([item.recall for item in per_criterion]),
+        macro_f1_score=_metrics.mean([item.f1_score for item in per_criterion]),
         overview_gold_total=len(overview_gold_keys),
         overview_predicted_total=len(overview_predicted_keys),
         overview_true_positive=len(overview_true_positive_keys),
         overview_false_positive=len(overview_false_positive_keys),
         overview_false_negative=len(overview_false_negative_keys),
-        overview_precision=_safe_ratio(
+        overview_precision=_metrics.safe_ratio(
             len(overview_true_positive_keys),
             len(overview_true_positive_keys) + len(overview_false_positive_keys),
         ),
-        overview_recall=_safe_ratio(
+        overview_recall=_metrics.safe_ratio(
             len(overview_true_positive_keys),
             len(overview_true_positive_keys) + len(overview_false_negative_keys),
         ),
-        overview_f1_score=_f1(
+        overview_f1_score=_metrics.f1(
             len(overview_true_positive_keys),
             len(overview_false_positive_keys),
             len(overview_false_negative_keys),
         ),
-        overview_macro_precision=_mean([item.precision for item in overview_per_criterion]),
-        overview_macro_recall=_mean([item.recall for item in overview_per_criterion]),
-        overview_macro_f1_score=_mean([item.f1_score for item in overview_per_criterion]),
+        overview_macro_precision=_metrics.mean([item.precision for item in overview_per_criterion]),
+        overview_macro_recall=_metrics.mean([item.recall for item in overview_per_criterion]),
+        overview_macro_f1_score=_metrics.mean([item.f1_score for item in overview_per_criterion]),
         gold_scope_predicted_total=len(predicted_items_in_scope),
         gold_scope_true_positive=detailed_true_positive,
         gold_scope_false_positive=detailed_false_positive,
         gold_scope_false_negative=detailed_false_negative,
-        gold_scope_precision=_safe_ratio(
+        gold_scope_precision=_metrics.safe_ratio(
             detailed_true_positive,
             detailed_true_positive + detailed_false_positive,
         ),
-        gold_scope_recall=_safe_ratio(
+        gold_scope_recall=_metrics.safe_ratio(
             detailed_true_positive,
             detailed_true_positive + detailed_false_negative,
         ),
-        gold_scope_f1_score=_f1(
+        gold_scope_f1_score=_metrics.f1(
             detailed_true_positive,
             detailed_false_positive,
             detailed_false_negative,
         ),
-        gold_scope_macro_precision=_mean([item.precision for item in per_criterion]),
-        gold_scope_macro_recall=_mean([item.recall for item in per_criterion]),
-        gold_scope_macro_f1_score=_mean([item.f1_score for item in per_criterion]),
+        gold_scope_macro_precision=_metrics.mean([item.precision for item in per_criterion]),
+        gold_scope_macro_recall=_metrics.mean([item.recall for item in per_criterion]),
+        gold_scope_macro_f1_score=_metrics.mean([item.f1_score for item in per_criterion]),
         per_criterion=per_criterion,
         overview_per_criterion=overview_per_criterion,
         checker_metrics=checker_metrics,
@@ -320,139 +288,6 @@ def _finding_text(finding: Finding) -> str:
     if issue_type:
         parts.append(str(issue_type))
     return " | ".join(part.strip() for part in parts if part and part.strip())
-
-
-def _per_criterion_detail_metrics(
-    gold_cases: list[GoldCorpusCase],
-    predicted_items: list[PredictedCorpusItem],
-    matches: list[CorpusEvaluationMatch],
-) -> list[CriterionMetrics]:
-    """Считает основную метрику по критериям на уровне атомарных ошибок."""
-
-    criteria = sorted({item.criterion for item in gold_cases} | {item.criterion for item in predicted_items})
-    matched_prediction_ids = {item.found_finding_id for item in matches if item.counted and item.found_finding_id}
-    metrics: list[CriterionMetrics] = []
-    for criterion in criteria:
-        gold = [item for item in gold_cases if item.criterion == criterion]
-        predicted = [item for item in predicted_items if item.criterion == criterion]
-        tp = sum(1 for item in matches if item.criterion == criterion and item.counted)
-        matched_predicted = [item for item in predicted if item.finding_id in matched_prediction_ids]
-        fp = len(predicted) - len(matched_predicted)
-        fn = len(gold) - tp
-        metrics.append(
-            CriterionMetrics(
-                criterion=criterion,
-                label=_criterion_label(criterion),
-                gold_total=len(gold),
-                predicted_total=len(predicted),
-                true_positive=tp,
-                false_positive=fp,
-                false_negative=fn,
-                precision=_safe_ratio(tp, tp + fp),
-                recall=_safe_ratio(tp, tp + fn),
-                f1_score=_f1(tp, fp, fn),
-            )
-        )
-    return metrics
-
-
-def _checker_metrics(
-    predicted_items: list[PredictedCorpusItem],
-    matched_prediction_ids: set[str],
-    total_false_positive: int,
-) -> list[PredictionSliceMetrics]:
-    """Считает precision по каждому чекеру, у которого были находки в gold-scope."""
-
-    checker_names = sorted({item.checker_name for item in predicted_items})
-    return [
-        _prediction_slice_metrics(
-            checker,
-            checker,
-            [item for item in predicted_items if item.checker_name == checker],
-            matched_prediction_ids,
-            total_false_positive,
-        )
-        for checker in checker_names
-    ]
-
-
-def _checker_group_metrics(
-    predicted_items: list[PredictedCorpusItem],
-    matched_prediction_ids: set[str],
-    total_false_positive: int,
-) -> list[PredictionSliceMetrics]:
-    """Считает precision по группам чекеров, чтобы не смешивать разные типы качества."""
-
-    groups = sorted({_checker_group(item.checker_name) for item in predicted_items})
-    return [
-        _prediction_slice_metrics(
-            group,
-            CHECKER_GROUP_LABELS.get(group, group),
-            [item for item in predicted_items if _checker_group(item.checker_name) == group],
-            matched_prediction_ids,
-            total_false_positive,
-        )
-        for group in groups
-    ]
-
-
-def _prediction_slice_metrics(
-    slice_name: str,
-    label: str,
-    predicted_items: list[PredictedCorpusItem],
-    matched_prediction_ids: set[str],
-    total_false_positive: int,
-) -> PredictionSliceMetrics:
-    """Считает точность для произвольного среза предсказаний."""
-
-    true_positive = sum(1 for item in predicted_items if item.finding_id in matched_prediction_ids)
-    false_positive = len(predicted_items) - true_positive
-    return PredictionSliceMetrics(
-        slice_name=slice_name,
-        label=label,
-        predicted_total=len(predicted_items),
-        true_positive=true_positive,
-        false_positive=false_positive,
-        precision=_safe_ratio(true_positive, true_positive + false_positive),
-        false_positive_share=_safe_ratio(false_positive, total_false_positive),
-    )
-
-
-def _checker_group(checker_name: str) -> str:
-    """Возвращает устойчивую группу чекера для продуктовых метрик."""
-
-    return CHECKER_GROUPS.get(checker_name, "other")
-
-
-def _is_actionable_prediction(item: PredictedCorpusItem) -> bool:
-    """Выделяет находки, которые должны попадать в рабочий фокус методолога."""
-
-    if item.verdict in {"pass", "unknown"}:
-        return False
-    if item.severity in {"critical", "major"}:
-        return True
-    if item.severity == "minor":
-        return _checker_group(item.checker_name) not in {"methodology", "factcheck"}
-    return False
-
-
-def _cost_quality_metrics(
-    report: AuditReport,
-    true_positive: int,
-    actionable_metrics: PredictionSliceMetrics,
-) -> CostQualityMetrics:
-    """Связывает стоимость модельных вызовов с количеством подтверждённых находок."""
-
-    usage = report.summary.model_usage
-    return CostQualityMetrics(
-        model_calls=usage.calls_total,
-        cache_hits=usage.cache_hits,
-        total_tokens=usage.total_tokens,
-        cost_usd=round(float(usage.cost_usd), 6),
-        cost_per_gold_true_positive=_safe_money_ratio(float(usage.cost_usd), true_positive),
-        cost_per_prediction=_safe_money_ratio(float(usage.cost_usd), report.summary.findings_total),
-        cost_per_actionable_true_positive=_safe_money_ratio(float(usage.cost_usd), actionable_metrics.true_positive),
-    )
 
 
 def _false_negative_analysis(matches: list[CorpusEvaluationMatch]) -> list[FalseNegativeAnalysisItem]:
@@ -624,72 +459,3 @@ def _project_candidates_from_report(report: AuditReport) -> list[_ProjectCandida
         )
         for unit in report.units
     ]
-
-
-def _predicted_keys_from_report(report: AuditReport) -> set[CorpusEvaluationKey]:
-    """Берёт все критерии, по которым алгоритм нашёл хотя бы один случай."""
-
-    unit_ids = {unit.unit_id for unit in report.units}
-    result: set[CorpusEvaluationKey] = set()
-    for finding in report.findings:
-        if finding.unit_id not in unit_ids:
-            continue
-        result.add(CorpusEvaluationKey(project_id=finding.unit_id, criterion=finding.criterion.value))
-    return result
-
-
-def _per_criterion_metrics(
-    gold_keys: set[CorpusEvaluationKey],
-    predicted_keys: set[CorpusEvaluationKey],
-) -> list[CriterionMetrics]:
-    """Считает метрики по каждому критерию, который есть в эталоне или прогнозе."""
-
-    criteria = sorted({item.criterion for item in gold_keys | predicted_keys})
-    metrics: list[CriterionMetrics] = []
-    for criterion in criteria:
-        gold = {item for item in gold_keys if item.criterion == criterion}
-        predicted = {item for item in predicted_keys if item.criterion == criterion}
-        tp = len(gold & predicted)
-        fp = len(predicted - gold)
-        fn = len(gold - predicted)
-        metrics.append(
-            CriterionMetrics(
-                criterion=criterion,
-                label=_criterion_label(criterion),
-                gold_total=len(gold),
-                predicted_total=len(predicted),
-                true_positive=tp,
-                false_positive=fp,
-                false_negative=fn,
-                precision=_safe_ratio(tp, tp + fp),
-                recall=_safe_ratio(tp, tp + fn),
-                f1_score=_f1(tp, fp, fn),
-            )
-        )
-    return metrics
-
-
-def _safe_ratio(numerator: int, denominator: int) -> float:
-    """Делит без исключения на пустом наборе."""
-
-    return round(numerator / denominator, 4) if denominator else 0.0
-
-
-def _safe_money_ratio(cost: float, denominator: int) -> float | None:
-    """Считает денежную метрику и явно возвращает None, если делить не на что."""
-
-    return round(cost / denominator, 6) if denominator else None
-
-
-def _f1(true_positive: int, false_positive: int, false_negative: int) -> float:
-    """Считает F1 через precision и recall."""
-
-    precision = _safe_ratio(true_positive, true_positive + false_positive)
-    recall = _safe_ratio(true_positive, true_positive + false_negative)
-    return round(2 * precision * recall / (precision + recall), 4) if precision + recall else 0.0
-
-
-def _mean(values: list[float]) -> float:
-    """Среднее значение для macro-метрик."""
-
-    return round(sum(values) / len(values), 4) if values else 0.0

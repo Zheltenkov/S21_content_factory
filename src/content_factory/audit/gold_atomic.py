@@ -12,12 +12,14 @@ import csv as _csv
 from collections.abc import Iterable
 from pathlib import Path
 
-from content_factory.audit.corpus_evaluation import (
+from content_factory.audit import corpus_evaluation_gold as _corpus_evaluation_gold
+from content_factory.audit.corpus_evaluation_models import (
     GoldCorpusCase,
     GoldCorpusItem,
-    _match_project,
     _ProjectCandidate,
 )
+
+_match_project = _corpus_evaluation_gold._match_project
 
 CRIT_CODE = "критерий_код"
 TEXT_COLS = ("Текст кейса", "Текст ошибки", "Текст")
