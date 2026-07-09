@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, TypeVar
 
@@ -31,7 +31,7 @@ from content_factory.audit.domain import (
     TextLocation,
     Verdict,
 )
-from content_factory.audit.openrouter import OpenRouterClient
+from content_factory.audit.openrouter import OpenRouterClient, OpenRouterError
 from content_factory.audit.text_utils import normalize_for_match
 
 _EnumT = TypeVar("_EnumT", bound=Enum)
@@ -416,3 +416,87 @@ def _checked_at_from_record(record: dict[str, Any]) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _cached_model_json(
+    context: CheckContext,
+    namespace: str,
+    key: str,
+    client: OpenRouterClient,
+    system_prompt: str,
+    user_prompt: str,
+    prompt_version: str,
+) -> tuple[dict[str, Any], bool]:
+    """Берём модельный JSON из кэша или выполняем один внешний запрос."""
+
+    if context.cache is not None:
+        cached = context.cache.get(namespace, key)
+        if cached is not None and isinstance(cached.get("response"), dict):
+            context.record_model_result(client, cache_hit=True, prompt_version=prompt_version)
+            return cached, True
+
+    response = client.complete_json(system_prompt, user_prompt)
+    context.record_model_result(client, cache_hit=False, prompt_version=prompt_version)
+    record = {
+        "checked_at": datetime.now(UTC).isoformat(),
+        "model": client.model,
+        "prompt_version": prompt_version,
+        "usage": getattr(client, "last_call_usage", {}) or {},
+        "response": response,
+    }
+    if context.cache is not None:
+        context.cache.set(namespace, key, record)
+        context.cache.save()
+    return record, False
+
+
+def _first_result_item(payload: object) -> dict[str, Any] | None:
+    """Разбираем разные допустимые формы JSON-ответа модели."""
+
+    if isinstance(payload, list):
+        return next((item for item in payload if isinstance(item, dict)), None)
+    if not isinstance(payload, dict):
+        return None
+    for key in ("result", "finding", "check"):
+        item = payload.get(key)
+        if isinstance(item, dict):
+            return item
+    findings = payload.get("findings")
+    if isinstance(findings, list):
+        return next((item for item in findings if isinstance(item, dict)), None)
+    return payload
+
+
+def _result_items(payload: object) -> list[dict[str, Any]]:
+    """Разбирает JSON-ответ модели, который может содержать несколько найденных случаев."""
+
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if not isinstance(payload, dict):
+        return []
+    for key in ("findings", "items", "results"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+    item = _first_result_item(payload)
+    return [item] if item is not None else []
+
+
+def _external_check_error(unit: ContentUnit, checker_name: str, criterion: Criterion, exc: OpenRouterError) -> Finding:
+    """Фиксируем сбой внешней проверки одной строкой вместо падения всего аудита."""
+
+    return _finding(
+        unit,
+        checker_name,
+        criterion,
+        Severity.INFO,
+        Verdict.UNKNOWN,
+        0.3,
+        None,
+        None,
+        [Evidence(title="Внешняя проверка", detail=str(exc))],
+        "Повторить проверку после устранения ошибки провайдера или временно отключить модельный контур.",
+        True,
+        checked_at=datetime.now(UTC),
+        support_status="ошибка проверки" if criterion in {Criterion.ACTUALITY, Criterion.TECHNOLOGY_FRESHNESS} else None,
+    )

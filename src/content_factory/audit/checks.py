@@ -17,9 +17,12 @@ from content_factory.audit.checker_base import (
     TECH_KEYWORDS,
     BaseChecker,
     CheckContext,
+    _cached_model_json,
     _checked_at_from_record,
     _enum_or_default,
+    _external_check_error,
     _finding,
+    _first_result_item,
     _first_source_url,
     _hash_cache_key,
     _model_context_priority,
@@ -27,6 +30,7 @@ from content_factory.audit.checker_base import (
     _optional_model_text,
     _parse_confidence,
     _parse_optional_int,
+    _result_items,
     _severity_from_verdict,
     _source_summary,
     _sources_from_item,
@@ -88,7 +92,7 @@ from content_factory.audit.market_fit_signals import (
     _market_fit_verdict,
     _merge_market_signals,
 )
-from content_factory.audit.openrouter import OpenRouterClient, OpenRouterError
+from content_factory.audit.openrouter import OpenRouterError
 from content_factory.audit.regional_availability import (
     RegionalAvailabilityMatch,
     load_regional_availability_rules,
@@ -4302,70 +4306,6 @@ def _technology_check_prompt(entity: ExtractedEntity) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-def _cached_model_json(
-    context: CheckContext,
-    namespace: str,
-    key: str,
-    client: OpenRouterClient,
-    system_prompt: str,
-    user_prompt: str,
-    prompt_version: str,
-) -> tuple[dict[str, Any], bool]:
-    """Берём модельный JSON из кэша или выполняем один внешний запрос."""
-
-    if context.cache is not None:
-        cached = context.cache.get(namespace, key)
-        if cached is not None and isinstance(cached.get("response"), dict):
-            context.record_model_result(client, cache_hit=True, prompt_version=prompt_version)
-            return cached, True
-
-    response = client.complete_json(system_prompt, user_prompt)
-    context.record_model_result(client, cache_hit=False, prompt_version=prompt_version)
-    record = {
-        "checked_at": datetime.now(UTC).isoformat(),
-        "model": client.model,
-        "prompt_version": prompt_version,
-        "usage": getattr(client, "last_call_usage", {}) or {},
-        "response": response,
-    }
-    if context.cache is not None:
-        context.cache.set(namespace, key, record)
-        context.cache.save()
-    return record, False
-
-
-def _first_result_item(payload: object) -> dict[str, Any] | None:
-    """Разбираем разные допустимые формы JSON-ответа модели."""
-
-    if isinstance(payload, list):
-        return next((item for item in payload if isinstance(item, dict)), None)
-    if not isinstance(payload, dict):
-        return None
-    for key in ("result", "finding", "check"):
-        item = payload.get(key)
-        if isinstance(item, dict):
-            return item
-    findings = payload.get("findings")
-    if isinstance(findings, list):
-        return next((item for item in findings if isinstance(item, dict)), None)
-    return payload
-
-
-def _result_items(payload: object) -> list[dict[str, Any]]:
-    """Разбирает JSON-ответ модели, который может содержать несколько найденных случаев."""
-
-    if isinstance(payload, list):
-        return [item for item in payload if isinstance(item, dict)]
-    if not isinstance(payload, dict):
-        return []
-    for key in ("findings", "items", "results"):
-        value = payload.get(key)
-        if isinstance(value, list):
-            return [item for item in value if isinstance(item, dict)]
-    item = _first_result_item(payload)
-    return [item] if item is not None else []
-
-
 def _dependency_registry_metadata(
     candidate: DependencyCandidate,
     registry_client: DependencyRegistryClient,
@@ -4704,26 +4644,6 @@ def _is_uninformative_technology_item(item: dict[str, Any]) -> bool:
         "recommended_version",
     )
     return not any(_optional_model_text(item.get(key)) for key in informative_keys)
-
-
-def _external_check_error(unit: ContentUnit, checker_name: str, criterion: Criterion, exc: OpenRouterError) -> Finding:
-    """Фиксируем сбой внешней проверки одной строкой вместо падения всего аудита."""
-
-    return _finding(
-        unit,
-        checker_name,
-        criterion,
-        Severity.INFO,
-        Verdict.UNKNOWN,
-        0.3,
-        None,
-        None,
-        [Evidence(title="Внешняя проверка", detail=str(exc))],
-        "Повторить проверку после устранения ошибки провайдера или временно отключить модельный контур.",
-        True,
-        checked_at=datetime.now(UTC),
-        support_status="ошибка проверки" if criterion in {Criterion.ACTUALITY, Criterion.TECHNOLOGY_FRESHNESS} else None,
-    )
 
 
 def _finding_from_model_item(
