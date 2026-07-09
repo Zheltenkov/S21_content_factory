@@ -36,6 +36,27 @@ from content_factory.audit.text_utils import normalize_for_match
 
 _EnumT = TypeVar("_EnumT", bound=Enum)
 
+# Technology tokens shared by the fact-claim extractor and the tech/version
+# checkers — lives on the leaf so both can import it without a cycle.
+TECH_KEYWORDS = {
+    "alpine",
+    "bash",
+    "busybox",
+    "c11",
+    "docker",
+    "gcc",
+    "github",
+    "gitlab",
+    "gnu",
+    "java",
+    "node",
+    "node.js",
+    "pcre2",
+    "posix",
+    "python",
+    "ubuntu",
+}
+
 SEVERITY_RANK: dict[Severity, int] = {
     Severity.INFO: 0,
     Severity.MINOR: 1,
