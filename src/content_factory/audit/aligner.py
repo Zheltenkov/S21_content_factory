@@ -27,16 +27,18 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Protocol
 
-from content_factory.audit.corpus_evaluation import (
+from content_factory.audit.corpus_evaluation_matching import (
+    criterion_label,
+    format_prediction_range,
+    format_range,
+    line_relation,
+    normalize_match_text,
+    same_missing_artifact_signal,
+)
+from content_factory.audit.corpus_evaluation_models import (
     CorpusEvaluationMatch,
     GoldCorpusCase,
     PredictedCorpusItem,
-    _criterion_label,
-    _format_prediction_range,
-    _format_range,
-    _line_relation,
-    _normalize_match_text,
-    _same_missing_artifact_signal,
 )
 
 _DATA_DIR = Path(__file__).parent
@@ -114,14 +116,14 @@ def extract_anchors(text: str) -> Anchors:
     files = {Path(m.group(0).replace("\\", "/")).name.lower() for m in FILE_RE.finditer(text)}
     phrases = set()
     for m in QUOTE_RE.finditer(text):
-        phrase = _normalize_match_text(m.group(1))
+        phrase = normalize_match_text(m.group(1))
         if len(phrase.split()) >= 2:
             phrases.add(phrase)
     return Anchors(frozenset(urls), frozenset(files), frozenset(phrases))
 
 
 def _content_tokens(text: str) -> set:
-    return {t for t in _normalize_match_text(text).split() if len(t) > 2 and t not in STOPWORDS}
+    return {t for t in normalize_match_text(text).split() if len(t) > 2 and t not in STOPWORDS}
 
 
 def content_similarity(gold_text: str, found_text: str) -> float:
@@ -130,7 +132,7 @@ def content_similarity(gold_text: str, found_text: str) -> float:
     if not g or not f:
         return 0.0
     token_score = len(g & f) / min(len(g), len(f))
-    seq = SequenceMatcher(a=_normalize_match_text(gold_text), b=_normalize_match_text(found_text)).ratio()
+    seq = SequenceMatcher(a=normalize_match_text(gold_text), b=normalize_match_text(found_text)).ratio()
     return max(token_score, seq)
 
 
@@ -272,7 +274,7 @@ class OfflineJudge:
         pa = extract_anchors(pred.found_text + " " + (pred.file_path or ""))
         if ga.urls & pa.urls or ga.files & pa.files or _phrase_hit(ga, pa):
             return True, 0.9, "shared anchor"
-        if _same_missing_artifact_signal(gold.gold_text, pred.found_text):
+        if same_missing_artifact_signal(gold.gold_text, pred.found_text):
             return True, 0.85, "missing-artifact signal"
         gs, fs = _stem_tokens(gold.gold_text), _stem_tokens(pred.found_text)
         if not gs or not fs:
@@ -280,7 +282,7 @@ class OfflineJudge:
         rare_shared = {t for t in (gs & fs) if len(t) >= 5}
         if len(rare_shared) >= 2:
             return True, 0.72, "shared rare stems"
-        if _line_relation(gold.line_start, gold.line_end, pred.line_start, pred.line_end) == "overlap" and (gs & fs):
+        if line_relation(gold.line_start, gold.line_end, pred.line_start, pred.line_end) == "overlap" and (gs & fs):
             return True, 0.7, "line overlap + shared stem"
         jac = len(gs & fs) / len(gs | fs)
         if jac >= 0.34:
@@ -357,9 +359,9 @@ def _prescreen(gold: GoldCorpusCase, pred: PredictedCorpusItem) -> float:
     pa = extract_anchors(pred.found_text + " " + (pred.file_path or ""))
     if ga.urls & pa.urls or ga.files & pa.files or _phrase_hit(ga, pa):
         return 1.0
-    if _same_missing_artifact_signal(gold.gold_text, pred.found_text):
+    if same_missing_artifact_signal(gold.gold_text, pred.found_text):
         return 0.95
-    line_rel = _line_relation(gold.line_start, gold.line_end, pred.line_start, pred.line_end)
+    line_rel = line_relation(gold.line_start, gold.line_end, pred.line_start, pred.line_end)
     # File anchor (from the gold "Файл" column) + matching line == same defect.
     if getattr(gold, "file_hint", None) and pred.file_path:
         gf = mirror_family(gold.file_hint)
@@ -381,9 +383,9 @@ def _row(gold: GoldCorpusCase, pred: PredictedCorpusItem | None, conf: float, re
             project=gold.matched_project,
             project_id=gold.project_id,
             criterion=gold.criterion,
-            label=_criterion_label(gold.criterion),
+            label=criterion_label(gold.criterion),
             gold_row_number=gold.row_number,
-            gold_line_range=_format_range(gold.line_start, gold.line_end),
+            gold_line_range=format_range(gold.line_start, gold.line_end),
             gold_text=gold.gold_text,
             found_line_range="",
             found_text="",
@@ -396,13 +398,13 @@ def _row(gold: GoldCorpusCase, pred: PredictedCorpusItem | None, conf: float, re
         project=gold.matched_project,
         project_id=gold.project_id,
         criterion=gold.criterion,
-        label=_criterion_label(gold.criterion),
+        label=criterion_label(gold.criterion),
         gold_row_number=gold.row_number,
-        gold_line_range=_format_range(gold.line_start, gold.line_end),
+        gold_line_range=format_range(gold.line_start, gold.line_end),
         gold_text=gold.gold_text,
         found_finding_id=pred.finding_id,
         found_checker=pred.checker_name,
-        found_line_range=_format_prediction_range(pred),
+        found_line_range=format_prediction_range(pred),
         found_text=pred.found_text,
         match_type="judge_same_criterion" if gold.criterion == pred.criterion else "judge_cross_criterion",
         match_score=round(conf, 4),
