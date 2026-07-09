@@ -67,6 +67,7 @@ class GenerationResumeService:
         pause_persister: MethodologyPausePersister | None = None,
         failure_handler: GenerationFailureHandler | None = None,
         workflow_service: GenerationWorkflowService | None = None,
+        curriculum_run_marker: Callable[..., Any] | None = None,
     ) -> None:
         self._status_getter = status_getter
         self._status_setter = status_setter
@@ -84,6 +85,7 @@ class GenerationResumeService:
         self._temp_cleanup = temp_cleanup
         self._completed_saver = completed_saver
         self._workflow_service = workflow_service or GenerationWorkflowService()
+        self._curriculum_run_marker = curriculum_run_marker
         self._result_persister = result_persister or GenerationResultPersister(
             status_setter=status_setter,
             error_store=error_store,
@@ -154,11 +156,23 @@ class GenerationResumeService:
             status = self._status_getter(request_id)
             if status == "cancelled":
                 logger.info("🛑 Генерация отменена до начала: request_id=%s", request_id)
+                await self._mark_curriculum_project_run(
+                    request_id=request_id,
+                    project_seed_payload=project_seed_dict,
+                    status="cancelled",
+                    stage="cancelled_before_start",
+                )
                 return
             set_request_id(request_id)
             set_user_id(user_id)
             self._status_setter(request_id, "in_progress")
             self._workflow_service.mark_running(request_id=request_id, user_id=user_id)
+            await self._mark_curriculum_project_run(
+                request_id=request_id,
+                project_seed_payload=project_seed_dict,
+                status="in_progress",
+                stage="generation",
+            )
 
             logger.info("🔍 _run_generation_background: язык из project_seed_dict: %r", project_seed_dict.get("language"))
             project_seed = ProjectSeed(**project_seed_dict)
@@ -189,18 +203,54 @@ class GenerationResumeService:
             )
             if saved:
                 self._workflow_service.mark_completed(request_id=request_id, user_id=user_id)
+                await self._mark_curriculum_project_run(
+                    request_id=request_id,
+                    project_seed_payload=project_seed.model_dump(),
+                    status="completed",
+                    stage="completed",
+                    result_url=f"/api/v1/download/{request_id}",
+                    score=self._result_score(result),
+                )
             else:
                 self._workflow_service.mark_failed(
                     request_id=request_id,
                     user_id=user_id,
                     error="Результат генерации не был сохранен",
                 )
+                await self._mark_curriculum_project_run(
+                    request_id=request_id,
+                    project_seed_payload=project_seed.model_dump(),
+                    status="failed",
+                    stage="result_persistence",
+                    error="Результат генерации не был сохранен",
+                )
         except ValidationError as exc:
             await self._failure_handler.handle_validation_error(request_id, user_id, exc)
+            await self._mark_curriculum_project_run(
+                request_id=request_id,
+                project_seed_payload=project_seed_dict,
+                status="failed",
+                stage="validation_error",
+                error=str(exc),
+            )
         except (LLMTimeoutError, LLMRateLimitError) as exc:
             await self._failure_handler.handle_llm_timeout_or_rate_limit(request_id, user_id, exc)
+            await self._mark_curriculum_project_run(
+                request_id=request_id,
+                project_seed_payload=project_seed_dict,
+                status="failed",
+                stage="llm_error",
+                error=str(exc),
+            )
         except LLMAPIError as exc:
             await self._failure_handler.handle_llm_api_error(request_id, user_id, exc)
+            await self._mark_curriculum_project_run(
+                request_id=request_id,
+                project_seed_payload=project_seed_dict,
+                status="failed",
+                stage="llm_error",
+                error=str(exc),
+            )
         except ContentGenerationError as exc:
             await self._failure_handler.handle_content_generation_error(
                 request_id=request_id,
@@ -209,8 +259,23 @@ class GenerationResumeService:
                 track_paths=track_paths,
                 error=exc,
             )
+            paused = exc.context.get("error_type") in {"MethodologyGatePause", "HumanApprovalCheckpoint"}
+            await self._mark_curriculum_project_run(
+                request_id=request_id,
+                project_seed_payload=project_seed_dict,
+                status="needs_review" if paused else "failed",
+                stage="methodology_review" if paused else "generation_error",
+                error=str(exc),
+            )
         except Exception as exc:  # noqa: BLE001
             await self._failure_handler.handle_unexpected_error(request_id, user_id, exc)
+            await self._mark_curriculum_project_run(
+                request_id=request_id,
+                project_seed_payload=project_seed_dict,
+                status="failed",
+                stage="unexpected_error",
+                error=str(exc),
+            )
         finally:
             self._task_unregister(request_id)
             if temp_dir:
@@ -228,12 +293,24 @@ class GenerationResumeService:
             status = self._status_getter(request_id)
             if status == "cancelled":
                 logger.info("🛑 Resume отменен до старта: request_id=%s", request_id)
+                await self._mark_curriculum_project_run(
+                    request_id=request_id,
+                    project_seed_payload=paused_session.get("project_seed") or {},
+                    status="cancelled",
+                    stage="resume_cancelled_before_start",
+                )
                 return
 
             set_request_id(request_id)
             set_user_id(user_id)
             self._status_setter(request_id, "in_progress")
             self._workflow_service.mark_resuming(request_id=request_id, user_id=user_id, comment=review_comment)
+            await self._mark_curriculum_project_run(
+                request_id=request_id,
+                project_seed_payload=paused_session.get("project_seed") or {},
+                status="in_progress",
+                stage="resume",
+            )
 
             context = paused_session["context"]
             self._attach_review_actions(context, paused_session, review_comment, user_id)
@@ -262,10 +339,25 @@ class GenerationResumeService:
             if saved:
                 self._workflow_service.mark_completed(request_id=request_id, user_id=user_id)
                 await asyncio.to_thread(self._paused_completed_marker, request_id)
+                await self._mark_curriculum_project_run(
+                    request_id=request_id,
+                    project_seed_payload=paused_session.get("project_seed") or {},
+                    status="completed",
+                    stage="completed",
+                    result_url=f"/api/v1/download/{request_id}",
+                    score=self._result_score(result),
+                )
             else:
                 self._workflow_service.mark_failed(
                     request_id=request_id,
                     user_id=user_id,
+                    error="Результат продолжения генерации не был сохранен",
+                )
+                await self._mark_curriculum_project_run(
+                    request_id=request_id,
+                    project_seed_payload=paused_session.get("project_seed") or {},
+                    status="failed",
+                    stage="resume_result_persistence",
                     error="Результат продолжения генерации не был сохранен",
                 )
         except ContentGenerationError as exc:
@@ -275,6 +367,14 @@ class GenerationResumeService:
                 paused_session=paused_session,
                 error=exc,
             )
+            paused = exc.context.get("error_type") in {"MethodologyGatePause", "HumanApprovalCheckpoint"}
+            await self._mark_curriculum_project_run(
+                request_id=request_id,
+                project_seed_payload=paused_session.get("project_seed") or {},
+                status="needs_review" if paused else "failed",
+                stage="resume_methodology_review" if paused else "resume_error",
+                error=str(exc),
+            )
         except Exception as exc:  # noqa: BLE001
             await self._failure_handler.handle_unexpected_error(
                 request_id,
@@ -283,6 +383,13 @@ class GenerationResumeService:
                 phase="resume_unexpected_error",
                 message_prefix="Неожиданная ошибка продолжения генерации",
                 error_prefix="Ошибка продолжения генерации",
+            )
+            await self._mark_curriculum_project_run(
+                request_id=request_id,
+                project_seed_payload=paused_session.get("project_seed") or {},
+                status="failed",
+                stage="resume_unexpected_error",
+                error=str(exc),
             )
         finally:
             self._task_unregister(request_id)
@@ -512,6 +619,57 @@ class GenerationResumeService:
         if isinstance(project_seed, dict) and project_seed.get("llm_provider"):
             return str(project_seed["llm_provider"])
         return None
+
+    async def _mark_curriculum_project_run(
+        self,
+        *,
+        request_id: str,
+        project_seed_payload: dict[str, Any],
+        status: str,
+        stage: str | None = None,
+        error: str | None = None,
+        result_url: str | None = None,
+        score: dict[str, Any] | None = None,
+    ) -> None:
+        if self._curriculum_run_marker is None:
+            return
+        origin = project_seed_payload.get("curriculum_origin")
+        pipeline_run_id = project_seed_payload.get("pipeline_run_id")
+        if isinstance(origin, dict):
+            pipeline_run_id = pipeline_run_id or origin.get("pipeline_run_id")
+        if not pipeline_run_id:
+            return
+        try:
+            await asyncio.to_thread(
+                self._curriculum_run_marker,
+                request_id=request_id,
+                pipeline_run_id=str(pipeline_run_id),
+                status=status,
+                stage=stage,
+                error=error,
+                result_url=result_url,
+                score=score,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to update curriculum project run %s: %s", request_id, exc)
+
+    @staticmethod
+    def _result_score(result: Any) -> dict[str, Any] | None:
+        report_json = getattr(result, "report_json", None)
+        rubric = report_json.get("rubric") if isinstance(report_json, dict) else None
+        if not isinstance(rubric, dict):
+            return None
+        total = rubric.get("total")
+        maximum = rubric.get("max_score") or rubric.get("max")
+        if total is None and isinstance(rubric.get("items"), list):
+            total = sum(1 for item in rubric["items"] if isinstance(item, dict) and item.get("score") == 1)
+        if maximum is None and isinstance(rubric.get("items"), list):
+            maximum = len(rubric["items"])
+        return {
+            "total": total,
+            "max": maximum,
+            "label": f"{total}/{maximum}" if total is not None and maximum is not None else "—",
+        }
 
     @staticmethod
     def _attach_review_actions(

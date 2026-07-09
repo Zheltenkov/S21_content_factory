@@ -456,6 +456,149 @@ class GenerationWorkflowCheckpoint(Base):
         }
 
 
+class CurriculumProjectSnapshot(Base):
+    """Immutable operational snapshot of one UP project selected for generation."""
+
+    __tablename__ = "curriculum_project_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    snapshot_id: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
+    pipeline_run_id: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
+    source_plan_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    plan_version: Mapped[str] = mapped_column(String(160), nullable=False)
+    plan_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    plan_row_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    row_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    block_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    row_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    project_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    project_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    project_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    context_data: Mapped[Any] = mapped_column(JSON, nullable=True)
+    seed_data: Mapped[Any] = mapped_column(JSON, nullable=True)
+    readiness_data: Mapped[Any] = mapped_column(JSON, nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False
+    )
+
+    generation_runs: Mapped[list["CurriculumProjectGenerationRun"]] = relationship(
+        "CurriculumProjectGenerationRun",
+        back_populates="snapshot",
+    )
+
+    __table_args__ = (
+        Index("idx_curriculum_project_snapshots_plan_row", "source_plan_id", "plan_row_id"),
+        Index("idx_curriculum_project_snapshots_plan_hash", "source_plan_id", "plan_hash"),
+        Index("idx_curriculum_project_snapshots_created", "created_at"),
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a detached snapshot for APIs and run metadata."""
+        return {
+            "id": self.id,
+            "snapshot_id": self.snapshot_id,
+            "pipeline_run_id": self.pipeline_run_id,
+            "source_plan_id": self.source_plan_id,
+            "plan_version": self.plan_version,
+            "plan_hash": self.plan_hash,
+            "plan_row_id": self.plan_row_id,
+            "row_hash": self.row_hash,
+            "block_index": self.block_index,
+            "row_number": self.row_number,
+            "project_index": self.project_index,
+            "project_order": self.project_order,
+            "project_title": self.project_title,
+            "context_data": self.context_data,
+            "seed_data": self.seed_data,
+            "readiness": self.readiness_data,
+            "created_by": self.created_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class CurriculumProjectGenerationRun(Base):
+    """Operational status row for generating one project from a persisted UP."""
+
+    __tablename__ = "curriculum_project_generation_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pipeline_run_id: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
+    snapshot_id: Mapped[str | None] = mapped_column(
+        String(80),
+        ForeignKey("curriculum_project_snapshots.snapshot_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    request_id: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True)
+    user_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    source_plan_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    plan_version: Mapped[str] = mapped_column(String(160), nullable=False)
+    plan_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    plan_row_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    row_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    block_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    row_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    project_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    project_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    project_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="pending")
+    stage: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    result_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    score_data: Mapped[Any] = mapped_column(JSON, nullable=True)
+    review_data: Mapped[Any] = mapped_column(JSON, nullable=True)
+    meta_data: Mapped[Any] = mapped_column(JSON, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    snapshot: Mapped["CurriculumProjectSnapshot | None"] = relationship(
+        "CurriculumProjectSnapshot",
+        back_populates="generation_runs",
+    )
+
+    __table_args__ = (
+        Index("idx_curriculum_project_runs_plan_row", "source_plan_id", "plan_row_id", "updated_at"),
+        Index("idx_curriculum_project_runs_user_status", "user_id", "status"),
+        Index("idx_curriculum_project_runs_request", "request_id"),
+        Index("idx_curriculum_project_runs_updated", "updated_at"),
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a detached status row for the Учебные проекты UI."""
+        return {
+            "id": self.id,
+            "pipeline_run_id": self.pipeline_run_id,
+            "snapshot_id": self.snapshot_id,
+            "request_id": self.request_id,
+            "user_id": self.user_id,
+            "source_plan_id": self.source_plan_id,
+            "plan_version": self.plan_version,
+            "plan_hash": self.plan_hash,
+            "plan_row_id": self.plan_row_id,
+            "row_hash": self.row_hash,
+            "block_index": self.block_index,
+            "row_number": self.row_number,
+            "project_index": self.project_index,
+            "project_order": self.project_order,
+            "project_title": self.project_title,
+            "status": self.status,
+            "stage": self.stage,
+            "result_url": self.result_url,
+            "score": self.score_data,
+            "review": self.review_data,
+            "metadata": self.meta_data,
+            "error": self.error,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+
 class ToolRun(Base):
     """Unified run metadata for tools mounted into the generator service."""
 

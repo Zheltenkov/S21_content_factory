@@ -380,6 +380,45 @@ function restoreCurriculumFromSession() {
     }
 }
 
+function curriculumDeepLinkParams() {
+    const params = new URLSearchParams(window.location.search || '');
+    const planId = params.get('plan_id') || params.get('source_plan_id');
+    const blockName = params.get('block') || params.get('block_name');
+    const projectOrder = params.get('project_order') || params.get('project');
+    if (!planId || !blockName || !projectOrder) return null;
+    return { planId, blockName, projectOrder };
+}
+
+async function applyCurriculumDeepLink() {
+    const deepLink = curriculumDeepLinkParams();
+    if (!deepLink) return false;
+
+    const loaded = await loadPersistedCurriculumPlan(deepLink.planId);
+    if (!loaded) return false;
+    const blockSelect = document.getElementById('curriculumBlock');
+    if (!blockSelect) return false;
+
+    const blockOption = Array.from(blockSelect.options).find(option => option.value === deepLink.blockName);
+    if (!blockOption) {
+        setPersistedPlanStatus('Блок из ссылки не найден в УП', true);
+        return false;
+    }
+    blockSelect.value = deepLink.blockName;
+    onCurriculumBlockChange();
+
+    const projectSelect = document.getElementById('curriculumProject');
+    if (!projectSelect) return false;
+    const projectOption = Array.from(projectSelect.options).find(option => option.value === String(deepLink.projectOrder));
+    if (!projectOption) {
+        setPersistedPlanStatus('Проект из ссылки не найден в УП', true);
+        return false;
+    }
+    projectSelect.value = String(deepLink.projectOrder);
+    await onCurriculumProjectChange();
+    setPersistedPlanStatus('Проект загружен из раздела «Учебные проекты»');
+    return true;
+}
+
 async function loadThematicBlocks() {
     try {
         const response = await fetch(`${getCurriculumApiUrl()}/thematic-blocks`);
@@ -394,6 +433,12 @@ async function loadThematicBlocks() {
 
     restoreCurriculumFromSession();
     await loadPersistedCurriculumPlans();
+    try {
+        await applyCurriculumDeepLink();
+    } catch (error) {
+        console.warn('Не удалось открыть проект из ссылки:', error);
+        setPersistedPlanStatus(error.message || 'Не удалось открыть проект из ссылки', true);
+    }
 }
 
 function updateDirectionSelect() {
@@ -515,7 +560,7 @@ async function loadPersistedCurriculumPlan(sourceId = null) {
     const selectedId = sourceId || select?.value || '';
     if (!selectedId) {
         setPersistedPlanStatus('Выберите УП', true);
-        return;
+        return false;
     }
 
     setPersistedPlanStatus('Загрузка УП...');
@@ -536,10 +581,12 @@ async function loadPersistedCurriculumPlan(sourceId = null) {
         }
         window.toast?.success(`УП загружен из базы: ${data.plan?.title || currentCurriculum.direction}`);
         console.log('✅ УП загружен из базы:', currentCurriculum);
+        return true;
     } catch (error) {
         console.error('Ошибка загрузки УП из базы:', error);
         setPersistedPlanStatus(error.message || 'Ошибка загрузки УП', true);
         window.toast?.error(`Ошибка загрузки УП из базы: ${error.message}`);
+        return false;
     }
 }
 
@@ -555,6 +602,7 @@ Object.assign(window, {
     onDirectionChange,
     restoreCurriculumFromSession,
     loadThematicBlocks,
+    applyCurriculumDeepLink,
     loadPersistedCurriculumPlans,
     loadPersistedCurriculumPlan,
     updateDirectionSelect,

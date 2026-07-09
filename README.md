@@ -24,7 +24,8 @@ src/content_factory/
   config/        model_registry.yaml (данные)
   didactics/     дидактические фрагменты (данные)
 
-migrations/      единый Alembic (001–017; 014–017 = каталог/intake/DAG в Postgres)
+migrations/      единый Alembic (001–018; 014–017 = каталог/intake/DAG в Postgres,
+                 018 = runtime snapshot/status для генерации проектов из УП)
 tests/           единый pytest: generation + audit + catalog
 scripts/         эксплуатационные скрипты (в т.ч. migrate_catalog_to_postgres.py)
 docs/            документация (+ MIGRATION_LOG.md)
@@ -44,7 +45,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e .
 Copy-Item .env.example .env    # заполнить секреты (как минимум POLZA_AI_API_KEY, DATABASE_URL, JWT_SECRET_KEY)
-alembic upgrade head           # применить схему (001–017)
+alembic upgrade head           # применить схему (001–018)
 python run.py                  # http://127.0.0.1:8000
 ```
 
@@ -60,9 +61,12 @@ python scripts/migrate_catalog_to_postgres.py \
 ## Сценарии (роуты)
 
 - `/app/generate` — генерация учебного проекта (README, практика, метрики, архив).
+- `/app/learning-projects` — operational cockpit проектов из утвержденных УП:
+  readiness, snapshot lineage, статусы и история генераций.
 - `/app/auditor` — аудит README по критериям качества (FastAPI-нативно).
 - `/app/spravochnik` — каталог компетенций / intake (нативный FastAPI UI).
-- API: `/api/v1/generate`, `/api/v1/auditor/*`, `/api/v1/spravochnik/*`, `/api/v1/curriculum/*`.
+- API: `/api/v1/generate`, `/api/v1/auditor/*`, `/api/v1/spravochnik/*`,
+  `/api/v1/curriculum/*`, `/api/v1/curriculum-projects/*`.
 
 ## Проверки
 

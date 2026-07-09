@@ -4,15 +4,11 @@ import csv
 import io
 import json
 import sqlite3
-import sys
 import uuid
 from pathlib import Path
+from typing import Any
 
 import pytest
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 from content_factory.catalog.pipeline import (
     config,
@@ -29,40 +25,49 @@ from content_factory.catalog.pipeline.curriculum import PlanNode, ProjectBluepri
 from content_factory.catalog.pipeline.curriculum import planner as curriculum_planner
 from content_factory.catalog.pipeline.models import IndicatorSpec, SkillCandidate
 from content_factory.catalog.pipeline.skill_names import canonicalize_skill_name, looks_like_genitive_fragment
-from content_factory.catalog.viewer.app import (
-    apply_candidate_decision,
-    apply_brief_catalog_decisions,
-    build_candidate_recommended_action,
-    build_curriculum_plan_payload_from_rows,
-    build_curriculum_plan_for_brief,
-    build_dag_for_brief,
-    build_intake_workspace_state,
-    build_intake_quality_metrics,
-    build_intake_workflow_steps,
-    clear_intake_workspace,
-    create_intake_job,
-    create_catalog_indicator,
-    create_catalog_skill,
-    curriculum_plan_to_csv_bytes,
-    ensure_catalog_group,
-    get_intake_job,
-    get_brief_catalog_apply_state,
-    merge_catalog_skills,
-    load_brief_spec_for_plan,
-    load_llm_usage_summary,
+from content_factory.catalog.viewer.candidate_competency_ops import (
     list_candidate_competencies,
-    list_catalog_groups,
-    list_skill_sets,
     merge_candidate_competency,
     move_candidate_competency_skill,
-    repair_dirty_profile_names,
     rename_candidate_competency,
-    update_review_status,
-    update_intake_job,
 )
-from content_factory.catalog.viewer.observability import build_decision_rationale, build_job_observability
+from content_factory.catalog.viewer.catalog_admin_ops import (
+    create_catalog_indicator,
+    create_catalog_skill,
+    list_catalog_groups,
+    list_skill_sets,
+    merge_catalog_skills,
+)
+from content_factory.catalog.viewer.catalog_maintenance_ops import ensure_catalog_group, repair_dirty_profile_names
+from content_factory.catalog.viewer.curriculum_ops import (
+    build_curriculum_plan_payload_from_rows,
+    curriculum_plan_to_csv_bytes,
+)
+from content_factory.catalog.viewer.intake_ops import (
+    apply_brief_catalog_decisions,
+    apply_candidate_decision,
+    build_candidate_recommended_action,
+    build_curriculum_plan_for_brief,
+    build_dag_for_brief,
+    build_intake_workflow_steps,
+    build_intake_workspace_state,
+    clear_intake_workspace,
+    create_intake_job,
+    get_brief_catalog_apply_state,
+    get_intake_job,
+    load_brief_spec_for_plan,
+    update_intake_job,
+    update_review_status,
+)
+from content_factory.catalog.viewer.observability import (
+    build_decision_rationale,
+    build_intake_quality_metrics,
+    build_job_observability,
+    load_llm_usage_summary,
+)
 from content_factory.catalog.viewer.route_zones import detect_route_zone, get_secondary_nav, show_secondary_nav
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_DIR = PROJECT_ROOT / "test_runtime"
 RUNTIME_DIR.mkdir(exist_ok=True)
 

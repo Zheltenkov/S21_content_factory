@@ -89,7 +89,7 @@ def test_up_row_new_on_missing_plan_404(client: TestClient) -> None:
 def _seed_plan(client: TestClient) -> int:
     """Insert a minimal curriculum_plan row and return its id."""
     from content_factory.catalog.db import existing_columns, open_catalog_connection
-    from content_factory.catalog.viewer.app import utc_now_iso
+    from content_factory.catalog.viewer._common import utc_now_iso
 
     conn = open_catalog_connection("unused-on-postgres")
     try:

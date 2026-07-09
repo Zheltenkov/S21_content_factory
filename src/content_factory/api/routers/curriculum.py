@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from content_factory.api.db.curriculum_project_runs_db import record_curriculum_project_snapshot
 from content_factory.api.db.session import get_db_session
 from content_factory.api.dependencies import get_current_user
 from content_factory.api.integrations.spravochnik_curriculum_sync import sync_spravochnik_curriculum_plans
@@ -887,9 +888,16 @@ async def build_curriculum_context(
                 expected_plan_hash=request.plan_hash or request.curriculum_data.get("plan_hash"),
                 pipeline_run_id=request.pipeline_run_id,
             )
+            operational_snapshot = record_curriculum_project_snapshot(
+                db=db,
+                user_id=str(user.get("id") or ""),
+                context_payload=result["context"],
+                readiness=result["readiness"],
+            )
             return {
                 **result["context"],
                 "plan_snapshot": result["snapshot"],
+                "operational_snapshot": operational_snapshot,
                 "readiness": result["readiness"],
                 "user_id": user.get("id"),
             }

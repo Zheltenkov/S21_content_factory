@@ -14,7 +14,12 @@
     ];
     const API_URL = window.API_URL || window.ContentGenApiUrl || `${window.location.origin}/api/v1`;
     const nativeFetch = window.fetch.bind(window);
-    const PROTECTED_TOOL_PATHS = new Set(['/app/auditor', '/app/curriculum', '/app/spravochnik']);
+    const PROTECTED_TOOL_PATHS = new Set([
+        '/app/auditor',
+        '/app/curriculum',
+        '/app/learning-projects',
+        '/app/spravochnik',
+    ]);
     let redirecting = false;
     let cookieSyncPromise = null;
 

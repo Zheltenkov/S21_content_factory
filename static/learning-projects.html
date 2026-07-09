@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Школа 21 — Учебные проекты</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css?v=20260518-diagram-labels">
+    <link rel="stylesheet" href="/static/css/s21-tokens.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-base.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-forms.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-buttons.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-badges.css?v=20260514-split2">
+    <link rel="stylesheet" href="/static/css/s21-design.css?v=20260513-fluid-cleanup">
+    <link rel="stylesheet" href="/static/css/s21-dashboard.css?v=20260515-dashboard-fix">
+    <link rel="stylesheet" href="/static/css/s21-learning-projects.css?v=20260708-operational-up">
+    <script src="/static/js/modules/modelSelector.js?v=20260514-header-fix"></script>
+    <script src="/static/js/utils/pagePrefetch.js?v=20260518-page-prefetch-lite" defer></script>
+</head>
+<body class="s21-product page-learning-projects">
+    <header class="dashboard-header dashboard-header--menu">
+        <nav class="dashboard-nav" aria-label="Основные разделы">
+            <a href="/app">Главная</a>
+            <a href="/app/generate">Генерация</a>
+            <a href="/app/auditor">Аудитор</a>
+            <a href="/app/translate">Перевод</a>
+            <a href="/app/curriculum" class="active">УП</a>
+            <a href="/app/spravochnik">Справочник</a>
+            <a href="/app/instruction">Инструкция</a>
+        </nav>
+
+        <div class="dashboard-header-actions">
+            <div class="dashboard-model-picker" data-selected-model="polza">
+                <button class="dashboard-model-button" type="button" aria-label="Выбрать модель ИИ" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDashboardModelMenu(this)" title="Модель ИИ">
+                    <span aria-hidden="true">ИИ</span>
+                </button>
+                <div class="dashboard-model-menu" role="listbox" aria-label="Модель ИИ" hidden>
+                    <button type="button" role="option" data-model="polza" aria-selected="true" onclick="setDashboardModel(this.dataset.model)">polza</button>
+                    <button type="button" role="option" data-model="deepseek" aria-selected="false" onclick="setDashboardModel(this.dataset.model)">deepseek</button>
+                    <button type="button" role="option" data-model="gigachat" aria-selected="false" onclick="setDashboardModel(this.dataset.model)">gigachat</button>
+                </div>
+            </div>
+            <button class="dashboard-user" type="button" onclick="handleLearningProjectsLogout()" title="Выйти">
+                <span class="dashboard-user-avatar" id="learningProjectsUserInitials">U</span>
+                <span id="learningProjectsUserName">Пользователь</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="learning-projects-shell">
+        <section class="learning-projects-head" aria-labelledby="learningProjectsTitle">
+            <div>
+                <p class="learning-projects-eyebrow">УП → генерация</p>
+                <h1 id="learningProjectsTitle">Учебные проекты</h1>
+                <p>Статусы генерации по строкам утвержденного учебного плана.</p>
+            </div>
+            <div class="learning-projects-actions">
+                <a class="btn btn-secondary" href="/app/curriculum">Редактировать УП</a>
+                <button class="btn btn-primary" type="button" id="learningProjectsRefreshBtn">Обновить</button>
+            </div>
+        </section>
+
+        <section class="learning-projects-controls" aria-label="Выбор учебного плана">
+            <div class="form-group">
+                <label for="learningProjectPlanSelect">Учебный план</label>
+                <select id="learningProjectPlanSelect"></select>
+            </div>
+            <div class="form-group">
+                <label for="learningProjectStatusFilter">Статус</label>
+                <select id="learningProjectStatusFilter">
+                    <option value="all">Все проекты</option>
+                    <option value="available">Готовы к генерации</option>
+                    <option value="active">В работе</option>
+                    <option value="needs_review">На проверке</option>
+                    <option value="completed">Готовые</option>
+                    <option value="failed">С ошибками</option>
+                    <option value="blocked">Заблокированы</option>
+                    <option value="not_started">Не начаты</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="learningProjectSearch">Поиск</label>
+                <input id="learningProjectSearch" type="search" placeholder="Проект, блок, skill">
+            </div>
+            <div class="learning-projects-status" id="learningProjectsStatus">Загрузка...</div>
+        </section>
+
+        <section class="learning-projects-summary" aria-label="Сводка">
+            <article>
+                <span>Проекты</span>
+                <strong id="learningProjectsTotal">0</strong>
+            </article>
+            <article>
+                <span>Готово</span>
+                <strong id="learningProjectsDone">0</strong>
+            </article>
+            <article>
+                <span>В работе</span>
+                <strong id="learningProjectsActive">0</strong>
+            </article>
+            <article>
+                <span>Ошибки</span>
+                <strong id="learningProjectsFailed">0</strong>
+            </article>
+        </section>
+
+        <section class="learning-projects-readiness" id="learningProjectsReadiness" hidden></section>
+
+        <section class="learning-projects-table-wrap" aria-label="Проекты учебного плана">
+            <table class="learning-projects-table">
+                <thead>
+                    <tr>
+                        <th>Проект</th>
+                        <th>Блок</th>
+                        <th>Статус</th>
+                        <th>Обновлено</th>
+                        <th>Действие</th>
+                    </tr>
+                </thead>
+                <tbody id="learningProjectsTableBody">
+                    <tr>
+                        <td colspan="5" class="learning-projects-empty">Выберите учебный план.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script src="/static/js/utils/authSession.js?v=20260702-auth-cookie-sync"></script>
+    <script src="/static/js/modules/learningProjects.js?v=20260708-operational-up"></script>
+</body>
+</html>

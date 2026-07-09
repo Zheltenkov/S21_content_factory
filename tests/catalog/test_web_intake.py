@@ -75,7 +75,7 @@ def test_intake_post_file_upload_creates_job(client: TestClient) -> None:
 
 def _seed_job(client: TestClient, *, status: str = "queued", result_payload=None) -> int:
     from content_factory.catalog.db import open_catalog_connection
-    from content_factory.catalog.viewer.app import create_intake_job
+    from content_factory.catalog.viewer.intake_ops import create_intake_job
 
     conn = open_catalog_connection("unused-on-postgres")
     try:
