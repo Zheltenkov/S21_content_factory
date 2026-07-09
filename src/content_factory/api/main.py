@@ -39,7 +39,12 @@ from content_factory.api.routers import (
     thematic_blocks,
 )
 from content_factory.api.utils.logger import setup_logging
+from content_factory.catalog.viewer.intake_runtime import (
+    resume_pending_intake_jobs,
+    shutdown_intake_executor,
+)
 from content_factory.catalog.viewer.ui_constants import STATIC_DIR as CATALOG_STATIC_DIR
+from content_factory.catalog.web.deps import catalog_db_path
 from content_factory.catalog.web.routers import catalog_admin as catalog_admin_ui
 from content_factory.catalog.web.routers import intake as catalog_intake_ui
 from content_factory.catalog.web.routers import pages as catalog_pages
@@ -295,6 +300,24 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
+async def _recover_catalog_intake_jobs_on_startup() -> None:
+    """Resume durable catalog intake jobs after a web-process restart."""
+
+    if os.getenv("INTAKE_WORKER_RECOVERY_ON_STARTUP", "true").lower() not in {"1", "true", "yes", "on"}:
+        return
+    try:
+        intake_recovery = await asyncio.to_thread(resume_pending_intake_jobs, catalog_db_path())
+    except Exception as exc:
+        logger.warning("⚠️ Intake recovery skipped: %s", exc)
+        return
+    if intake_recovery["recovered"] or intake_recovery["dispatched"]:
+        logger.warning(
+            "♻️ Intake recovery: recovered=%s dispatched=%s",
+            intake_recovery["recovered"],
+            intake_recovery["dispatched"],
+        )
+
+
 async def startup_event() -> None:
     """События при запуске приложения."""
     logger.info("🚀 FastAPI приложение запущено")
@@ -327,6 +350,7 @@ async def startup_event() -> None:
                     "♻️ Dashboard cleanup: reconciled stale active runs=%s",
                     len(stale_runs),
                 )
+        await _recover_catalog_intake_jobs_on_startup()
     except Exception as e:
         db_status = get_database_status()
         logger.error(
@@ -410,6 +434,12 @@ async def shutdown_event() -> None:
         logger.warning(f"⚠️ Ошибка при отмене задачи очистки: {e}")
 
     # Закрываем пул потоков для логирования
+    try:
+        shutdown_intake_executor(wait=False, cancel_futures=True)
+        logger.info("✅ Пул потоков intake закрыт")
+    except Exception as e:
+        logger.warning(f"⚠️ Ошибка при закрытии пула потоков intake: {e}")
+
     try:
         from content_factory.api.db.logging_db import _executor
         _executor.shutdown(wait=False, cancel_futures=True)

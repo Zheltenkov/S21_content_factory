@@ -126,15 +126,39 @@ def test_dispatch_pending_submits_only_pending_jobs(catalog_conn: Any, monkeypat
     from content_factory.catalog.viewer import intake_runtime
 
     submitted: list[int] = []
-    monkeypatch.setattr(
-        intake_runtime.INTAKE_EXECUTOR,
-        "submit",
-        lambda _fn, _db_path, job_id: submitted.append(job_id),
-    )
+
+    class StubExecutor:
+        def submit(self, _fn: Any, _db_path: Path, job_id: int) -> None:
+            submitted.append(job_id)
+
+    monkeypatch.setattr(intake_runtime, "_ensure_intake_executor", lambda: StubExecutor())
     pending_a = _create_job(catalog_conn, status="pending")
     _create_job(catalog_conn, status="running")  # not pending -> not dispatched
     pending_b = _create_job(catalog_conn, status="pending")
 
-    intake_runtime._dispatch_pending_intake_jobs(catalog_conn, Path("unused-on-postgres"))
+    dispatched = intake_runtime._dispatch_pending_intake_jobs(catalog_conn, Path("unused-on-postgres"))
 
+    assert dispatched == 2
     assert sorted(submitted) == sorted([pending_a, pending_b])
+
+
+def test_resume_pending_recovers_expired_jobs_and_dispatches(catalog_conn: Any, monkeypatch: Any) -> None:
+    from content_factory.catalog.viewer import intake_runtime
+
+    submitted: list[int] = []
+
+    class StubExecutor:
+        def submit(self, _fn: Any, _db_path: Path, job_id: int) -> None:
+            submitted.append(job_id)
+
+    monkeypatch.setattr(intake_runtime, "_ensure_intake_executor", lambda: StubExecutor())
+    pending_id = _create_job(catalog_conn, status="pending")
+    expired_id = _create_job(catalog_conn, status="pending")
+    assert claim_intake_job(catalog_conn, expired_id, "lost-worker") is True
+    _expire_lease(catalog_conn, expired_id)
+
+    result = intake_runtime.resume_pending_intake_jobs(Path("unused-on-postgres"))
+
+    assert result == {"recovered": 1, "dispatched": 2}
+    assert sorted(submitted) == sorted([pending_id, expired_id])
+    assert _job(catalog_conn, expired_id)["status"] == "pending"

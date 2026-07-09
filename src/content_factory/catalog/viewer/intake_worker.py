@@ -14,8 +14,8 @@ across multiple workers:
   retry while attempts remain, else failed. This *resumes* lost work instead of
   silently dropping it.
 
-Slice 1 ships these primitives + the ``018_intake_lease`` columns; wiring them into the
-executor (claim on start, heartbeat thread, reclaim on startup) is slice 2.
+The runtime layer wires these primitives into the process-local executor: claim on
+start, heartbeat thread while running, reclaim + dispatch on FastAPI startup.
 """
 
 from __future__ import annotations

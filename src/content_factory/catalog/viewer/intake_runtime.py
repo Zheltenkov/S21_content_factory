@@ -31,8 +31,30 @@ from content_factory.catalog.viewer.intake_worker import (
 )
 
 INTAKE_SCHEMA_READY: set[str] = set()
-INTAKE_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="intake")
+INTAKE_EXECUTOR: ThreadPoolExecutor | None = ThreadPoolExecutor(max_workers=2, thread_name_prefix="intake")
+_INTAKE_EXECUTOR_LOCK = threading.Lock()
 INTAKE_STALE_TIMEOUT_SECONDS = 180
+
+
+def _ensure_intake_executor() -> ThreadPoolExecutor:
+    """Return a live process-local executor, recreating it after app shutdown in tests."""
+
+    global INTAKE_EXECUTOR
+    with _INTAKE_EXECUTOR_LOCK:
+        if INTAKE_EXECUTOR is None or getattr(INTAKE_EXECUTOR, "_shutdown", False):
+            INTAKE_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="intake")
+        return INTAKE_EXECUTOR
+
+
+def shutdown_intake_executor(*, wait: bool = False, cancel_futures: bool = True) -> None:
+    """Stop the process-local intake executor during FastAPI shutdown."""
+
+    global INTAKE_EXECUTOR
+    with _INTAKE_EXECUTOR_LOCK:
+        executor = INTAKE_EXECUTOR
+        INTAKE_EXECUTOR = None
+    if executor is not None:
+        executor.shutdown(wait=wait, cancel_futures=cancel_futures)
 
 
 def _intake_schema_ready_key(db_path: Path) -> str:
@@ -55,16 +77,18 @@ def _ensure_intake_review_schema(conn: CatalogConnection, db_path: Path) -> None
         INTAKE_SCHEMA_READY.add(ready_key)
 
 
-def _dispatch_pending_intake_jobs(conn: CatalogConnection, db_path: Path) -> None:
+def _dispatch_pending_intake_jobs(conn: CatalogConnection, db_path: Path) -> int:
     """Submit pending jobs to the executor; claim step gates double-runs."""
 
     if not table_exists(conn, "intake_job"):
-        return
+        return 0
     rows = conn.execute(
         "SELECT id FROM intake_job WHERE status = 'pending' ORDER BY created_at LIMIT 20"
     ).fetchall()
+    executor = _ensure_intake_executor()
     for row in rows:
-        INTAKE_EXECUTOR.submit(execute_intake_job, db_path, int(row["id"]))
+        executor.submit(execute_intake_job, db_path, int(row["id"]))
+    return len(rows)
 
 
 def ensure_intake_runtime_schema(conn: CatalogConnection, db_path: Path) -> None:
@@ -72,6 +96,24 @@ def ensure_intake_runtime_schema(conn: CatalogConnection, db_path: Path) -> None
 
     _ensure_intake_review_schema(conn, db_path)
     repair_stale_intake_jobs(conn)
+
+
+def resume_pending_intake_jobs(db_path: Path) -> dict[str, int]:
+    """Recover crashed intake jobs and dispatch all currently pending jobs.
+
+    This is the startup entrypoint: it opens its own connection, repairs one-time
+    review links, requeues expired leases, and submits pending jobs. The DB claim
+    in ``execute_intake_job`` remains the authoritative exactly-once gate.
+    """
+
+    conn: CatalogConnection = open_catalog_connection(db_path, check_same_thread=False)
+    try:
+        _ensure_intake_review_schema(conn, db_path)
+        recovered = repair_stale_intake_jobs(conn)
+        dispatched = _dispatch_pending_intake_jobs(conn, db_path)
+        return {"recovered": recovered, "dispatched": dispatched}
+    finally:
+        conn.close()
 
 
 def repair_stale_intake_jobs(conn: CatalogConnection, stale_after_seconds: int = INTAKE_STALE_TIMEOUT_SECONDS) -> int:
@@ -164,4 +206,4 @@ def execute_intake_job(db_path: Path, job_id: int) -> None:
 def queue_intake_job(db_path: Path, job_id: int) -> None:
     """Submit an intake job to the process-local executor."""
 
-    INTAKE_EXECUTOR.submit(execute_intake_job, db_path, job_id)
+    _ensure_intake_executor().submit(execute_intake_job, db_path, job_id)
