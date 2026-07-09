@@ -19,6 +19,15 @@ from enum import Enum
 from typing import Any, TypeVar
 
 from content_factory.audit.cache import AuditCache
+from content_factory.audit.dependencies import (
+    DependencyCandidate,
+    DependencyMetadata,
+    DependencyRegistryClient,
+    DependencyRegistryError,
+    dependency_cache_key,
+    metadata_from_record,
+    metadata_to_record,
+)
 from content_factory.audit.domain import (
     AuditSettings,
     ContentUnit,
@@ -500,3 +509,42 @@ def _external_check_error(unit: ContentUnit, checker_name: str, criterion: Crite
         checked_at=datetime.now(UTC),
         support_status="ошибка проверки" if criterion in {Criterion.ACTUALITY, Criterion.TECHNOLOGY_FRESHNESS} else None,
     )
+
+
+def _dependency_registry_metadata(
+    candidate: DependencyCandidate,
+    registry_client: DependencyRegistryClient,
+    context: CheckContext,
+) -> DependencyMetadata | None:
+    """Получает метаданные зависимости из реестра через общий кэш аудита."""
+
+    if not context.settings.allow_network:
+        return None
+    cache_key = dependency_cache_key(candidate)
+    if context.cache is not None:
+        cached = context.cache.get("dependency_registry", cache_key)
+        if cached is not None:
+            try:
+                return metadata_from_record(cached)
+            except (KeyError, ValueError, TypeError):
+                pass
+    try:
+        metadata = registry_client.fetch(candidate)
+    except DependencyRegistryError:
+        return None
+    if context.cache is not None:
+        context.cache.set("dependency_registry", cache_key, metadata_to_record(metadata))
+        context.cache.save()
+    return metadata
+
+
+def _dependency_quote(candidate: DependencyCandidate) -> str:
+    """Показывает зависимость в коротком виде для цитаты отчёта."""
+
+    return _dependency_name_with_spec(candidate.name, candidate.spec)
+
+
+def _dependency_name_with_spec(name: str, spec: str) -> str:
+    """Склеивает имя и ограничение версии без лишних пробелов."""
+
+    return f"{name}{spec}" if spec else f"{name}: не указано"
