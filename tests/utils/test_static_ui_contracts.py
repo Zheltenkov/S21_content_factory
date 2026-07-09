@@ -1075,7 +1075,7 @@ def test_shared_design_tokens_are_linked_on_every_surface():
 
     base_html = (PKG / "catalog" / "viewer" / "templates" / "base.html").read_text(encoding="utf-8")
     catalog_css = (PKG / "catalog" / "viewer" / "static" / "styles.css").read_text(encoding="utf-8")
-    web_app = (PKG / "audit" / "web_app.py").read_text(encoding="utf-8")
+    audit_rendering = (PKG / "audit" / "web_rendering.py").read_text(encoding="utf-8")
 
     # catalog links the shared tokens + alias layer before its own stylesheet
     assert "/static/css/s21-tokens.css?v=" in base_html
@@ -1090,9 +1090,9 @@ def test_shared_design_tokens_are_linked_on_every_surface():
     assert "rgba(44, 42, 37" not in catalog_css
 
     # auditor links the shared tokens and maps its vars onto them
-    assert "/static/css/s21-tokens.css?v=" in web_app
-    assert "--accent: var(--s21-accent);" in web_app
-    assert "--bg: var(--s21-bg);" in web_app
+    assert "/static/css/s21-tokens.css?v=" in audit_rendering
+    assert "--accent: var(--s21-accent);" in audit_rendering
+    assert "--bg: var(--s21-bg);" in audit_rendering
 
     # the alias layer file exists and maps catalog/auditor names onto s21 tokens
     aliases = (ROOT / "static" / "css" / "s21-aliases.css").read_text(encoding="utf-8")
