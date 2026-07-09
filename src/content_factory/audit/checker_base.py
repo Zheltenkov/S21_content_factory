@@ -290,3 +290,129 @@ def _parse_optional_int(value: object) -> int | None:
     if isinstance(value, str) and value.strip().isdigit():
         return int(value.strip())
     return None
+
+
+def _model_text(item: dict[str, Any], keys: tuple[str, ...], default: str) -> str:
+    """Берём первое непустое текстовое поле из ответа модели."""
+
+    for key in keys:
+        value = item.get(key)
+        text = _optional_model_text(value)
+        if text:
+            return text
+    return default
+
+
+def _optional_model_text(value: object) -> str | None:
+    """Нормализуем пустые значения модели."""
+
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _verdict_from_model_value(value: object, default: Verdict) -> Verdict:
+    """Поддерживаем русские и английские синонимы вердиктов."""
+
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    aliases = {
+        "ok": Verdict.PASS,
+        "true": Verdict.PASS,
+        "correct": Verdict.PASS,
+        "подтверждено": Verdict.PASS,
+        "частично": Verdict.WARNING,
+        "partial": Verdict.WARNING,
+        "outdated": Verdict.WARNING,
+        "устарело": Verdict.WARNING,
+        "false": Verdict.FAIL,
+        "incorrect": Verdict.FAIL,
+        "ошибка": Verdict.FAIL,
+        "unknown": Verdict.UNKNOWN,
+        "неизвестно": Verdict.UNKNOWN,
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    return _enum_or_default(Verdict, normalized, default)
+
+
+def _severity_from_verdict(verdict: Verdict) -> Severity:
+    """Выбираем критичность по умолчанию, если модель её не вернула."""
+
+    if verdict == Verdict.FAIL:
+        return Severity.MAJOR
+    if verdict == Verdict.WARNING:
+        return Severity.MINOR
+    return Severity.INFO
+
+
+def _support_status_from_verdict(verdict: Verdict) -> str:
+    """Заполняем статус поддержки даже при неполном ответе модели."""
+
+    if verdict == Verdict.PASS:
+        return "поддерживается"
+    if verdict == Verdict.WARNING:
+        return "требует уточнения"
+    if verdict == Verdict.FAIL:
+        return "не поддерживается"
+    return "неизвестно"
+
+
+def _sources_from_item(item: dict[str, Any]) -> list[dict[str, str]]:
+    """Нормализуем список источников из ответа модели."""
+
+    raw_sources = item.get("sources") or item.get("source") or []
+    if isinstance(raw_sources, str):
+        raw_sources = [raw_sources]
+    if not isinstance(raw_sources, list):
+        return []
+
+    sources: list[dict[str, str]] = []
+    for raw_source in raw_sources:
+        if isinstance(raw_source, dict):
+            title = str(raw_source.get("title") or raw_source.get("name") or "").strip()
+            url = str(raw_source.get("url") or raw_source.get("link") or "").strip()
+        else:
+            title = ""
+            url = str(raw_source).strip()
+        if not title and not url:
+            continue
+        sources.append({"title": title, "url": url})
+    return sources
+
+
+def _source_summary(sources: list[dict[str, str]]) -> str | None:
+    """Собираем компактное текстовое представление источников для таблицы."""
+
+    parts: list[str] = []
+    for source in sources:
+        value = source.get("url") or source.get("title")
+        if value and value not in parts:
+            parts.append(value)
+    return " | ".join(parts)[:1200] or None
+
+
+def _first_source_url(sources: list[dict[str, str]]) -> str | None:
+    """Выбираем первую ссылку для поля evidence.url."""
+
+    for source in sources:
+        url = source.get("url")
+        if url:
+            return url
+    return None
+
+
+def _checked_at_from_record(record: dict[str, Any]) -> datetime | None:
+    """Разбираем дату проверки из кэша или свежего ответа."""
+
+    value = record.get("checked_at")
+    if isinstance(value, datetime):
+        return value
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
