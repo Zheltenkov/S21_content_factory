@@ -1,6 +1,8 @@
 """Endpoint для генерации контента."""
 
 import asyncio
+import os
+from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -9,6 +11,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from content_factory.api.db.generation_results_db import list_recent_generation_results_for_user, save_generation_result
+from content_factory.api.db.generation_worker import claim_generation_workflow, worker_identity
 from content_factory.api.db.logging_db import write_log_async
 from content_factory.api.db.paused_generation_db import (
     load_paused_generation_session,
@@ -275,6 +278,27 @@ def _generation_resume_service() -> GenerationResumeService:
     )
 
 
+def _generation_worker_enabled() -> bool:
+    """Whether the durable generation worker (lease-based dispatch/recovery) is on."""
+    return os.getenv("GENERATION_WORKER_ENABLED", "false").lower() in {"1", "true", "yes", "on"}
+
+
+async def _lease_start_dispatch(request_id: str, user_id: str, run: Callable[[], Awaitable[None]]) -> None:
+    """Durable-worker start dispatch: claim the workflow lease, then run under it.
+
+    The workflow row already exists (status ``created``); claim moves it to owned and
+    ``run_with_generation_lease`` heartbeats + releases around the generation. If the
+    claim fails (another worker/kick already owns it) this is a no-op, so a duplicate
+    start cannot double-run.
+    """
+    owner = worker_identity()
+    claimed = await asyncio.to_thread(claim_generation_workflow, request_id, owner)
+    if not claimed:
+        logger.warning("Generation lease already held for %s; skipping duplicate start", request_id)
+        return
+    await run_with_generation_lease(request_id, owner, run)
+
+
 def _generation_start_service() -> GenerationStartService:
     return GenerationStartService(
         status_setter=set_generation_status,
@@ -283,6 +307,7 @@ def _generation_start_service() -> GenerationStartService:
         background_runner=_run_generation_background,
         log_writer=write_log_async,
         logger=logger,
+        lease_dispatch=_lease_start_dispatch if _generation_worker_enabled() else None,
     )
 
 

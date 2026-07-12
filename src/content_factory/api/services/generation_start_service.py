@@ -22,6 +22,10 @@ from .generation_errors import GenerationServiceError
 from .generation_workflow_service import GenerationWorkflowService
 
 BackgroundRunner = Callable[[str, str, dict[str, Any], list[str], str | None], Coroutine[Any, Any, None]]
+# Optional durable-worker dispatch: claim the workflow's lease, then run the provided
+# generation coroutine under that lease (heartbeat + release). Wired only when
+# GENERATION_WORKER_ENABLED; None means the legacy in-process dispatch.
+LeaseDispatch = Callable[[str, str, Callable[[], Awaitable[None]]], Awaitable[None]]
 
 
 class GenerationStartService:
@@ -38,6 +42,7 @@ class GenerationStartService:
         logger: Any,
         request_id_factory: Callable[[], str] | None = None,
         workflow_service: GenerationWorkflowService | None = None,
+        lease_dispatch: LeaseDispatch | None = None,
     ) -> None:
         self._status_setter = status_setter
         self._error_store = error_store
@@ -47,6 +52,7 @@ class GenerationStartService:
         self._logger = logger
         self._request_id_factory = request_id_factory or (lambda: str(uuid.uuid4()))
         self._workflow_service = workflow_service or GenerationWorkflowService()
+        self._lease_dispatch = lease_dispatch
 
     async def start_from_request(
         self,
@@ -168,6 +174,17 @@ class GenerationStartService:
         project_seed_dict: dict[str, Any],
     ) -> None:
         """Let ASGI flush the accepted response before generation starts."""
+
+        if self._lease_dispatch is not None:
+            # Durable-worker path: claim this workflow's lease and run the generation
+            # under it (heartbeat + release), so a crash mid-run leaves recoverable
+            # checkpoints for the startup poller. The reactive create_task above keeps
+            # start latency the same; no sleep hack needed.
+            async def _run() -> None:
+                await self._background_runner(request_id, user_id, project_seed_dict, [], None)
+
+            await self._lease_dispatch(request_id, user_id, _run)
+            return
 
         await asyncio.sleep(0.05)
         await self._background_runner(request_id, user_id, project_seed_dict, [], None)
