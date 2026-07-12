@@ -1,4 +1,5 @@
 from content_factory.generation.agents.context_analysis import ContextAnalysisResult
+from content_factory.generation.models.readme_document import ReadmeDocument
 from content_factory.generation.models.schemas import (
     Annotation,
     IntroSection,
@@ -7,7 +8,6 @@ from content_factory.generation.models.schemas import (
     ProjectSeed,
     TheoryPart,
 )
-from content_factory.generation.models.readme_document import ReadmeDocument
 from content_factory.generation.result_assembly import ResultAssembler
 
 

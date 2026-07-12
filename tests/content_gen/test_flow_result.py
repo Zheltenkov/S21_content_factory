@@ -5,7 +5,13 @@ from content_factory.generation.exceptions import ContentGenerationError
 from content_factory.generation.flow_result import FlowResultFinalizer
 from content_factory.generation.methodology.trace import MethodologyTraceRecorder
 from content_factory.generation.models.result import OrchestratorResult
-from content_factory.generation.models.schemas import Annotation, IntroSection, ProjectContextMeta, ProjectSeed, ProjectSpec
+from content_factory.generation.models.schemas import (
+    Annotation,
+    IntroSection,
+    ProjectContextMeta,
+    ProjectSeed,
+    ProjectSpec,
+)
 
 
 def _result() -> OrchestratorResult:

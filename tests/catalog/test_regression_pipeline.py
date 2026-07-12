@@ -7,6 +7,7 @@ import sqlite3
 import sys
 import uuid
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -30,35 +31,35 @@ from content_factory.catalog.pipeline.curriculum import planner as curriculum_pl
 from content_factory.catalog.pipeline.models import IndicatorSpec, SkillCandidate
 from content_factory.catalog.pipeline.skill_names import canonicalize_skill_name, looks_like_genitive_fragment
 from content_factory.catalog.viewer.app import (
-    apply_candidate_decision,
     apply_brief_catalog_decisions,
+    apply_candidate_decision,
     build_candidate_recommended_action,
-    build_curriculum_plan_payload_from_rows,
     build_curriculum_plan_for_brief,
+    build_curriculum_plan_payload_from_rows,
     build_dag_for_brief,
-    build_intake_workspace_state,
     build_intake_quality_metrics,
     build_intake_workflow_steps,
+    build_intake_workspace_state,
     clear_intake_workspace,
-    create_intake_job,
     create_catalog_indicator,
     create_catalog_skill,
+    create_intake_job,
     curriculum_plan_to_csv_bytes,
     ensure_catalog_group,
-    get_intake_job,
     get_brief_catalog_apply_state,
-    merge_catalog_skills,
-    load_brief_spec_for_plan,
-    load_llm_usage_summary,
+    get_intake_job,
     list_candidate_competencies,
     list_catalog_groups,
     list_skill_sets,
+    load_brief_spec_for_plan,
+    load_llm_usage_summary,
     merge_candidate_competency,
+    merge_catalog_skills,
     move_candidate_competency_skill,
-    repair_dirty_profile_names,
     rename_candidate_competency,
-    update_review_status,
+    repair_dirty_profile_names,
     update_intake_job,
+    update_review_status,
 )
 from content_factory.catalog.viewer.observability import build_decision_rationale, build_job_observability
 from content_factory.catalog.viewer.route_zones import detect_route_zone, get_secondary_nav, show_secondary_nav

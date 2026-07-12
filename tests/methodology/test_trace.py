@@ -3,7 +3,13 @@ from content_factory.generation.methodology.models import StageRepairResult, Sta
 from content_factory.generation.methodology.trace import MethodologyTraceRecorder
 from content_factory.generation.models.flow_state import ProjectFlowState
 from content_factory.generation.models.result import OrchestratorResult
-from content_factory.generation.models.schemas import Annotation, IntroSection, ProjectContextMeta, ProjectSeed, ProjectSpec
+from content_factory.generation.models.schemas import (
+    Annotation,
+    IntroSection,
+    ProjectContextMeta,
+    ProjectSeed,
+    ProjectSpec,
+)
 
 
 def _result() -> OrchestratorResult:

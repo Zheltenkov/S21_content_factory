@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from content_factory.audit.image_rights import assess_image_rights, image_rights_signals
 from content_factory.audit.extraction import extract_entities
+from content_factory.audit.image_rights import assess_image_rights, image_rights_signals
 from content_factory.audit.ingestion import discover_content_units, load_unit_files
 
 

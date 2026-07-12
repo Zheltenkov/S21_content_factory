@@ -90,7 +90,7 @@ class TestFileValidation:
     async def test_validate_files_valid(self):
         """Тест валидации списка валидных файлов."""
         files = []
-        for i, name in enumerate(["test1.txt", "test2.md"]):
+        for _i, name in enumerate(["test1.txt", "test2.md"]):
             file = Mock(spec=UploadFile)
             file.filename = name
             file.size = None

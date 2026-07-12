@@ -1,10 +1,19 @@
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 import pytest
 
 from content_factory.audit import web_app as web_app_module
-from content_factory.audit.domain import AuditReport, Evidence, Finding, RunSummary, Severity, TextLocation, Verdict, Criterion
+from content_factory.audit.domain import (
+    AuditReport,
+    Criterion,
+    Evidence,
+    Finding,
+    RunSummary,
+    Severity,
+    TextLocation,
+    Verdict,
+)
 from content_factory.audit.web_app import (
     INTERNAL_ARCHIVE_NAME_FIELD,
     INTERNAL_ARCHIVE_PATH_FIELD,

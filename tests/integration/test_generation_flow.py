@@ -1,20 +1,20 @@
 import pytest
 
-from content_factory.generation.agents.flow import FlowNodeOutput
 from content_factory.generation.agents.context_analysis import ContextAnalysisResult
+from content_factory.generation.agents.flow import FlowNodeOutput
 from content_factory.generation.agents.task_planner import TaskPlan
+from content_factory.generation.methodology.decision import MethodologyGateInterrupt
 from content_factory.generation.models.flow_state import ProjectBlueprint
 from content_factory.generation.models.schemas import (
     Annotation,
     IntroSection,
     PracticeTask,
+    ProjectContextMeta,
     ProjectSeed,
     ProjectSpec,
-    ProjectContextMeta,
     TheoryPart,
 )
 from content_factory.generation.orchestrator import Orchestrator, OrchestratorResult
-from content_factory.generation.methodology.decision import MethodologyGateInterrupt
 
 
 class DummyLLM:

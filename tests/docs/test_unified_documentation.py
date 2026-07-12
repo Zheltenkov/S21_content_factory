@@ -1,7 +1,6 @@
 import re
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DOC_PATH = ROOT / "docs" / "generator" / "docs" / "CONTENT_GENERATOR_UNIFIED.html"
 

@@ -134,6 +134,8 @@ ignore = ["E501", "B008", "C901", "UP047", "UP017"]
 # imports (organic ordering); reordering has no functional benefit.
 "src/content_factory/generation/orchestrator.py" = ["E402"]
 "src/content_factory/catalog/viewer/app.py" = ["E402"]
+# Inserts the repo root into sys.path before importing the catalog package.
+"tests/catalog/test_regression_pipeline.py" = ["E402"]
 
 [tool.black]
 line-length = 120

@@ -3,7 +3,6 @@ import pytest
 from content_factory.generation.utils import mermaid_export
 from content_factory.generation.utils.markdown_renderer import _mermaid_theme_json
 
-
 MERMAID_MD = """Перед диаграммой.
 
 ```mermaid

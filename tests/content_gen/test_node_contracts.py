@@ -1,12 +1,12 @@
 import pytest
 
-from content_factory.generation.workflow.flow_runner import AgentFlowRunner, FlowNodeOutput, load_flow_definition
 from content_factory.generation.node_contracts import (
     load_model_roles,
     load_node_contracts,
     validate_contract_hardening,
     validate_contracts_against_flow,
 )
+from content_factory.generation.workflow.flow_runner import AgentFlowRunner, FlowNodeOutput, load_flow_definition
 
 
 def test_node_contracts_cover_executable_flow() -> None:

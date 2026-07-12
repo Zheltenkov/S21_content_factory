@@ -1,16 +1,16 @@
 from types import SimpleNamespace
 
-from content_factory.generation.generation_runtime import GenerationRuntimeContainer
 import content_factory.generation.phase_executors as phase_executors
 from content_factory.generation.context_phase_executor import ContextPhaseExecutor
+from content_factory.generation.generation_runtime import GenerationRuntimeContainer
 from content_factory.generation.models.readme_document import ReadmeDocument
 from content_factory.generation.node_executor_bundle import GenerationNodeExecutorBundle
-from content_factory.generation.practice_phase_executor import PracticePhaseExecutor
 from content_factory.generation.phase_executors import (
     EvaluationPhaseExecutor,
     QualityPhaseExecutor,
     TranslationPhaseExecutor,
 )
+from content_factory.generation.practice_phase_executor import PracticePhaseExecutor
 from content_factory.generation.structure_phase_executor import StructurePhaseExecutor
 from content_factory.generation.theory_phase_executor import TheoryPhaseExecutor
 

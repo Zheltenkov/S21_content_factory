@@ -60,7 +60,7 @@ def test_static_instruction_leak_guard_respects_project_topic() -> None:
     assert "Репозиторий" not in cleaned
     assert "Риск влияет" in cleaned
 
-    allowed = guard.strip("GitLab используется как предмет анализа.", topic_text="Проект про GitLab workflow")
+    allowed = guard.strip("GitLab используется как предмет анализа.", topic_text="Проект про GitLab workflow")  # noqa: B005 — guard.strip is a custom method, not str.strip
 
     assert "GitLab" in allowed
 

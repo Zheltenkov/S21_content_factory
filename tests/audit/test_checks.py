@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from content_factory.audit import checks as checks_module
 from content_factory.audit import link_checks as link_checks_module
 from content_factory.audit.cache import AuditCache
 from content_factory.audit.checks import (
@@ -11,15 +10,15 @@ from content_factory.audit.checks import (
     CurriculumRelevanceChecker,
     FactCheckerPerplexity,
     ImageQualityChecker,
-    LanguageCoverageChecker,
     LabelPunctuationChecker,
+    LanguageCoverageChecker,
     LinkChecker,
     LocalConsistencyChecker,
     MarkdownStructureChecker,
     MarketFitChecker,
     ModelRubricChecker,
-    ReadmeFactActualityChecker,
     ReadabilityChecker,
+    ReadmeFactActualityChecker,
     RegionalAvailabilityChecker,
     ResourceAvailabilityChecker,
     RightsAndOriginalityChecker,

@@ -9,8 +9,8 @@ from content_factory.generation.models.phase_results import (
     EvaluationPhaseResult,
     PracticePhaseResult,
     QualityPhaseResult,
-    TitleAnnotationPhaseResult,
     TheoryPhaseResult,
+    TitleAnnotationPhaseResult,
     TranslationPhaseResult,
 )
 from content_factory.generation.models.readme_document import ReadmeDocument

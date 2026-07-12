@@ -1,4 +1,3 @@
-from content_factory.platform.llm.observed_client import ObservedLLMClient
 from content_factory.generation.observability import (
     CompatibilityEvent,
     FallbackTraceEvent,
@@ -9,6 +8,7 @@ from content_factory.generation.observability import (
     record_runtime_fallback_traces,
     stable_input_hash,
 )
+from content_factory.platform.llm.observed_client import ObservedLLMClient
 
 
 def test_stable_input_hash_is_order_independent_for_json_payloads() -> None:

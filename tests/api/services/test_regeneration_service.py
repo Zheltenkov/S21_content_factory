@@ -1,17 +1,17 @@
-import pytest
-
 import asyncio
+
+import pytest
 
 import content_factory.api.services.regeneration_service as regeneration_service
 from content_factory.api.services.regeneration_service import (
     RegenerationCommand,
-    RegenerationValidationError,
     RegenerationService,
+    RegenerationValidationError,
     _extract_cached_rubric,
     _raise_if_rubric_regressed,
     _refresh_toc_for_structural_regeneration,
-    _rubric_regression_details,
     _rubric_failed_count,
+    _rubric_regression_details,
 )
 
 

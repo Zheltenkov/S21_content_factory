@@ -1,9 +1,9 @@
 import pytest
 
 from content_factory.generation.utils.markdown_display_normalizer import (
+    normalize_example_blocks,
     normalize_flattened_markdown_tables,
     normalize_flattened_mermaid_fences,
-    normalize_example_blocks,
     normalize_markdown_display_blocks,
     strip_protected_block_instruction_leaks,
 )

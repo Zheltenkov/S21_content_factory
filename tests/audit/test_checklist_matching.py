@@ -1,9 +1,9 @@
 from content_factory.audit.checklist_matching import (
     assess_checklist_description_quality,
-    checklist_name_matches_readme,
     checklist_name_match_strength,
-    extract_checklist_questions,
+    checklist_name_matches_readme,
     extract_checklist_question_names,
+    extract_checklist_questions,
     match_checklist_to_readme,
 )
 from content_factory.audit.text_utils import normalize_for_match

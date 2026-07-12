@@ -1,6 +1,5 @@
-from content_factory.generation.models.criteria_models import CheckMethod, CriteriaItem, CriteriaReport
-
 from content_factory.api.services import methodology_review_artifacts as artifacts
+from content_factory.generation.models.criteria_models import CheckMethod, CriteriaItem, CriteriaReport
 
 
 def _report() -> CriteriaReport:

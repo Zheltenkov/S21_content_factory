@@ -1,5 +1,5 @@
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
 from content_factory.audit.cache import AuditCache
 from content_factory.audit.checks import CheckContext, DependencyFreshnessChecker

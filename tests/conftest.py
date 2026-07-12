@@ -11,7 +11,6 @@ import pytest
 
 from content_factory.generation.agents.base.llm_client import LLMClientProtocol
 
-
 # На некоторых Windows-контурах системный TEMP недоступен для pytest tmp_path.
 # Перенаправляем временные каталоги в рабочую директорию репозитория.
 _DEFAULT_TEMP_ROOT = Path(__file__).resolve().parents[1] / ".tmp" / "pytest-runtime-local"
@@ -94,6 +93,6 @@ def sample_markdown():
 @pytest.fixture
 def sample_annotation():
     """Пример аннотации для тестирования."""
-    return """Проект предназначен для изучения основ программирования. 
-В проекте рассматриваются базовые концепции Python. 
+    return """Проект предназначен для изучения основ программирования.
+В проекте рассматриваются базовые концепции Python.
 В результате выполнения проекта участник получит навыки работы с Python."""

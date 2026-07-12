@@ -1,6 +1,11 @@
 from pydantic import BaseModel
 
-from content_factory.api.db.paused_generation_codec import hydrate_context, hydrate_steps, serialize_context, serialize_steps
+from content_factory.api.db.paused_generation_codec import (
+    hydrate_context,
+    hydrate_steps,
+    serialize_context,
+    serialize_steps,
+)
 from content_factory.generation.agents.flow import FlowExecutionStep
 from content_factory.generation.agents.task_planner import TaskPlan
 from content_factory.generation.models.flow_state import ProjectFlowState

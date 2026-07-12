@@ -79,7 +79,12 @@ class TestResultCache:
         importlib.reload(cache_module)
 
         # Очищаем кэш перед тестом
-        from content_factory.api.utils.result_cache import _generation_errors, _generation_methodology, _generation_status, _result_cache
+        from content_factory.api.utils.result_cache import (
+            _generation_errors,
+            _generation_methodology,
+            _generation_status,
+            _result_cache,
+        )
         _result_cache.clear()
         _generation_status.clear()
         _generation_errors.clear()
@@ -104,7 +109,12 @@ class TestResultCache:
         importlib.reload(cache_module)
 
         # Очищаем кэш
-        from content_factory.api.utils.result_cache import _generation_errors, _generation_methodology, _generation_status, _result_cache
+        from content_factory.api.utils.result_cache import (
+            _generation_errors,
+            _generation_methodology,
+            _generation_status,
+            _result_cache,
+        )
         _result_cache.clear()
         _generation_status.clear()
         _generation_errors.clear()

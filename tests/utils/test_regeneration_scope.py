@@ -1,8 +1,8 @@
 from content_factory.generation.utils.regeneration_scope import (
     detect_regeneration_change_intent,
     parse_regeneration_edit_scopes,
-    render_structural_change_contract,
     render_scope_contract,
+    render_structural_change_contract,
     slice_markdown_by_scope,
 )
 

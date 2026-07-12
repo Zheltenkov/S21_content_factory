@@ -63,7 +63,7 @@ def test_translation_document_extensions_cover_requested_formats() -> None:
 
 
 def test_extract_translation_document_text_from_plain_text() -> None:
-    text = _extract_translation_document_text("notes.txt", "Привет\n\nмир".encode("utf-8"))
+    text = _extract_translation_document_text("notes.txt", "Привет\n\nмир".encode())
 
     assert text == "Привет\n\nмир"
 

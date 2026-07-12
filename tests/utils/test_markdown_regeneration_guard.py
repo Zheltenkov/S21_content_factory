@@ -1,6 +1,5 @@
 from content_factory.generation.utils.markdown_regeneration_guard import remove_adjacent_rewritten_paragraph_duplicates
 
-
 OLD_PARAGRAPH = (
     "В предыдущей главе ты уже задал рабочий подход: смотришь на задачу как на кейс, "
     "держишь материалы в едином стиле и выбираешь формулировки, которые проще проверить. "

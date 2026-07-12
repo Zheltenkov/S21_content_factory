@@ -1,5 +1,6 @@
-import pytest
 from types import SimpleNamespace
+
+import pytest
 
 from content_factory.generation.methodology import HumanApprovalCheckpointPolicy
 from content_factory.generation.methodology.decision import MethodologyGateInterrupt

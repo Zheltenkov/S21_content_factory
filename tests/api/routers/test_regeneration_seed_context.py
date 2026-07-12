@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 
-from content_factory.api.services.regeneration_service import _learning_context_from_cache, _learning_context_from_seed_and_cache
+from content_factory.api.services.regeneration_service import (
+    _learning_context_from_cache,
+    _learning_context_from_seed_and_cache,
+)
 from content_factory.generation.models.schemas import ProjectSeed
 
 
