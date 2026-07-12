@@ -384,10 +384,20 @@ class GenerationWorkflowState(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False
     )
+    # Durable-worker lease. A background generation worker atomically claims a
+    # recoverable workflow (created/interrupted) by taking a time-boxed lease and
+    # heartbeats to hold it; an expired worker-owned lease is reclaimed. Rows run
+    # in-process (legacy dispatch) keep lease_owner NULL and are never touched by
+    # the worker's claim/reclaim scans.
+    lease_owner: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     __table_args__ = (
         Index("idx_generation_workflow_user_status", "user_id", "status"),
         Index("idx_generation_workflow_updated", "updated_at"),
+        Index("idx_generation_workflow_lease", "status", "lease_expires_at"),
     )
 
     def to_dict(self) -> dict[str, Any]:
