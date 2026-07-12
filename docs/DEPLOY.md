@@ -67,3 +67,44 @@ Still present intentionally:
 - `skills_catalog.sqlite` — **keep** as the cold re-seed backup (gitignored, never read at
   runtime). Delete only if you accept losing the re-migration source for
   `scripts/migrate_catalog_to_postgres.py`.
+
+## 7. Durable generation worker (survive restart/deploy)
+
+**What / why.** Content generation is long-running (multi-step LLM calls). It runs in the
+web process, so a restart, deploy, or crash mid-run would otherwise lose the in-flight
+generation — the user waits for a result that never arrives. Per-node **checkpoints** are
+always persisted to Postgres (`generation_workflow_states` + `_checkpoints`); the durable
+worker adds **recovery** and **lease-based execution** on top so a run survives a restart.
+
+Three pieces (all merged, all behind one flag):
+
+1. **Lease** — a run is claimed by a worker with a time-boxed lease + heartbeat; a dead
+   worker's lease is reclaimed (requeue with retries, or fail once exhausted).
+2. **Recovery poller** — on boot, workflows the previous process left active are marked
+   `interrupted`, then reclaimed and **auto-resumed from their last checkpoint** (bounded to
+   10 per boot).
+3. **Lease-based start** — new generations start under a lease too, so a crash on a fresh
+   run also leaves recoverable checkpoints.
+
+**How to enable (prod).**
+
+```bash
+# in the prod env (see .env.example)
+WORKFLOW_RECOVERY_ON_STARTUP=true   # default true — keep on (feeds the recovery poller)
+GENERATION_WORKER_ENABLED=true      # default false — turns on lease dispatch + auto-resume
+# then restart the app process
+```
+
+- **Default OFF**: with `GENERATION_WORKER_ENABLED` unset/false the legacy in-process path
+  is unchanged, byte-for-byte. Enabling and rolling back is a single env flip + restart — no
+  code change, no redeploy.
+- The lease columns ship in migration `019_generation_lease` (idempotent). Run
+  `alembic upgrade head` as usual; the flag can be enabled independently afterward.
+- **Scope**: this makes generation **restart-safe and reclaimable**. Execution is still
+  single-process asyncio (not a separate worker process yet); a boot resume storm is bounded
+  by the 10-per-boot limit. A separate worker process / periodic (not just startup) recovery
+  loop / concurrency cap are possible follow-ups.
+
+**Verify after enabling.** Start a generation, restart the app mid-run, confirm the run
+resumes from its last checkpoint (status goes `interrupted` → `resuming` → completes) and the
+startup log shows `♻️ Generation worker: dispatched=N ...`.
