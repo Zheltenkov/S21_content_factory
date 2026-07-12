@@ -157,7 +157,7 @@ class SectionContextRecorder:
             return None
         if isinstance(value, bytes):
             return f"<bytes:{len(value)}>"
-        if isinstance(value, (str, int, float, bool)):
+        if isinstance(value, str | int | float | bool):
             return value
         if isinstance(value, list):
             return [cls.json_safe(item) for item in value]
@@ -323,6 +323,7 @@ class TaskPlanningNodeService:
         return TaskPlanningNodeResult(
             seed=seed,
             task_plan=task_plan,
+            task_count_contract=getattr(task_plan, "task_count_contract", None),
             story_map_contract=story_map_contract,
             practice_plan_contract=practice_plan_contract,
             artifact_chain_plan=artifact_chain_plan,
@@ -514,6 +515,11 @@ class PracticeNodeService:
         bonus_tasks = list(getattr(phase_result, "bonus_tasks", []) or [])
         practice_issues = phase_result.issues
         practice_warnings = phase_result.warnings
+        practice_critic_issues = list(
+            phase_result.practice_critic_issues
+            or _runtime_attr(self.runtime_state, "practice_critic_issues", [])
+            or []
+        )
 
         artifact_chain_plan = phase_result.artifact_chain_plan or _runtime_attr(
             self.runtime_state,
@@ -528,6 +534,25 @@ class PracticeNodeService:
         dataset_files = list(phase_result.dataset_files or _runtime_attr(self.runtime_state, "dataset_files", []) or [])
         blueprint = self._update_blueprint_task_maps(context.blueprint, practice_tasks)
         serialized_issues = self.serialize_issues(practice_issues)
+        expected_tasks_count = self._resolved_tasks_count(context)
+        task_count_mismatch = bool(
+            expected_tasks_count is not None and len(practice_tasks) != expected_tasks_count
+        )
+        hard_practice_issues = self.has_hard_issues(practice_issues)
+        critical_critic_issues = self._has_blocking_critic_issues(practice_critic_issues)
+        if task_count_mismatch:
+            mismatch_issue = {
+                "severity": "hard",
+                "code": "practice.tasks_count_contract_mismatch",
+                "message": (
+                    f"Сгенерировано практических задач: {len(practice_tasks)}; "
+                    f"контракт требует: {expected_tasks_count}."
+                ),
+                "expected": expected_tasks_count,
+                "actual": len(practice_tasks),
+            }
+            serialized_issues.append(mismatch_issue)
+            practice_issues = [*practice_issues, mismatch_issue]
         practice_warnings = _non_blocking_quality_warnings(
             label="PracticeChecks",
             issues=practice_issues,
@@ -553,11 +578,7 @@ class PracticeNodeService:
         return PracticeNodeResult(
             markdown=md,
             readme_document=readme_document or ReadmeDocument.from_markdown(md),
-            practice_critic_issues=list(
-                phase_result.practice_critic_issues
-                or _runtime_attr(self.runtime_state, "practice_critic_issues", [])
-                or []
-            ),
+            practice_critic_issues=practice_critic_issues,
             practice_tasks=list(practice_tasks or []),
             bonus_tasks=bonus_tasks,
             blueprint=blueprint,
@@ -567,9 +588,40 @@ class PracticeNodeService:
             section_contexts=flow_context.get("section_contexts", {}),
             warnings=list(practice_warnings or []),
             serialized_issues=serialized_issues,
-            issues=list(practice_warnings or []),
-            status="success",
+            issues=[
+                *list(practice_warnings or []),
+                *(["Нарушен контракт количества практических задач."] if task_count_mismatch else []),
+                *(["Практика содержит нерешённые hard-ошибки."] if hard_practice_issues else []),
+                *(["PracticeCritic оставил нерешённые критические замечания."] if critical_critic_issues else []),
+            ],
+            status=(
+                "error"
+                if task_count_mismatch or hard_practice_issues or critical_critic_issues
+                else "success"
+            ),
         )
+
+    @staticmethod
+    def _resolved_tasks_count(context: GenerationContext) -> int | None:
+        contract = context.task_count_contract
+        if contract is not None:
+            value = getattr(contract, "resolved_tasks_count", None)
+            if value is not None:
+                return int(value)
+        task_plan = context.task_plan
+        value = getattr(task_plan, "tasks_count", None) if task_plan is not None else None
+        if value is None and context.seed is not None:
+            value = getattr(context.seed, "tasks_count", None)
+        return int(value) if value is not None else None
+
+    @staticmethod
+    def _has_blocking_critic_issues(issues: list[Any]) -> bool:
+        blocking = {"critical", "hard", "error"}
+        for issue in issues:
+            severity = issue.get("severity") if isinstance(issue, dict) else getattr(issue, "severity", None)
+            if str(severity or "").strip().lower() in blocking:
+                return True
+        return False
 
     def _hydrate_contracts(self, flow_context: dict[str, Any]) -> None:
         flow_context.setdefault("story_map_contract", _runtime_attr(self.runtime_state, "story_map_contract", None))

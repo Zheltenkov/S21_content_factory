@@ -60,7 +60,7 @@ def compress_report_json(report: dict[str, Any]) -> dict[str, Any]:
             context_analysis_copy["metrics"] = {
                 key: value
                 for key, value in metrics.items()
-                if isinstance(value, (int, float, str, bool)) or value is None
+                if isinstance(value, int | float | str | bool) or value is None
             }
 
         compressed["context_analysis"] = context_analysis_copy

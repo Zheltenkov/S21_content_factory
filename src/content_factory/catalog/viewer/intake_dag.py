@@ -304,9 +304,7 @@ def get_brief_catalog_apply_state(conn: CatalogConnection, brief_id: int) -> dic
     # DAG/UP readiness must compare skillset rows with unique promoted skills, not
     # with the raw candidate count, otherwise deduplication blocks the workflow.
     catalog_applied = bool(
-        accepted_atomic
-        and active_promotions >= accepted_atomic
-        and skill_set_items >= active_promoted_skills
+        accepted_atomic and active_promotions >= accepted_atomic and skill_set_items >= active_promoted_skills
     )
     return {
         "accepted_atomic": accepted_atomic,
@@ -401,7 +399,7 @@ def load_accepted_skill_candidates(
 
 def load_brief_spec_for_plan(conn: CatalogConnection, brief_id: int) -> dict[str, Any]:
     row = conn.execute(
-        "SELECT raw_text, role, seniority, domain FROM profile_brief WHERE id = ?",
+        "SELECT raw_text, role, seniority, domain, metadata_json FROM profile_brief WHERE id = ?",
         (brief_id,),
     ).fetchone()
     if not row:
@@ -409,11 +407,33 @@ def load_brief_spec_for_plan(conn: CatalogConnection, brief_id: int) -> dict[str
     from content_factory.catalog.pipeline import stage_brief_to_catalog
     from content_factory.catalog.pipeline import storage as intake_storage
 
+    metadata = _load_json_object(row["metadata_json"])
+    latest_job = conn.execute(
+        """
+        SELECT result_payload
+        FROM intake_job
+        WHERE status = 'succeeded'
+          AND json_valid(result_payload)
+          AND CAST(json_extract(result_payload, '$.brief_id') AS INTEGER) = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (brief_id,),
+    ).fetchone()
+    latest_payload = _load_json_object(latest_job["result_payload"]) if latest_job else {}
+    raw_latest_spec = latest_payload.get("spec")
+    latest_spec: dict[str, Any] = raw_latest_spec if isinstance(raw_latest_spec, dict) else {}
     spec = {
+        **latest_spec,
         "role": row["role"],
         "seniority": row["seniority"],
         "domain": row["domain"],
+        "raw_text": row["raw_text"],
     }
+    accepted_design = metadata.get("curriculum_design_spec") if isinstance(metadata, dict) else None
+    if isinstance(accepted_design, dict):
+        spec["curriculum_design_spec"] = accepted_design
+        spec["curriculum_design_approved"] = bool(accepted_design.get("approved"))
     spec.update(
         {
             key: value
@@ -425,30 +445,129 @@ def load_brief_spec_for_plan(conn: CatalogConnection, brief_id: int) -> dict[str
     return spec
 
 
+def approve_brief_curriculum_design(conn: CatalogConnection, brief_id: int) -> dict[str, Any]:
+    """Persist an immutable journey snapshot outside the standard UP document."""
+
+    from content_factory.catalog.viewer.intake_reviews import count_open_prerequisite_edge_reviews_for_brief
+
+    open_edges = count_open_prerequisite_edge_reviews_for_brief(conn, brief_id)
+    if open_edges:
+        raise ValueError(f"Resolve prerequisite edge reviews before design approval: {open_edges} open")
+
+    from content_factory.catalog.pipeline import stage_dag_to_up
+    from content_factory.catalog.pipeline.curriculum import (
+        approve_curriculum_design_spec,
+        build_curriculum_design_spec,
+    )
+
+    brief = conn.execute("SELECT metadata_json FROM profile_brief WHERE id = ?", (brief_id,)).fetchone()
+    if not brief:
+        raise ValueError("Brief not found")
+    latest_job = conn.execute(
+        """
+        SELECT result_payload
+        FROM intake_job
+        WHERE status = 'succeeded'
+          AND json_valid(result_payload)
+          AND CAST(json_extract(result_payload, '$.brief_id') AS INTEGER) = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (brief_id,),
+    ).fetchone()
+    latest_payload = _load_json_object(latest_job["result_payload"]) if latest_job else {}
+    raw_dag_payload = latest_payload.get("dag")
+    dag_payload: dict[str, Any] = raw_dag_payload if isinstance(raw_dag_payload, dict) else {}
+    if not dag_payload.get("order"):
+        raise ValueError("A valid DAG is required before design approval")
+
+    candidates, _ = load_accepted_skill_candidates(conn, brief_id)
+    nodes = stage_dag_to_up.build_plan_nodes(candidates)
+    design = build_curriculum_design_spec(load_brief_spec_for_plan(conn, brief_id), nodes, dag_payload)
+    if design.uncovered_required_areas:
+        missing = ", ".join(design.uncovered_required_areas)
+        raise ValueError(f"Required coverage areas are not assigned to accepted skills: {missing}")
+    accepted = approve_curriculum_design_spec(design).as_dict()
+    metadata = _load_json_object(brief["metadata_json"])
+    metadata["curriculum_design_spec"] = accepted
+    conn.execute(
+        "UPDATE profile_brief SET metadata_json = ? WHERE id = ?",
+        (json.dumps(metadata, ensure_ascii=False), brief_id),
+    )
+    conn.commit()
+    return accepted
+
+
+def load_latest_brief_dag_payload(conn: CatalogConnection, brief_id: int) -> dict[str, Any]:
+    """Load the durable DAG snapshot used for an explicit plan rebuild."""
+
+    row = conn.execute(
+        """
+        SELECT result_payload
+        FROM intake_job
+        WHERE status = 'succeeded'
+          AND json_valid(result_payload)
+          AND CAST(json_extract(result_payload, '$.brief_id') AS INTEGER) = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (brief_id,),
+    ).fetchone()
+    payload = _load_json_object(row["result_payload"]) if row else {}
+    raw_dag = payload.get("dag")
+    dag = raw_dag if isinstance(raw_dag, dict) else {}
+    order = dag.get("order")
+    return dag if isinstance(order, list) and order else {}
+
+
+def _load_json_object(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str) or not value:
+        return {}
+    try:
+        loaded = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
 def build_curriculum_plan_for_brief(
     conn: CatalogConnection,
     brief_id: int,
     candidates: list[SkillCandidate] | None = None,
     dag_payload: dict[str, Any] | None = None,
+    *,
+    allow_open_edge_reviews: bool = False,
 ) -> dict[str, Any]:
     from content_factory.catalog.pipeline import stage_dag_to_up, storage
+    from content_factory.catalog.viewer.intake_reviews import count_open_prerequisite_edge_reviews_for_brief
 
-    clear_brief_curriculum_plan_artifacts(conn, brief_id)
+    open_edges = count_open_prerequisite_edge_reviews_for_brief(conn, brief_id)
+    if open_edges and not allow_open_edge_reviews:
+        raise ValueError(f"Resolve prerequisite edge reviews before building the plan: {open_edges} open")
+
     accepted_candidates, _tmp_to_db = load_accepted_skill_candidates(conn, brief_id)
     cands = accepted_candidates if candidates is None else candidates
-    effective_dag_payload = dag_payload or build_deferred_dag_payload(
-        get_brief_dag_state(conn, brief_id),
-        status="deferred",
-        message="DAG не построен",
-    )
+    persisted_dag_payload = load_latest_brief_dag_payload(conn, brief_id)
+    effective_dag_payload = dag_payload or persisted_dag_payload
+    if not effective_dag_payload:
+        effective_dag_payload = build_deferred_dag_payload(
+            get_brief_dag_state(conn, brief_id),
+            status="deferred",
+            message="DAG не построен",
+        )
     spec = load_brief_spec_for_plan(conn, brief_id)
+    # Compute the complete replacement before storage mutates the current plan.
     plan_payload = stage_dag_to_up.run(spec, cands, effective_dag_payload)
     save_meta = storage.save_curriculum_plan(conn, brief_id, plan_payload)
     plan_payload["plan_id"] = save_meta["plan_id"]
     plan_payload["row_count"] = save_meta["row_count"]
     template_stats = count_brief_template_proposals(conn, brief_id)
     plan_payload["template_proposal_count"] = template_stats["total"]
-    plan_payload["template_proposal_status"] = "open" if template_stats["open"] else ("done" if template_stats["total"] else "none")
+    plan_payload["template_proposal_status"] = (
+        "open" if template_stats["open"] else ("done" if template_stats["total"] else "none")
+    )
     conn.execute(
         "UPDATE curriculum_plan SET payload_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (json.dumps(plan_payload, ensure_ascii=False), int(save_meta["plan_id"])),
@@ -545,11 +664,19 @@ def build_dag_for_brief(conn: CatalogConnection, brief_id: int) -> dict[str, Any
     prereq_count = storage.save_prerequisites(conn, brief_id, dag, cands, tmp_to_db)
     prereq_review_count = storage.save_prerequisite_reviews(conn, brief_id, dag_payload["edge_review_queue"])
     dag_payload["status"] = "built"
-    dag_payload["message"] = "Граф построен по текущему набору принятых атомарных навыков и пересчитывается автоматически."
+    dag_payload["message"] = (
+        "Граф построен по текущему набору принятых атомарных навыков и пересчитывается автоматически."
+    )
     dag_payload["accepted_atomic_candidates"] = len(cands)
     dag_payload["prerequisite_rows"] = prereq_count
     dag_payload["prerequisite_review_rows"] = prereq_review_count
-    plan_payload = build_curriculum_plan_for_brief(conn, brief_id, cands, dag_payload)
+    plan_payload = build_curriculum_plan_for_brief(
+        conn,
+        brief_id,
+        cands,
+        dag_payload,
+        allow_open_edge_reviews=True,
+    )
     update_jobs_dag_payload(
         conn,
         brief_id,

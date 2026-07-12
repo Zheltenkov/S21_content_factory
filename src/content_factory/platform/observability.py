@@ -268,7 +268,7 @@ def record_runtime_fallback_traces(
     """Append fallback events to a runtime object that exposes ``fallback_traces``."""
     normalized: list[dict[str, Any]] = []
     for event in events or []:
-        if isinstance(event, (FallbackTraceEvent, dict)):
+        if isinstance(event, FallbackTraceEvent | dict):
             normalized.append(normalize_fallback_trace_event(event).model_dump(mode="json"))
     if not normalized:
         return
@@ -501,15 +501,26 @@ class LangfuseObservabilityExporter(ObservabilityExporter):
         self._client = Langfuse()
 
     def emit(self, event: UnifiedTraceEvent) -> None:
-        as_type = "generation" if event.event_type == "llm" else "span"
         payload = event.model_dump(mode="json", by_alias=True)
+        observation_name = f"{event.event_type}:{event.node or 'run'}"
+        if event.event_type != "llm":
+            with self._client.start_as_current_observation(
+                name=observation_name,
+                as_type="span",
+                input={"input_hash": event.input_hash},
+                metadata=payload.get("metadata") or {},
+                version=event.prompt_version,
+            ) as observation:
+                observation.update(output=payload)
+            return
+
         with self._client.start_as_current_observation(
-            name=f"{event.event_type}:{event.node or 'run'}",
-            as_type=as_type,
+            name=observation_name,
+            as_type="generation",
             input={"input_hash": event.input_hash},
             metadata=payload.get("metadata") or {},
             version=event.prompt_version,
-            model=event.model if as_type == "generation" else None,
+            model=event.model,
         ) as observation:
             update: dict[str, Any] = {"output": payload}
             if event.tokens:

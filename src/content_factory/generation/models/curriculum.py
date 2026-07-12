@@ -40,6 +40,7 @@ class CurriculumContext(BaseModel):
     current_project_audience_level: str | None = Field(default=None, description="Уровень аудитории текущего проекта")
     current_project_required_tools: list[str] = Field(default_factory=list, description="Обязательные инструменты текущего проекта")
     current_project_required_software: str | None = Field(default=None, description="Необходимое ПО текущего проекта")
+    current_project_content_type: str | None = Field(default=None, description="Служебный профиль контента проекта")
 
     # Соседние проекты внутри блока (приоритет)
     previous_projects: list[ProjectSummary] = Field(
@@ -115,6 +116,8 @@ class CurriculumProject(BaseModel):
     skills: list[str] = Field(default_factory=list, description="Список навыков")
     audience_level: str | None = Field(default=None, description="Уровень аудитории")
     required_tools: list[str] = Field(default_factory=list, description="Обязательные инструменты")
+    project_content_type: str | None = Field(default=None, description="Служебный профиль контента проекта")
+    content_profile_decision: dict[str, Any] | None = Field(default=None, description="Обоснование профиля контента")
 
     # Формат
     format: str = Field(default="individual", description="individual или group")
@@ -249,6 +252,8 @@ class CurriculumPlan(BaseModel):
             current_project_skills=project.skills or [],
             current_project_audience_level=project.audience_level,
             current_project_required_tools=project.required_tools or [],
+            current_project_required_software=project.required_software,
+            current_project_content_type=project.project_content_type,
             previous_projects=previous_projects,
             next_projects=next_projects,
             all_block_learning_outcomes=block.get_all_learning_outcomes(),
@@ -283,6 +288,8 @@ class CurriculumPlan(BaseModel):
                             "skills": p.skills,
                             "audience_level": p.audience_level,
                             "required_tools": p.required_tools,
+                            "project_content_type": p.project_content_type,
+                            "content_profile_decision": p.content_profile_decision,
                             "format": p.format,
                             "group_size": p.group_size,
                             "required_software": p.required_software,

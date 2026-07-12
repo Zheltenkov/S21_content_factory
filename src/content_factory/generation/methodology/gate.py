@@ -166,10 +166,18 @@ class MethodologyGate:
             return
 
         tasks_count = int(getattr(task_plan, "tasks_count", 0) or 0)
-        min_tasks, max_tasks = THRESHOLDS["practice_tasks_recommend"]
+        task_count_contract = getattr(task_plan, "task_count_contract", None)
+        resolution_source = getattr(task_count_contract, "resolution_source", "default")
+        if resolution_source == "user":
+            min_tasks, max_tasks = THRESHOLDS["practice_tasks_range"]
+        else:
+            min_tasks, max_tasks = THRESHOLDS["practice_tasks_recommend"]
         metrics["tasks_count"] = tasks_count
+        metrics["task_count_resolution_source"] = resolution_source
         metrics["complexity"] = getattr(task_plan, "complexity", None)
         evidence["rationale"] = getattr(task_plan, "rationale", "")
+        if task_count_contract is not None:
+            evidence["task_count_contract"] = task_count_contract.model_dump(mode="json")
         story_map_contract = context.get("story_map_contract")
         practice_plan_contract = context.get("practice_plan_contract")
         artifact_chain_plan = context.get("artifact_chain_plan")
@@ -185,7 +193,7 @@ class MethodologyGate:
             self._add_issue(
                 issues,
                 "task_planning.tasks_count_out_of_range",
-                f"Task count {tasks_count} is outside recommended range {min_tasks}-{max_tasks}.",
+                f"Task count {tasks_count} is outside allowed range {min_tasks}-{max_tasks}.",
                 "major",
                 "Adjust tasks_count to the configured didactic range.",
                 {"min": min_tasks, "max": max_tasks, "actual": tasks_count},

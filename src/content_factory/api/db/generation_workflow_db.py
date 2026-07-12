@@ -9,7 +9,7 @@ from content_factory.api.utils.logger import get_logger
 from content_factory.generation.utils.rubric_export import convert_numpy_types
 
 from .models import GenerationWorkflowCheckpoint, GenerationWorkflowState, utc_now_naive
-from .paused_generation_codec import serialize_context
+from .paused_generation_codec import serialize_context, serialize_value
 from .session import SessionLocal
 
 logger = get_logger("db.generation_workflow")
@@ -174,13 +174,13 @@ def record_generation_workflow_checkpoint(
         row.node_name = node_name
         row.status = status
         row.input_hash = input_hash
-        row.output_artifact = convert_numpy_types(output_artifact or {})
+        row.output_artifact = convert_numpy_types(serialize_value(output_artifact or {}))
         row.context_snapshot = convert_numpy_types(
             serialize_context(context_snapshot)
             if isinstance(context_snapshot, dict)
             else {}
         )
-        row.validation_result = convert_numpy_types(validation_result or {})
+        row.validation_result = convert_numpy_types(serialize_value(validation_result or {}))
         incoming_retry_count = max(0, int(retry_count or 0))
         row.retry_count = (
             max(incoming_retry_count, existing_retry_count + 1)

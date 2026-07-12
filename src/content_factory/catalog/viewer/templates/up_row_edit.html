@@ -8,7 +8,7 @@
     <div class="review-actions">
         <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ plan.id }}">Назад к УП</a>
         {% if plan.latest_job_id %}
-        <a class="action-btn action-btn-secondary" href="{{ base }}/intake/jobs/{{ plan.latest_job_id }}">Открыть бриф</a>
+        <a class="action-btn action-btn-secondary" href="/app/curriculum?job_id={{ plan.latest_job_id }}">Открыть бриф</a>
         {% endif %}
     </div>
 </section>

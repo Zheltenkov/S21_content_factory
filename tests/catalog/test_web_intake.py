@@ -1,4 +1,4 @@
-"""Phase 5.3 — native FastAPI intake UI (workspace, jobs, JSON status, CSV, upload).
+"""Compatibility endpoints for intake jobs after the UI moved to the UP constructor.
 
 The LLM pipeline is never run: ``queue_intake_job`` is patched to a no-op so POST
 /intake only creates + queues a job row. Job/status/CSV are exercised against rows
@@ -35,12 +35,10 @@ def client(catalog_conn, tmp_path, monkeypatch) -> TestClient:
     return tc
 
 
-def test_intake_get_renders_empty_workspace(client: TestClient) -> None:
-    r = client.get(f"{_PREFIX}/intake")
-    assert r.status_code == 200
-    # the brief form posts to the native mount; the polling JS hits the native status route
-    assert f'action="{_PREFIX}/intake"' in r.text
-    assert f"{_PREFIX}/intake/jobs/${{currentJobId}}/status" in r.text
+def test_intake_get_redirects_to_curriculum_builder(client: TestClient) -> None:
+    r = client.get(f"{_PREFIX}/intake", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/app/curriculum"
 
 
 def test_intake_post_text_brief_creates_and_queues_job(client: TestClient) -> None:
@@ -51,8 +49,8 @@ def test_intake_post_text_brief_creates_and_queues_job(client: TestClient) -> No
     )
     assert r.status_code == 303
     location = r.headers["location"]
-    assert location.startswith(f"{_PREFIX}/intake/jobs/")
-    job_id = int(location.rsplit("/", 1)[-1])
+    assert location.startswith("/app/curriculum?job_id=")
+    job_id = int(location.rsplit("=", 1)[-1])
     assert client.queued == [job_id]  # type: ignore[attr-defined]
 
 
@@ -70,7 +68,7 @@ def test_intake_post_file_upload_creates_job(client: TestClient) -> None:
         follow_redirects=False,
     )
     assert r.status_code == 303
-    assert r.headers["location"].startswith(f"{_PREFIX}/intake/jobs/")
+    assert r.headers["location"].startswith("/app/curriculum?job_id=")
 
 
 def _seed_job(client: TestClient, *, status: str = "queued", result_payload=None) -> int:
@@ -120,18 +118,18 @@ def test_status_missing_job_404(client: TestClient) -> None:
     assert client.get(f"{_PREFIX}/intake/jobs/999999/status").status_code == 404
 
 
-def test_job_detail_renders(client: TestClient) -> None:
+def test_job_detail_redirects_to_curriculum_builder(client: TestClient) -> None:
     job_id = _seed_job(client, status="queued")
-    r = client.get(f"{_PREFIX}/intake/jobs/{job_id}")
-    assert r.status_code == 200
-    assert f"Бриф #{job_id}" in r.text
+    r = client.get(f"{_PREFIX}/intake/jobs/{job_id}", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == f"/app/curriculum?job_id={job_id}"
 
 
 def test_jobs_clear_redirects(client: TestClient) -> None:
     _seed_job(client, status="queued")
     r = client.post(f"{_PREFIX}/intake/jobs/clear", follow_redirects=False)
     assert r.status_code == 303
-    assert r.headers["location"] == f"{_PREFIX}/intake"
+    assert r.headers["location"] == "/app/curriculum"
 
 
 def test_plan_csv_without_plan_is_404(client: TestClient) -> None:

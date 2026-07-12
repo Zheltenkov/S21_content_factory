@@ -407,6 +407,51 @@ def test_practice_service_uses_runtime_state_side_effects() -> None:
     assert "dataset" in result.section_contexts
 
 
+def test_practice_service_blocks_task_count_contract_mismatch() -> None:
+    seed = SimpleNamespace(
+        title_seed="Проект",
+        project_description="Описание",
+        learning_outcomes=["LO1"],
+        skills=["Skill"],
+        required_tools=[],
+        curriculum_context={},
+        tasks_count=3,
+    )
+    tasks = [SimpleNamespace(covered_outcomes=[], theory_support=[]) for _ in range(2)]
+
+    def generate_practice(*_args, **_kwargs):
+        markdown = "# README\npractice"
+        return PracticePhaseResult(
+            markdown=markdown,
+            readme_document=ReadmeDocument.from_markdown(markdown),
+            practice_tasks=tasks,
+            issues=[],
+            warnings=[],
+        )
+
+    service = PracticeNodeService(
+        generate_practice,
+        SectionContextRecorder(),
+        lambda issues: list(issues),
+        lambda _issues: False,
+        lambda _issues: [],
+    )
+    flow_context = {"seed": seed, "markdown": "# README", "issues": [], "warnings": []}
+
+    result = service.execute(
+        GenerationContext(
+            seed=seed,
+            markdown="# README",
+            task_count_contract=SimpleNamespace(resolved_tasks_count=3),
+        ),
+        flow_context,
+    )
+
+    assert result.status == "error"
+    assert result.serialized_issues[-1]["code"] == "practice.tasks_count_contract_mismatch"
+    assert flow_context["issues"][-1]["expected"] == 3
+
+
 def test_theory_service_uses_typed_phase_readme_document() -> None:
     seed = SimpleNamespace(
         title_seed="Проект",
@@ -561,7 +606,7 @@ def test_practice_service_uses_typed_phase_readme_document() -> None:
     assert result.practice_critic_issues == [{"message": "typed critic"}]
 
 
-def test_practice_service_keeps_quality_issues_non_blocking() -> None:
+def test_practice_service_blocks_hard_quality_issues() -> None:
     seed = SimpleNamespace(
         title_seed="Проект",
         project_description="Описание",
@@ -597,10 +642,49 @@ def test_practice_service_keeps_quality_issues_non_blocking() -> None:
 
     result = service.execute(GenerationContext(seed=seed, markdown="# README"), flow_context)
 
-    assert result.status == "success"
+    assert result.status == "error"
     assert flow_context["issues"] == [{"severity": "hard", "message": "Задание 1: не хватает ожидаемого результата"}]
     assert any("Генерация продолжена" in warning for warning in flow_context["warnings"])
-    assert result.issues == result.warnings
+    assert "Практика содержит нерешённые hard-ошибки." in result.issues
+
+
+def test_practice_service_blocks_critical_critic_issue() -> None:
+    seed = SimpleNamespace(
+        title_seed="Проект",
+        project_description="Описание",
+        learning_outcomes=["LO1"],
+        skills=["Skill"],
+        required_tools=[],
+        curriculum_context={},
+    )
+    readme_document = ReadmeDocument.from_markdown("# README\n\n## Глава 3. Практика\n\nPractice.")
+    task = SimpleNamespace(covered_outcomes=[], theory_support=[])
+
+    def generate_practice(*_args, **_kwargs):
+        return PracticePhaseResult(
+            markdown=readme_document.to_markdown(),
+            readme_document=readme_document,
+            practice_tasks=[task],
+            issues=[],
+            warnings=[],
+            practice_critic_issues=[{"severity": "critical", "kind": "sjm_alignment"}],
+        )
+
+    service = PracticeNodeService(
+        generate_practice,
+        SectionContextRecorder(),
+        lambda issues: list(issues),
+        lambda _issues: False,
+        lambda _issues: [],
+    )
+
+    result = service.execute(
+        GenerationContext(seed=seed, markdown="# README"),
+        {"seed": seed, "markdown": "# README", "issues": [], "warnings": []},
+    )
+
+    assert result.status == "error"
+    assert "PracticeCritic оставил нерешённые критические замечания." in result.issues
 
 
 def test_finalize_service_prefers_resumed_context_dataset_files() -> None:

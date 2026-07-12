@@ -265,7 +265,20 @@ def build_curriculum_plan_payload_from_rows(
     for source_row in rows:
         row = dict(source_row)
         payload_row = payload_rows_by_number.get(int(row.get("row_number", 0) or 0), {})
-        for transient_key in ("node_ids", "node_names", "primary_skill_count", "repeat_skill_count", "occurrence_count", "outcome_count"):
+        for transient_key in (
+            "node_ids",
+            "node_names",
+            "primary_skill_count",
+            "repeat_skill_count",
+            "occurrence_count",
+            "outcome_count",
+            "artifact",
+            "artifact_key",
+            "artifact_family",
+            "artifact_template_code",
+            "project_content_type",
+            "content_profile_decision",
+        ):
             if transient_key in payload_row and transient_key not in row:
                 row[transient_key] = payload_row[transient_key]
         if not any(row.get(key) for key in ("outcomes_know", "outcomes_can", "outcomes_skills")) and row.get("learning_outcomes"):
@@ -310,9 +323,11 @@ def build_curriculum_plan_payload_from_rows(
     report: dict[str, Any] = {
         "coverage_ok": bool(payload_report.get("coverage_ok", False)),
         "order_violations": _as_list(payload_report.get("order_violations")),
+        "recommended_order_notes": _as_list(payload_report.get("recommended_order_notes")),
         "project_violations": _as_list(payload_report.get("project_violations")),
         "quality_metrics": build_curriculum_quality_metrics_for_ui(rows, raw_quality_metrics),
     }
+    design_spec = _as_dict(payload.get("design_spec"))
 
     built_payload = {
         "plan_id": int(plan_meta["id"]),
@@ -337,6 +352,7 @@ def build_curriculum_plan_payload_from_rows(
         "csv_primary_header": payload.get("csv_primary_header") or CSV_PRIMARY_HEADER,
         "csv_secondary_header": payload.get("csv_secondary_header") or CSV_SECONDARY_HEADER,
         "report": report,
+        "design_spec": design_spec,
     }
     return built_payload
 

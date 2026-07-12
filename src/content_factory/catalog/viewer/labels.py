@@ -140,7 +140,7 @@ def edge_reason_label(value: object | None) -> str:
         return "—"
     if isinstance(value, str):
         raw_items = value.split(",")
-    elif isinstance(value, (list, tuple)):
+    elif isinstance(value, list | tuple):
         raw_items = [str(item) for item in value if item]
     else:
         raw_items = [str(value)]

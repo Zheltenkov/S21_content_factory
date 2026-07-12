@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -59,6 +62,239 @@ def test_up_index_renders(client: TestClient) -> None:
     r = client.get(f"{_PREFIX}/up")
     assert r.status_code == 200
     assert f'action="{_PREFIX}/up/cleanup-empty"' in r.text
+
+
+def test_curriculum_builder_page_renders(client: TestClient) -> None:
+    r = client.get("/app/curriculum")
+    assert r.status_code == 200
+    assert "Конструктор УП" in r.text
+    assert "Загрузить бриф" in r.text
+    assert 'id="curriculum-brief-form"' in r.text
+    assert 'class="action-btn action-btn-primary builder-brief-submit"' in r.text
+    assert 'action="/app/curriculum/briefs"' in r.text
+    assert 'href="/app/spravochnik/intake"' not in r.text
+
+
+def test_curriculum_builder_keeps_template_review_visible_for_existing_plan() -> None:
+    template = (
+        Path("src/content_factory/catalog/viewer/templates/up_builder.html")
+        .read_text(encoding="utf-8")
+    )
+
+    assert "builder.snapshot.template_open > 0 or builder.snapshot.plan_row_count == 0" in template
+
+
+def test_curriculum_builder_brief_post_stays_in_constructor(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from content_factory.api.routers import curriculum_builder
+
+    queued_jobs: list[int] = []
+    monkeypatch.setattr(curriculum_builder, "queue_intake_job", lambda _db_path, job_id: queued_jobs.append(job_id))
+
+    r = client.post(
+        "/app/curriculum/briefs",
+        data={"brief": "Подготовить junior Python-разработчика для backend-проектов."},
+        follow_redirects=False,
+    )
+
+    assert r.status_code == 303
+    assert r.headers["location"].startswith("/app/curriculum?job_id=")
+    assert queued_jobs
+
+
+def test_curriculum_builder_reviews_candidate_without_leaving_constructor(
+    client: TestClient,
+    catalog_conn,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from content_factory.api.routers import curriculum_builder
+    from content_factory.catalog.viewer.intake_jobs import create_intake_job, update_intake_job
+
+    brief_id = int(
+        catalog_conn.execute(
+            "INSERT INTO profile_brief(raw_text, role, seniority, domain) VALUES (?, ?, ?, ?)",
+            ("brief", "Product manager", "junior", "product"),
+        ).lastrowid
+        or 0
+    )
+    suggestion_id = int(
+        catalog_conn.execute(
+            """
+            INSERT INTO skill_suggestion(
+                brief_id, suggested_name, source_name, group_name, bloom, resolution,
+                decision, entity_type, atomicity, confidence
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                brief_id,
+                "Проведение интервью",
+                "Провести интервью",
+                "Research",
+                "apply",
+                "new",
+                "needs_review",
+                "skill",
+                "atomic",
+                0.82,
+            ),
+        ).lastrowid
+        or 0
+    )
+    catalog_conn.commit()
+    job_id = create_intake_job(
+        catalog_conn,
+        source_kind="text",
+        source_name=None,
+        file_path=None,
+        brief_text="brief",
+        use_council=False,
+    )
+    update_intake_job(
+        catalog_conn,
+        job_id,
+        status="succeeded",
+        result_payload={
+            "brief_id": brief_id,
+            "candidates": [
+                {
+                    "suggestion_id": suggestion_id,
+                    "name": "Проведение интервью",
+                    "group": "Research",
+                    "bloom": "apply",
+                    "entity_type": "skill",
+                    "atomicity": "atomic",
+                    "decision": "needs_review",
+                }
+            ],
+        },
+    )
+
+    page = client.get(f"/app/curriculum?brief_id={brief_id}")
+    assert page.status_code == 200
+    assert 'id="skills-review"' in page.text
+    assert f'action="/app/curriculum/jobs/{job_id}/candidate-decision"' in page.text
+
+    response = client.post(
+        f"/app/curriculum/jobs/{job_id}/candidate-decision",
+        data={"suggestion_id": str(suggestion_id), "candidate_action": "accept"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/app/curriculum?brief_id={brief_id}#skills-review"
+    row = catalog_conn.execute("SELECT decision FROM skill_suggestion WHERE id = ?", (suggestion_id,)).fetchone()
+    assert row["decision"] == "accepted"
+
+    updated_page = client.get(f"/app/curriculum?brief_id={brief_id}")
+    assert updated_page.status_code == 200
+    assert 'id="structure-transition"' in updated_page.text
+    assert updated_page.text.count(f'action="/app/curriculum/jobs/{job_id}/apply-catalog"') == 1
+
+    applied_briefs: list[int] = []
+    monkeypatch.setattr(curriculum_builder, "apply_brief_catalog_decisions", lambda _conn, value: applied_briefs.append(value))
+    apply_response = client.post(
+        f"/app/curriculum/jobs/{job_id}/apply-catalog",
+        follow_redirects=False,
+    )
+    assert apply_response.status_code == 303
+    assert apply_response.headers["location"] == f"/app/curriculum?brief_id={brief_id}#structure-transition"
+    assert applied_briefs == [brief_id]
+
+    built_briefs: list[int] = []
+    monkeypatch.setattr(curriculum_builder, "build_dag_for_brief", lambda _conn, value: built_briefs.append(value))
+    dag_response = client.post(
+        f"/app/curriculum/jobs/{job_id}/build-dag",
+        follow_redirects=False,
+    )
+    assert dag_response.status_code == 303
+    assert dag_response.headers["location"] == f"/app/curriculum?brief_id={brief_id}#structure-transition"
+    assert built_briefs == [brief_id]
+
+
+def test_curriculum_builder_accepts_templates_then_builds_plan_explicitly(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from content_factory.api.routers import curriculum_builder
+
+    monkeypatch.setattr(curriculum_builder, "_require_builder_plan", lambda _conn, _plan_id: {"brief_id": 7})
+    monkeypatch.setattr(curriculum_builder, "_require_builder_proposal", lambda _conn, _proposal_id, _brief_id: None)
+    monkeypatch.setattr(curriculum_builder, "_require_template_readiness", lambda _conn, _brief_id: None)
+    monkeypatch.setattr(curriculum_builder, "_require_design_readiness", lambda _conn, _brief_id: None)
+
+    updates: list[int] = []
+    accepts: list[int] = []
+    builds: list[int] = []
+    monkeypatch.setattr(
+        curriculum_builder.intake_storage,
+        "update_curriculum_artifact_template_proposal",
+        lambda _conn, proposal_id, **_kwargs: updates.append(proposal_id),
+    )
+    monkeypatch.setattr(
+        curriculum_builder.intake_storage,
+        "accept_curriculum_artifact_template_proposal",
+        lambda _conn, proposal_id: accepts.append(proposal_id),
+    )
+
+    proposal_response = client.post(
+        "/app/curriculum/plans/30/template-proposals/12",
+        data={
+            "action": "accept_proposal",
+            "title": "Отчёт",
+            "artifact_family": "analysis",
+            "scope_type": "coverage_area",
+            "scope_names": "Customer discovery",
+            "confidence": "0.9",
+        },
+        follow_redirects=False,
+    )
+
+    assert proposal_response.status_code == 303
+    assert proposal_response.headers["location"] == "/app/curriculum?brief_id=7#template-review"
+    assert updates == [12]
+    assert accepts == [12]
+    assert builds == []
+
+    monkeypatch.setattr(
+        curriculum_builder,
+        "load_curriculum_builder_state",
+        lambda _conn, **_kwargs: SimpleNamespace(
+            snapshot=SimpleNamespace(dag_valid=True, template_open=0, template_accepted=1)
+        ),
+    )
+    monkeypatch.setattr(
+        curriculum_builder,
+        "build_curriculum_plan_for_brief",
+        lambda _conn, brief_id: builds.append(brief_id),
+    )
+    build_response = client.post(
+        "/app/curriculum/briefs/7/build-plan",
+        follow_redirects=False,
+    )
+
+    assert build_response.status_code == 303
+    assert build_response.headers["location"] == "/app/curriculum?brief_id=7#plan-ready"
+    assert builds == [7]
+
+
+def test_curriculum_builder_approves_program_design_inside_constructor(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from content_factory.api.routers import curriculum_builder
+
+    approved: list[int] = []
+    monkeypatch.setattr(
+        curriculum_builder,
+        "approve_brief_curriculum_design",
+        lambda _conn, brief_id: approved.append(brief_id) or {"approved": True},
+    )
+
+    response = client.post("/app/curriculum/briefs/7/design/approve", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/app/curriculum?brief_id=7#program-design"
+    assert approved == [7]
 
 
 def test_up_cleanup_empty_redirects(client: TestClient) -> None:

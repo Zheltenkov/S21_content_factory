@@ -61,10 +61,10 @@ def serialize_value(value: Any) -> Any:
                 continue
             serialized[str(key)] = serialized_item
         return serialized
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, list | tuple):
         serialized_items = [serialize_value(item) for item in value]
         return [item for item in serialized_items if item is not _DROP_VALUE]
-    if value is None or isinstance(value, (str, int, float, bool)):
+    if value is None or isinstance(value, str | int | float | bool):
         return value
     return str(value)
 

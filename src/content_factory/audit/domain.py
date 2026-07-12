@@ -142,7 +142,7 @@ class AuditSettings(BaseModel):
         if value is None:
             return ()
         raw_items = value.split(",") if isinstance(value, str) else value
-        if not isinstance(raw_items, (list, tuple, set)):
+        if not isinstance(raw_items, list | tuple | set):
             return ("RUS", "ENG", "UZ", "TG")
         aliases = {
             "RU": "RUS",

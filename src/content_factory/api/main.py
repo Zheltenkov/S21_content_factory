@@ -5,7 +5,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -27,6 +27,7 @@ from content_factory.api.routers import (
     auditor,
     auth,
     curriculum,
+    curriculum_builder,
     download,
     excel_parser,
     generation,
@@ -77,7 +78,7 @@ app = FastAPI(
 
 # Добавляем rate limiter в app state
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]  # slowapi handler signature
+app.add_exception_handler(RateLimitExceeded, cast(Any, _rate_limit_exceeded_handler))
 
 # Сжимаем HTML, CSS, JS и JSON-ответы. Это особенно заметно на страницах с крупной
 # статикой и уменьшает время до первого полностью оформленного экрана.
@@ -99,8 +100,10 @@ app.add_middleware(
     ToolAuthCookieMiddleware,
     protected_prefixes=("/app/auditor", "/app/check", "/app/curriculum", "/app/spravochnik"),
     # Catalog mutations (intake, reviews, admin, curriculum-plan edits) require the
-    # admin role; read-only catalog pages stay open to any authenticated user.
-    admin_write_prefixes=("/app/spravochnik",),
+    # admin role; read-only catalog pages stay open to any authenticated user. The
+    # curriculum-builder POST routes mutate the shared catalog/DAG/templates/plans,
+    # so they are admin-gated too; GET pages stay open to any authenticated user.
+    admin_write_prefixes=("/app/spravochnik", "/app/curriculum"),
 )
 
 # CORS (настраивается через переменные окружения)
@@ -216,16 +219,11 @@ if static_dir.exists():
         """Legacy alias for the full auditor page."""
         return RedirectResponse("/app/auditor", status_code=303)
 
-    @app.get("/app/curriculum")
-    async def read_app_curriculum() -> Response:
-        """Учебный план живёт в контуре справочника."""
-        return RedirectResponse("/app/spravochnik/up", status_code=303)
-
     @app.get("/app/spravochnik")
     @app.get("/app/spravochnik/")
     async def read_app_spravochnik() -> Response:
         """Главная точка входа в справочник."""
-        return RedirectResponse("/app/spravochnik/intake", status_code=303)
+        return RedirectResponse("/app/spravochnik/competencies", status_code=303)
 
     @app.get("/app/translate")
     async def read_app_translate() -> Response:
@@ -251,6 +249,7 @@ app.include_router(catalog_admin_ui.router)
 app.include_router(catalog_intake_ui.router)
 app.include_router(catalog_reviews_ui.router)
 app.include_router(catalog_up_ui.router)
+app.include_router(curriculum_builder.router)
 
 # Роутеры
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])

@@ -47,6 +47,29 @@ def test_record_checkpoint_updates_existing_row_and_increments_retry_count(monke
     assert second["context_snapshot"]["markdown"] == "# New"
 
 
+def test_record_checkpoint_serializes_binary_artifacts(monkeypatch) -> None:
+    session_factory = _session_factory()
+    monkeypatch.setattr(generation_workflow_db, "SessionLocal", session_factory)
+
+    checkpoint = generation_workflow_db.record_generation_workflow_checkpoint(
+        request_id="req-bytes",
+        user_id="u1",
+        node_id="practice",
+        node_name="Practice",
+        status="success",
+        input_hash="h1",
+        output_artifact={"dataset": b"csv"},
+        validation_result={"preview": b"ok"},
+        context_snapshot={"dataset": b"csv"},
+        checkpoint_index=1,
+    )
+
+    assert checkpoint is not None
+    assert checkpoint["output_artifact"]["dataset"]["__paused_type__"] == "builtins:bytes"
+    assert checkpoint["validation_result"]["preview"]["__paused_type__"] == "builtins:bytes"
+    assert checkpoint["context_snapshot"]["dataset"]["__paused_type__"] == "builtins:bytes"
+
+
 def test_mark_interrupted_generation_workflows_keeps_review_sessions_active(monkeypatch) -> None:
     session_factory = _session_factory()
     monkeypatch.setattr(generation_workflow_db, "SessionLocal", session_factory)

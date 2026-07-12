@@ -50,8 +50,8 @@ def request_token(request: Request) -> str:
 
     authorization = request.headers.get("authorization", "")
     if authorization.startswith("Bearer "):
-        return authorization.split(" ", 1)[1].strip()
-    return request.cookies.get(AUTH_COOKIE_NAME, "").strip()
+        return str(authorization.split(" ", 1)[1]).strip()
+    return str(request.cookies.get(AUTH_COOKIE_NAME, "")).strip()
 
 
 async def validate_request_user(request: Request, db: Session | None = None) -> dict[str, Any]:

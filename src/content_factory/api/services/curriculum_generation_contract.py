@@ -83,6 +83,27 @@ _ROW_HASH_KEYS = (
     "p2p_checks",
     "weighted_skills",
     "validation_criteria",
+    "artifact",
+    "artifact_key",
+    "artifact_family",
+    "artifact_template_code",
+    "project_content_type",
+    "content_profile_decision",
+)
+
+_PAYLOAD_ROW_METADATA_KEYS = (
+    "node_ids",
+    "node_names",
+    "primary_skill_count",
+    "repeat_skill_count",
+    "occurrence_count",
+    "outcome_count",
+    "artifact",
+    "artifact_key",
+    "artifact_family",
+    "artifact_template_code",
+    "project_content_type",
+    "content_profile_decision",
 )
 
 
@@ -123,10 +144,11 @@ def load_persisted_curriculum_snapshot(db: Session, plan_id: int) -> dict[str, A
     plan_dict = dict(plan)
     row_dicts = [dict(row) for row in rows]
     payload = _assemble_plan_payload(plan_dict, row_dicts)
+    effective_rows = [dict(row) for row in payload.get("rows", []) if isinstance(row, Mapping)]
     curriculum = convert_spravochnik_plan_to_generator_curriculum(payload)
-    plan_hash = _snapshot_hash(_snapshot_source(plan_dict, row_dicts))
+    plan_hash = _snapshot_hash(_snapshot_source(plan_dict, effective_rows))
     plan_version = _snapshot_version(plan_dict, plan_hash)
-    readiness = build_curriculum_readiness(db, plan_dict, row_dicts, curriculum)
+    readiness = build_curriculum_readiness(db, plan_dict, effective_rows, curriculum)
 
     snapshot = {
         "source": "catalog.curriculum_plan",
@@ -135,7 +157,7 @@ def load_persisted_curriculum_snapshot(db: Session, plan_id: int) -> dict[str, A
         "brief_id": _optional_int(plan_dict.get("brief_id")),
         "plan_version": plan_version,
         "plan_hash": plan_hash,
-        "row_count": len(row_dicts),
+        "row_count": len(effective_rows),
         "status": plan_dict.get("status"),
     }
     curriculum["source_plan_id"] = int(plan_dict["id"])
@@ -144,7 +166,7 @@ def load_persisted_curriculum_snapshot(db: Session, plan_id: int) -> dict[str, A
     curriculum["readiness"] = readiness
     return {
         "plan": plan_dict,
-        "rows": row_dicts,
+        "rows": effective_rows,
         "payload": payload,
         "curriculum": curriculum,
         "snapshot": snapshot,
@@ -320,8 +342,35 @@ def validate_generation_seed_curriculum_contract(seed_data: dict[str, Any]) -> d
 
 
 def _assemble_plan_payload(plan: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    payload = dict(plan)
-    payload["rows"] = [dict(row) for row in rows]
+    stored_payload: dict[str, Any] = {}
+    raw_payload = plan.get("payload_json")
+    if isinstance(raw_payload, str) and raw_payload.strip():
+        try:
+            decoded_payload = json.loads(raw_payload)
+        except json.JSONDecodeError:
+            decoded_payload = None
+        if isinstance(decoded_payload, dict):
+            stored_payload = decoded_payload
+
+    stored_rows_by_number: dict[int, Mapping[str, Any]] = {}
+    for stored_row in stored_payload.get("rows", []):
+        if not isinstance(stored_row, Mapping):
+            continue
+        row_number = _optional_int(stored_row.get("row_number"))
+        if row_number is not None:
+            stored_rows_by_number[row_number] = stored_row
+
+    effective_rows: list[dict[str, Any]] = []
+    for source_row in rows:
+        row = dict(source_row)
+        stored_row = stored_rows_by_number.get(_optional_int(row.get("row_number")) or -1, {})
+        for key in _PAYLOAD_ROW_METADATA_KEYS:
+            if key in stored_row:
+                row[key] = stored_row[key]
+        effective_rows.append(row)
+
+    payload = {**stored_payload, **dict(plan)}
+    payload["rows"] = effective_rows
     return payload
 
 
@@ -377,6 +426,8 @@ def _project_origin(
             "description": project.description,
             "learning_outcomes": project.learning_outcomes,
             "skills": project.skills,
+            "project_content_type": project.project_content_type,
+            "content_profile_decision": project.content_profile_decision,
         }
     )
     return {

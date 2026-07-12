@@ -854,10 +854,10 @@ def _contract_summary(value: Any) -> Any:
 def _compact_list(value: Any, *, limit: int = 8) -> list[Any]:
     if value is None:
         return []
-    if isinstance(value, (str, bytes)):
+    if isinstance(value, str | bytes):
         return [_truncate_text(str(value), 260)]
     if not isinstance(value, list):
-        value = list(value) if isinstance(value, (tuple, set)) else [value]
+        value = list(value) if isinstance(value, tuple | set) else [value]
     return [_compact_value(item, text_limit=260, max_items=6) for item in value[:limit]]
 
 
@@ -893,9 +893,9 @@ def _compact_value(value: Any, *, text_limit: int = 260, max_items: int = 8) -> 
         if len(value) > len(result):
             result.append({"_truncated_items": len(value) - len(result)})
         return result
-    if isinstance(value, (tuple, set)):
+    if isinstance(value, tuple | set):
         return _compact_value(list(value), text_limit=text_limit, max_items=max_items)
-    if isinstance(value, (int, float, bool)):
+    if isinstance(value, int | float | bool):
         return value
     return _truncate_text(str(value), text_limit)
 
@@ -905,7 +905,7 @@ def _assets_count(assets: Any) -> int:
         return 0
     if isinstance(assets, dict):
         return len(assets)
-    if isinstance(assets, (list, tuple, set)):
+    if isinstance(assets, list | tuple | set):
         return len(assets)
     return 1
 

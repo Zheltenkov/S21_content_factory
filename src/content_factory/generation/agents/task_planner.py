@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..agents.context_analysis import ContextAnalysisResult
 from ..config.loader import get_agent_config
@@ -21,6 +21,17 @@ from ..curriculum.graph import CurriculumInsights, analyze_curriculum_position
 from ..models.schemas import ProjectContextMeta, ProjectSeed
 
 logger = logging.getLogger(__name__)
+
+
+class TaskCountContract(BaseModel):
+    """Immutable decision explaining the final number of practice tasks."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    requested_tasks_count: int | None = Field(default=None, ge=2, le=8)
+    recommended_tasks_count: int = Field(ge=2, le=8)
+    resolved_tasks_count: int = Field(ge=2, le=8)
+    resolution_source: Literal["user", "curriculum", "default"]
 
 
 class TaskPlan(BaseModel):
@@ -54,6 +65,23 @@ class TaskPlan(BaseModel):
         default=None,
         description="Контекст из curriculum графа: прогресс, навыки, корректировки уровня"
     )
+    task_count_contract: TaskCountContract | None = None
+
+    @model_validator(mode="after")
+    def ensure_task_count_contract(self) -> TaskPlan:
+        """Keep the legacy scalar and the resolved contract synchronized."""
+
+        contract = self.task_count_contract
+        if contract is None:
+            self.task_count_contract = TaskCountContract(
+                requested_tasks_count=None,
+                recommended_tasks_count=self.tasks_count,
+                resolved_tasks_count=self.tasks_count,
+                resolution_source="default",
+            )
+        elif contract.resolved_tasks_count != self.tasks_count:
+            raise ValueError("tasks_count must equal task_count_contract.resolved_tasks_count")
+        return self
 
     def as_dict(self) -> dict:
         """Возвращает словарь для обратной совместимости."""
@@ -131,7 +159,16 @@ class TaskPlanner:
         level_idx = self._adjust_level_by_curriculum(level_idx, curriculum.level_adjust)
 
         config = self.level_config.get(level_idx, self.LEVEL_CONFIG[1])
-        tasks = self._clamp_tasks(config["tasks"] + curriculum.task_adjust)
+        recommended_tasks = self._clamp_recommended_tasks(config["tasks"] + curriculum.task_adjust)
+        requested_tasks = int(seed.tasks_count or 0)
+        tasks = self._clamp_tasks(requested_tasks) if requested_tasks else recommended_tasks
+        resolution_source: Literal["user", "curriculum", "default"] = (
+            "user"
+            if requested_tasks
+            else "curriculum"
+            if curriculum.graph_available or curriculum.task_adjust
+            else "default"
+        )
         complexity = config["complexity"]
         if curriculum.level_adjust > 0 and level_idx == 2:
             complexity = "hard"
@@ -148,6 +185,11 @@ class TaskPlanner:
             complexity,
             curriculum,
         )
+        if requested_tasks:
+            explanation = (
+                f"Использовано явно заданное количество практических задач: {tasks}. "
+                + explanation
+            )
 
         plan = TaskPlan(
             tasks_count=tasks,
@@ -157,6 +199,12 @@ class TaskPlanner:
             rationale=rationale,
             explanation=explanation,
             curriculum_context=curriculum.to_dict(),
+            task_count_contract=TaskCountContract(
+                requested_tasks_count=requested_tasks or None,
+                recommended_tasks_count=recommended_tasks,
+                resolved_tasks_count=tasks,
+                resolution_source=resolution_source,
+            ),
         )
         logger.info(
             "📊 TaskPlanner: tasks=%s complexity=%s level=%s source=%s",
@@ -211,6 +259,11 @@ class TaskPlanner:
 
     def _clamp_tasks(self, value: int) -> int:
         return max(self.min_tasks, min(self.max_tasks, value))
+
+    @staticmethod
+    def _clamp_recommended_tasks(value: int) -> int:
+        minimum, maximum = THRESHOLDS["practice_tasks_recommend"]
+        return max(minimum, min(maximum, value))
 
     def _adjust_level_by_curriculum(self, level_idx: int, delta: int) -> int:
         if not delta:

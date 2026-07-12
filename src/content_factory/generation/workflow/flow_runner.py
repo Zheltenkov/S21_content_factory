@@ -455,6 +455,8 @@ class AgentFlowRunner:
 
     @classmethod
     def _compact_value(cls, value: Any) -> Any:
+        if isinstance(value, bytes):
+            return {"type": "bytes", "size": len(value)}
         if isinstance(value, str):
             return {"type": "str", "chars": len(value), "preview": value[:700]}
         if isinstance(value, BaseModel):
@@ -470,7 +472,7 @@ class AgentFlowRunner:
             if len(value) > len(preview):
                 preview.append({"_truncated_items": len(value) - len(preview)})
             return preview
-        if isinstance(value, (tuple, set)):
+        if isinstance(value, tuple | set):
             return cls._compact_value(list(value))
         return value
 

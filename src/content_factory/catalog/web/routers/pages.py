@@ -25,9 +25,9 @@ router = APIRouter(prefix="/app/spravochnik", tags=["catalog-ui"])
 @router.get("")
 @router.get("/")
 def catalog_root() -> RedirectResponse:
-    """Catalog entry point → the intake workspace (mirrors the WSGI ``/`` redirect)."""
+    """Open the canonical competency catalog from the catalog entry point."""
 
-    return RedirectResponse(f"{CATALOG_URL_PREFIX}/intake", status_code=303)
+    return RedirectResponse(f"{CATALOG_URL_PREFIX}/competencies", status_code=303)
 
 
 @router.get("/favicon.ico")

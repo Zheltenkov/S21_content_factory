@@ -52,7 +52,7 @@
                         <span class="action-btn action-btn-light disabled">Невалиден</span>
                         {% endif %}
                         {% if plan.latest_job_id %}
-                        <a class="action-btn action-btn-secondary" href="{{ base }}/intake/jobs/{{ plan.latest_job_id }}">Открыть бриф</a>
+                        <a class="action-btn action-btn-secondary" href="/app/curriculum?job_id={{ plan.latest_job_id }}">Открыть бриф</a>
                         {% endif %}
                         {% if plan.total_projects and plan.status != 'invalid' %}
                         <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ plan.id }}/csv">CSV</a>

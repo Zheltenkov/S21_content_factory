@@ -13,7 +13,7 @@ flows:
         handler: task_planning
         type: planner
         inputs: [seed, context_meta, context_analysis]
-        outputs: [seed, task_plan, story_map_contract, practice_plan_contract, artifact_chain_plan, evidence_specs, warnings]
+        outputs: [seed, task_plan, task_count_contract, story_map_contract, practice_plan_contract, artifact_chain_plan, evidence_specs, warnings]
       - id: title_annotation
         name: Phase 1a · Title & Annotation
         handler: title_annotation

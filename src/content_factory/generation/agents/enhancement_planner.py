@@ -17,6 +17,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from content_factory.content_profile import resolve_content_profile
 from content_factory.platform.llm.structured_output import StructuredLLMClient
 
 from ..config.thresholds import (
@@ -171,51 +172,15 @@ class EnhancementPlanner:
         self.structured_client = StructuredLLMClient(llm)
 
     def _determine_content_type(self, seed: ProjectSeed) -> str:
-        """
-        Определяет тип контента на основе направления.
+        """Resolve the shared project-level profile."""
 
-        Returns:
-            'hard_code' | 'low_code' | 'no_code'
-        """
-        explicit_type = getattr(seed, "project_content_type", None)
-        if explicit_type in {"hard_code", "low_code", "no_code"}:
-            return str(explicit_type)
-
-        direction = (getattr(seed, 'direction', '') or seed.thematic_block or "").upper()
-
-        # Hard code: Разработчик ПО, C/C++, Java, Python backend
-        hard_code_directions = {
-            'C', 'CPP', 'C++', 'JAVA', 'GO', 'RUST', 'BACKEND', 'MOBILE',
-            'WEB', 'FRONTEND', 'FULLSTACK', 'DEV', 'SWE'
-        }
-
-        # Low code: DS, DevOps, QA, Биоинформатика
-        low_code_directions = {
-            'DS', 'DO', 'QA', 'BIO', 'BIOINF', 'DEVOPS', 'DATA',
-            'ML', 'AI', 'TESTING', 'AUTOMATION'
-        }
-
-        # No code: Project Manager, UX, Кибербез, BSA
-        no_code_directions = {
-            'PJM', 'UX', 'CB', 'KB', 'BSA', 'BA', 'PM', 'CYBER',
-            'SECURITY', 'PRODUCT', 'DESIGN', 'MANAGEMENT', 'ANALYST'
-        }
-
-        if direction in hard_code_directions:
-            return 'hard_code'
-        elif direction in low_code_directions:
-            return 'low_code'
-        elif direction in no_code_directions:
-            return 'no_code'
-        else:
-            # По умолчанию - low_code (средний вариант)
-            return 'low_code'
+        return resolve_content_profile(seed).profile
 
     def _is_programming_project(self, seed: ProjectSeed) -> bool:
         """Определяет, является ли проект программистским."""
         # Сначала проверяем content_type
         content_type = self._determine_content_type(seed)
-        if content_type == 'hard_code':
+        if content_type in {'hard_code', 'hybrid'}:
             return True
         if content_type == 'no_code':
             return False
@@ -265,7 +230,7 @@ class EnhancementPlanner:
 - Таблицы: минимум 1 (для сравнений)
 - Код: 0 (НЕ нужен)"""
 
-        elif content_type == "low_code":
+        elif content_type in {"low_code", "hybrid"}:
             return """ТИП: ТЕХНИЧЕСКИЙ С ОГРАНИЧЕНИЯМИ (low_code) — DS, DevOps, QA
 
 ОГРАНИЧЕНИЯ:

@@ -13,6 +13,8 @@ from content_factory.api.utils.result_cache import set_generation_status, store_
 from content_factory.generation.utils.latex_validator import build_latex_agent_hint, collect_latex_issues
 from content_factory.generation.utils.markdown_display_normalizer import normalize_markdown_display_blocks
 
+from .generation_quality_gate import collect_blocking_quality_findings
+
 logger = get_logger("generation")
 
 
@@ -45,6 +47,24 @@ class GenerationResultPersister:
         """Validate Markdown, persist generation result and write completion logs."""
         markdown = normalize_markdown_display_blocks(result.report_json.get("markdown", ""))
         result.report_json["markdown"] = markdown
+        blocking_findings = collect_blocking_quality_findings(result, markdown)
+        if blocking_findings:
+            summary = "; ".join(f"{item.code}: {item.message}" for item in blocking_findings[:5])
+            error_msg = f"Quality gate не пройден: {summary}"
+            logger.error("❌ %s", error_msg)
+            await self._log_writer(
+                request_id=request_id,
+                level="ERROR",
+                message="Результат заблокирован финальным quality gate",
+                user_id=user_id,
+                phase="quality_gate",
+                metadata={
+                    "findings": [item.__dict__ for item in blocking_findings],
+                },
+            )
+            self._status_setter(request_id, "failed")
+            self._error_store(request_id, error_msg)
+            return False
         latex_issues = collect_latex_issues(markdown)
         if latex_issues:
             issue_text = "; ".join(latex_issues[:3])

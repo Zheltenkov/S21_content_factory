@@ -330,6 +330,7 @@ function fillFormFromData(data) {
                 }
                 if (projectData.additional_materials) seed.additional_materials = projectData.additional_materials;
                 if (projectData.storytelling_type) seed.storytelling_type = projectData.storytelling_type;
+                if (projectData.project_content_type) seed.project_content_type = projectData.project_content_type;
                 if (!seed.sjm && projectData.sjm) seed.sjm = projectData.sjm;
                 const origin = projectData.curriculum_origin || (
                     projectData.source_plan_id

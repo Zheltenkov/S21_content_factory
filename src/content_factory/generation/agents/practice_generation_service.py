@@ -37,6 +37,7 @@ class PracticeGenerationOutcome:
 
     tasks: list[PracticeTask]
     artifact_chain_plan: ArtifactChainPlan
+    task_count_repair: dict[str, Any] | None = None
 
 
 class PracticeGenerationService:
@@ -112,11 +113,36 @@ class PracticeGenerationService:
             )
         )
         markdown = self.llm.complete(system=system_prompt, user=user_prompt, **generation_kwargs)
-        normalization = self.output_normalizer.normalize_practice_markdown(markdown)
-        markdown = normalization.markdown
-        if normalization.changed:
-            self.logger.warning("Practice model output normalized: %s", "; ".join(normalization.changes))
-        tasks = self._materialize_tasks(markdown, seed=seed, theory_summary=theory_summary)
+        tasks = self._normalize_and_materialize(markdown, seed=seed, theory_summary=theory_summary)
+        task_count_repair: dict[str, Any] | None = None
+        if len(tasks) != task_count:
+            initial_count = len(tasks)
+            repair_prompt = self._build_task_count_repair_prompt(
+                markdown,
+                seed=seed,
+                expected_count=task_count,
+                actual_count=initial_count,
+            )
+            repair_kwargs = dict(generation_kwargs)
+            repair_kwargs["temperature"] = 0.0
+            repaired_markdown = self.llm.complete(system=system_prompt, user=repair_prompt, **repair_kwargs)
+            repaired_tasks = self._normalize_and_materialize(
+                repaired_markdown,
+                seed=seed,
+                theory_summary=theory_summary,
+            )
+            selected_tasks = repaired_tasks if len(repaired_tasks) >= task_count else tasks
+            if len(selected_tasks) > task_count:
+                selected_tasks = select_representative_tasks(selected_tasks, task_count)
+            tasks = selected_tasks
+            task_count_repair = {
+                "expected": task_count,
+                "initial": initial_count,
+                "repaired": len(repaired_tasks),
+                "final": len(tasks),
+                "strategy": "single_retry_then_representative_selection",
+            }
+            self.logger.warning("Practice task-count repair: %s", task_count_repair)
         tasks, artifact_chain_plan = self.finalizer.finalize_generated_tasks(
             tasks,
             seed,
@@ -124,7 +150,46 @@ class PracticeGenerationService:
             artifact_chain_plan,
             sjm_override=(section_context or {}).get("sjm_context"),
         )
-        return PracticeGenerationOutcome(tasks=tasks, artifact_chain_plan=artifact_chain_plan)
+        return PracticeGenerationOutcome(
+            tasks=tasks,
+            artifact_chain_plan=artifact_chain_plan,
+            task_count_repair=task_count_repair,
+        )
+
+    def _normalize_and_materialize(
+        self,
+        markdown: str,
+        *,
+        seed: ProjectSeed,
+        theory_summary: str,
+    ) -> list[PracticeTask]:
+        """Normalize one model response and parse its typed task blocks."""
+
+        normalization = self.output_normalizer.normalize_practice_markdown(markdown)
+        if normalization.changed:
+            self.logger.warning("Practice model output normalized: %s", "; ".join(normalization.changes))
+        return self._materialize_tasks(normalization.markdown, seed=seed, theory_summary=theory_summary)
+
+    @staticmethod
+    def _build_task_count_repair_prompt(
+        markdown: str,
+        *,
+        seed: ProjectSeed,
+        expected_count: int,
+        actual_count: int,
+    ) -> str:
+        """Build one bounded correction request for the exact task-count contract."""
+
+        return f"""Пересобери практическую часть: получено {actual_count} заданий, контракт требует РОВНО {expected_count}.
+
+Сохрани тему проекта, причинную цепочку и финальный проверяемый артефакт. Объедини близкие задания, не теряя существенные действия. Не добавляй бонусные задания. Верни только {expected_count} блоков формата `### Задание N. ...`, с последовательной нумерацией от 1 до {expected_count}.
+
+Проект: {seed.title_seed or seed.project_description}
+Результаты обучения: {'; '.join(seed.learning_outcomes)}
+
+ИСХОДНАЯ ПРАКТИКА:
+{markdown}
+"""
 
     def _build_system_prompt(self, seed: ProjectSeed) -> str:
         """Build system prompt with didactics context."""
@@ -255,3 +320,14 @@ class PracticeGenerationService:
         self.logger.info("  Проектов ДО: %s, ПОСЛЕ: %s", len(ctx.get("previous_projects", [])), len(ctx.get("next_projects", [])))
         self.logger.info("  SJM: %s", "Да" if ctx.get("sjm_context") else "Нет")
         self.logger.info("=" * 50)
+
+
+def select_representative_tasks(tasks: list[PracticeTask], target_count: int) -> list[PracticeTask]:
+    """Select evenly distributed tasks while preserving the first and final workflow steps."""
+
+    if target_count <= 0 or len(tasks) <= target_count:
+        return list(tasks)
+    if target_count == 1:
+        return [tasks[-1]]
+    indexes = [round(index * (len(tasks) - 1) / (target_count - 1)) for index in range(target_count)]
+    return [tasks[index] for index in dict.fromkeys(indexes)]

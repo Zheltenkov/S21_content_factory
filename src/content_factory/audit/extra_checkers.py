@@ -187,7 +187,7 @@ class CrossFileConsistencyChecker(BaseChecker):
                 line_start = item.get("line_start")
                 loc = TextLocation(
                     file_path=str(item.get("file_path") or code.relative_path),
-                    line_start=int(line_start) if isinstance(line_start, (int, float)) else None,
+                    line_start=int(line_start) if isinstance(line_start, int | float) else None,
                 )
                 severity = Severity.MAJOR if str(item.get("severity")) == "major" else Severity.MINOR
                 findings.append(

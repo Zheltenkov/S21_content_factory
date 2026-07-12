@@ -212,6 +212,24 @@ def test_flow_runner_emits_workflow_node_and_checkpoint_hooks():
     assert [step.status for step in steps] == ["success", "skipped", "success"]
 
 
+def test_flow_runner_compacts_binary_checkpoint_values():
+    checkpoints = []
+    runner = AgentFlowRunner(
+        make_flow_definition(),
+        workflow_checkpoint_hook=checkpoints.append,
+    )
+    context = {}
+    registry = {
+        "start": lambda ctx: FlowNodeOutput(updates={"blob": b"binary"}),
+        "middle": lambda ctx: FlowNodeOutput(),
+        "end": lambda ctx: FlowNodeOutput(),
+    }
+
+    runner.run(context, registry)
+
+    assert checkpoints[0]["output_artifact"]["blob"] == {"type": "bytes", "size": 6}
+
+
 def test_flow_runner_detects_cycles():
     nodes = [
         FlowNodeConfig(id="x", name="X", handler="x"),

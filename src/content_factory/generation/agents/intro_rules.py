@@ -11,6 +11,8 @@ import re
 import sys
 from dataclasses import dataclass
 
+from content_factory.content_profile import resolve_content_profile
+
 from ..config.loader import get_agent_config, prompt_trace_kwargs
 from ..config.thresholds import THRESHOLDS
 from ..domain_contracts import semantic_overlap_ratio, semantic_tokens
@@ -474,44 +476,9 @@ class IntroRulesAgent:
         return self.llm.complete(system=system_prompt, user=repair_prompt, **repair_kwargs)
 
     def _determine_content_type(self, seed: ProjectSeed) -> str:
-        """
-        Определяет тип контента на основе направления.
+        """Resolve the shared project-level profile."""
 
-        Returns:
-            'hard_code' | 'low_code' | 'no_code'
-        """
-        explicit_type = getattr(seed, "project_content_type", None)
-        if explicit_type in {"hard_code", "low_code", "no_code"}:
-            return str(explicit_type)
-
-        direction = (getattr(seed, 'direction', '') or seed.thematic_block or "").upper()
-
-        # Hard code: Разработчик ПО
-        hard_code_directions = {
-            'C', 'CPP', 'C++', 'JAVA', 'GO', 'RUST', 'BACKEND', 'MOBILE',
-            'WEB', 'FRONTEND', 'FULLSTACK', 'DEV', 'SWE'
-        }
-
-        # Low code: DS, DevOps, QA
-        low_code_directions = {
-            'DS', 'DO', 'QA', 'BIO', 'BIOINF', 'DEVOPS', 'DATA',
-            'ML', 'AI', 'TESTING', 'AUTOMATION'
-        }
-
-        # No code: PjM, UX, КБ, BSA
-        no_code_directions = {
-            'PJM', 'UX', 'CB', 'KB', 'BSA', 'BA', 'PM', 'CYBER',
-            'SECURITY', 'PRODUCT', 'DESIGN', 'MANAGEMENT', 'ANALYST'
-        }
-
-        if direction in hard_code_directions:
-            return 'hard_code'
-        elif direction in low_code_directions:
-            return 'low_code'
-        elif direction in no_code_directions:
-            return 'no_code'
-        else:
-            return 'low_code'
+        return resolve_content_profile(seed).profile
 
     def _build_content_type_instruction(self, seed: ProjectSeed, content_type: str) -> str:
         """Строит блок контекста и ограничений в зависимости от типа контента."""
@@ -533,7 +500,7 @@ class IntroRulesAgent:
 — **Исходные данные:** работай только с материалами проекта ({gitlab_link}) и файлами из `materials/`.
 — **Артефакты:** размещай результат по каноническим путям задач; запрещено менять служебные материалы и подменять анализ готовыми выводами."""
 
-        elif content_type == 'low_code':
+        elif content_type in {'low_code', 'hybrid'}:
             # LOW CODE: DS, DevOps, QA - минимум кода, больше конфигов/анализа
             return f"""Используй в блоке "Контекст и ограничения проекта":
 

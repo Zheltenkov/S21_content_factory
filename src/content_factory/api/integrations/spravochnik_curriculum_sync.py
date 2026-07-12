@@ -13,6 +13,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from content_factory.content_profile import infer_content_profile
 from content_factory.generation.models.curriculum import CurriculumPlan, CurriculumProject, ThematicBlock
 
 _DIRECTION_NAMES = {
@@ -224,6 +225,21 @@ def _build_project(block_name: str, block_goals: list[str], row: Mapping[str, ob
     completion = row.get("completion_percent")
     completion_value = _parse_float(completion)
     completion_text = f"{completion_value:g}%" if completion_value is not None else _as_text(completion) or None
+    stored_decision = row.get("content_profile_decision")
+    profile_decision = (
+        dict(stored_decision)
+        if isinstance(stored_decision, Mapping)
+        else infer_content_profile(
+            explicit_profile=_as_text(row.get("project_content_type")) or None,
+            thematic_block=block_name,
+            title=title,
+            description=_as_text(row.get("project_summary") or row.get("description")),
+            skills=_row_skills(row),
+            required_tools=_split_multivalue(row.get("required_tools")),
+            learning_outcomes=_row_learning_outcomes(row),
+            artifact=_as_text(row.get("artifact") or row.get("materials")),
+        ).model_dump(mode="json")
+    )
 
     return CurriculumProject(
         block_name=block_name,
@@ -239,6 +255,8 @@ def _build_project(block_name: str, block_goals: list[str], row: Mapping[str, ob
         skills=_row_skills(row),
         audience_level=_as_text(row.get("audience_level")) or None,
         required_tools=_split_multivalue(row.get("required_tools")),
+        project_content_type=_as_text(row.get("project_content_type")) or _as_text(profile_decision.get("profile")) or None,
+        content_profile_decision=profile_decision,
         format=_delivery_format(row.get("delivery_format")),
         group_size=_parse_int(row.get("group_size")),
         required_software=_as_text(row.get("required_software")) or None,

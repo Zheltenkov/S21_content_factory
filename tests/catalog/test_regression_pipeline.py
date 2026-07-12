@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import csv
 import io
@@ -273,7 +273,9 @@ def _create_base_catalog_db(_db_path: Path | None = None) -> Any:
     return conn
 
 
-def _candidate(name: str, *, group: str = "Тестовая группа", bloom: str = "apply", decision: str = "needs_review") -> SkillCandidate:
+def _candidate(
+    name: str, *, group: str = "Тестовая группа", bloom: str = "apply", decision: str = "needs_review"
+) -> SkillCandidate:
     return SkillCandidate(
         tmp_id=f"tmp-{name}",
         name=name,
@@ -324,7 +326,9 @@ def test_accept_then_batch_apply_promotes_skill_and_alias(monkeypatch: pytest.Mo
         assert suggestion["resolution"] in {"matched", "alias"}
         assert suggestion["canonical_skill_id"] is not None
 
-        skill = conn.execute("SELECT canonical_name, status, is_active FROM skill WHERE id = ?", (suggestion["canonical_skill_id"],)).fetchone()
+        skill = conn.execute(
+            "SELECT canonical_name, status, is_active FROM skill WHERE id = ?", (suggestion["canonical_skill_id"],)
+        ).fetchone()
         assert skill["canonical_name"] == "Методологический smoke skill"
         assert skill["status"] == "active"
         assert int(skill["is_active"]) == 1
@@ -432,7 +436,9 @@ def test_accept_then_batch_apply_promotes_skill_and_alias(monkeypatch: pytest.Mo
         assert accepted_link["profile_competency_state"] == "accepted"
         assert accepted_link["competency_skill_state"] == "accepted"
 
-        review = conn.execute("SELECT status, resolution_note FROM review_queue WHERE entity_id = ?", (suggestion_id,)).fetchone()
+        review = conn.execute(
+            "SELECT status, resolution_note FROM review_queue WHERE entity_id = ?", (suggestion_id,)
+        ).fetchone()
         assert review["status"] == "resolved"
         assert review["resolution_note"] == "accepted in test"
     finally:
@@ -485,12 +491,24 @@ def test_clear_intake_workspace_reverts_promotions_and_transient_data(monkeypatc
         assert stats["skill_promotions_reverted"] == 1
         assert conn.execute("SELECT COUNT(*) FROM intake_job").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM skill_suggestion").fetchone()[0] == 0
-        assert conn.execute("SELECT COUNT(*) FROM skill_set WHERE source_type IN ('brief', 'curriculum_plan')").fetchone()[0] == 0
+        assert (
+            conn.execute("SELECT COUNT(*) FROM skill_set WHERE source_type IN ('brief', 'curriculum_plan')").fetchone()[
+                0
+            ]
+            == 0
+        )
         assert conn.execute("SELECT COUNT(*) FROM skill_set_item").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM skill_promotion_log").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM review_queue WHERE source_ref LIKE 'brief:%'").fetchone()[0] == 0
-        assert conn.execute("SELECT COUNT(*) FROM indicator WHERE source_scale_title = 'intake-live'").fetchone()[0] == 0
-        assert conn.execute("SELECT COUNT(*) FROM indicator_row WHERE COALESCE(notes, '') LIKE 'intake_accept:%'").fetchone()[0] == 0
+        assert (
+            conn.execute("SELECT COUNT(*) FROM indicator WHERE source_scale_title = 'intake-live'").fetchone()[0] == 0
+        )
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM indicator_row WHERE COALESCE(notes, '') LIKE 'intake_accept:%'"
+            ).fetchone()[0]
+            == 0
+        )
         skill = conn.execute(
             "SELECT status, is_active FROM skill WHERE canonical_name = ?",
             ("Навык для очистки intake",),
@@ -511,7 +529,9 @@ def test_accept_promotes_neutral_name_and_original_alias(monkeypatch: pytest.Mon
         brief_id = storage.save_brief(conn, "brief", {"role": "роль", "seniority": "junior", "domain": "домен"})
         candidate = _candidate("Формулирование ценностного предложения")
         candidate.source_name = "Сформулировать ценностное предложение"
-        suggestion_id = storage.save_suggestions(conn, brief_id, [candidate], {})["tmp-Формулирование ценностного предложения"]
+        suggestion_id = storage.save_suggestions(conn, brief_id, [candidate], {})[
+            "tmp-Формулирование ценностного предложения"
+        ]
 
         apply_candidate_decision(conn, suggestion_id, "accepted", "accepted in test")
         apply_brief_catalog_decisions(conn, brief_id)
@@ -520,7 +540,9 @@ def test_accept_promotes_neutral_name_and_original_alias(monkeypatch: pytest.Mon
             "SELECT canonical_skill_id FROM skill_suggestion WHERE id = ?",
             (suggestion_id,),
         ).fetchone()
-        skill = conn.execute("SELECT canonical_name FROM skill WHERE id = ?", (suggestion["canonical_skill_id"],)).fetchone()
+        skill = conn.execute(
+            "SELECT canonical_name FROM skill WHERE id = ?", (suggestion["canonical_skill_id"],)
+        ).fetchone()
         aliases = [
             row["alias"]
             for row in conn.execute(
@@ -597,8 +619,16 @@ def test_dag_rebuild_persists_edges_and_curriculum(monkeypatch: pytest.MonkeyPat
 
         assert result["dag"]["status"] == "built"
         assert int(result["dag"]["nodes"]) == 2
-        assert conn.execute("SELECT COUNT(*) FROM skill_prerequisite WHERE brief_id = ?", (brief_id,)).fetchone()[0] >= 1
-        assert conn.execute("SELECT COUNT(*) FROM curriculum_plan_row cpr JOIN curriculum_plan cp ON cp.id = cpr.plan_id WHERE cp.brief_id = ?", (brief_id,)).fetchone()[0] >= 1
+        assert (
+            conn.execute("SELECT COUNT(*) FROM skill_prerequisite WHERE brief_id = ?", (brief_id,)).fetchone()[0] >= 1
+        )
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM curriculum_plan_row cpr JOIN curriculum_plan cp ON cp.id = cpr.plan_id WHERE cp.brief_id = ?",
+                (brief_id,),
+            ).fetchone()[0]
+            >= 1
+        )
     finally:
         conn.close()
         db_path.unlink(missing_ok=True)
@@ -699,6 +729,25 @@ def test_up_detail_payload_keeps_quality_metrics() -> None:
         "payload_json": json.dumps(
             {
                 "message": "built",
+                "design_spec": {
+                    "version": "curriculum-design:v1",
+                    "design_hash": "abc123",
+                    "approved": True,
+                    "journey_type": "professional_workflow",
+                    "journey_type_label": "Профессиональный рабочий процесс",
+                    "program_goal": "Освоить полный рабочий процесс",
+                    "stages": [
+                        {
+                            "code": "stage-01",
+                            "title": "Подготовка",
+                            "goal": "Подготовить исходные данные",
+                            "coverage_areas": ["Подготовка"],
+                            "node_ids": ["S1", "S2"],
+                        }
+                    ],
+                    "capstone_required": True,
+                    "capstone_title": "Итоговая работа",
+                },
                 "report": {
                     "coverage_ok": True,
                     "order_violations": [],
@@ -754,6 +803,8 @@ def test_up_detail_payload_keeps_quality_metrics() -> None:
     assert payload["report"]["quality_metrics"]["repeated_thread_count"] == 1
     assert payload["report"]["quality_metrics"]["enrichment_completeness_pct"] == 100.0
     assert payload["report"]["quality_metrics"]["enriched_project_count"] == 1
+    assert payload["design_spec"]["design_hash"] == "abc123"
+    assert payload["design_spec"]["stages"][0]["title"] == "Подготовка"
 
 
 def test_llm_usage_summary_and_intake_quality_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -795,7 +846,13 @@ def test_llm_usage_summary_and_intake_quality_metrics(monkeypatch: pytest.Monkey
 
     result = {
         "candidates": [
-            {"entity_type": "skill", "atomicity": "atomic", "decision": "accepted", "resolution": "matched", "reasons": ""},
+            {
+                "entity_type": "skill",
+                "atomicity": "atomic",
+                "decision": "accepted",
+                "resolution": "matched",
+                "reasons": "",
+            },
             {
                 "entity_type": "skill",
                 "atomicity": "atomic",
@@ -803,7 +860,13 @@ def test_llm_usage_summary_and_intake_quality_metrics(monkeypatch: pytest.Monkey
                 "resolution": "alias",
                 "reasons": "catalog_match_suspicious",
             },
-            {"entity_type": "skill", "atomicity": "atomic", "decision": "rejected", "resolution": "fuzzy", "reasons": ""},
+            {
+                "entity_type": "skill",
+                "atomicity": "atomic",
+                "decision": "rejected",
+                "resolution": "fuzzy",
+                "reasons": "",
+            },
         ],
         "curriculum_plan": {
             "rows": [
@@ -858,7 +921,9 @@ def test_llm_chat_uses_polza_endpoint_without_openrouter_headers(monkeypatch: py
         trust_env = True
 
         def post(self, url: str, *, headers: dict[str, str], json: dict[str, object], timeout: int) -> FakeResponse:
-            captured.update({"url": url, "headers": headers, "payload": json, "timeout": timeout, "trust_env": self.trust_env})
+            captured.update(
+                {"url": url, "headers": headers, "payload": json, "timeout": timeout, "trust_env": self.trust_env}
+            )
             return FakeResponse()
 
     import requests
@@ -990,11 +1055,15 @@ def test_up_project_titles_are_not_cut_mid_word_or_parenthesis() -> None:
     ru_title = stage_dag_to_up._clean_project_title(long_ru)
     mixed_title = stage_dag_to_up._clean_project_title(mixed_parenthesis)
 
-    assert not ru_title.endswith("ценностног")
-    assert not ru_title.endswith("и")
-    assert ru_title.endswith("…") or "ценностного" in ru_title
+    assert ru_title == long_ru
     assert "(customer" not in mixed_title
     assert mixed_title == "Исследование продукта и проверка гипотез"
+
+
+def test_dynamic_project_title_preserves_full_coverage_area() -> None:
+    coverage_area = "Стратегия, управление рисками, цели и регулярный управленческий ритм"
+
+    assert curriculum_planner._project_title_for(coverage_area, 1, 1) == coverage_area
 
 
 def test_up_template_long_project_pattern_falls_back_to_template_title() -> None:
@@ -1019,13 +1088,40 @@ def test_up_template_long_project_pattern_falls_back_to_template_title() -> None
     assert title == "Комплект юридико-финансовых документов для запуска"
 
 
+def test_up_template_fragmentary_project_pattern_falls_back_to_template_title() -> None:
+    node = PlanNode(
+        tmp_id="S1",
+        name="Контроль качества AI-результатов",
+        group="AI quality",
+        block_key="Контроль качества результатов AI",
+        bloom=4,
+        outcomes_know=(),
+        outcomes_can=(),
+        outcomes_skills=(),
+        tools=(),
+    )
+    template = {
+        "title": "План валидации и отчёт по качеству AI-результатов",
+        "project_name_pattern": "Вали",
+    }
+
+    title = curriculum_planner._template_title_for([node], node.block_key, "analysis", template)
+
+    assert title == "План валидации и отчёт по качеству AI-результатов"
+
+
 def test_up_planner_uses_dynamic_catalog_themes_without_local_archetypes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, "UP_MAX_SKILLS_PER_PROJECT", 4)
     candidates = [
         _candidate("Оценка кислотности почвы", group="Фермерство / Почва", bloom="apply", decision="accepted"),
         _candidate("Настройка полива теплицы", group="Фермерство / Теплицы", bloom="apply", decision="accepted"),
         _candidate("Планирование кормления стада", group="Животноводство", bloom="analyze", decision="accepted"),
-        _candidate("Контроль санитарной обработки оборудования", group="Пищевая безопасность", bloom="apply", decision="accepted"),
+        _candidate(
+            "Контроль санитарной обработки оборудования",
+            group="Пищевая безопасность",
+            bloom="apply",
+            decision="accepted",
+        ),
     ]
     for index, candidate in enumerate(candidates, start=1):
         candidate.tmp_id = f"S{index}"
@@ -1144,7 +1240,14 @@ def test_up_planner_applies_db_artifact_template_without_changing_node_ids(monke
                 "storytelling_pattern": "Участник решает кейс в теме {theme}",
                 "validation_criteria": "Проверить аргументацию и навыки: {skills}",
                 "priority": 1,
-                "scopes": [{"scope_type": "coverage_area", "scope_name": "Фермерство", "normalized_scope_name": "фермерство", "weight": 1.0}],
+                "scopes": [
+                    {
+                        "scope_type": "coverage_area",
+                        "scope_name": "Фермерство",
+                        "normalized_scope_name": "фермерство",
+                        "weight": 1.0,
+                    }
+                ],
             }
         ],
     }
@@ -1161,7 +1264,7 @@ def test_up_planner_applies_db_artifact_template_without_changing_node_ids(monke
     assert plan["report"]["quality_metrics"]["db_template_project_count"] == 1
 
 
-def test_up_planner_allows_soft_edges_inside_integrative_project(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_up_planner_can_group_accepted_recommended_edges(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, "UP_MAX_SKILLS_PER_PROJECT", 4)
     candidates = [
         _candidate("A base", group="theme", bloom="apply", decision="accepted"),
@@ -1186,8 +1289,49 @@ def test_up_planner_allows_soft_edges_inside_integrative_project(monkeypatch: py
     plan = stage_dag_to_up.run({"role": "tester", "seniority": "junior"}, candidates, dag_payload)
 
     assert plan["status"] == "built"
-    assert any({"A", "B"}.issubset(set(row["node_ids"])) for row in plan["rows"])
+    assert [row["node_ids"] for row in plan["rows"]] == [["A", "B"]]
+    assert plan["report"]["order_violations"] == []
     assert plan["report"]["project_violations"] == []
+
+
+def test_project_reorder_does_not_split_groups_for_conflicting_recommendations() -> None:
+    nodes = {
+        key: PlanNode(key, key, "group", "stage", 3, (), (), (), ())
+        for key in ("A", "B", "C", "D")
+    }
+    projects = [
+        ProjectBlueprint(
+            occurrences=[
+                SkillOccurrence(nodes["A"], role="primary"),
+                SkillOccurrence(nodes["D"], role="primary"),
+            ],
+            block_key="stage",
+            artifact="artifact-1",
+            title="Project 1",
+        ),
+        ProjectBlueprint(
+            occurrences=[
+                SkillOccurrence(nodes["C"], role="primary"),
+                SkillOccurrence(nodes["B"], role="primary"),
+            ],
+            block_key="stage",
+            artifact="artifact-2",
+            title="Project 2",
+        ),
+    ]
+    dag_payload = {
+        "final_edges": [
+            {"src_id": "A", "dst_id": "B", "relation_type": "soft"},
+            {"src_id": "C", "dst_id": "D", "relation_type": "soft"},
+        ]
+    }
+
+    ordered = curriculum_planner._reorder_projects_by_dag_edges(projects, dag_payload)
+    assert len(ordered) == 2
+    assert {frozenset(node.tmp_id for node in project.unique_nodes) for project in ordered} == {
+        frozenset({"A", "D"}),
+        frozenset({"B", "C"}),
+    }
 
 
 def test_up_planner_scales_hours_to_brief_workload(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1204,7 +1348,9 @@ def test_up_planner_scales_hours_to_brief_workload(monkeypatch: pytest.MonkeyPat
         "final_edges": [],
     }
 
-    plan = stage_dag_to_up.run({"role": "tester", "seniority": "junior", "target_total_hours": 480}, candidates, dag_payload)
+    plan = stage_dag_to_up.run(
+        {"role": "tester", "seniority": "junior", "target_total_hours": 480}, candidates, dag_payload
+    )
 
     assert plan["status"] == "built"
     assert plan["summary"]["total_hours"] == 480
@@ -1285,7 +1431,11 @@ def test_catalog_apply_auto_generates_template_proposals(monkeypatch: pytest.Mon
             candidate.tmp_id = f"S{index}"
             candidate.coverage_area = "выявление проблемы и понимание клиента"
         storage.save_suggestions(conn, brief_id, candidates, {})
-        dag_payload = {"order": [{"id": "S1"}, {"id": "S2"}], "final_edges": [], "waves": [[{"id": "S1"}, {"id": "S2"}]]}
+        dag_payload = {
+            "order": [{"id": "S1"}, {"id": "S2"}],
+            "final_edges": [],
+            "waves": [[{"id": "S1"}, {"id": "S2"}]],
+        }
 
         apply_result = apply_brief_catalog_decisions(conn, brief_id)
         proposals = storage.load_curriculum_artifact_template_proposals(conn, brief_id)
@@ -1429,7 +1579,10 @@ def test_practical_actions_are_not_downgraded_to_understand() -> None:
     spec = {"seniority": "начинающий"}
 
     assert stage_brief_to_catalog.normalize_bloom("understand", spec, "Настраивает мониторинг и логирование") == "apply"
-    assert stage_brief_to_catalog.normalize_bloom("understand", spec, "Проектирует высокоуровневую архитектуру") == "analyze"
+    assert (
+        stage_brief_to_catalog.normalize_bloom("understand", spec, "Проектирует высокоуровневую архитектуру")
+        == "analyze"
+    )
 
 
 def test_triage_does_not_mark_matched_skill_as_novel() -> None:
@@ -1556,6 +1709,22 @@ def test_edge_decision_override_promotes_ai_edge_to_operational_dag() -> None:
     assert dag.number_of_edges() == 1
 
 
+def test_accepted_edge_decision_survives_missing_fresh_model_proposal() -> None:
+    edges: list[stage_catalog_to_dag.PrereqEdge] = []
+
+    stage_catalog_to_dag.apply_edge_decision_overrides(
+        edges,
+        {"A->B": "accepted"},
+        valid_node_ids={"A", "B"},
+    )
+
+    assert len(edges) == 1
+    assert edges[0].src == "A"
+    assert edges[0].dst == "B"
+    assert edges[0].decision == "accept"
+    assert edges[0].source == "human"
+
+
 def test_atomize_batches_live_suspicious_candidates(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, "USE_LIVE", True)
     calls: list[list[str]] = []
@@ -1658,7 +1827,9 @@ def test_intake_status_labels_and_workflow_steps() -> None:
             brief_text="brief",
             use_council=False,
         )
-        update_intake_job(conn, job_id, status="running", current_stage="search", progress_note="gray-zone search", mark_started=True)
+        update_intake_job(
+            conn, job_id, status="running", current_stage="search", progress_note="gray-zone search", mark_started=True
+        )
 
         job = get_intake_job(conn, job_id)
         assert job is not None
@@ -1702,7 +1873,9 @@ def test_repair_dirty_profile_name_and_slug() -> None:
         db_path.unlink(missing_ok=True)
 
 
-def test_workspace_state_blocks_up_until_reviews_and_candidate_competencies_are_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_workspace_state_blocks_up_until_reviews_and_candidate_competencies_are_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(config, "USE_LIVE", False)
     monkeypatch.setattr(config, "USE_UP_TEMPLATE_CONSILIUM", False)
     db_path = _runtime_db_path("workspace-state")
@@ -1880,7 +2053,9 @@ def test_candidate_competency_rename_move_and_merge(monkeypatch: pytest.MonkeyPa
 
         candidate_rows = list_candidate_competencies(conn)
         by_title = {row["title"]: row for row in candidate_rows}
-        rename_result = rename_candidate_competency(conn, int(by_title["Candidate A"]["competency_id"]), "Renamed Candidate A")
+        rename_result = rename_candidate_competency(
+            conn, int(by_title["Candidate A"]["competency_id"]), "Renamed Candidate A"
+        )
         assert rename_result["status"] == "renamed"
 
         renamed = next(row for row in list_candidate_competencies(conn) if row["title"] == "Renamed Candidate A")
@@ -1914,9 +2089,7 @@ def test_candidate_competency_rename_move_and_merge(monkeypatch: pytest.MonkeyPa
             """
         ).fetchone()
         assert merged_link["title"] == "Existing Research"
-        rejected_candidate = conn.execute(
-            "SELECT status FROM competency WHERE title = 'Candidate B'"
-        ).fetchone()
+        rejected_candidate = conn.execute("SELECT status FROM competency WHERE title = 'Candidate B'").fetchone()
         assert rejected_candidate["status"] == "deprecated"
     finally:
         conn.close()
@@ -1957,7 +2130,9 @@ def test_link_suggestion_to_nearest_uses_existing_skill(monkeypatch: pytest.Monk
     conn = _create_base_catalog_db(db_path)
     try:
         group_id = ensure_catalog_group(conn, "research", "Research", 1)
-        existing_skill_id = create_catalog_skill(conn, group_id, "Проведение клиентского интервью", 1, "", "", "manual", "", 1)
+        existing_skill_id = create_catalog_skill(
+            conn, group_id, "Проведение клиентского интервью", 1, "", "", "manual", "", 1
+        )
         brief_id = storage.save_brief(conn, "brief", {"role": "роль", "seniority": "junior", "domain": "домен"})
         candidate = _candidate("Проведение клиентские интервью", decision="needs_review")
         candidate.nearest_skill_id = existing_skill_id
@@ -1971,7 +2146,9 @@ def test_link_suggestion_to_nearest_uses_existing_skill(monkeypatch: pytest.Monk
         apply_brief_catalog_decisions(conn, brief_id)
 
         after_skill_count = conn.execute("SELECT COUNT(*) FROM skill").fetchone()[0]
-        suggestion = conn.execute("SELECT decision, resolution, canonical_skill_id FROM skill_suggestion WHERE id = ?", (suggestion_id,)).fetchone()
+        suggestion = conn.execute(
+            "SELECT decision, resolution, canonical_skill_id FROM skill_suggestion WHERE id = ?", (suggestion_id,)
+        ).fetchone()
         alias = conn.execute(
             "SELECT alias FROM skill_alias WHERE skill_id = ? AND alias = ?",
             (existing_skill_id, "Проведение клиентские интервью"),
@@ -1993,7 +2170,10 @@ def test_skill_name_canonicalization_and_resolve_source_alias(monkeypatch: pytes
     monkeypatch.setattr(config, "USE_UP_TEMPLATE_CONSILIUM", False)
     assert canonicalize_skill_name("Сформулировать ценностное предложение") == "Формулирование ценностного предложения"
     assert canonicalize_skill_name("Провести глубинное интервью") == "Проведение глубинных интервью"
-    assert canonicalize_skill_name("Выбирать метод проверки и запускать эксперимент") == "Выбор метода проверки и запуска эксперимента"
+    assert (
+        canonicalize_skill_name("Выбирать метод проверки и запускать эксперимент")
+        == "Выбор метода проверки и запуска эксперимента"
+    )
     assert canonicalize_skill_name("Синтезировать инсайты пользователей") == "Синтез инсайтов пользователей"
     assert canonicalize_skill_name("Формулирование проблемную гипотезу") == "Формулирование проблемной гипотезы"
     assert canonicalize_skill_name("Оформить спецификацию") == "Оформление спецификации"
@@ -2058,4 +2238,3 @@ def test_candidate_recommended_action_is_explicit_for_methodologist() -> None:
         )["code"]
         == "check"
     )
-

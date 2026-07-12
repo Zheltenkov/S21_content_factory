@@ -1,0 +1,914 @@
+{% extends "base.html" %}
+
+{% macro render_action(action, extra_class="") -%}
+    {% if action %}
+        {% if action.method == "post" %}
+            <form class="builder-action-form" method="post" action="{{ action.href }}">
+                <button class="action-btn {{ extra_class }}" type="submit">{{ action.label }}</button>
+            </form>
+        {% else %}
+            <a class="action-btn {{ extra_class }}" href="{{ action.href }}">{{ action.label }}</a>
+        {% endif %}
+    {% endif %}
+{%- endmacro %}
+
+{% block content %}
+{% set embedded_action_codes = ["apply_catalog", "build_dag", "generate_templates", "review_templates", "build_plan", "open_plan"] %}
+<section class="hero hero-compact builder-hero">
+    <div>
+        <h1>Конструктор УП</h1>
+        {% if builder.has_brief %}
+            <p>{{ builder.snapshot.role or "Бриф без роли" }}</p>
+            <p class="small">{{ builder.snapshot.domain or "Домен не указан" }}</p>
+        {% else %}
+            <p>Новый маршрут: загрузите бриф, проверьте навыки и соберите учебный план.</p>
+        {% endif %}
+    </div>
+    <div class="review-actions builder-hero-actions">
+        {% if builder.has_brief %}
+            <a class="action-btn action-btn-secondary" href="/app/curriculum">Новый бриф</a>
+        {% endif %}
+        <a class="action-btn action-btn-secondary" href="{{ base }}/up">Реестр УП</a>
+        {% if builder.has_brief and builder.next_action and builder.next_action.code not in embedded_action_codes %}
+            {{ render_action(builder.next_action) }}
+        {% endif %}
+    </div>
+</section>
+
+{% if builder.recent_briefs %}
+<section class="tree-card builder-picker">
+    <form method="get" action="/app/curriculum" class="builder-picker-form">
+        <label for="brief_id">{% if builder.has_brief %}Текущий бриф{% else %}Продолжить бриф{% endif %}</label>
+        <select id="brief_id" name="brief_id">
+            {% if not builder.has_brief %}
+                <option value="" selected disabled>Выберите существующий бриф, если нужно продолжить</option>
+            {% endif %}
+            {% for brief in builder.recent_briefs %}
+                <option value="{{ brief.brief_id }}" {% if brief.brief_id == builder.snapshot.brief_id %}selected{% endif %}>
+                    #{{ brief.brief_id }} · {{ brief.role }}{% if brief.domain %} · {{ brief.domain }}{% endif %}
+                </option>
+            {% endfor %}
+        </select>
+        <button class="action-btn action-btn-secondary" type="submit">Открыть</button>
+    </form>
+</section>
+{% endif %}
+
+<section class="tree-card builder-workbench" aria-label="Рабочая зона конструктора УП">
+    <div class="builder-workbench-main">
+        {% if builder.next_action and builder.next_action.code not in embedded_action_codes %}
+        <div class="builder-workbench-next">
+            <div>
+                <div class="summary-label">Следующий шаг</div>
+                <h2>{% if not builder.has_brief %}Начать новый маршрут{% else %}{{ builder.next_action.label }}{% endif %}</h2>
+            {% if builder.next_action.hint %}
+                <p class="small">{{ builder.next_action.hint }}</p>
+            {% endif %}
+            </div>
+            {% if builder.has_brief %}
+                {{ render_action(builder.next_action) }}
+            {% elif builder.snapshot.latest_job_id and builder.snapshot.latest_job_status in ["pending", "running"] %}
+                <a class="action-btn action-btn-secondary" href="/app/curriculum?job_id={{ builder.snapshot.latest_job_id }}">Обновить</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if not builder.has_brief %}
+            {% if builder.snapshot.latest_job_id and builder.snapshot.latest_job_status in ["pending", "running"] %}
+            <section
+                class="builder-job-card intake-progress-card"
+                data-builder-job-status-url="{{ base }}/intake/jobs/{{ builder.snapshot.latest_job_id }}/status"
+            >
+                <div class="intake-progress-head">
+                    <div>
+                        <div class="summary-label">Обработка брифа</div>
+                        <h2 id="builder-job-stage">{{ builder.snapshot.latest_job_stage or "Постановка в очередь" }}</h2>
+                        <p class="small" id="builder-job-progress">Задача #{{ builder.snapshot.latest_job_id }} выполняется. Экран обновится после завершения.</p>
+                    </div>
+                    <span class="status-badge" id="builder-job-status">{{ builder.snapshot.latest_job_status }}</span>
+                </div>
+                <div class="intake-progress-track" aria-hidden="true">
+                    <div class="intake-progress-fill" id="builder-job-progress-fill" style="width: 12%;"></div>
+                </div>
+            </section>
+            {% else %}
+            <form
+                class="builder-brief-form"
+                method="post"
+                action="/app/curriculum/briefs"
+                enctype="multipart/form-data"
+                id="curriculum-brief-form"
+                data-builder-brief-form
+            >
+                <div class="builder-brief-form-head">
+                    <div>
+                        <strong>Источник брифа</strong>
+                        <span class="small muted">Файл или текст проверяются перед ручным запуском.</span>
+                    </div>
+                    <button type="submit" class="action-btn action-btn-primary builder-brief-submit" id="builder-brief-submit" {% if not brief_form.brief %}disabled{% endif %}>Начать обработку</button>
+                </div>
+                <div class="brief-compose-grid builder-brief-compose">
+                    <div class="brief-upload-panel">
+                        <label class="upload-dropzone" id="builder-brief-dropzone" for="builder-brief-file-input" role="button" tabindex="0" aria-controls="builder-brief-file-input">
+                            <div class="upload-dropzone-title">Загрузить бриф</div>
+                            <div class="upload-dropzone-subtitle">
+                                Выбор файла не запускает обработку. Поддерживаются `.txt`, `.md`, `.csv`, `.docx`.
+                            </div>
+                            <input class="brief-file-input-native" type="file" name="brief_file" id="builder-brief-file-input" accept=".txt,.md,.csv,.docx" aria-label="Выбрать документ для брифа">
+                        </label>
+                        <div class="small muted" id="builder-picker-status">Файл пока не выбран.</div>
+                        <div class="builder-file-meta" id="builder-file-meta" hidden></div>
+                    </div>
+                    <label class="brief-text-panel builder-brief-text-panel">
+                        <span>Бриф / предпросмотр</span>
+                        <textarea name="brief" id="builder-brief-text" rows="12" placeholder="Вставьте текст брифа или выберите файл слева. Для `.txt`, `.md`, `.csv` здесь появится предпросмотр.">{{ brief_form.brief or "" }}</textarea>
+                        <span class="small muted" id="builder-brief-help">Проверьте содержимое, затем нажмите кнопку запуска.</span>
+                    </label>
+                </div>
+                {% if brief_form.form_error %}
+                <div class="status-badge warn">{{ brief_form.form_error }}</div>
+                {% endif %}
+            </form>
+            {% endif %}
+        {% endif %}
+
+        {% set analysis = builder.snapshot.brief_analysis %}
+        {% if analysis and analysis.available %}
+        <section class="builder-analysis" aria-label="Анализ брифа">
+            <div class="summary-head">
+                <div>
+                    <h2>Анализ брифа</h2>
+                    <p class="small">Краткая методологическая сводка перед проверкой навыков и сборкой УП.</p>
+                </div>
+                <span class="pill ghost">после декомпозиции</span>
+            </div>
+
+            {% if analysis.metrics %}
+            <div class="builder-analysis-metrics">
+                {% for metric in analysis.metrics %}
+                <div class="builder-analysis-metric">
+                    <span>{{ metric.label }}</span>
+                    <strong>{{ metric.value }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if analysis.program_goal %}
+            <div class="builder-analysis-note">
+                <strong>Цель программы</strong>
+                <p>{{ analysis.program_goal }}</p>
+            </div>
+            {% endif %}
+
+            {% if analysis.must_include_areas %}
+            <div class="builder-analysis-areas">
+                <strong>Обязательные области</strong>
+                <div>
+                    {% for area in analysis.must_include_areas %}
+                    <span>{{ area }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="builder-analysis-grid">
+                {% if analysis.coverage_metrics %}
+                <div class="builder-analysis-panel">
+                    <strong>Покрытие</strong>
+                    <div>
+                        {% for metric in analysis.coverage_metrics %}
+                        <span><b>{{ metric.value }}</b> {{ metric.label }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if analysis.atomize_metrics %}
+                <div class="builder-analysis-panel">
+                    <strong>Атомизация</strong>
+                    <div>
+                        {% for metric in analysis.atomize_metrics %}
+                        <span><b>{{ metric.value }}</b> {{ metric.label }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if analysis.normalize_metrics %}
+                <div class="builder-analysis-panel">
+                    <strong>Дедупликация</strong>
+                    <div>
+                        {% for metric in analysis.normalize_metrics %}
+                        <span><b>{{ metric.value }}</b> {{ metric.label }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if analysis.coverage_rows %}
+            <details class="builder-analysis-details" open>
+                <summary>Покрытие обязательных областей</summary>
+                <div class="builder-coverage-list">
+                    {% for row in analysis.coverage_rows %}
+                    <div class="builder-coverage-row">
+                        <div>
+                            <strong>{{ row.area }}</strong>
+                            <span class="small">{{ row.matched_candidates }}</span>
+                        </div>
+                        <span class="{{ row.status_class }}">{{ row.status_label }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% if analysis.sub_queries %}
+            <details class="builder-analysis-details">
+                <summary>Под-запросы поиска</summary>
+                <ul class="builder-query-list">
+                    {% for query in analysis.sub_queries %}
+                    <li>{{ query }}</li>
+                    {% endfor %}
+                </ul>
+            </details>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        {% if builder.snapshot.skill_candidates and builder.snapshot.latest_job_id %}
+        <section class="builder-skill-review" id="skills-review" aria-label="Проверка навыков">
+            <div class="summary-head builder-skill-review-head">
+                <div>
+                    <h2>Навыки из брифа</h2>
+                    <p class="small">Сначала разберите спорные навыки. Рекомендация системы помогает выбрать действие, но решение сохраняет методолог.</p>
+                </div>
+                <div class="builder-skill-counts" aria-label="Статусы навыков">
+                    <span class="status-badge{% if builder.snapshot.open_candidates %} warn{% endif %}">{{ builder.snapshot.open_candidates|length }} требуют решения</span>
+                    <span class="pill ghost">{{ builder.snapshot.accepted_candidates|length }} принято</span>
+                </div>
+            </div>
+
+            {% if builder.snapshot.open_candidates %}
+            <div class="builder-skill-list">
+                {% for candidate in builder.snapshot.open_candidates %}
+                <article class="builder-skill-card">
+                    <div class="builder-skill-card-head">
+                        <div class="builder-skill-title">
+                            <div>
+                                <h3>{{ candidate.name }}</h3>
+                                <span class="status-badge warn">{{ candidate.decision_label }}</span>
+                            </div>
+                            {% if candidate.source_name and candidate.source_name != candidate.name %}
+                            <p class="small muted">Из брифа: {{ candidate.source_name }}</p>
+                            {% endif %}
+                        </div>
+                        <form class="builder-skill-actions" method="post" action="/app/curriculum/jobs/{{ builder.snapshot.latest_job_id }}/candidate-decision">
+                            <input type="hidden" name="suggestion_id" value="{{ candidate.suggestion_id }}">
+                            <button class="action-btn action-btn-secondary{% if candidate.recommendation_code == 'create' %} action-btn-primary action-btn-recommended{% endif %}" type="submit" name="candidate_action" value="accept" title="Добавить как новый навык">+ Новый</button>
+                            <button class="action-btn action-btn-secondary{% if candidate.recommendation_code == 'link' %} action-btn-primary action-btn-recommended{% endif %}" type="submit" name="candidate_action" value="link" title="Связать с ближайшим навыком из справочника"{% if not candidate.nearest_skill_id %} disabled{% endif %}>↔ Связать</button>
+                            <button class="action-btn action-btn-danger" type="submit" name="candidate_action" value="reject" title="Не использовать этот навык">× Отклонить</button>
+                        </form>
+                    </div>
+
+                    <div class="builder-skill-meta">
+                        {% if candidate.coverage_area %}<span>{{ candidate.coverage_area }}</span>{% endif %}
+                        {% if candidate.group %}<span>{{ candidate.group }}</span>{% endif %}
+                        {% if candidate.bloom %}<span>Блум {{ candidate.bloom }}</span>{% endif %}
+                    </div>
+
+                    <div class="builder-skill-comparison">
+                        <div class="builder-skill-nearest">
+                            <span>Ближайший в справочнике</span>
+                            <strong>{{ candidate.nearest_name or "Не найден" }}</strong>
+                            {% if candidate.nearest_group %}<small>{{ candidate.nearest_group }}</small>{% endif %}
+                        </div>
+                        <div><span>Похожесть</span><strong>{{ candidate.match_score }}</strong></div>
+                        <div><span>Новизна</span><strong>{{ candidate.novelty_score }}</strong></div>
+                        <div><span>Уверенность</span><strong>{{ candidate.confidence }}</strong></div>
+                        <div><span>Жюри</span><strong>{{ candidate.council_agreement }}</strong></div>
+                    </div>
+
+                    <div class="builder-skill-recommendation builder-skill-recommendation-{{ candidate.recommendation_code }}">
+                        <strong>{{ candidate.recommendation_label }}</strong>
+                        {% if candidate.recommendation_target %}<span>{{ candidate.recommendation_target }}</span>{% endif %}
+                        {% if candidate.recommendation_detail %}<p>{{ candidate.recommendation_detail }}</p>{% endif %}
+                        {% if candidate.similarity_recommendation %}<p>{{ candidate.similarity_recommendation }}</p>{% endif %}
+                    </div>
+
+                    <details class="builder-skill-details">
+                        <summary>Основание и контекст</summary>
+                        <div>
+                            <p><strong>Причины:</strong> {{ candidate.reasons }}</p>
+                            {% if candidate.tools %}<p><strong>Инструменты:</strong> {{ candidate.tools }}</p>{% endif %}
+                            {% if candidate.parent_name %}<p><strong>Декомпозиция:</strong> {{ candidate.parent_name }}</p>{% endif %}
+                        </div>
+                    </details>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="builder-skill-complete">
+                <strong>Все навыки разобраны</strong>
+                <span class="small">Можно применить принятые решения в справочник и перейти к DAG.</span>
+            </div>
+            {% endif %}
+
+            {% if builder.snapshot.accepted_candidates %}
+            <details class="builder-resolved-skills">
+                <summary>Принятые навыки <span class="pill ghost">{{ builder.snapshot.accepted_candidates|length }}</span></summary>
+                <div class="builder-resolved-list">
+                    {% for candidate in builder.snapshot.accepted_candidates %}
+                    <div class="builder-resolved-row">
+                        <div><strong>{{ candidate.name }}</strong>{% if candidate.group %}<span>{{ candidate.group }}</span>{% endif %}</div>
+                        <form method="post" action="/app/curriculum/jobs/{{ builder.snapshot.latest_job_id }}/candidate-decision">
+                            <input type="hidden" name="suggestion_id" value="{{ candidate.suggestion_id }}">
+                            <button class="action-btn action-btn-light" type="submit" name="candidate_action" value="review">↩ Вернуть на проверку</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% if builder.snapshot.rejected_candidates %}
+            <details class="builder-resolved-skills">
+                <summary>Отклонённые навыки <span class="pill ghost">{{ builder.snapshot.rejected_candidates|length }}</span></summary>
+                <div class="builder-resolved-list">
+                    {% for candidate in builder.snapshot.rejected_candidates %}
+                    <div class="builder-resolved-row">
+                        <div><strong>{{ candidate.name }}</strong>{% if candidate.group %}<span>{{ candidate.group }}</span>{% endif %}</div>
+                        <form method="post" action="/app/curriculum/jobs/{{ builder.snapshot.latest_job_id }}/candidate-decision">
+                            <input type="hidden" name="suggestion_id" value="{{ candidate.suggestion_id }}">
+                            <button class="action-btn action-btn-light" type="submit" name="candidate_action" value="review">↩ Вернуть на проверку</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        {% if builder.has_brief and builder.snapshot.accepted_atomic_count > 0 and builder.snapshot.open_skill_reviews == 0 and builder.snapshot.plan_row_count == 0 %}
+        <section class="builder-structure-transition" id="structure-transition" aria-label="Переход от навыков к DAG">
+            <div class="summary-head builder-structure-head">
+                <div>
+                    <h2>Сборка структуры УП</h2>
+                    <p class="small">Два последовательных действия: сначала зафиксировать принятые навыки, затем построить зависимости между ними.</p>
+                </div>
+                {% if builder.snapshot.dag_valid %}
+                <span class="status-badge">DAG готов</span>
+                {% elif builder.snapshot.catalog_applied %}
+                <span class="status-badge warn">Нужно построить DAG</span>
+                {% else %}
+                <span class="status-badge warn">Нужно применить навыки</span>
+                {% endif %}
+            </div>
+
+            <div class="builder-structure-steps">
+                <article class="builder-structure-step{% if builder.snapshot.catalog_applied %} builder-structure-step-done{% else %} builder-structure-step-active{% endif %}">
+                    <span class="builder-structure-number">{% if builder.snapshot.catalog_applied %}✓{% else %}1{% endif %}</span>
+                    <div class="builder-structure-copy">
+                        <strong>Применить навыки</strong>
+                        {% if builder.snapshot.catalog_applied %}
+                        <p>Набор брифа обновлён: {{ builder.snapshot.skill_set_items }} навыков. Используются только принятые решения.</p>
+                        {% else %}
+                        <p>Запишет {{ builder.snapshot.accepted_atomic_count }} принятых навыков в набор брифа и подготовит их для графа.</p>
+                        {% endif %}
+                    </div>
+                    {% if builder.next_action and builder.next_action.code == "apply_catalog" %}
+                        {{ render_action(builder.next_action, "action-btn-primary") }}
+                    {% else %}
+                        <span class="builder-structure-state">{{ "Готово" if builder.snapshot.catalog_applied else "Ожидает" }}</span>
+                    {% endif %}
+                </article>
+
+                <article class="builder-structure-step{% if builder.snapshot.dag_valid %} builder-structure-step-done{% elif builder.snapshot.catalog_applied %} builder-structure-step-active{% else %} builder-structure-step-pending{% endif %}">
+                    <span class="builder-structure-number">{% if builder.snapshot.dag_valid %}✓{% else %}2{% endif %}</span>
+                    <div class="builder-structure-copy">
+                        <strong>Построить DAG</strong>
+                        {% if builder.snapshot.dag_valid %}
+                        <p>Граф валиден: {{ builder.snapshot.dag_nodes }} узлов, в порядке обучения {{ builder.snapshot.dag_order_count }}.</p>
+                        {% elif builder.snapshot.catalog_applied %}
+                        <p>Построит порядок изучения из применённого набора навыков и проверит зависимости.</p>
+                        {% else %}
+                        <p>DAG станет доступен после применения навыков. Сырой бриф напрямую в граф не попадает.</p>
+                        {% endif %}
+                    </div>
+                    {% if builder.next_action and builder.next_action.code == "build_dag" %}
+                        {{ render_action(builder.next_action, "action-btn-primary") }}
+                    {% else %}
+                        <span class="builder-structure-state">{{ "Готово" if builder.snapshot.dag_valid else "После шага 1" }}</span>
+                    {% endif %}
+                </article>
+            </div>
+
+            <div class="builder-structure-note">
+                <strong>Что будет дальше</strong>
+                <span>Проверка шаблонов УП откроется только после валидного DAG.</span>
+            </div>
+        </section>
+        {% endif %}
+
+        {% set design = builder.snapshot.design_spec %}
+        {% if builder.has_brief and builder.snapshot.dag_valid and design %}
+        <section class="builder-program-design" id="program-design" aria-label="Каркас программы">
+            <div class="summary-head builder-program-design-head">
+                <div>
+                    <h2>Каркас программы</h2>
+                    <p class="small">Определяет методическую последовательность поверх DAG. После принятия этапы управляют группировкой проектов и итоговой интеграцией.</p>
+                </div>
+                <div class="builder-template-counts">
+                    <span class="status-badge{% if not design.ready %} warn{% endif %}">{{ "Принят" if design.ready else "Требует решения" }}</span>
+                    <span class="pill ghost">{{ design.journey_type_label }}</span>
+                </div>
+            </div>
+
+            {% if design.program_goal %}
+            <div class="builder-analysis-note">
+                <strong>Цель маршрута</strong>
+                <p>{{ design.program_goal }}</p>
+            </div>
+            {% endif %}
+
+            <div class="builder-journey-stages">
+                {% for stage in design.stages %}
+                <article class="builder-journey-stage">
+                    <span>{{ loop.index }}</span>
+                    <div>
+                        <strong>{{ stage.title }}</strong>
+                        <p>{{ stage.goal }}</p>
+                    </div>
+                    <small>{{ stage.node_ids|length }} skills</small>
+                </article>
+                {% endfor %}
+                {% if design.capstone_required %}
+                <article class="builder-journey-stage builder-journey-capstone">
+                    <span>И</span>
+                    <div>
+                        <strong>{{ design.capstone_title }}</strong>
+                        <p>Интеграция результатов этапов и итоговая защита.</p>
+                    </div>
+                    <small>capstone</small>
+                </article>
+                {% endif %}
+            </div>
+
+            {% if design.uncovered_required_areas %}
+            <div class="builder-design-warning">
+                <strong>Каркас нельзя принять</strong>
+                <span>Не покрыты принятыми skills: {{ design.uncovered_required_areas|join(", ") }}.</span>
+            </div>
+            {% endif %}
+
+            {% if design.open_questions %}
+            <details class="builder-analysis-details builder-design-questions">
+                <summary>Открытые вопросы брифа <span class="pill ghost">{{ design.open_questions|length }}</span></summary>
+                <ol>
+                    {% for question in design.open_questions %}<li>{{ question }}</li>{% endfor %}
+                </ol>
+            </details>
+            {% endif %}
+
+            {% if not design.ready and not design.uncovered_required_areas %}
+            <form class="builder-design-approval" method="post" action="/app/curriculum/briefs/{{ builder.snapshot.brief_id }}/design/approve">
+                <p class="small">Принятие фиксирует этот каркас отдельно от документа УП. Открытые вопросы сохранятся как контекст методолога.</p>
+                <button type="submit" class="action-btn action-btn-primary">Принять каркас программы</button>
+            </form>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        {% if builder.has_brief and builder.snapshot.dag_valid and design and design.ready and (builder.snapshot.template_open > 0 or builder.snapshot.plan_row_count == 0) %}
+        <section class="builder-template-review" id="template-review" aria-label="Проверка шаблонов УП">
+            <div class="summary-head builder-template-head">
+                <div>
+                    <h2>Шаблоны учебных проектов</h2>
+                    <p class="small">Шаблон объединяет несколько навыков в один проверяемый артефакт: задаёт результат проекта, материалы, контекст и критерии проверки. Он не является строкой УП — строки будут собраны после решений методолога.</p>
+                </div>
+                <div class="builder-template-counts">
+                    <span class="status-badge{% if builder.snapshot.template_open %} warn{% endif %}">{{ builder.snapshot.template_open }} требуют решения</span>
+                    <span class="pill ghost">{{ builder.snapshot.template_accepted }} принято</span>
+                </div>
+            </div>
+
+            {% if builder.snapshot.template_total == 0 %}
+            <div class="builder-template-empty">
+                <div>
+                    <strong>Предложений пока нет</strong>
+                    <span>Система сгруппирует навыки по областям покрытия и предложит проверяемые артефакты.</span>
+                </div>
+                {% if builder.next_action and builder.next_action.code == "generate_templates" %}
+                    {{ render_action(builder.next_action, "action-btn-primary") }}
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if builder.snapshot.open_template_proposals %}
+            <div class="builder-template-list">
+                {% for proposal in builder.snapshot.open_template_proposals %}
+                <details class="builder-template-card"{% if loop.first %} open{% endif %}>
+                    <summary class="builder-template-card-head">
+                        <div>
+                            <h3>{{ proposal.title }}</h3>
+                            <div class="builder-template-meta">
+                                <span>{{ proposal.family_label }}</span>
+                                <span>уверенность {{ "%.2f"|format(proposal.confidence) }}</span>
+                                <span>{{ proposal.covered_skill_names|length }} навыков</span>
+                            </div>
+                        </div>
+                        <span class="status-badge warn">{{ proposal.status_label }}</span>
+                    </summary>
+                    <form method="post" action="/app/curriculum/plans/{{ builder.snapshot.plan_id }}/template-proposals/{{ proposal.proposal_id }}">
+
+                        {% if proposal.covered_skill_names %}
+                        <p class="builder-template-covered"><strong>Покрывает:</strong> {{ proposal.covered_skill_names|join(", ") }}</p>
+                        {% endif %}
+                        {% if proposal.rationale %}<p class="small muted builder-template-rationale">{{ proposal.rationale }}</p>{% endif %}
+
+                        <div class="builder-template-fields builder-template-fields-main">
+                            <label>
+                                <span>Название</span>
+                                <input type="text" name="title" value="{{ proposal.title }}" required>
+                            </label>
+                            <label>
+                                <span>Тип артефакта</span>
+                                <select name="artifact_family">
+                                    {% for value, label in artifact_family_options %}
+                                    <option value="{{ value }}"{% if proposal.artifact_family == value %} selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label>
+                                <span>Уверенность</span>
+                                <input type="number" step="0.01" min="0" max="1" name="confidence" value="{{ proposal.confidence }}">
+                            </label>
+                        </div>
+
+                        <div class="builder-template-fields builder-template-fields-scope">
+                            <label>
+                                <span>Группировать по</span>
+                                <select name="scope_type">
+                                    {% for value, label in scope_type_options %}
+                                    <option value="{{ value }}"{% if proposal.scope_type == value %} selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label>
+                                <span>Области применения</span>
+                                <textarea name="scope_names" rows="2">{{ proposal.scope_names|join("\n") }}</textarea>
+                            </label>
+                        </div>
+
+                        <label class="builder-template-wide-field">
+                            <span>Проверяемый артефакт</span>
+                            <textarea name="artifact_description" rows="2">{{ proposal.artifact_description }}</textarea>
+                        </label>
+                        <label class="builder-template-wide-field">
+                            <span>Шаблон названия проекта</span>
+                            <textarea name="project_name_pattern" rows="2">{{ proposal.project_name_pattern }}</textarea>
+                        </label>
+
+                        <details class="builder-template-details">
+                            <summary>Материалы, контекст и критерии</summary>
+                            <div class="builder-template-details-body">
+                                <div class="builder-template-fields builder-template-fields-secondary">
+                                    <label><span>Материалы</span><textarea name="materials_pattern" rows="3">{{ proposal.materials_pattern }}</textarea></label>
+                                    <label><span>Сторителлинг</span><textarea name="storytelling_pattern" rows="3">{{ proposal.storytelling_pattern }}</textarea></label>
+                                </div>
+                                <label class="builder-template-wide-field"><span>Критерии проверки</span><textarea name="validation_criteria" rows="3">{{ proposal.validation_criteria }}</textarea></label>
+                                <label class="builder-template-wide-field"><span>Почему предложено</span><textarea name="rationale" rows="2">{{ proposal.rationale }}</textarea></label>
+                            </div>
+                        </details>
+
+                        <div class="builder-template-actions">
+                            <button type="submit" name="action" value="save_proposal" class="action-btn action-btn-light">Сохранить</button>
+                            <button type="submit" name="action" value="accept_proposal" class="action-btn action-btn-primary">Принять шаблон</button>
+                            <button type="submit" name="action" value="reject_proposal" class="action-btn action-btn-danger">Отклонить</button>
+                        </div>
+                    </form>
+                </details>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if builder.snapshot.accepted_template_proposals %}
+            <details class="builder-resolved-templates">
+                <summary>Принятые шаблоны <span class="pill ghost">{{ builder.snapshot.accepted_template_proposals|length }}</span></summary>
+                <div>
+                    {% for proposal in builder.snapshot.accepted_template_proposals %}
+                    <div class="builder-resolved-template-row">
+                        <strong>{{ proposal.title }}</strong>
+                        <span>{{ proposal.family_label }} · {{ proposal.covered_skill_names|length }} навыков</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% if builder.snapshot.rejected_template_proposals %}
+            <details class="builder-resolved-templates">
+                <summary>Отклонённые шаблоны <span class="pill ghost">{{ builder.snapshot.rejected_template_proposals|length }}</span></summary>
+                <div>
+                    {% for proposal in builder.snapshot.rejected_template_proposals %}
+                    <div class="builder-resolved-template-row"><strong>{{ proposal.title }}</strong><span>{{ proposal.family_label }}</span></div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% if builder.snapshot.template_open == 0 and builder.snapshot.template_accepted > 0 %}
+            <div class="builder-template-complete">
+                <div>
+                    <strong>Решения по шаблонам приняты</strong>
+                    <span>Будут использованы {{ builder.snapshot.template_accepted }} шаблонов. Теперь можно собрать строки учебного плана.</span>
+                </div>
+                {% if builder.next_action and builder.next_action.code == "build_plan" %}
+                    {{ render_action(builder.next_action, "action-btn-primary") }}
+                {% endif %}
+            </div>
+            {% elif builder.snapshot.template_open == 0 and builder.snapshot.template_total > 0 and builder.snapshot.template_accepted == 0 %}
+            <div class="builder-template-empty">
+                <div><strong>Нет принятых шаблонов</strong><span>Сгенерируйте предложения заново или вернитесь к составу навыков.</span></div>
+                {% if builder.next_action and builder.next_action.code == "generate_templates" %}
+                    {{ render_action(builder.next_action, "action-btn-primary") }}
+                {% endif %}
+            </div>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        {% if builder.snapshot.plan_row_count > 0 and builder.next_action and builder.next_action.code == "open_plan" %}
+        <section class="builder-plan-ready" id="plan-ready" aria-label="Учебный план готов">
+            <div>
+                <span class="status-badge">УП готов</span>
+                <h2>Собрано строк: {{ builder.snapshot.plan_row_count }}</h2>
+                <p class="small">DAG и принятые шаблоны применены. План готов к методологической проверке и редактированию строк.</p>
+            </div>
+            {{ render_action(builder.next_action, "action-btn-primary") }}
+        </section>
+        {% endif %}
+
+        {% if builder.blockers %}
+        <div class="builder-workbench-blockers">
+            <div class="summary-head">
+                <h2>Что блокирует УП</h2>
+                <span class="pill">{{ builder.blockers|length }}</span>
+            </div>
+            <div class="builder-blocker-list">
+                {% for blocker in builder.blockers %}
+                <div class="builder-blocker">
+                    <div>
+                        <strong>{{ blocker.title }}</strong>
+                        <p class="small">{{ blocker.description }}</p>
+                    </div>
+                    {{ render_action(blocker.action, "action-btn-secondary") }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="builder-workbench-facts">
+            <div class="summary-head">
+                <h2>Состояние брифа</h2>
+                {% if builder.snapshot.brief_id %}
+                    <span class="pill">#{{ builder.snapshot.brief_id }}</span>
+                {% endif %}
+            </div>
+            <div class="builder-metric-strip">
+                <div class="builder-metric">
+                    <span>Задача</span>
+                    <strong>{% if builder.snapshot.latest_job_id %}#{{ builder.snapshot.latest_job_id }}{% else %}—{% endif %}</strong>
+                    <small>{{ builder.snapshot.latest_job_status or "нет" }}</small>
+                </div>
+                <div class="builder-metric">
+                    <span>Навыки</span>
+                    <strong>{{ builder.snapshot.accepted_atomic_count }} / {{ builder.snapshot.total_suggestions }}</strong>
+                    <small>принято / всего</small>
+                </div>
+                <div class="builder-metric">
+                    <span>Справочник</span>
+                    <strong>{{ builder.snapshot.active_promotions }}</strong>
+                    <small>активных применений</small>
+                </div>
+                <div class="builder-metric">
+                    <span>DAG</span>
+                    <strong>{{ builder.snapshot.dag_nodes }}</strong>
+                    <small>узлов, порядок {{ builder.snapshot.dag_order_count }}</small>
+                </div>
+                <div class="builder-metric">
+                    <span>Шаблоны</span>
+                    <strong>{{ builder.snapshot.template_accepted }} / {{ builder.snapshot.template_total }}</strong>
+                    <small>принято / всего</small>
+                </div>
+                <div class="builder-metric">
+                    <span>УП</span>
+                    <strong>{{ builder.snapshot.plan_row_count }}</strong>
+                    <small>строк</small>
+                </div>
+            </div>
+            {% if builder.snapshot.dag_message %}
+                <p class="small builder-diagnostic">{{ builder.snapshot.dag_message }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <aside class="builder-workbench-route">
+        <div class="summary-head">
+            <h2>Маршрут</h2>
+        </div>
+        <div class="builder-progress-wrap">
+            <div
+                class="builder-progress-meter"
+                role="img"
+                aria-label="Готовность конструктора УП {{ builder.progress_percent }} процентов"
+                style="--builder-progress: {{ builder.progress_percent }};"
+            >
+                <div class="builder-progress-center">
+                    <strong>{{ builder.progress_percent }}%</strong>
+                    <span>готовность УП</span>
+                </div>
+            </div>
+            <div class="builder-route-list" aria-label="Этапы маршрута">
+                {% for stage in builder.stages %}
+                    <div class="builder-route-step builder-route-step-{{ stage.status }}">
+                        <span>{{ stage.number }}</span>
+                        <div>
+                            <strong>{{ stage.label }}</strong>
+                            <small>{{ stage.donut_caption }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </aside>
+</section>
+
+<script>
+(() => {
+    const form = document.querySelector("[data-builder-brief-form]");
+    const dropzone = document.getElementById("builder-brief-dropzone");
+    const fileInput = document.getElementById("builder-brief-file-input");
+    const briefText = document.getElementById("builder-brief-text");
+    const submitButton = document.getElementById("builder-brief-submit");
+    const statusNode = document.getElementById("builder-picker-status");
+    const fileMetaNode = document.getElementById("builder-file-meta");
+    const helpNode = document.getElementById("builder-brief-help");
+    const readableExtensions = new Set(["txt", "md", "csv"]);
+
+    const formatBytes = (value) => {
+        if (!Number.isFinite(value)) {
+            return "размер неизвестен";
+        }
+        if (value < 1024) {
+            return `${value} Б`;
+        }
+        if (value < 1024 * 1024) {
+            return `${(value / 1024).toFixed(1)} КБ`;
+        }
+        return `${(value / (1024 * 1024)).toFixed(1)} МБ`;
+    };
+
+    const selectedFile = () => fileInput?.files && fileInput.files.length ? fileInput.files[0] : null;
+
+    const syncSubmit = () => {
+        if (!submitButton || !briefText) {
+            return;
+        }
+        submitButton.disabled = !selectedFile() && !briefText.value.trim();
+    };
+
+    const setFile = (file) => {
+        if (!fileInput || !briefText || !statusNode || !fileMetaNode || !helpNode) {
+            return;
+        }
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        fileInput.files = transfer.files;
+
+        const extension = (file.name.split(".").pop() || "").toLowerCase();
+        statusNode.textContent = `Выбран файл: ${file.name}`;
+        fileMetaNode.hidden = false;
+        fileMetaNode.textContent = `${file.type || "тип не указан"} · ${formatBytes(file.size)}`;
+        syncSubmit();
+
+        if (!readableExtensions.has(extension)) {
+            briefText.value = "";
+            helpNode.textContent = "Предпросмотр для DOCX недоступен в браузере; текст будет извлечён после запуска обработки.";
+            return;
+        }
+
+        if (file.size > 512 * 1024) {
+            briefText.value = "";
+            helpNode.textContent = "Файл выбран. Предпросмотр пропущен из-за размера; обработка начнётся только после кнопки запуска.";
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            briefText.value = String(reader.result || "");
+            helpNode.textContent = "Проверьте предпросмотр. Обработка начнётся только после кнопки запуска.";
+            syncSubmit();
+        };
+        reader.onerror = () => {
+            helpNode.textContent = "Не удалось показать предпросмотр, но файл можно отправить на обработку.";
+        };
+        reader.readAsText(file);
+    };
+
+    if (form && dropzone && fileInput && briefText && statusNode) {
+        dropzone.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                fileInput.click();
+            }
+        });
+        ["dragenter", "dragover"].forEach((eventName) => {
+            dropzone.addEventListener(eventName, (event) => {
+                event.preventDefault();
+                dropzone.classList.add("dragover");
+            });
+        });
+        ["dragleave", "dragend"].forEach((eventName) => {
+            dropzone.addEventListener(eventName, () => dropzone.classList.remove("dragover"));
+        });
+        dropzone.addEventListener("drop", (event) => {
+            event.preventDefault();
+            dropzone.classList.remove("dragover");
+            const file = event.dataTransfer?.files?.[0];
+            if (file) {
+                setFile(file);
+            }
+        });
+        fileInput.addEventListener("change", () => {
+            const file = selectedFile();
+            if (file) {
+                setFile(file);
+            }
+        });
+        briefText.addEventListener("input", () => {
+            if (!selectedFile()) {
+                statusNode.textContent = "Файл пока не выбран.";
+            }
+            syncSubmit();
+        });
+        form.addEventListener("submit", () => {
+            submitButton.disabled = true;
+            submitButton.textContent = "Запускаю обработку";
+        });
+        syncSubmit();
+    }
+
+    const jobCard = document.querySelector("[data-builder-job-status-url]");
+    if (!jobCard) {
+        return;
+    }
+    const statusUrl = jobCard.dataset.builderJobStatusUrl;
+    const stageNode = document.getElementById("builder-job-stage");
+    const progressNode = document.getElementById("builder-job-progress");
+    const statusBadge = document.getElementById("builder-job-status");
+    const progressFill = document.getElementById("builder-job-progress-fill");
+    const stageOrder = ["queued", "starting", "decompose", "draft", "atomize", "normalize", "resolve", "search", "council", "triage", "prerequisites", "persist", "completed"];
+
+    const renderProgress = (payload) => {
+        if (stageNode) {
+            stageNode.textContent = payload.current_stage_label || payload.current_stage || "Обработка";
+        }
+        if (progressNode) {
+            progressNode.textContent = payload.progress_note || "Задача выполняется.";
+        }
+        if (statusBadge) {
+            statusBadge.textContent = payload.status_label || payload.status || "running";
+            statusBadge.classList.toggle("warn", payload.status === "failed");
+        }
+        if (progressFill) {
+            const normalizedStage = payload.status === "succeeded" ? "completed" : (payload.current_stage || "queued");
+            const index = Math.max(0, stageOrder.indexOf(normalizedStage));
+            const percent = Math.max(8, Math.min(100, Math.round((index / (stageOrder.length - 1)) * 100)));
+            progressFill.style.width = `${percent}%`;
+            progressFill.classList.toggle("failed", payload.status === "failed");
+        }
+    };
+
+    const poll = async () => {
+        try {
+            const response = await fetch(statusUrl, { cache: "no-store" });
+            const payload = await response.json();
+            renderProgress(payload);
+            if (payload.status === "succeeded" || payload.status === "failed") {
+                window.location.reload();
+                return;
+            }
+        } catch (_error) {
+            if (progressNode) {
+                progressNode.textContent = "Не удалось обновить статус, повторяю запрос.";
+            }
+        }
+        window.setTimeout(poll, 3000);
+    };
+
+    window.setTimeout(poll, 1000);
+})();
+</script>
+{% endblock %}

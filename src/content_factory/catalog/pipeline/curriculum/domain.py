@@ -83,6 +83,9 @@ class CurriculumBlock:
 
     block_keys: tuple[str, ...]
     projects: list[ProjectBlueprint] = field(default_factory=list)
+    stage_code: str = ""
+    title: str = ""
+    goal: str = ""
 
 
 @dataclass(frozen=True)

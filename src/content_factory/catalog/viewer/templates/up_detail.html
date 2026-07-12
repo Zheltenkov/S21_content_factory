@@ -11,7 +11,7 @@
     <div class="review-actions">
         <span class="status-badge{% if plan.status != 'built' and plan.status != 'draft' %} warn{% endif %}">{{ plan.status_label }}</span>
         {% if plan.latest_job_id %}
-        <a class="action-btn action-btn-secondary" href="{{ base }}/intake/jobs/{{ plan.latest_job_id }}">Открыть бриф</a>
+        <a class="action-btn action-btn-secondary" href="/app/curriculum?job_id={{ plan.latest_job_id }}">Открыть бриф</a>
         {% endif %}
         {% if plan.row_count and plan.status != 'invalid' %}
         <a class="action-btn action-btn-primary" href="{{ base }}/up/plans/{{ plan.id }}/csv">Скачать CSV</a>
@@ -46,6 +46,49 @@
     </div>
 </section>
 {% set quality = plan.report.quality_metrics if plan.report and plan.report.quality_metrics else none %}
+{% set design = plan.design_spec if plan.design_spec else none %}
+{% if design and design.approved %}
+<section class="builder-program-design" aria-label="Принятый каркас программы">
+    <div class="summary-head builder-program-design-head">
+        <div>
+            <h2>Архитектура программы</h2>
+            <p class="small">Принятый методологический маршрут, по которому сгруппированы блоки и проекты УП.</p>
+        </div>
+        <div class="builder-template-counts">
+            <span class="status-badge">Зафиксирован</span>
+            <span class="pill ghost">{{ design.journey_type_label or design.journey_type }}</span>
+        </div>
+    </div>
+    {% if design.program_goal %}
+    <div class="builder-analysis-note">
+        <strong>Цель программы</strong>
+        <p>{{ design.program_goal }}</p>
+    </div>
+    {% endif %}
+    <div class="builder-journey-stages">
+        {% for stage in design.stages %}
+        <article class="builder-journey-stage">
+            <span>{{ loop.index }}</span>
+            <div>
+                <strong>{{ stage.title }}</strong>
+                <p>{{ stage.goal }}</p>
+            </div>
+            <small>{{ stage.node_ids|length }} skills</small>
+        </article>
+        {% endfor %}
+        {% if design.capstone_required %}
+        <article class="builder-journey-stage builder-journey-capstone">
+            <span>И</span>
+            <div>
+                <strong>{{ design.capstone_title }}</strong>
+                <p>Интеграция результатов программы и итоговая защита.</p>
+            </div>
+            <small>итог</small>
+        </article>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
 <section class="filter-panel">
     <div class="summary-head">
         <h2>Почему DAG-волн и блоков УП может быть разное число</h2>

@@ -24,7 +24,7 @@ class RouteZone:
 
 
 INTAKE_NAV = NavItem("Рабочий стол", "/intake", ("/intake", "/reviews"))
-CATALOG_NAV = NavItem("Справочник", "/catalog-admin/groups", ("/catalog-admin", "/competencies", "/profiles"))
+CATALOG_NAV = NavItem("Справочник", "/competencies", ("/catalog-admin", "/competencies", "/profiles"))
 CURRICULUM_NAV = NavItem("УП", "/up", ("/up",))
 
 ROUTE_ZONES: tuple[RouteZone, ...] = (
@@ -34,7 +34,9 @@ ROUTE_ZONES: tuple[RouteZone, ...] = (
     RouteZone("curriculum", ("/up",), CURRICULUM_NAV),
 )
 
-MAIN_NAV: tuple[NavItem, ...] = (INTAKE_NAV, CATALOG_NAV, CURRICULUM_NAV)
+# Brief intake and curriculum assembly now live in the dedicated constructor.
+# The catalog shell exposes only catalog-owned navigation.
+MAIN_NAV: tuple[NavItem, ...] = (CATALOG_NAV,)
 
 
 @dataclass(frozen=True)

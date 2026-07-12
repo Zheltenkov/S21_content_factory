@@ -38,7 +38,7 @@ class ProjectSeed(BaseModel):
     )
     project_content_type: str | None = Field(
         default=None,
-        description="Явный профиль проекта: hard_code, low_code, no_code или auto",
+        description="Явный профиль проекта: hard_code, low_code, hybrid, no_code или auto",
     )
     title_seed: str = ""  # Название проекта
     project_description: str
@@ -268,7 +268,7 @@ class ProjectSeed(BaseModel):
             "business": "no_code",
         }
         normalized = aliases.get(norm, norm)
-        return normalized if normalized in {"hard_code", "low_code", "no_code"} else None
+        return normalized if normalized in {"hard_code", "low_code", "hybrid", "no_code"} else None
 
     @staticmethod
     def _normalize_storytelling_type(value: Any) -> StorytellingType:

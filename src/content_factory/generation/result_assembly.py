@@ -435,7 +435,7 @@ class ResultAssembler:
             return None
         if isinstance(value, bytes):
             return f"<bytes:{len(value)}>"
-        if isinstance(value, (str, int, float, bool)):
+        if isinstance(value, str | int | float | bool):
             return value
         if isinstance(value, list):
             return [cls._serialize_report_value(item) for item in value]

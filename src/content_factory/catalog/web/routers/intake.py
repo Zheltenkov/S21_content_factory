@@ -11,10 +11,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from content_factory.catalog.db import CatalogConnection
-from content_factory.catalog.viewer._common import UploadedFile
 from content_factory.catalog.viewer.curriculum_ops import curriculum_plan_to_csv_bytes
 from content_factory.catalog.viewer.intake_brief_io import load_brief_text
 from content_factory.catalog.viewer.intake_catalog_apply import (
@@ -34,17 +32,12 @@ from content_factory.catalog.viewer.intake_runtime import (
     queue_intake_job,
 )
 from content_factory.catalog.viewer.intake_workspace import (
-    build_intake_workflow_steps,
     build_intake_workspace_state,
     hydrate_job_result_payload,
 )
 from content_factory.catalog.viewer.labels import intake_job_status_label, intake_stage_label
-from content_factory.catalog.viewer.observability import (
-    build_intake_quality_metrics,
-    build_job_observability,
-    load_llm_usage_summary,
-)
 from content_factory.catalog.web.deps import catalog_db_path, get_conn
+from content_factory.catalog.web.form_parsing import form_and_files, form_fields
 from content_factory.catalog.web.rendering import CATALOG_URL_PREFIX, render
 
 router = APIRouter(prefix=CATALOG_URL_PREFIX, tags=["catalog-ui"])
@@ -52,36 +45,6 @@ router = APIRouter(prefix=CATALOG_URL_PREFIX, tags=["catalog-ui"])
 
 def _redirect(path: str) -> RedirectResponse:
     return RedirectResponse(f"{CATALOG_URL_PREFIX}{path}", status_code=303)
-
-
-async def _form_and_files(request: Request) -> tuple[dict[str, str], dict[str, UploadedFile]]:
-    """Split a multipart body into a plain form dict + uploaded files.
-
-    Mirrors the legacy ``parse_post_form_and_files``: a file part only counts when
-    it carries both a filename and a non-empty payload; everything else is a text
-    field (last value wins, like the WSGI parser).
-    """
-
-    data = await request.form()
-    form_data: dict[str, str] = {}
-    files: dict[str, UploadedFile] = {}
-    for key, value in data.multi_items():
-        if isinstance(value, StarletteUploadFile):
-            payload = await value.read()
-            if value.filename and payload:
-                files[key] = UploadedFile(
-                    filename=value.filename,
-                    content_type=value.content_type or "application/octet-stream",
-                    data=payload,
-                )
-            continue
-        form_data[key] = str(value)
-    return form_data, files
-
-
-async def _form(request: Request) -> dict[str, str]:
-    form_data, _files = await _form_and_files(request)
-    return form_data
 
 
 def _render_intake(context: dict[str, object]) -> str:
@@ -92,26 +55,16 @@ def _render_intake(context: dict[str, object]) -> str:
 # brief workspace
 # --------------------------------------------------------------------------- #
 @router.get("/intake", response_class=HTMLResponse)
-def intake_get(conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
-    ensure_intake_runtime_schema(conn, catalog_db_path())
-    html = _render_intake(
-        {
-            "title": "Бриф",
-            "brief": "",
-            "job": None,
-            "recent_jobs": list_recent_intake_jobs(conn),
-            "result": None,
-            "form_error": None,
-            "upload_name": None,
-        }
-    )
-    return HTMLResponse(html)
+def intake_get() -> RedirectResponse:
+    """Retire the duplicate brief workspace in favor of the UP constructor."""
+
+    return RedirectResponse("/app/curriculum", status_code=303)
 
 
 @router.post("/intake")
 async def intake_post(request: Request, conn: CatalogConnection = Depends(get_conn)) -> Response:
     ensure_intake_runtime_schema(conn, catalog_db_path())
-    form_data, files = await _form_and_files(request)
+    form_data, files = await form_and_files(request)
     try:
         brief_text, upload_name, source_kind, file_path = load_brief_text(form_data, files)
     except ValueError as exc:
@@ -153,14 +106,14 @@ async def intake_post(request: Request, conn: CatalogConnection = Depends(get_co
         use_council=intake_config.USE_COUNCIL,
     )
     queue_intake_job(catalog_db_path(), job_id)
-    return _redirect(f"/intake/jobs/{job_id}")
+    return RedirectResponse(f"/app/curriculum?job_id={job_id}", status_code=303)
 
 
 @router.post("/intake/jobs/clear")
 def intake_jobs_clear(conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     clear_intake_workspace(conn)
-    return _redirect("/intake")
+    return RedirectResponse("/app/curriculum", status_code=303)
 
 
 # --------------------------------------------------------------------------- #
@@ -249,7 +202,7 @@ async def intake_job_candidate_decision(
     job_id: int, request: Request, conn: CatalogConnection = Depends(get_conn)
 ) -> Response:
     ensure_intake_runtime_schema(conn, catalog_db_path())
-    form_data = await _form(request)
+    form_data = await form_fields(request)
     try:
         suggestion_id = int(form_data.get("suggestion_id", "0"))
     except ValueError:
@@ -314,40 +267,12 @@ def intake_job_plan_csv(job_id: int, conn: CatalogConnection = Depends(get_conn)
 
 
 # --------------------------------------------------------------------------- #
-# async job — full view (declared last: matches only after the sub-paths above)
+# legacy full-view URL (declared last: matches only after the sub-paths above)
 # --------------------------------------------------------------------------- #
 @router.get("/intake/jobs/{job_id}", response_class=HTMLResponse)
-def intake_job_detail(job_id: int, conn: CatalogConnection = Depends(get_conn)) -> HTMLResponse:
+def intake_job_detail(job_id: int, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     job = get_intake_job(conn, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Intake job not found")
-
-    result = job.get("result_payload") if job.get("status") == "succeeded" else None
-    result = hydrate_job_result_payload(conn, result)
-    dag_build_state = None
-    if isinstance(result, dict) and isinstance(result.get("brief_id"), int):
-        dag_build_state = get_brief_dag_state(conn, int(result["brief_id"]))
-    workflow_steps = build_intake_workflow_steps(job, result, dag_build_state)
-    workspace_state = build_intake_workspace_state(conn, job, result, dag_build_state)
-    llm_usage = load_llm_usage_summary(job_id)
-    job_observability = build_job_observability(llm_usage)
-    quality_metrics = build_intake_quality_metrics(result, llm_usage)
-    html = _render_intake(
-        {
-            "title": f"Бриф #{job_id}",
-            "brief": job.get("brief_text", ""),
-            "job": job,
-            "recent_jobs": list_recent_intake_jobs(conn),
-            "result": result,
-            "llm_usage": llm_usage,
-            "job_observability": job_observability,
-            "quality_metrics": quality_metrics,
-            "dag_build_state": dag_build_state,
-            "workflow_steps": workflow_steps,
-            "workspace_state": workspace_state,
-            "form_error": None if job.get("status") != "failed" else f"Ошибка intake-пайплайна: {job.get('error_text')}",
-            "upload_name": job.get("source_name"),
-        }
-    )
-    return HTMLResponse(html)
+    return RedirectResponse(f"/app/curriculum?job_id={job_id}", status_code=303)

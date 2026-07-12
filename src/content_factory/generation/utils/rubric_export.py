@@ -18,13 +18,13 @@ def convert_numpy_types(obj: Any) -> Any:
     Returns:
         Объект с конвертированными типами
     """
-    if isinstance(obj, (np.integer, np.floating)):
+    if isinstance(obj, np.integer | np.floating):
         return obj.item()  # Конвертирует numpy scalar в Python тип
     elif isinstance(obj, np.ndarray):
         return obj.tolist()  # Конвертирует numpy array в список
     elif isinstance(obj, dict):
         return {key: convert_numpy_types(value) for key, value in obj.items()}
-    elif isinstance(obj, (list, tuple)):
+    elif isinstance(obj, list | tuple):
         return [convert_numpy_types(item) for item in obj]
     else:
         return obj

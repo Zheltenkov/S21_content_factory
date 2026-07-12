@@ -11,9 +11,8 @@ dependencies = [
     # --- generation / api (ex Content_generator_ver1) ---
     "pydantic[email]>=2.0.0",
     "openai>=1.0.0",
-    "litellm>=1.83.14,<2.0",
+    "litellm==1.83.14",
     "instructor>=1.13.0,<2.0",
-    "pydantic-ai>=1.0.5,<2.0",
     "opentelemetry-api>=1.28.0,<2.0",
     "langfuse>=3.0.0,<4.0",
     "python-dotenv>=1.0.0",
@@ -43,6 +42,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Optional natural-language methodology command parser. The deterministic
+# parser remains the production fallback, so core installs do not pull every
+# provider SDK exposed by the pydantic-ai metapackage.
+methodology-ai = ["pydantic-ai-slim[openai]>=1.0.5,<2.0"]
 # Playwright visual E2E smoke (tests/e2e, opt-in via RUN_E2E=1). Install with
 #   pip install -e ".[e2e]" && python -m playwright install chromium
 e2e = ["pytest-playwright>=0.8"]
@@ -52,6 +55,7 @@ dev = [
     "pytest>=9,<10",
     "ruff==0.15.20",
     "mypy==2.1.0",
+    "types-PyYAML>=6.0.12",
 ]
 
 [tool.setuptools.packages.find]

@@ -63,7 +63,7 @@ class SkillCandidate(BaseModel):
 class PrereqEdge(BaseModel):
     src: str
     dst: str
-    relation_type: Literal["hard", "soft"] = "hard"
+    relation_type: Literal["hard", "soft", "related"] = "hard"
     confidence: float = 0.0
     source: str = ""
     rationale: str = ""

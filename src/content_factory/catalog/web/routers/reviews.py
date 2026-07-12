@@ -107,7 +107,7 @@ async def reviews_build_dag(request: Request, conn: CatalogConnection = Depends(
     build_result = build_dag_for_brief(conn, brief_id)
     latest_job_id = build_result["state"].get("latest_job_id")
     if latest_job_id:
-        return _redirect(f"/intake/jobs/{latest_job_id}")
+        return RedirectResponse(f"/app/curriculum?job_id={latest_job_id}", status_code=303)
     return _redirect("/reviews")
 
 
@@ -123,5 +123,5 @@ async def reviews_apply_catalog(request: Request, conn: CatalogConnection = Depe
     dag_state = apply_result.get("dag_state") if isinstance(apply_result, dict) else None
     latest_job_id = dag_state.get("latest_job_id") if isinstance(dag_state, dict) else None
     if latest_job_id:
-        return _redirect(f"/intake/jobs/{latest_job_id}")
+        return RedirectResponse(f"/app/curriculum?job_id={latest_job_id}", status_code=303)
     return _redirect("/reviews")

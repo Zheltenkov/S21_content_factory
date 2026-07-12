@@ -113,7 +113,12 @@ class MethodologyRepairController:
             return
 
         issue_codes = {issue.code for issue in issues}
-        min_tasks, max_tasks = THRESHOLDS["practice_tasks_recommend"]
+        task_count_contract = getattr(task_plan, "task_count_contract", None)
+        resolution_source = getattr(task_count_contract, "resolution_source", "default")
+        if resolution_source == "user":
+            min_tasks, max_tasks = THRESHOLDS["practice_tasks_range"]
+        else:
+            min_tasks, max_tasks = THRESHOLDS["practice_tasks_recommend"]
         current_count = int(getattr(task_plan, "tasks_count", 0) or 0)
         metrics["task_plan_tasks_before"] = current_count
 
@@ -121,6 +126,10 @@ class MethodologyRepairController:
             repaired_count = max(min_tasks, min(max_tasks, current_count or min_tasks))
             if repaired_count != current_count:
                 task_plan.tasks_count = repaired_count
+                if task_count_contract is not None:
+                    task_plan.task_count_contract = task_count_contract.model_copy(
+                        update={"resolved_tasks_count": repaired_count}
+                    )
                 updated_fields.append("task_plan.tasks_count")
                 actions.append(f"clamped TaskPlan.tasks_count from {current_count} to {repaired_count}")
 

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from content_factory.content_profile import resolve_content_profile
+
 from ..artifact_chain import is_generic_repo_path_template
 from ..domain_contracts import render_narrative_contract_section
 from ..models.schemas import ProjectSeed
@@ -152,63 +154,9 @@ def build_practice_sjm_section(
 
 
 def determine_practice_content_type(seed: ProjectSeed) -> str:
-    """Classify practice prompt profile from project direction."""
-    explicit_type = getattr(seed, "project_content_type", None)
-    if explicit_type in {"hard_code", "low_code", "no_code"}:
-        return str(explicit_type)
+    """Resolve one project-level profile shared by every generation agent."""
 
-    direction = (getattr(seed, "direction", "") or seed.thematic_block or "").upper()
-    hard_code_directions = {
-        "C",
-        "CPP",
-        "C++",
-        "JAVA",
-        "GO",
-        "RUST",
-        "BACKEND",
-        "MOBILE",
-        "WEB",
-        "FRONTEND",
-        "FULLSTACK",
-        "DEV",
-        "SWE",
-    }
-    low_code_directions = {
-        "DS",
-        "DO",
-        "QA",
-        "BIO",
-        "BIOINF",
-        "DEVOPS",
-        "DATA",
-        "ML",
-        "AI",
-        "TESTING",
-        "AUTOMATION",
-    }
-    no_code_directions = {
-        "PJM",
-        "UX",
-        "CB",
-        "KB",
-        "BSA",
-        "BA",
-        "PM",
-        "CYBER",
-        "SECURITY",
-        "PRODUCT",
-        "DESIGN",
-        "MANAGEMENT",
-        "ANALYST",
-    }
-
-    if direction in hard_code_directions:
-        return "hard_code"
-    if direction in low_code_directions:
-        return "low_code"
-    if direction in no_code_directions:
-        return "no_code"
-    return "low_code"
+    return resolve_content_profile(seed).profile
 
 
 def build_practice_content_type_section(content_type: str) -> str:
@@ -221,6 +169,10 @@ def build_practice_content_type_section(content_type: str) -> str:
     if content_type == "low_code":
         return """ТИП: ТЕХНИЧЕСКИЙ С ОГРАНИЧЕНИЯМИ (low code)
 Это проект для DS, DevOps, QA. Типы заданий — по теории и LO (минимум кода: конфиги, простые скрипты; данные, пайплайны, тесты; таблицы, схемы). ОГРАНИЧЕНО: сложный код. Тон: практический, с примерами."""
+
+    if content_type == "hybrid":
+        return """ТИП: СМЕШАННЫЙ ПРОЕКТ (hybrid)
+Проект объединяет исследование или управленческое решение с техническим прототипом. Задания должны привести к двум связанным результатам: обоснованному решению и воспроизводимому техническому артефакту. Код нужен только там, где он подтверждает работоспособность решения; документ без прототипа и прототип без обоснования недостаточны."""
 
     return """ТИП: ГУМАНИТАРНЫЙ (no code)
 Это проект для МЕНЕДЖЕРОВ, АНАЛИТИКОВ (PjM, BSA, UX, КБ).
@@ -239,10 +191,10 @@ def build_practice_formulas_requirements(seed: ProjectSeed, content_type: str) -
 Артефакты: документы, таблицы, схемы, презентации.
 НЕ проси писать код, скрипты или формулы."""
 
-    if content_type == "low_code":
+    if content_type in {"low_code", "hybrid"}:
         return """КОД В ЗАДАНИЯХ: Минимально, только если критически нужен.
 Максимум 1-2 задания с простым кодом (конфиги, скрипты до 20 строк).
-Остальные задания — без кода (анализ, документация, схемы)."""
+Остальные задания — анализ, документация и схемы. Для hybrid хотя бы один проверяемый технический артефакт обязателен."""
 
     return """КОД В ЗАДАНИЯХ: Разрешён.
 Типы и порядок заданий — по теории и LO: как в реальной разработке по этой теме. Разнообразие по типу деятельности (кодирование, рефакторинг, тестирование, документирование и т.д.), не один шаблон для всех проектов."""

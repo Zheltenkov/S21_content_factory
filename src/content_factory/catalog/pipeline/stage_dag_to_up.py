@@ -11,8 +11,11 @@ import re
 from math import isfinite
 from typing import Any
 
+from content_factory.content_profile import infer_content_profile
+
 from . import config, language
 from .curriculum import CurriculumBlock, PlanNode, ProjectBlueprint, SkillOccurrence, build_curriculum_blocks
+from .curriculum.edge_policy import curriculum_edge_role
 from .models import SkillCandidate
 
 _DANGLING_TAIL_WORDS = {
@@ -138,6 +141,12 @@ def _node_from_candidate(candidate: SkillCandidate) -> PlanNode:
     )
 
 
+def build_plan_nodes(candidates: list[SkillCandidate]) -> list[PlanNode]:
+    """Expose the normalized planner-node contract to design approval flows."""
+
+    return [_node_from_candidate(candidate) for candidate in candidates]
+
+
 def _audience_label(spec: dict[str, Any] | None) -> str:
     seniority = str((spec or {}).get("seniority") or "").casefold()
     mapping = {
@@ -191,16 +200,7 @@ def _clean_project_title(value: str) -> str:
     title = re.sub(r"\s+", " ", title.replace("—", "-")).strip(" .,-")
     if not title:
         return "Проект"
-    if ":" in title:
-        head, tail = [part.strip(" .,-") for part in title.split(":", 1)]
-        head_label = _compact_label(head, max_words=3, max_chars=32)
-        tail_label = _compact_label(tail, max_words=4, max_chars=42)
-        title = f"{head_label}: {tail_label}" if tail_label else head_label
-    else:
-        title = _compact_label(title, max_words=8, max_chars=96)
-    if len(title) > 96:
-        title = _limit_on_word_boundary(title, max_chars=96)
-    return title
+    return _drop_latin_parenthetical_notes(title) or "Проект"
 
 
 def _join_limited(values: list[str], *, limit: int = 3) -> str:
@@ -229,9 +229,26 @@ def _project_name(project: ProjectBlueprint, block_index: int, project_index: in
     if project.title:
         return _clean_project_title(project.title)
     if len(nodes) == 1:
-        return _compact_label(nodes[0].name, max_words=6, max_chars=64)
+        return _clean_project_title(nodes[0].name)
     anchor = nodes[-1].name
-    return _compact_label(anchor, max_words=6, max_chars=64)
+    return _clean_project_title(anchor)
+
+
+def _deduplicate_project_name(name: str, project: ProjectBlueprint, seen: set[str], row_number: int) -> str:
+    """Keep project titles stable and unique without truncating their meaning."""
+
+    normalized = name.casefold().strip()
+    if normalized not in seen:
+        seen.add(normalized)
+        return name
+    anchor = _clean_project_title(project.unique_nodes[-1].name) if project.unique_nodes else ""
+    candidate = f"{name}: {anchor}" if anchor and anchor.casefold() not in normalized else f"{name} · проект {row_number}"
+    suffix = 2
+    while candidate.casefold().strip() in seen:
+        candidate = f"{name} · вариант {suffix}"
+        suffix += 1
+    seen.add(candidate.casefold().strip())
+    return candidate
 
 
 def _project_summary(project: ProjectBlueprint, role: str) -> str:
@@ -257,6 +274,17 @@ def _project_storytelling(project: ProjectBlueprint, role: str, block_key: str) 
         f"Ты работаешь как {role} и решаешь учебный кейс по теме «{block_key}». "
         f"Нужно применить навыки {names}, собрать артефакт «{artifact}» и защитить результат."
     )
+
+
+def _localized_role(value: str) -> str:
+    """Normalize common brief role labels before they reach Russian UP rows."""
+
+    normalized = value.strip()
+    aliases = {
+        "beginning technological entrepreneur": "начинающий технологический предприниматель",
+        "technological entrepreneur": "технологический предприниматель",
+    }
+    return aliases.get(normalized.lower(), normalized or "участник программы")
 
 
 def _project_assessment_criteria(project: ProjectBlueprint) -> str:
@@ -291,7 +319,7 @@ def enrich_curriculum_row(row: dict[str, Any], project: ProjectBlueprint, spec: 
     """Enrich a curriculum row without mutating DAG identity fields."""
     protected_node_ids = list(row.get("node_ids") or [])
     protected_node_names = list(row.get("node_names") or [])
-    role = str((spec or {}).get("role") or "участник программы").strip()
+    role = _localized_role(str((spec or {}).get("role") or "участник программы"))
     project_name = _project_name(project, int(row.get("block_index", 0) or 0), int(row.get("project_index_in_block", 0) or 0), block_key)
     row.update(
         {
@@ -303,6 +331,22 @@ def enrich_curriculum_row(row: dict[str, Any], project: ProjectBlueprint, spec: 
             "validation_criteria": _project_assessment_criteria(project),
         }
     )
+    profile_decision = infer_content_profile(
+        direction=str((spec or {}).get("direction_code") or (spec or {}).get("direction") or ""),
+        thematic_block=block_key,
+        title=project_name,
+        description=str(row.get("project_summary") or ""),
+        skills=[node.name for node in project.unique_nodes],
+        required_tools=[tool for node in project.unique_nodes for tool in node.tools],
+        learning_outcomes=[
+            str(row.get("outcomes_know") or ""),
+            str(row.get("outcomes_can") or ""),
+            str(row.get("outcomes_skills") or ""),
+        ],
+        artifact=project.artifact,
+    )
+    row["project_content_type"] = profile_decision.profile
+    row["content_profile_decision"] = profile_decision.model_dump(mode="json")
     row["node_ids"] = protected_node_ids
     row["node_names"] = protected_node_names
 
@@ -497,14 +541,15 @@ def _fill_effort_columns(rows: list[dict[str, Any]]) -> None:
 def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, Any] | None) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     row_number = 0
+    seen_project_names: set[str] = set()
     occurrence_totals = _occurrence_totals(blocks)
     for block_index, block in enumerate(blocks, start=1):
         all_block_nodes = [node for project in block.projects for node in project.unique_nodes]
         block_keys = list(dict.fromkeys([project.block_key for project in block.projects if project.block_key]))
         if not block_keys:
             block_keys = list(dict.fromkeys([node.block_key for node in all_block_nodes]))
-        block_title = _block_title(block_index, block_keys)
-        block_goal = _block_goal(all_block_nodes)
+        block_title = block.title or _block_title(block_index, block_keys)
+        block_goal = block.goal or _block_goal(all_block_nodes)
         for project_index, project in enumerate(block.projects, start=1):
             row_number += 1
             project_nodes = project.unique_nodes
@@ -553,6 +598,13 @@ def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, Any] | None) -> 
                 "artifact_links": "",
             }
             enrich_curriculum_row(row, project, spec, block_key)
+            row["project_name"] = _deduplicate_project_name(
+                str(row.get("project_name") or "Проект"),
+                project,
+                seen_project_names,
+                row_number,
+            )
+            row["platform_project_name"] = row["project_name"]
             rows.append(row)
     _scale_hours_to_target(rows, spec)
     _fill_effort_columns(rows)
@@ -571,6 +623,7 @@ def _plan_report(rows: list[dict[str, Any]], dag_payload: dict[str, Any]) -> dic
             position_by_node.setdefault(node_key, (row_number, skill_index))
             row_by_node.setdefault(node_key, row_number)
     broken_order: list[str] = []
+    recommended_order_notes: list[str] = []
     project_violations: list[str] = []
     for edge in dag_payload.get("final_edges", []):
         if not isinstance(edge, dict):
@@ -581,15 +634,19 @@ def _plan_report(rows: list[dict[str, Any]], dag_payload: dict[str, Any]) -> dic
         dst = str(edge.get("dst") or dst_id)
         if not src_id or not dst_id or src_id not in position_by_node or dst_id not in position_by_node:
             continue
+        edge_role = curriculum_edge_role(edge)
         if row_by_node[src_id] == row_by_node[dst_id]:
-            if str(edge.get("relation_type") or "").casefold() == "hard":
+            if edge_role == "required":
                 project_violations.append(f"{src} -> {dst}")
             continue
-        if position_by_node[src_id] >= position_by_node[dst_id]:
+        if edge_role == "required" and position_by_node[src_id] >= position_by_node[dst_id]:
             broken_order.append(f"{src} -> {dst}")
+        elif edge_role == "recommended" and position_by_node[src_id] >= position_by_node[dst_id]:
+            recommended_order_notes.append(f"{src} -> {dst}")
     return {
         "coverage_ok": not broken_order and not project_violations,
         "order_violations": broken_order,
+        "recommended_order_notes": recommended_order_notes,
         "project_violations": project_violations,
     }
 
@@ -616,6 +673,11 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
             "db_template_count": int(planner_meta.get("db_template_count", 0) or 0),
             "db_template_project_count": int(planner_meta.get("db_template_project_count", 0) or 0),
             "unassigned_node_count": int(planner_meta.get("unassigned_node_count", 0) or 0),
+            "journey_stage_count": 0,
+            "uncovered_required_area_count": 0,
+            "capstone_required": False,
+            "capstone_present": False,
+            "design_readiness_state": "not_available",
             "dag_wave_count": int(planner_meta.get("dag_wave_count", 0) or 0),
             "up_block_count": 0,
             "target_skills_per_project": [config.UP_TARGET_SKILLS_MIN, config.UP_TARGET_SKILLS_MAX],
@@ -671,6 +733,15 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
         "db_template_count": int(planner_meta.get("db_template_count", 0) or 0),
         "db_template_project_count": int(planner_meta.get("db_template_project_count", 0) or 0),
         "unassigned_node_count": int(planner_meta.get("unassigned_node_count", 0) or 0),
+        "journey_stage_count": len((planner_meta.get("design_spec") or {}).get("stages") or []),
+        "uncovered_required_area_count": len(
+            (planner_meta.get("design_spec") or {}).get("uncovered_required_areas") or []
+        ),
+        "capstone_required": bool((planner_meta.get("design_spec") or {}).get("capstone_required", False)),
+        "capstone_present": bool(int(planner_meta.get("capstone_project_count", 0) or 0)),
+        "design_readiness_state": str(
+            (planner_meta.get("design_spec") or {}).get("readiness_state") or "not_available"
+        ),
         "target_skills_per_project": [config.UP_TARGET_SKILLS_MIN, config.UP_TARGET_SKILLS_MAX],
         "target_outcomes_per_project": [config.UP_TARGET_OUTCOMES_MIN, config.UP_TARGET_OUTCOMES_MAX],
     }
@@ -693,11 +764,11 @@ def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_paylo
             "report": {"coverage_ok": False, "order_violations": [], "project_violations": [], "quality_metrics": _quality_metrics([], {})},
         }
 
-    nodes = [_node_from_candidate(candidate) for candidate in candidates]
+    nodes = build_plan_nodes(candidates)
     artifact_templates = (spec or {}).get("artifact_templates")
     if not isinstance(artifact_templates, list):
         artifact_templates = []
-    blocks, planner_meta = build_curriculum_blocks(nodes, dag_payload, artifact_templates)
+    blocks, planner_meta = build_curriculum_blocks(nodes, dag_payload, artifact_templates, planning_context=spec)
     rows = _format_rows(blocks, spec)
     total_hours = sum(float(row.get("effort_hours", 0) or 0) for row in rows)
     total_days = sum(float(row.get("effort_days", 0) or 0) for row in rows)
@@ -708,6 +779,7 @@ def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_paylo
     report["quality_metrics"]["dag_wave_count"] = len(dag_waves) if isinstance(dag_waves, list) else 0
     report["quality_metrics"]["up_block_count"] = len(blocks)
     report["planner_meta"] = planner_meta
+    design_spec = planner_meta.get("design_spec") if isinstance(planner_meta.get("design_spec"), dict) else {}
     is_invalid = bool(report["order_violations"] or report.get("project_violations"))
 
     # Для UI держим и блочное представление, и плоские CSV-совместимые строки.
@@ -741,6 +813,7 @@ def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_paylo
         "audience_level": _audience_label(spec),
         "source_policy": "accepted_only",
         "planner_meta": planner_meta,
+        "design_spec": design_spec,
         "summary": {
             "blocks": len(block_payloads),
             "projects": len(rows),

@@ -3,6 +3,7 @@
 Рёбра (структурные + ИИ) -> проверка направления по Блуму + триаж ->
 разрыв цикла по мин. уверенности -> транзитивная редукция (networkx).
 """
+
 from __future__ import annotations
 
 import json
@@ -11,6 +12,7 @@ from typing import Any
 import networkx as nx
 
 from . import config, language, llm
+from .curriculum.edge_policy import curriculum_edge_label, curriculum_edge_role
 from .models import PrereqEdge, SkillCandidate
 
 
@@ -74,26 +76,58 @@ def propose_edges(cands: list[SkillCandidate]) -> list[PrereqEdge]:
             "rationale пиши на русском языке."
         )
         try:
-            data = json.loads(llm.content(llm.chat(config.MODEL_PLAN,
-                [{"role": "system", "content": sys}, {"role": "user", "content": json.dumps(cl, ensure_ascii=False)}],
-                json_mode=True)))
+            data = json.loads(
+                llm.content(
+                    llm.chat(
+                        config.MODEL_PLAN,
+                        [
+                            {"role": "system", "content": sys},
+                            {"role": "user", "content": json.dumps(cl, ensure_ascii=False)},
+                        ],
+                        json_mode=True,
+                    )
+                )
+            )
             ids = {c.tmp_id for c in cands}
             for e in data.get("edges", []):
                 if e["src"] in ids and e["dst"] in ids:
-                    edges.append(PrereqEdge(src=e["src"], dst=e["dst"], relation_type="soft",
-                                            confidence=float(e.get("confidence", 0.5)), source="ai",
-                                            rationale=e.get("rationale", "")))
+                    edges.append(
+                        PrereqEdge(
+                            src=e["src"],
+                            dst=e["dst"],
+                            relation_type="soft",
+                            confidence=float(e.get("confidence", 0.5)),
+                            source="ai",
+                            rationale=e.get("rationale", ""),
+                        )
+                    )
         except Exception:
             pass
     else:
         # MOCK: одно ошибочное ребро (создаст цикл) + одно избыточное
         sql, rel, rest, _q = tid("SQL"), tid("реляцион"), tid("REST"), tid("очеред")
         if sql and rel:
-            edges.append(PrereqEdge(src=sql, dst=rel, relation_type="soft", confidence=0.55, source="ai",
-                                    rationale="(ошибочно) SQL раньше БД"))   # цикл рел->SQL->рел
+            edges.append(
+                PrereqEdge(
+                    src=sql,
+                    dst=rel,
+                    relation_type="soft",
+                    confidence=0.55,
+                    source="ai",
+                    rationale="(ошибочно) SQL раньше БД",
+                )
+            )  # цикл рел->SQL->рел
         if rel and rest:
-            edges.append(PrereqEdge(src=rel, dst=rest, relation_type="soft", confidence=0.6, source="ai",
-                                    rationale="(избыточно) есть путь рел->SQL->REST"))
+            edges.append(
+                PrereqEdge(
+                    src=rel,
+                    dst=rest,
+                    relation_type="soft",
+                    confidence=0.6,
+                    source="ai",
+                    rationale="(избыточно) есть путь рел->SQL->REST",
+                )
+            )
     return edges
 
 
@@ -122,10 +156,16 @@ def triage_edges(edges: list[PrereqEdge], cands: list[SkillCandidate]) -> None:
         e.decision = "accept" if not r else "needs_review"
 
 
-def apply_edge_decision_overrides(edges: list[PrereqEdge], decisions: dict[str, str] | None) -> None:
+def apply_edge_decision_overrides(
+    edges: list[PrereqEdge],
+    decisions: dict[str, str] | None,
+    *,
+    valid_node_ids: set[str] | None = None,
+) -> None:
     """Apply persisted methodologist decisions to proposed edges."""
     if not decisions:
         return
+    edge_by_key = {f"{edge.src}->{edge.dst}": edge for edge in edges}
     for edge in edges:
         edge_key = f"{edge.src}->{edge.dst}"
         decision = decisions.get(edge_key)
@@ -136,11 +176,31 @@ def apply_edge_decision_overrides(edges: list[PrereqEdge], decisions: dict[str, 
         elif decision == "rejected":
             edge.decision = "rejected"
             edge.reasons = ["human_rejected"]
+    if valid_node_ids is None:
+        return
+    for edge_key, decision in decisions.items():
+        if decision != "accepted" or edge_key in edge_by_key or "->" not in edge_key:
+            continue
+        src, dst = edge_key.split("->", 1)
+        if src not in valid_node_ids or dst not in valid_node_ids or src == dst:
+            continue
+        edges.append(
+            PrereqEdge(
+                src=src,
+                dst=dst,
+                relation_type="soft",
+                confidence=1.0,
+                source="human",
+                rationale="Связь восстановлена из принятого решения методолога.",
+                reasons=["human_accepted"],
+                decision="accept",
+            )
+        )
 
 
 def operational_edges(edges: list[PrereqEdge]) -> list[PrereqEdge]:
     """Return only confirmed edges that are allowed to influence the operational DAG."""
-    return [edge for edge in edges if edge.decision == "accept"]
+    return [edge for edge in edges if edge.decision == "accept" and edge.relation_type != "related"]
 
 
 def visual_preview_edges(edges: list[PrereqEdge]) -> list[PrereqEdge]:
@@ -290,6 +350,10 @@ def build_dag_payload(
     final_edges = []
     for src, dst in DAG.edges():
         edge = DAG[src][dst].get("edge")
+        edge_payload = {
+            "relation_type": edge.relation_type if edge else "soft",
+        }
+        role = curriculum_edge_role(edge_payload)
         final_edges.append(
             {
                 "src_id": src,
@@ -297,18 +361,19 @@ def build_dag_payload(
                 "src": display_names[src],
                 "dst": display_names[dst],
                 "source": edge.source if edge else "pipeline",
-                "relation_type": edge.relation_type if edge else "soft",
-                "relation_label": (
-                    "Структурный пререквизит"
-                    if edge and edge.relation_type == "hard"
-                    else "Мягкая методическая связь"
-                ),
+                "relation_type": edge_payload["relation_type"],
+                "curriculum_role": role,
+                "relation_label": curriculum_edge_label(role),
                 "confidence": edge.confidence if edge else DAG[src][dst].get("conf"),
                 "decision": edge.decision if edge else "accept",
                 "reasons": edge.reasons if edge else [],
             }
         )
 
+    role_counts = {
+        role: sum(1 for edge in final_edges if edge.get("curriculum_role") == role)
+        for role in ("required", "recommended", "related")
+    }
     return {
         "nodes": DAG.number_of_nodes(),
         "edges": DAG.number_of_edges(),
@@ -327,11 +392,14 @@ def build_dag_payload(
             for tid in order
         ],
         "final_edges": final_edges,
+        "curriculum_edge_counts": role_counts,
         "edge_review_queue": review_queue,
     }
 
 
-def add_visual_preview_payload(dag_payload: dict[str, Any], edges: list[PrereqEdge], cands: list[SkillCandidate]) -> None:
+def add_visual_preview_payload(
+    dag_payload: dict[str, Any], edges: list[PrereqEdge], cands: list[SkillCandidate]
+) -> None:
     """Attach display-only DAG preview without changing the operational DAG."""
     preview_edges = visual_preview_edges(edges)
     if not preview_edges:
@@ -343,7 +411,9 @@ def add_visual_preview_payload(dag_payload: dict[str, Any], edges: list[PrereqEd
         return
 
     preview_dag, preview_removed_cycle, preview_removed_transitive = build_dag(preview_edges, cands)
-    preview_payload = build_dag_payload(preview_edges, preview_dag, preview_removed_cycle, preview_removed_transitive, cands)
+    preview_payload = build_dag_payload(
+        preview_edges, preview_dag, preview_removed_cycle, preview_removed_transitive, cands
+    )
     dag_payload["visual_edges"] = preview_payload["final_edges"]
     dag_payload["visual_waves"] = preview_payload["waves"]
     dag_payload["visual_order"] = preview_payload["order"]
@@ -359,7 +429,11 @@ def run(
     used_candidates = _graph_candidates(cands)
     all_edges = deduplicate_edges(propose_edges(used_candidates))
     triage_edges(all_edges, used_candidates)
-    apply_edge_decision_overrides(all_edges, edge_decisions)
+    apply_edge_decision_overrides(
+        all_edges,
+        edge_decisions,
+        valid_node_ids={cand.tmp_id for cand in used_candidates},
+    )
     accepted_edges = operational_edges(all_edges)
     DAG, removed_cycle, removed_transitive = build_dag(accepted_edges, used_candidates)
     dag_payload = build_dag_payload(all_edges, DAG, removed_cycle, removed_transitive, used_candidates)

@@ -7,8 +7,6 @@ Exercises the ported routes through the real app against the Postgres ``catalog`
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -35,6 +33,25 @@ def test_competencies_page_renders_with_prefixed_links(client: TestClient) -> No
     # nav + static + search form must carry the mount prefix (base global)
     assert f'href="{_PREFIX}/static/styles.css?v=' in r.text
     assert f'action="{_PREFIX}/competencies"' in r.text
+
+
+def test_catalog_root_opens_competency_catalog(client: TestClient) -> None:
+    r = client.get(_PREFIX, follow_redirects=False)
+
+    assert r.status_code == 303
+    assert r.headers["location"] == f"{_PREFIX}/competencies"
+
+
+def test_catalog_shell_exposes_only_catalog_primary_navigation() -> None:
+    from content_factory.catalog.viewer.route_zones import get_main_nav
+
+    assert get_main_nav() == [
+        {
+            "label": "Справочник",
+            "href": "/competencies",
+            "prefixes": ["/catalog-admin", "/competencies", "/profiles"],
+        }
+    ]
 
 
 def test_profiles_page_renders(client: TestClient) -> None:

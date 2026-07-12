@@ -35,6 +35,7 @@ class GenerationContext(BaseModel):
     context_bundle: Any | None = None
     similar_projects: list[Any] = Field(default_factory=list)
     task_plan: Any | None = None
+    task_count_contract: Any | None = None
     story_map_contract: Any | None = None
     practice_plan_contract: Any | None = None
     artifact_chain_plan: Any | None = None
@@ -117,6 +118,7 @@ class TaskPlanningNodeResult(TypedNodeOutput):
 
     seed: Any
     task_plan: Any | None = None
+    task_count_contract: Any | None = None
     story_map_contract: Any | None = None
     practice_plan_contract: Any | None = None
     artifact_chain_plan: Any | None = None
@@ -128,6 +130,7 @@ class TaskPlanningNodeResult(TypedNodeOutput):
         return {
             "seed": self.seed,
             "task_plan": self.task_plan,
+            "task_count_contract": self.task_count_contract,
             "story_map_contract": self.story_map_contract,
             "practice_plan_contract": self.practice_plan_contract,
             "artifact_chain_plan": self.artifact_chain_plan,

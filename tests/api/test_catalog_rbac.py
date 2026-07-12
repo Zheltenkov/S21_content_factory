@@ -65,6 +65,24 @@ def test_unauthenticated_mutation_redirects_to_login(monkeypatch: pytest.MonkeyP
     assert resp.headers["location"].startswith("/?next=")
 
 
+def test_curriculum_builder_is_admin_write_gated() -> None:
+    """The assembled app must admin-gate the curriculum-builder mutation prefix.
+
+    The /app/curriculum POST routes mutate the shared catalog/DAG/templates/plans,
+    so they must sit behind admin_write_prefixes alongside /app/spravochnik. This
+    guards against silently dropping the prefix from main.py.
+    """
+
+    from content_factory.api.main import app
+
+    tool_auth = next(
+        mw for mw in app.user_middleware if mw.cls is ToolAuthCookieMiddleware
+    )
+    admin_write_prefixes = tool_auth.kwargs["admin_write_prefixes"]
+    assert "/app/curriculum" in admin_write_prefixes
+    assert "/app/spravochnik" in admin_write_prefixes
+
+
 def test_disable_auth_resolves_to_dev_admin(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DISABLE_AUTH", "true")
     # use the real validate_request_user (dev short-circuit), not the fake

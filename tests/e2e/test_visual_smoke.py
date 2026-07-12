@@ -15,7 +15,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import Page
+
+sync_api = pytest.importorskip("playwright.sync_api", reason="Install the optional .[e2e] dependencies to run Playwright smoke tests")
+Page = sync_api.Page
 
 pytestmark = pytest.mark.e2e
 
@@ -23,12 +25,12 @@ SCREENSHOT_DIR = Path(__file__).resolve().parent / "screenshots"
 
 # Server-rendered catalog pages + auditor — these hit Postgres at request time.
 CATALOG_PAGES = [
+    "/app/spravochnik",
     "/app/spravochnik/competencies",
     "/app/spravochnik/competencies/1",
     "/app/spravochnik/profiles",
     "/app/spravochnik/reviews",
     "/app/spravochnik/up",
-    "/app/spravochnik/intake",
     "/app/spravochnik/catalog-admin",
     "/app/spravochnik/catalog-admin/candidate-competencies",
     "/app/spravochnik/catalog-admin/archive",

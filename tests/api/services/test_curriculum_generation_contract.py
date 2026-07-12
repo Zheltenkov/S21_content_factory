@@ -267,6 +267,7 @@ async def test_brief_up_snapshot_to_single_project_generation_start(monkeypatch:
         track_files=None,
         user_id="methodologist",
     )
+    assert not background_calls
     for task in tasks:
         await task
 

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from content_factory.content_profile import resolve_content_profile
+
 from ..domain_contracts import render_narrative_contract_section
 from ..models.schemas import ProjectSeed
 
@@ -164,63 +166,9 @@ def build_theory_sjm_section(
 
 
 def determine_theory_content_type(seed: ProjectSeed) -> str:
-    """Classify content profile for formula/code restrictions."""
-    explicit_type = getattr(seed, "project_content_type", None)
-    if explicit_type in {"hard_code", "low_code", "no_code"}:
-        return str(explicit_type)
+    """Resolve one project-level profile shared by every generation agent."""
 
-    direction = (getattr(seed, "direction", "") or seed.thematic_block or "").upper()
-    hard_code_directions = {
-        "C",
-        "CPP",
-        "C++",
-        "JAVA",
-        "GO",
-        "RUST",
-        "BACKEND",
-        "MOBILE",
-        "WEB",
-        "FRONTEND",
-        "FULLSTACK",
-        "DEV",
-        "SWE",
-    }
-    low_code_directions = {
-        "DS",
-        "DO",
-        "QA",
-        "BIO",
-        "BIOINF",
-        "DEVOPS",
-        "DATA",
-        "ML",
-        "AI",
-        "TESTING",
-        "AUTOMATION",
-    }
-    no_code_directions = {
-        "PJM",
-        "UX",
-        "CB",
-        "KB",
-        "BSA",
-        "BA",
-        "PM",
-        "CYBER",
-        "SECURITY",
-        "PRODUCT",
-        "DESIGN",
-        "MANAGEMENT",
-        "ANALYST",
-    }
-
-    if direction in hard_code_directions:
-        return "hard_code"
-    if direction in low_code_directions:
-        return "low_code"
-    if direction in no_code_directions:
-        return "no_code"
-    return "low_code"
+    return resolve_content_profile(seed).profile
 
 
 def build_theory_content_type_section(content_type: str) -> str:
@@ -243,6 +191,10 @@ def build_theory_content_type_section(content_type: str) -> str:
 - Таблицы сравнения
 ЗАПРЕЩЕНО: сложные формулы, много кода, глубокие технические детали.
 Тон: объясняющий, с практическими примерами из жизни."""
+
+    if content_type == "hybrid":
+        return """ТИП: СМЕШАННЫЙ ПРОЕКТ (hybrid)
+Теория должна связать предметное или управленческое решение с устройством технического прототипа. Разрешены короткие фрагменты кода, схемы и таблицы решений. Каждый технический пример обязан объяснять, какое решение он проверяет и какой артефакт получит студент."""
 
     return """ТИП: ГУМАНИТАРНЫЙ (no code)
 Это проект для МЕНЕДЖЕРОВ, АНАЛИТИКОВ, ДИЗАЙНЕРОВ (PjM, BSA, UX, КБ).
@@ -275,7 +227,7 @@ def build_theory_formulas_requirements(seed: ProjectSeed, content_type: str) -> 
 - Плохо: $$P_{db} = \\frac{Q}{T}$$
 - Хорошо: <<Производительность = количество задач / время. Например, если команда закрыла 20 задач за 5 дней, производительность = 4 задачи в день.>>"""
 
-    if content_type == "low_code":
+    if content_type in {"low_code", "hybrid"}:
         if not seed.include_formulas:
             return """ФОРМУЛЫ: ЗАПРЕЩЕНЫ методологом.
 КОД: Максимум 1-2 коротких примера (до 10 строк) за весь раздел.

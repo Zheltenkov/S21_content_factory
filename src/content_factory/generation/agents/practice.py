@@ -132,6 +132,7 @@ class PracticeAgent(BaseAgent):
             logger=self.logger,
         )
         self.last_artifact_chain_plan: ArtifactChainPlan | None = None
+        self.last_task_count_repair: dict[str, Any] | None = None
 
     @staticmethod
     def _safe_artifact_root(seed: ProjectSeed) -> str:
@@ -384,6 +385,7 @@ class PracticeAgent(BaseAgent):
             section_context=section_context,
         )
         self.last_artifact_chain_plan = outcome.artifact_chain_plan
+        self.last_task_count_repair = outcome.task_count_repair
         return PracticeResult(tasks=outcome.tasks, bonus_tasks=[])
 
     def generate_bonus(self, seed: ProjectSeed, n_bonus: int = 1) -> list[PracticeTask]:

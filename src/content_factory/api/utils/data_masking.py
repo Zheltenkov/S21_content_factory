@@ -81,14 +81,14 @@ def mask_dict(data: dict[str, Any], mask_char: str = "*", visible_chars: int = 4
 
         if is_sensitive:
             # Маскируем значение
-            if isinstance(value, (str, int, float)):
+            if isinstance(value, str | int | float):
                 masked[key] = mask_value(value, mask_char, visible_chars)
             elif isinstance(value, dict):
                 masked[key] = mask_dict(value, mask_char, visible_chars)
             elif isinstance(value, list):
                 masked[key] = [
                     mask_dict(item, mask_char, visible_chars) if isinstance(item, dict)
-                    else mask_value(item, mask_char, visible_chars) if isinstance(item, (str, int, float))
+                    else mask_value(item, mask_char, visible_chars) if isinstance(item, str | int | float)
                     else item
                     for item in value
                 ]
@@ -178,4 +178,4 @@ def mask_request_body(body: str | bytes | dict[str, Any] | None) -> dict[str, An
         return mask_dict(body)
 
     # Для других типов возвращаем как есть
-    return body if isinstance(body, (dict, list)) else {"value": str(body)}
+    return body if isinstance(body, dict | list) else {"value": str(body)}

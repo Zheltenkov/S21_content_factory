@@ -6,7 +6,8 @@
     <title>{{ title }} | Рабочий контур методолога</title>
     <link rel="stylesheet" href="/static/css/s21-tokens.css?v=20260704-shared-tokens">
     <link rel="stylesheet" href="/static/css/s21-aliases.css?v=20260704-shared-tokens">
-    <link rel="stylesheet" href="{{ base }}/static/styles.css?v=20260704-warm-tokens">
+    <link rel="icon" href="{{ base }}/favicon.ico">
+    <link rel="stylesheet" href="{{ base }}/static/styles.css?v=20260711-curriculum-journey">
 </head>
 <body>
     {% if ecosystem_nav %}
@@ -18,12 +19,13 @@
     {% endif %}
     <header class="topbar">
         <div class="topbar-inner">
-            <a class="wordmark" href="{{ base }}/intake">
+            <a class="wordmark" href="{{ wordmark_href or base }}">
                 <img class="wordmark-logo" src="{{ base }}/static/school21-sber-logo.jpg?v=1" alt="Школа 21">
                 <span>
                     <span class="wordmark-name">Рабочий контур методолога</span>
                 </span>
             </a>
+            {% if show_main_nav is not defined or show_main_nav %}
             <nav class="nav">
                 {% for item in nav %}
                 {% set state = namespace(active=false) %}
@@ -35,6 +37,7 @@
                 <a href="{{ base }}{{ item.href }}" class="nav-link{% if state.active %} active{% endif %}">{{ item.label }}</a>
                 {% endfor %}
             </nav>
+            {% endif %}
         </div>
     </header>
     {% if secondary_nav and show_secondary_nav %}

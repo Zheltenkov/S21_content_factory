@@ -27,16 +27,32 @@ def test_dashboard_mode_cards_use_direct_links_instead_of_js_only_navigation():
     html = (ROOT / "static" / "app.html").read_text(encoding="utf-8")
 
     expected_targets = [
-        "/app/generate",
-        "/app/auditor",
-        "/app/translate",
         "/app/curriculum",
+        "/app/spravochnik/up",
+        "/app/generate",
         "/app/spravochnik",
+        "/app/translate",
+        "/app/auditor",
     ]
     for target in expected_targets:
         assert re.search(rf'<a class="dashboard-primary-action" href="{re.escape(target)}"', html)
+    card_positions = [
+        html.index(f'<a class="dashboard-primary-action" href="{target}"') for target in expected_targets
+    ]
+    assert card_positions == sorted(card_positions)
 
+    assert "Конструктор УП" in html
+    assert "Начать конструирование" in html
+    assert "Реестр УП" in html
     assert 'class="dashboard-primary-action" onclick=' not in html
+
+
+def test_generator_preserves_project_level_content_profile_from_curriculum():
+    html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+    form_state = (ROOT / "static" / "js" / "modules" / "generationFormState.js").read_text(encoding="utf-8")
+
+    assert '<option value="hybrid">' in html
+    assert "seed.project_content_type = projectData.project_content_type" in form_state
 
 
 def test_native_up_router_mirrors_curriculum_after_mutations():

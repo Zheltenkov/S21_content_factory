@@ -309,7 +309,7 @@ class FormulaTableAgent:
                                         cleaned_params.append(param)
                                     else:
                                         safe_print(f"  ⚠️ Пропущен параметр {param_idx+1} формулы {idx+1}: некорректная структура", flush=True)
-                                elif isinstance(param, (str, int, float)):
+                                elif isinstance(param, str | int | float):
                                     # Если параметр - примитив, пропускаем
                                     safe_print(f"  ⚠️ Пропущен параметр {param_idx+1} формулы {idx+1}: примитивный тип", flush=True)
                                     continue

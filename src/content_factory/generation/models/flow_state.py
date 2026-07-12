@@ -74,6 +74,7 @@ class ProjectFlowState(BaseModel):
     theory_parts: list[TheoryPart] = Field(default_factory=list)
     similar_projects: list[Any] = Field(default_factory=list)
     task_plan: Any | None = None
+    task_count_contract: Any | None = None
     story_map_contract: Any | None = None
     practice_plan_contract: Any | None = None
     artifact_chain_plan: Any | None = None

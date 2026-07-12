@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="/static/css/s21-badges.css?v=20260514-split2">
     <link rel="stylesheet" href="/static/css/s21-markdown.css?v=20260520-methodology-diagram-stability">
     <link rel="stylesheet" href="/static/css/s21-design.css?v=20260513-fluid-cleanup">
-    <link rel="stylesheet" href="/static/css/s21-dashboard.css?v=20260515-dashboard-fix">
+    <link rel="stylesheet" href="/static/css/s21-dashboard.css?v=20260710-curriculum-builder-tile">
     <script src="/static/js/modules/modelSelector.js?v=20260514-header-fix"></script>
     <script src="/static/js/utils/pagePrefetch.js?v=20260518-page-prefetch-lite" defer></script>
 </head>
@@ -70,13 +70,56 @@
 
         <section class="dashboard-mode-grid" aria-label="Режимы работы">
             <article class="dashboard-mode-card">
+                <div class="dashboard-card-art art-builder">
+                    <div class="art-builder-brief">
+                        <span></span><span></span>
+                        <em>brief</em>
+                    </div>
+                    <div class="art-builder-donut">
+                        <strong>УП</strong>
+                    </div>
+                </div>
+                <div class="dashboard-card-body">
+                    <div class="dashboard-card-index">РЕЖИМ / 01</div>
+                    <h2>Конструктор УП</h2>
+                    <p>Стартовый маршрут методолога: от брифа к проверенным навыкам, DAG, шаблонам и собранному учебному плану.</p>
+                    <ul>
+                        <li>Загрузка и контроль брифа</li>
+                        <li>Проверка навыков и применение в справочник</li>
+                        <li>DAG, шаблоны и сборка УП</li>
+                    </ul>
+                    <a class="dashboard-primary-action" href="/app/curriculum">Начать конструирование <span>→</span></a>
+                </div>
+            </article>
+
+            <article class="dashboard-mode-card">
+                <div class="dashboard-card-art art-plan">
+                    <div class="art-plan-board">
+                        <span>01</span><span>02</span><span>03</span>
+                        <strong>УП</strong>
+                    </div>
+                </div>
+                <div class="dashboard-card-body">
+                    <div class="dashboard-card-index">РЕЖИМ / 02</div>
+                    <h2>Реестр УП</h2>
+                    <p>Просмотр, планирование и row-edit готовых учебных планов с привязкой к единой методологической базе.</p>
+                    <ul>
+                        <li>Иерархия планов и проектов</li>
+                        <li>Редактор строк и результатов обучения</li>
+                        <li>Предложения шаблонов артефактов</li>
+                    </ul>
+                    <a class="dashboard-primary-action" href="/app/spravochnik/up">Открыть реестр УП <span>→</span></a>
+                </div>
+            </article>
+
+            <article class="dashboard-mode-card">
                 <div class="dashboard-card-art art-generate">
                     <div class="art-doc light"></div>
                     <span class="art-plus">+</span>
                     <div class="art-doc dark"><span></span></div>
                 </div>
                 <div class="dashboard-card-body">
-                    <div class="dashboard-card-index">РЕЖИМ / 01</div>
+                    <div class="dashboard-card-index">РЕЖИМ / 03</div>
                     <h2>Генерация README</h2>
                     <p>Полный пайплайн: от паспорта программы до итогового документа с теорией, практикой и критериями.</p>
                     <ul>
@@ -85,6 +128,46 @@
                         <li>Диаграммы, формулы, отчёты</li>
                     </ul>
                     <a class="dashboard-primary-action" href="/app/generate">Перейти к генератору <span>→</span></a>
+                </div>
+            </article>
+
+            <article class="dashboard-mode-card">
+                <div class="dashboard-card-art art-catalog">
+                    <div class="art-catalog-card">
+                        <span></span><span></span><span></span>
+                        <em>skill</em><em>CAT</em>
+                    </div>
+                    <div class="art-catalog-plus">+</div>
+                </div>
+                <div class="dashboard-card-body">
+                    <div class="dashboard-card-index">РЕЖИМ / 04</div>
+                    <h2>Справочник</h2>
+                    <p>Каталог компетенций, skills, индикаторов и review queue для общей методологической базы.</p>
+                    <ul>
+                        <li>Компетенции и профили</li>
+                        <li>Skills и индикаторы</li>
+                        <li>Intake, архив и review queue</li>
+                    </ul>
+                    <a class="dashboard-primary-action" href="/app/spravochnik">Перейти к справочнику <span>→</span></a>
+                </div>
+            </article>
+
+            <article class="dashboard-mode-card">
+                <div class="dashboard-card-art art-translate">
+                    <div class="art-lang-card light">RU<span></span></div>
+                    <span class="art-arrow">→</span>
+                    <div class="art-lang-card dark">EN<span></span></div>
+                </div>
+                <div class="dashboard-card-body">
+                    <div class="dashboard-card-index">РЕЖИМ / 05</div>
+                    <h2>Перевод документов и видео</h2>
+                    <p>Переведите README или Markdown с сохранением структуры. Также доступны видео и субтитры.</p>
+                    <ul>
+                        <li>Markdown, формулы и таблицы целые</li>
+                        <li>Поддержка Mermaid-диаграмм</li>
+                        <li>Субтитры VTT/SRT и видео-перевод</li>
+                    </ul>
+                    <a class="dashboard-primary-action" href="/app/translate">Перейти к переводу <span>→</span></a>
                 </div>
             </article>
 
@@ -99,7 +182,7 @@
                     </div>
                 </div>
                 <div class="dashboard-card-body">
-                    <div class="dashboard-card-index">РЕЖИМ / 02</div>
+                    <div class="dashboard-card-index">РЕЖИМ / 06</div>
                     <h2>Аудитор</h2>
                     <p>Структурная и дидактическая оценка учебного проекта с понятными комментариями и флоу улучшений.</p>
                     <ul>
@@ -108,66 +191,6 @@
                         <li>Метрики, run-view и improvement flow</li>
                     </ul>
                     <a class="dashboard-primary-action" href="/app/auditor">Перейти к аудитору <span>→</span></a>
-                </div>
-            </article>
-
-            <article class="dashboard-mode-card">
-                <div class="dashboard-card-art art-translate">
-                    <div class="art-lang-card light">RU<span></span></div>
-                    <span class="art-arrow">→</span>
-                    <div class="art-lang-card dark">EN<span></span></div>
-                </div>
-                <div class="dashboard-card-body">
-                    <div class="dashboard-card-index">РЕЖИМ / 03</div>
-                    <h2>Перевод документов и видео</h2>
-                    <p>Переведите README или Markdown с сохранением структуры. Также доступны видео и субтитры.</p>
-                    <ul>
-                        <li>Markdown, формулы и таблицы целые</li>
-                        <li>Поддержка Mermaid-диаграмм</li>
-                        <li>Субтитры VTT/SRT и видео-перевод</li>
-                    </ul>
-                    <a class="dashboard-primary-action" href="/app/translate">Перейти к переводу <span>→</span></a>
-                </div>
-            </article>
-
-            <article class="dashboard-mode-card">
-                <div class="dashboard-card-art art-plan">
-                    <div class="art-plan-board">
-                        <span>01</span><span>02</span><span>03</span>
-                        <strong>УП</strong>
-                    </div>
-                </div>
-                <div class="dashboard-card-body">
-                    <div class="dashboard-card-index">РЕЖИМ / 04</div>
-                    <h2>Учебный план</h2>
-                    <p>Каталог, планирование и row-edit учебных проектов с привязкой к единой методологической базе.</p>
-                    <ul>
-                        <li>Иерархия планов и проектов</li>
-                        <li>Редактор строк и результатов обучения</li>
-                        <li>Предложения шаблонов артефактов</li>
-                    </ul>
-                    <a class="dashboard-primary-action" href="/app/curriculum">Перейти к УП <span>→</span></a>
-                </div>
-            </article>
-
-            <article class="dashboard-mode-card">
-                <div class="dashboard-card-art art-catalog">
-                    <div class="art-catalog-card">
-                        <span></span><span></span><span></span>
-                        <em>skill</em><em>CAT</em>
-                    </div>
-                    <div class="art-catalog-plus">+</div>
-                </div>
-                <div class="dashboard-card-body">
-                    <div class="dashboard-card-index">РЕЖИМ / 05</div>
-                    <h2>Справочник</h2>
-                    <p>Каталог компетенций, skills, индикаторов и review queue для общей методологической базы.</p>
-                    <ul>
-                        <li>Компетенции и профили</li>
-                        <li>Skills и индикаторы</li>
-                        <li>Intake, архив и review queue</li>
-                    </ul>
-                    <a class="dashboard-primary-action" href="/app/spravochnik">Перейти к справочнику <span>→</span></a>
                 </div>
             </article>
         </section>

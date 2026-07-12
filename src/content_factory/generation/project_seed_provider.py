@@ -232,7 +232,7 @@ class ProjectSeedProvider:
             if len(raw_parts) == 1 and "," in value:
                 raw_parts = value.split(",")
             return [part.strip(" \t-•") for part in raw_parts if part.strip(" \t-•")]
-        if isinstance(value, (list, tuple, set)):
+        if isinstance(value, list | tuple | set):
             result: list[str] = []
             for item in value:
                 if isinstance(item, str):

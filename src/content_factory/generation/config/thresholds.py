@@ -126,7 +126,7 @@ def get_enhancement_config_for_content_type(content_type: str) -> tuple:
     Возвращает бюджет и цели для типа контента.
 
     Args:
-        content_type: 'hard_code' | 'low_code' | 'no_code'
+        content_type: 'hard_code' | 'low_code' | 'hybrid' | 'no_code'
 
     Returns:
         (budget, targets)
@@ -135,6 +135,10 @@ def get_enhancement_config_for_content_type(content_type: str) -> tuple:
         return NO_CODE_ENHANCEMENT_BUDGET, NO_CODE_ENHANCEMENT_TARGETS
     elif content_type == "low_code":
         return LOW_CODE_ENHANCEMENT_BUDGET, LOW_CODE_ENHANCEMENT_TARGETS
+    elif content_type == "hybrid":
+        hybrid_budget = {**LOW_CODE_ENHANCEMENT_BUDGET, "code_examples": {"min": 1, "max": 3}}
+        hybrid_targets = {**LOW_CODE_ENHANCEMENT_TARGETS, "code_examples": 1}
+        return hybrid_budget, hybrid_targets
     elif content_type == "hard_code":
         return HARD_CODE_ENHANCEMENT_BUDGET, HARD_CODE_ENHANCEMENT_TARGETS
     else:

@@ -26,12 +26,13 @@ contracts:
     node_id: task_planning
     role: planning
     input_schema: [seed, context_meta, context_analysis]
-    output_schema: [seed, task_plan, story_map_contract, practice_plan_contract, artifact_chain_plan, evidence_specs, warnings]
+    output_schema: [seed, task_plan, task_count_contract, story_map_contract, practice_plan_contract, artifact_chain_plan, evidence_specs, warnings]
     prompt_id: task_planner.config
     prompt_version: "1.0.0"
     model_role: planner
     validators:
       - TaskPlan schema
+      - TaskCountContract schema
       - StoryMapContract schema
       - PracticePlanContract schema
       - ArtifactChainPlan schema

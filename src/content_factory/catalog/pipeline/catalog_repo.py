@@ -5,15 +5,9 @@ import difflib
 import re
 import unicodedata
 
-from content_factory.catalog.db import CatalogRow
+from rapidfuzz import fuzz, process
 
-try:
-    from rapidfuzz import fuzz, process
-except ImportError:  # pragma: no cover - depends on local environment
-    fuzz = None
-    process = None
-
-from content_factory.catalog.db import open_catalog_connection, table_exists
+from content_factory.catalog.db import CatalogRow, open_catalog_connection, table_exists
 
 from . import config
 from .models import SkillCandidate

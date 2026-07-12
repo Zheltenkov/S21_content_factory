@@ -114,7 +114,7 @@ class GenerationStartService:
                 ),
             )
             generation_task = asyncio.create_task(
-                self._background_runner(request_id, user_id, project_seed_dict, [], None)
+                self._start_after_response(request_id, user_id, project_seed_dict)
             )
             self._task_registrar(request_id, generation_task)
             return GenerateStartResponse(
@@ -160,6 +160,17 @@ class GenerationStartService:
                 metadata={"error_type": type(exc).__name__, "error_message": str(exc)},
             )
             raise GenerationServiceError(500, "Внутренняя ошибка сервера") from exc
+
+    async def _start_after_response(
+        self,
+        request_id: str,
+        user_id: str,
+        project_seed_dict: dict[str, Any],
+    ) -> None:
+        """Let ASGI flush the accepted response before generation starts."""
+
+        await asyncio.sleep(0.05)
+        await self._background_runner(request_id, user_id, project_seed_dict, [], None)
 
     async def _parse_seed_payload(self, request: Request) -> dict[str, Any]:
         content_type = request.headers.get("content-type", "")

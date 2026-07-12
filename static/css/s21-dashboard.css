@@ -681,6 +681,88 @@ body.s21-product.page-menu {
   line-height: 1;
 }
 
+.art-builder-brief {
+  width: 120px;
+  height: 86px;
+  position: absolute;
+  left: 38px;
+  top: 52px;
+  padding: 18px 16px 12px;
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  border: 2px solid #22272d;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.art-builder-brief span {
+  height: 5px;
+  border-radius: 999px;
+  background: #b8bdb8;
+}
+
+.art-builder-brief span:first-child {
+  width: 74px;
+  background: #111820;
+}
+
+.art-builder-brief em {
+  width: 48px;
+  min-height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--s21-success-bg);
+  color: var(--s21-success);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.art-builder-donut {
+  width: 122px;
+  height: 122px;
+  position: absolute;
+  right: 38px;
+  top: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      var(--s21-accent) 0deg 54deg,
+      #ffffff 54deg 62deg,
+      var(--s21-accent) 62deg 116deg,
+      #ffffff 116deg 124deg,
+      var(--s21-accent) 124deg 178deg,
+      #ffffff 178deg 186deg,
+      #f3c967 186deg 240deg,
+      #ffffff 240deg 248deg,
+      #f3c967 248deg 302deg,
+      #ffffff 302deg 310deg,
+      #f3c967 310deg 360deg
+    );
+  box-shadow: 0 0 0 2px rgba(34, 39, 45, 0.1);
+}
+
+.art-builder-donut::before {
+  content: "";
+  position: absolute;
+  inset: 30px;
+  border-radius: 50%;
+  background: #fbfcf8;
+  box-shadow: inset 0 0 0 2px rgba(34, 39, 45, 0.05);
+}
+
+.art-builder-donut strong {
+  position: relative;
+  z-index: 1;
+  color: #111820;
+  font-size: 18px;
+  font-weight: 800;
+}
+
 .art-catalog-card {
   width: 154px;
   height: 104px;

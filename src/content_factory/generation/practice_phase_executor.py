@@ -315,6 +315,13 @@ class PracticePhaseExecutor:
 
         issues: list[Any] = []
         warnings: list[str] = []
+        task_count_repair = getattr(self.runtime.practice, "last_task_count_repair", None)
+        if isinstance(task_count_repair, dict):
+            warnings.append(
+                "ℹ️ Количество задач нормализовано по контракту: "
+                f"{task_count_repair.get('initial')} → {task_count_repair.get('final')} "
+                f"(требуется {task_count_repair.get('expected')})."
+            )
         critic_issues, issues_for_regen, theory_extract_text = self.review_with_critic(
             practice_res,
             seed,

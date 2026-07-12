@@ -48,3 +48,32 @@ def test_sync_is_a_native_noop() -> None:
     result = sync_spravochnik_curriculum_plans()
     assert result["native"] is True
     assert result["synced"] == 0
+
+
+def test_convert_derives_project_level_content_profile() -> None:
+    from content_factory.api.integrations.spravochnik_curriculum_sync import (
+        convert_spravochnik_plan_to_generator_curriculum,
+    )
+
+    payload = {
+        "direction": "PjM",
+        "rows": [
+            {
+                "block_index": 1,
+                "row_number": 1,
+                "project_index_in_block": 1,
+                "block_title": "Проектирование решения",
+                "project_name": "Схема решения и прототип разработки",
+                "project_summary": "Спроектировать API и реализовать прототип на Python.",
+                "skills_list": "Проектирование API, Разработка прототипа",
+                "required_tools": "Python, Git, Docker",
+                "artifact": "Работающий прототип и исходный код",
+            }
+        ],
+    }
+
+    curriculum = convert_spravochnik_plan_to_generator_curriculum(payload)
+    project = curriculum["blocks"][0]["projects"][0]
+
+    assert project["project_content_type"] == "hard_code"
+    assert project["content_profile_decision"]["source"] == "project_signals"

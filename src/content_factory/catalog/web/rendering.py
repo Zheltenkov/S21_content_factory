@@ -63,6 +63,7 @@ def render(
     context: dict[str, Any],
     *,
     request_path: str,
+    ecosystem_active_code: str = "catalog",
     db_path: Path | None = None,
     summary_path: Path | None = None,
 ) -> str:
@@ -77,7 +78,7 @@ def render(
     summary_path = summary_path or DEFAULT_SUMMARY
     summary = refresh_summary_counts(load_summary(summary_path), db_path)
     shared: dict[str, Any] = {
-        "ecosystem_nav": get_ecosystem_nav("catalog"),
+        "ecosystem_nav": get_ecosystem_nav(ecosystem_active_code),
         "nav": get_main_nav(),
         "secondary_nav": get_secondary_nav(request_path),
         "show_secondary_nav": show_secondary_nav(request_path),

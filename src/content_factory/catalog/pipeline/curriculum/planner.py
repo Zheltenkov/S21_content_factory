@@ -15,6 +15,8 @@ import networkx as nx
 
 from .. import config
 from .domain import BloomBucket, CurriculumBlock, OccurrenceRole, PlanNode, ProjectBlueprint, SkillOccurrence
+from .edge_policy import CurriculumEdgeRole, curriculum_edge_role
+from .journey import CurriculumDesignSpec, build_curriculum_design_spec
 
 _DANGLING_TAIL_WORDS = {
     "и",
@@ -82,12 +84,16 @@ def _is_reliable_theme_edge(edge: dict[str, Any]) -> bool:
     return confidence >= config.TAU_EDGE_ACCEPT
 
 
-def _direct_edge_pairs(dag_payload: dict[str, Any], *, hard_only: bool = False) -> set[tuple[str, str]]:
+def _direct_edge_pairs(
+    dag_payload: dict[str, Any],
+    *,
+    roles: set[CurriculumEdgeRole] | None = None,
+) -> set[tuple[str, str]]:
     pairs: set[tuple[str, str]] = set()
     for edge in dag_payload.get("final_edges", []):
         if not isinstance(edge, dict):
             continue
-        if hard_only and str(edge.get("relation_type") or "").casefold() != "hard":
+        if roles is not None and curriculum_edge_role(edge) not in roles:
             continue
         src_id = str(edge.get("src_id") or "")
         dst_id = str(edge.get("dst_id") or "")
@@ -123,9 +129,17 @@ def _compact_text(value: str, *, max_words: int = 6, max_chars: int = 72) -> str
     return text or "Общее"
 
 
+def _full_text(value: str) -> str:
+    """Normalize a curriculum label without shortening user-visible names."""
+    text = " ".join(str(value or "").replace("—", "-").split()).strip(" .,-")
+    if not text:
+        return "Общее"
+    return _drop_latin_parenthetical_notes(text) or "Общее"
+
+
 def _project_theme_for(node: PlanNode) -> str:
     """Use catalog-derived semantics only: coverage area, skill group, then generic fallback."""
-    return _compact_text(node.block_key or node.group or "Общее", max_words=6, max_chars=72)
+    return _full_text(node.block_key or node.group or "Общее")
 
 
 _ARTIFACT_FAMILY_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -272,7 +286,7 @@ def _template_title_for(nodes: list[PlanNode], block_key: str, artifact_family: 
     )
     # Project-name patterns can expand into long skill lists. If that happens,
     # use the accepted template title as the stable human-readable project name.
-    if rendered and ("{" not in pattern or len(rendered) <= 72):
+    if rendered and len(rendered) >= 8 and ("{" not in pattern or len(rendered) <= 72):
         return rendered
     title = _render_pattern(
         template.get("title"),
@@ -311,7 +325,7 @@ def _artifact_for(nodes: list[PlanNode], block_key: str, artifact_family: str) -
 
 def _project_title_for(block_key: str, chunk_index: int, chunk_count: int) -> str:
     suffix = f" {chunk_index}" if chunk_count > 1 else ""
-    return f"{_compact_text(block_key, max_words=4, max_chars=44)}{suffix}"
+    return f"{_full_text(block_key)}{suffix}"
 
 
 def _ordered_nodes(nodes: list[PlanNode], dag_payload: dict[str, Any]) -> list[PlanNode]:
@@ -350,8 +364,8 @@ def _split_nodes_for_project(
     *,
     max_skills: int,
 ) -> list[list[PlanNode]]:
-    """Split nodes into project chunks without placing hard prerequisites together."""
-    direct_edges = _direct_edge_pairs(dag_payload, hard_only=True)
+    """Split nodes without collapsing an accepted prerequisite into one project."""
+    direct_edges = _direct_edge_pairs(dag_payload, roles={"required"})
     chunks: list[list[PlanNode]] = []
     current: list[PlanNode] = []
     for node in nodes:
@@ -371,21 +385,27 @@ def _pack_dynamic_artifact_projects(
     nodes: list[PlanNode],
     dag_payload: dict[str, Any],
     artifact_templates: list[dict[str, Any]] | None = None,
+    design_spec: CurriculumDesignSpec | None = None,
 ) -> tuple[list[ProjectBlueprint], dict[str, Any]]:
     max_skills = max(1, int(config.UP_MAX_SKILLS_PER_PROJECT))
     grouped: dict[str, list[PlanNode]] = {}
     group_order: list[str] = []
     group_meta: dict[str, tuple[str, str, dict[str, Any] | None]] = {}
     templates = artifact_templates or []
+    stage_by_node = design_spec.node_stage if design_spec else {}
+    stage_by_index = dict(enumerate(design_spec.stages)) if design_spec else {}
     for node in _ordered_nodes(nodes, dag_payload):
         template = _best_template_for_node(node, templates)
-        dynamic_key = _artifact_key_for(node)
+        stage_index = stage_by_node.get(node.tmp_id)
+        stage = stage_by_index.get(stage_index) if stage_index is not None else None
+        theme = stage.title if stage else _project_theme_for(node)
+        dynamic_key = f"{stage.code}::{_artifact_family_for(node)}" if stage else _artifact_key_for(node)
         template_code = str((template or {}).get("code") or "").strip()
         artifact_key = f"{dynamic_key}::template:{template_code}" if template_code else dynamic_key
         if artifact_key not in grouped:
             grouped[artifact_key] = []
             group_order.append(artifact_key)
-            group_meta[artifact_key] = (_project_theme_for(node), _artifact_family_for(node), template)
+            group_meta[artifact_key] = (theme, _artifact_family_for(node), template)
         grouped[artifact_key].append(node)
 
     projects: list[ProjectBlueprint] = []
@@ -431,30 +451,115 @@ def _pack_dynamic_artifact_projects(
     return projects, meta
 
 
-def _reorder_projects_by_hard_edges(projects: list[ProjectBlueprint], dag_payload: dict[str, Any]) -> list[ProjectBlueprint]:
+def _reorder_projects_by_dag_edges(
+    projects: list[ProjectBlueprint],
+    dag_payload: dict[str, Any],
+    design_spec: CurriculumDesignSpec | None = None,
+) -> list[ProjectBlueprint]:
     if len(projects) <= 1:
         return projects
-    project_by_node: dict[str, int] = {}
-    for project_index, project in enumerate(projects):
-        for node in project.unique_nodes:
-            project_by_node.setdefault(node.tmp_id, project_index)
+    required_edges = _direct_edge_pairs(dag_payload, roles={"required"})
+    recommended_edges = _direct_edge_pairs(dag_payload, roles={"recommended"})
 
-    graph = nx.DiGraph()
-    graph.add_nodes_from(range(len(projects)))
-    for src_id, dst_id in _direct_edge_pairs(dag_payload, hard_only=True):
+    def project_graph(items: list[ProjectBlueprint]) -> nx.DiGraph:
+        project_by_node: dict[str, int] = {}
+        for project_index, project in enumerate(items):
+            for node in project.unique_nodes:
+                project_by_node.setdefault(node.tmp_id, project_index)
+        graph = nx.DiGraph()
+        graph.add_nodes_from(range(len(items)))
+        for src_id, dst_id in required_edges:
+            src_project = project_by_node.get(src_id)
+            dst_project = project_by_node.get(dst_id)
+            if src_project is None or dst_project is None or src_project == dst_project:
+                continue
+            graph.add_edge(src_project, dst_project)
+        return graph
+
+    graph = project_graph(projects)
+    while not nx.is_directed_acyclic_graph(graph):
+        cyclic_indexes = {index for cycle in nx.simple_cycles(graph) for index in cycle}
+        expanded: list[ProjectBlueprint] = []
+        split_any = False
+        for project_index, project in enumerate(projects):
+            primary = project.primary_occurrences
+            if project_index not in cyclic_indexes or len(primary) <= 1:
+                expanded.append(project)
+                continue
+            split_any = True
+            for occurrence in primary:
+                expanded.append(
+                    ProjectBlueprint(
+                        occurrences=[occurrence],
+                        block_key=project.block_key,
+                        artifact=_artifact_for([occurrence.node], project.block_key, project.artifact_family),
+                        artifact_key=f"{project.artifact_key}::{occurrence.node.tmp_id}",
+                        artifact_family=project.artifact_family,
+                        artifact_template_code=project.artifact_template_code,
+                        enrichment=dict(project.enrichment),
+                        title=f"{project.title}: {occurrence.node.name}",
+                        project_kind=project.project_kind,
+                    )
+                )
+        if not split_any:
+            return projects
+        projects = expanded
+        graph = project_graph(projects)
+
+    project_by_node = {
+        node.tmp_id: project_index
+        for project_index, project in enumerate(projects)
+        for node in project.unique_nodes
+    }
+    for src_id, dst_id in recommended_edges:
         src_project = project_by_node.get(src_id)
         dst_project = project_by_node.get(dst_id)
         if src_project is None or dst_project is None or src_project == dst_project:
             continue
+        if nx.has_path(graph, dst_project, src_project):
+            continue
         graph.add_edge(src_project, dst_project)
 
-    if not nx.is_directed_acyclic_graph(graph):
-        return projects
-    ordered_indexes = list(nx.lexicographical_topological_sort(graph, key=lambda index: index))
+    stage_by_node = design_spec.node_stage if design_spec else {}
+
+    def project_sort_key(index: int) -> tuple[int, int]:
+        stage_indexes = [stage_by_node[node.tmp_id] for node in projects[index].unique_nodes if node.tmp_id in stage_by_node]
+        return (max(stage_indexes, default=10**9), index)
+
+    ordered_indexes = list(nx.lexicographical_topological_sort(graph, key=project_sort_key))
     return [projects[index] for index in ordered_indexes]
 
 
-def _blocks_from_projects(projects: list[ProjectBlueprint]) -> list[CurriculumBlock]:
+def _blocks_from_projects(
+    projects: list[ProjectBlueprint],
+    design_spec: CurriculumDesignSpec | None = None,
+) -> list[CurriculumBlock]:
+    if design_spec and design_spec.stages:
+        stage_by_node = design_spec.node_stage
+        projects_by_stage: dict[int, list[ProjectBlueprint]] = {}
+        for project in projects:
+            stage_indexes = [stage_by_node[node.tmp_id] for node in project.unique_nodes if node.tmp_id in stage_by_node]
+            projects_by_stage.setdefault(max(stage_indexes, default=0), []).append(project)
+
+        staged_blocks: list[CurriculumBlock] = []
+        chunk_size = max(1, int(config.UP_MAX_PROJECTS_PER_BLOCK))
+        for stage_index, stage in enumerate(design_spec.stages):
+            stage_projects = projects_by_stage.get(stage_index, [])
+            for offset in range(0, len(stage_projects), chunk_size):
+                chunk = stage_projects[offset : offset + chunk_size]
+                part = offset // chunk_size + 1
+                title = stage.title if len(stage_projects) <= chunk_size else f"{stage.title} · часть {part}"
+                staged_blocks.append(
+                    CurriculumBlock(
+                        block_keys=stage.coverage_areas or _ordered_block_keys(chunk),
+                        projects=chunk,
+                        stage_code=stage.code,
+                        title=title,
+                        goal=stage.goal,
+                    )
+                )
+        return staged_blocks
+
     blocks: list[CurriculumBlock] = []
     chunk_size = max(1, int(config.UP_MAX_PROJECTS_PER_BLOCK))
     for offset in range(0, len(projects), chunk_size):
@@ -467,10 +572,54 @@ def _pack_dynamic_artifact_blocks(
     nodes: list[PlanNode],
     dag_payload: dict[str, Any],
     artifact_templates: list[dict[str, Any]] | None = None,
+    design_spec: CurriculumDesignSpec | None = None,
 ) -> tuple[list[CurriculumBlock], dict[str, Any]]:
-    projects, meta = _pack_dynamic_artifact_projects(nodes, dag_payload, artifact_templates)
-    projects = _reorder_projects_by_hard_edges(projects, dag_payload)
-    return _blocks_from_projects(projects), meta
+    projects, meta = _pack_dynamic_artifact_projects(nodes, dag_payload, artifact_templates, design_spec)
+    projects = _reorder_projects_by_dag_edges(projects, dag_payload, design_spec)
+    blocks = _blocks_from_projects(projects, design_spec)
+    if design_spec and design_spec.capstone_required:
+        capstone = _capstone_project(nodes, design_spec)
+        if capstone is not None:
+            blocks.append(
+                CurriculumBlock(
+                    block_keys=("Итоговая интеграция",),
+                    projects=[capstone],
+                    stage_code="capstone",
+                    title="Итоговая интеграция",
+                    goal="Объединить результаты программы, предъявить итоговый артефакт и обосновать принятые решения.",
+                )
+            )
+            meta["capstone_project_count"] = 1
+    return blocks, meta
+
+
+def _capstone_project(nodes: list[PlanNode], design_spec: CurriculumDesignSpec) -> ProjectBlueprint | None:
+    by_id = {node.tmp_id: node for node in nodes}
+    candidates: list[PlanNode] = []
+    for stage in design_spec.stages:
+        stage_nodes = [by_id[node_id] for node_id in stage.node_ids if node_id in by_id]
+        if stage_nodes:
+            candidates.append(max(stage_nodes, key=lambda node: (node.bloom, node.name)))
+    max_skills = max(1, int(config.UP_MAX_SKILLS_PER_PROJECT))
+    if len(candidates) > max_skills:
+        indexes = [round(index * (len(candidates) - 1) / (max_skills - 1)) for index in range(max_skills)] if max_skills > 1 else [len(candidates) - 1]
+        candidates = [candidates[index] for index in dict.fromkeys(indexes)]
+    candidates = list(dict.fromkeys(candidates))
+    if not candidates:
+        return None
+    artifact = "Итоговый интеграционный артефакт, объединяющий результаты ключевых этапов программы"
+    return ProjectBlueprint(
+        occurrences=[
+            SkillOccurrence(node=node, role="assessment", touch_index=2, bloom_bucket="skills")
+            for node in candidates
+        ],
+        block_key="Итоговая интеграция",
+        artifact=artifact,
+        artifact_key="capstone::integration",
+        artifact_family="production",
+        title=design_spec.capstone_title,
+        project_kind="capstone",
+    )
 
 
 def _flatten_projects(blocks: list[CurriculumBlock]) -> list[ProjectBlueprint]:
@@ -556,7 +705,7 @@ def _add_spiral_occurrences(blocks: list[CurriculumBlock], nodes: list[PlanNode]
     projects = _flatten_projects(blocks)
     if len(projects) < 3:
         return set()
-    direct_edges = _direct_edge_pairs(dag_payload, hard_only=True)
+    direct_edges = _direct_edge_pairs(dag_payload, roles={"required"})
     primary_index = _primary_project_index(projects)
     repeated_threads: set[str] = set()
     max_skills = max(1, int(config.UP_MAX_SKILLS_PER_PROJECT))
@@ -596,9 +745,12 @@ def build_curriculum_blocks(
     nodes: list[PlanNode],
     dag_payload: dict[str, Any],
     artifact_templates: list[dict[str, Any]] | None = None,
+    planning_context: dict[str, Any] | None = None,
 ) -> tuple[list[CurriculumBlock], dict[str, Any]]:
     """Build project blocks and return planner metadata."""
-    blocks, artifact_meta = _pack_dynamic_artifact_blocks(nodes, dag_payload, artifact_templates)
+    journey_enabled = bool((planning_context or {}).get("must_include_areas") or (planning_context or {}).get("curriculum_design_spec"))
+    design_spec = build_curriculum_design_spec(planning_context, nodes, dag_payload) if journey_enabled else None
+    blocks, artifact_meta = _pack_dynamic_artifact_blocks(nodes, dag_payload, artifact_templates, design_spec)
     core_threads = _select_core_threads(nodes, dag_payload)
     repeated_threads = _add_spiral_occurrences(blocks, nodes, dag_payload)
     meta = {
@@ -608,5 +760,6 @@ def build_curriculum_blocks(
         "core_thread_names": [node.name for node in core_threads],
         "repeated_thread_ids": sorted(repeated_threads),
         "repeated_thread_count": len(repeated_threads),
+        "design_spec": design_spec.as_dict() if design_spec else {},
     }
     return blocks, meta
