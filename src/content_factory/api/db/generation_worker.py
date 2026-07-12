@@ -58,6 +58,32 @@ def worker_identity() -> str:
     return f"{socket.gethostname()}:{os.getpid()}:{uuid4().hex[:8]}"
 
 
+def list_claimable_generation_workflows(limit: int = 10) -> list[dict[str, str | None]]:
+    """Oldest-first recoverable workflows (``created``/``interrupted``) for a poller.
+
+    Read-only: returns ``{request_id, user_id, status}`` dicts; the caller must still
+    ``claim_generation_workflow`` each (the claim is the atomic guard, this is just the
+    candidate scan).
+    """
+    if limit <= 0:
+        return []
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(GenerationWorkflowState)
+            .filter(GenerationWorkflowState.status.in_(CLAIMABLE_STATUSES))
+            .order_by(GenerationWorkflowState.updated_at.asc())
+            .limit(limit)
+            .all()
+        )
+        return [{"request_id": row.request_id, "user_id": row.user_id, "status": row.status} for row in rows]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to list claimable generation workflows: %s", exc)
+        return []
+    finally:
+        db.close()
+
+
 def claim_generation_workflow(
     request_id: str,
     owner: str,

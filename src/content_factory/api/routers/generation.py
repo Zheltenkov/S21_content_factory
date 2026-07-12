@@ -30,6 +30,7 @@ from content_factory.api.db.user_runs_db import (
 from content_factory.api.dependencies import get_current_user
 from content_factory.api.schemas import GenerateStartResponse, GenerationStatusResponse
 from content_factory.api.services.generation_errors import GenerationServiceError
+from content_factory.api.services.generation_recovery import run_with_generation_lease
 from content_factory.api.services.generation_resume_service import GenerationResumeService
 from content_factory.api.services.generation_start_service import GenerationStartService
 from content_factory.api.services.generation_status_service import GenerationStatusService
@@ -435,6 +436,23 @@ async def _workflow_command_background(
         node_id=node_id,
         payload=payload,
     )
+
+
+def dispatch_interrupted_generation_resume(request_id: str, user_id: str | None, owner: str) -> None:
+    """Recovery-poller dispatch: resume an interrupted workflow from its checkpoints.
+
+    Runs the existing ``command="resume"`` recovery flow as a background task, holding
+    the durable-worker lease (heartbeat while running, release on exit) so a resume
+    longer than the lease TTL is not reclaimed. Registered for cancellation like any
+    generation task. Called by the startup recovery poller (gated by
+    GENERATION_WORKER_ENABLED); requires a running event loop.
+    """
+
+    async def _run() -> None:
+        await _workflow_command_background(request_id, user_id or "", "resume", None, {})
+
+    task = asyncio.create_task(run_with_generation_lease(request_id, owner, _run))
+    register_generation_task(request_id, task)
 
 
 @router.get("/dashboard/recent")

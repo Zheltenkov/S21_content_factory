@@ -349,6 +349,26 @@ async def startup_event() -> None:
                     "♻️ Dashboard cleanup: reconciled stale active runs=%s",
                     len(stale_runs),
                 )
+            # Opt-in durable generation worker: after workflows are marked interrupted,
+            # reclaim dead leases and auto-resume recoverable ones from their durable
+            # checkpoints. Default off so it is enabled deliberately once validated;
+            # runs on the event loop because dispatch schedules resume tasks.
+            if os.getenv("GENERATION_WORKER_ENABLED", "false").lower() in {"1", "true", "yes", "on"}:
+                from content_factory.api.routers.generation import dispatch_interrupted_generation_resume
+                from content_factory.api.services.generation_recovery import (
+                    recover_interrupted_generation_workflows,
+                )
+
+                recovery_stats = recover_interrupted_generation_workflows(
+                    dispatch=dispatch_interrupted_generation_resume
+                )
+                if recovery_stats["dispatched"] or recovery_stats["reclaimed_requeued"] or recovery_stats["reclaimed_failed"]:
+                    logger.warning(
+                        "♻️ Generation worker: dispatched=%s requeued=%s failed=%s",
+                        recovery_stats["dispatched"],
+                        recovery_stats["reclaimed_requeued"],
+                        recovery_stats["reclaimed_failed"],
+                    )
         await _recover_catalog_intake_jobs_on_startup()
     except Exception as e:
         db_status = get_database_status()
