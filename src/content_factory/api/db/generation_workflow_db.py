@@ -14,7 +14,12 @@ from .session import SessionLocal
 
 logger = get_logger("db.generation_workflow")
 
-ACTIVE_WORKFLOW_STATUSES: tuple[str, ...] = ("running", "node_completed", "resuming")
+# Statuses that a live generation process owns. On restart these are orphaned by a
+# dead process and must be marked interrupted so the UI can offer recovery. "created"
+# is included: a workflow row is inserted with status="created" just before the
+# generation task is dispatched (asyncio.create_task), so a crash in that window would
+# otherwise strand it in "created" forever, invisible to recovery.
+ACTIVE_WORKFLOW_STATUSES: tuple[str, ...] = ("created", "running", "node_completed", "resuming")
 
 
 def create_generation_workflow(

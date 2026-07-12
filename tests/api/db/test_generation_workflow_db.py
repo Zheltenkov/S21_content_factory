@@ -96,3 +96,24 @@ def test_mark_interrupted_generation_workflows_keeps_review_sessions_active(monk
         assert review.status == "needs_review"
     finally:
         db.close()
+
+
+def test_mark_interrupted_recovers_created_but_unstarted_workflows(monkeypatch) -> None:
+    """A row stuck in 'created' (crash before the task dispatched) must be recoverable."""
+    session_factory = _session_factory()
+    monkeypatch.setattr(generation_workflow_db, "SessionLocal", session_factory)
+    db = session_factory()
+    db.add(GenerationWorkflowState(request_id="created", user_id="u1", status="created"))
+    db.commit()
+    db.close()
+
+    interrupted = generation_workflow_db.mark_interrupted_generation_workflows(error="server restarted")
+
+    assert [item["request_id"] for item in interrupted] == ["created"]
+    db = session_factory()
+    try:
+        row = db.query(GenerationWorkflowState).filter_by(request_id="created").one()
+        assert row.status == "interrupted"
+        assert row.meta_data["interrupted_from_status"] == "created"
+    finally:
+        db.close()
