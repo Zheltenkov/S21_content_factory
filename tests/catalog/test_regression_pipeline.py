@@ -1269,6 +1269,220 @@ def test_up_planner_applies_db_artifact_template_without_changing_node_ids(monke
     assert plan["report"]["quality_metrics"]["db_template_project_count"] == 1
 
 
+@pytest.mark.parametrize(("repeatable", "expected_bound"), [(False, 1), (True, 2)])
+def test_up_planner_honors_template_repeatability_after_project_grouping(
+    monkeypatch: pytest.MonkeyPatch,
+    repeatable: bool,
+    expected_bound: int,
+) -> None:
+    monkeypatch.setattr(config, "UP_MAX_SKILLS_PER_PROJECT", 1)
+    candidates = [
+        _candidate("Анализ влажности почвы", group="Фермерство", bloom="analyze", decision="accepted"),
+        _candidate("Оценка кислотности почвы", group="Фермерство", bloom="analyze", decision="accepted"),
+    ]
+    for index, candidate in enumerate(candidates, start=1):
+        candidate.tmp_id = f"S{index}"
+    dag_payload = {
+        "order": [{"id": "S1"}, {"id": "S2"}],
+        "final_edges": [],
+    }
+    spec = {
+        "role": "Агроном",
+        "seniority": "начинающий",
+        "artifact_templates": [
+            {
+                "code": "soil-analysis",
+                "title": "Анализ почвы",
+                "artifact_family": "analysis",
+                "artifact_description": "Отчёт по теме {theme}: {skills}",
+                "priority": 1,
+                "source": "brief",
+                "repeatable": repeatable,
+                "updated_at": "v1",
+                "scopes": [
+                    {
+                        "scope_type": "coverage_area",
+                        "scope_name": "Фермерство",
+                        "normalized_scope_name": "фермерство",
+                        "weight": 1.0,
+                    }
+                ],
+            }
+        ],
+    }
+
+    plan = stage_dag_to_up.run(spec, candidates, dag_payload)
+    bound = [row for row in plan["rows"] if row["artifact_template_code"] == "soil-analysis"]
+
+    assert len(plan["rows"]) == 2
+    assert len(bound) == expected_bound
+    assert plan["report"]["planner_meta"]["template_bound_project_count"] == expected_bound
+    assert plan["report"]["planner_meta"]["template_unbound_project_count"] == 2 - expected_bound
+
+
+def test_brief_template_coverage_pass_can_override_heuristic_artifact_family() -> None:
+    candidate = _candidate(
+        "Формирование состава ближайшей версии продукта",
+        group="MVP",
+        bloom="apply",
+        decision="accepted",
+    )
+    candidate.tmp_id = "S1"
+    candidate.coverage_area = "Выбор состава MVP и реализация минимально жизнеспособного решения"
+    dag_payload = {"order": [{"id": "S1"}], "final_edges": []}
+    spec = {
+        "role": "Основатель",
+        "seniority": "начинающий",
+        "artifact_templates": [
+            {
+                "code": "brief-mvp",
+                "title": "Рабочий MVP",
+                "artifact_family": "production",
+                "artifact_description": "Работающий MVP по теме {theme}",
+                "priority": 20,
+                "source": "brief",
+                "repeatable": False,
+                "updated_at": "v1",
+                "scopes": [
+                    {
+                        "scope_type": "coverage_area",
+                        "scope_name": "Выбор состава MVP и реализация минимально жизнеспособного решения",
+                        "normalized_scope_name": "выбор состава mvp и реализация минимально жизнеспособного решения",
+                        "weight": 1.0,
+                    }
+                ],
+            }
+        ],
+    }
+
+    plan = stage_dag_to_up.run(spec, [candidate], dag_payload)
+    row = plan["rows"][0]
+
+    assert row["artifact_template_code"] == "brief-mvp"
+    assert row["artifact_family"] == "production"
+    assert row["template_binding"]["source"] == "brief"
+    assert plan["report"]["planner_meta"]["template_assignment_coverage_count"] == 1
+
+
+def test_regular_template_cannot_claim_capstone_via_repeated_skill_overlap() -> None:
+    node = PlanNode(
+        "S1",
+        "Проверка гипотез",
+        "Исследование рынка",
+        "Анализ рынка и продуктовых гипотез",
+        4,
+        (),
+        (),
+        (),
+        (),
+    )
+    capstone = ProjectBlueprint(
+        occurrences=[SkillOccurrence(node=node, role="assessment", touch_index=2)],
+        block_key="Итоговая интеграция",
+        artifact="Работающий MVP и публичное demo",
+        artifact_family="production",
+        project_kind="capstone",
+    )
+    template = {
+        "code": "market-analysis",
+        "artifact_family": "analysis",
+        "source": "brief",
+        "repeatable": False,
+        "scopes": [
+            {
+                "scope_type": "coverage_area",
+                "scope_name": "Анализ рынка и продуктовых гипотез",
+                "normalized_scope_name": "анализ рынка и продуктовых гипотез",
+                "weight": 1.0,
+            }
+        ],
+    }
+
+    meta = curriculum_planner._assign_templates_to_projects([capstone], [template])
+
+    assert capstone.template_binding is None
+    assert meta["template_bound_project_count"] == 0
+    assert meta["template_unused_codes"] == ["market-analysis"]
+
+
+def test_coverage_loop_splits_only_clear_multi_template_project_groups() -> None:
+    nodes = [
+        PlanNode("S1", "Выявление проблемы", "Исследование", "Проблема и клиент", 4, (), (), (), ()),
+        PlanNode("S2", "Понимание клиента", "Исследование", "Проблема и клиент", 4, (), (), (), ()),
+        PlanNode("S3", "Исследование рынка", "Исследование", "Рынок и гипотезы", 4, (), (), (), ()),
+        PlanNode("S4", "Проверка гипотез", "Исследование", "Рынок и гипотезы", 4, (), (), (), ()),
+    ]
+    project = ProjectBlueprint(
+        occurrences=[SkillOccurrence(node=node, role="primary") for node in nodes],
+        block_key="Исследовательский этап",
+        artifact="Общий аналитический отчёт",
+        artifact_family="analysis",
+    )
+    templates = [
+        {
+            "code": "problem",
+            "artifact_family": "analysis",
+            "artifact_description": "Отчёт о проблеме",
+            "source": "brief",
+            "repeatable": False,
+            "scopes": [{"scope_type": "coverage_area", "scope_name": "Проблема и клиент", "weight": 1.0}],
+        },
+        {
+            "code": "market",
+            "artifact_family": "analysis",
+            "artifact_description": "Отчёт о рынке",
+            "source": "brief",
+            "repeatable": False,
+            "scopes": [{"scope_type": "coverage_area", "scope_name": "Рынок и гипотезы", "weight": 1.0}],
+        },
+    ]
+
+    partitioned, split_count = curriculum_planner._partition_projects_for_brief_template_coverage(
+        [project], templates
+    )
+
+    assert split_count == 1
+    assert [item.artifact_template_code for item in partitioned] == ["problem", "market"]
+    assert [len(item.primary_occurrences) for item in partitioned] == [2, 2]
+
+
+def test_coverage_loop_does_not_create_single_skill_template_project() -> None:
+    nodes = [
+        PlanNode("S1", "Планирование продукта", "Стратегия", "Стратегия", 4, (), (), (), ()),
+        PlanNode("S2", "Определение MVP", "Продукт", "MVP", 4, (), (), (), ()),
+        PlanNode("S3", "Сборка MVP", "Продукт", "MVP", 4, (), (), (), ()),
+    ]
+    project = ProjectBlueprint(
+        occurrences=[SkillOccurrence(node=node, role="primary") for node in nodes],
+        block_key="Продуктовый этап",
+        artifact="Общий проект",
+        artifact_family="design",
+    )
+    templates = [
+        {
+            "code": "strategy",
+            "artifact_family": "design",
+            "source": "brief",
+            "repeatable": False,
+            "scopes": [{"scope_type": "coverage_area", "scope_name": "Стратегия", "weight": 1.0}],
+        },
+        {
+            "code": "mvp",
+            "artifact_family": "production",
+            "source": "brief",
+            "repeatable": False,
+            "scopes": [{"scope_type": "coverage_area", "scope_name": "MVP", "weight": 1.0}],
+        },
+    ]
+
+    partitioned, split_count = curriculum_planner._partition_projects_for_brief_template_coverage(
+        [project], templates
+    )
+
+    assert split_count == 0
+    assert partitioned == [project]
+
+
 def test_up_planner_can_group_accepted_recommended_edges(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, "UP_MAX_SKILLS_PER_PROJECT", 4)
     candidates = [

@@ -695,6 +695,8 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
             "db_template_count": int(planner_meta.get("db_template_count", 0) or 0),
             "db_template_project_count": int(planner_meta.get("db_template_project_count", 0) or 0),
             "template_bound_project_count": int(planner_meta.get("template_bound_project_count", 0) or 0),
+            "template_unused_count": int(planner_meta.get("template_unused_count", 0) or 0),
+            "template_unbound_project_count": int(planner_meta.get("template_unbound_project_count", 0) or 0),
             "unassigned_node_count": int(planner_meta.get("unassigned_node_count", 0) or 0),
             "journey_stage_count": 0,
             "uncovered_required_area_count": 0,
@@ -758,6 +760,8 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
         "db_template_count": int(planner_meta.get("db_template_count", 0) or 0),
         "db_template_project_count": int(planner_meta.get("db_template_project_count", 0) or 0),
         "template_bound_project_count": int(planner_meta.get("template_bound_project_count", 0) or 0),
+        "template_unused_count": int(planner_meta.get("template_unused_count", 0) or 0),
+        "template_unbound_project_count": int(planner_meta.get("template_unbound_project_count", 0) or 0),
         "unassigned_node_count": int(planner_meta.get("unassigned_node_count", 0) or 0),
         "journey_stage_count": len((planner_meta.get("design_spec") or {}).get("stages") or []),
         "uncovered_required_area_count": len(

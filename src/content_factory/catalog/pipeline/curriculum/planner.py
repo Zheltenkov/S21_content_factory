@@ -215,10 +215,8 @@ def _template_scopes(template: dict[str, Any]) -> list[dict[str, Any]]:
     return [scope for scope in raw if isinstance(scope, dict)] if isinstance(raw, list) else []
 
 
-def _template_scope_score(node: PlanNode, template: dict[str, Any]) -> float:
-    family = str(template.get("artifact_family") or "").strip()
-    if family and family != _artifact_family_for(node):
-        return 0.0
+def _template_scope_overlap(node: PlanNode, template: dict[str, Any]) -> float:
+    """Score semantic scope only; artifact-family policy is applied separately."""
 
     scopes = _template_scopes(template)
     if not scopes:
@@ -244,6 +242,15 @@ def _template_scope_score(node: PlanNode, template: dict[str, Any]) -> float:
     return best
 
 
+def _template_scope_score(node: PlanNode, template: dict[str, Any]) -> float:
+    """Strict node-level score retained for compatibility and focused tests."""
+
+    family = str(template.get("artifact_family") or "").strip()
+    if family and family != _artifact_family_for(node):
+        return 0.0
+    return _template_scope_overlap(node, template)
+
+
 def _template_binding_for(template: dict[str, Any] | None) -> TemplateBinding | None:
     """Build a durable, version-snapshotted binding from a bound template dict."""
     code = str((template or {}).get("code") or "").strip()
@@ -259,16 +266,298 @@ def _template_binding_for(template: dict[str, Any] | None) -> TemplateBinding | 
     )
 
 
-def _best_template_for_node(node: PlanNode, artifact_templates: list[dict[str, Any]]) -> dict[str, Any] | None:
-    scored = [
-        (template, _template_scope_score(node, template))
-        for template in artifact_templates
-        if isinstance(template, dict)
+def _project_template_score(
+    project: ProjectBlueprint,
+    template: dict[str, Any],
+    *,
+    allow_brief_family_override: bool,
+) -> float:
+    """Score a template after project grouping, before spiral repetitions are added."""
+
+    nodes = [item.node for item in project.primary_occurrences] or project.unique_nodes
+    if not nodes:
+        return 0.0
+    template_family = str(template.get("artifact_family") or "").strip()
+    family_matches = not template_family or template_family == project.artifact_family
+    is_brief_template = str(template.get("source") or "").strip().casefold() == "brief"
+    if not family_matches and not (allow_brief_family_override and is_brief_template):
+        return 0.0
+    return max(_template_scope_overlap(node, template) for node in nodes)
+
+
+def _maximum_unique_template_matches(
+    projects: list[ProjectBlueprint],
+    templates: list[dict[str, Any]],
+    *,
+    project_indexes: list[int],
+    template_indexes: list[int],
+    allow_brief_family_override: bool,
+) -> dict[int, int]:
+    """Return a maximum-cardinality, maximum-score deterministic bipartite match."""
+
+    graph = nx.Graph()
+    for project_index in sorted(project_indexes):
+        for template_index in sorted(template_indexes):
+            template = templates[template_index]
+            score = _project_template_score(
+                projects[project_index],
+                template,
+                allow_brief_family_override=allow_brief_family_override,
+            )
+            if score < 0.5:
+                continue
+            # Semantic score dominates; priority and stable input order only break ties.
+            priority = int(template.get("priority", 100) or 100)
+            tie_break = max(0, 10_000 - priority) * 100 + max(0, len(templates) - template_index)
+            weight = int(round(score * 10_000)) * 10_000_000 + tie_break
+            graph.add_edge(("project", project_index), ("template", template_index), weight=weight)
+
+    matching = nx.max_weight_matching(graph, maxcardinality=True, weight="weight")
+    assignments: dict[int, int] = {}
+    for left, right in matching:
+        if left[0] == "template":
+            left, right = right, left
+        if left[0] == "project" and right[0] == "template":
+            assignments[int(left[1])] = int(right[1])
+    return assignments
+
+
+def _best_repeatable_template(
+    project: ProjectBlueprint,
+    templates: list[dict[str, Any]],
+    template_indexes: list[int],
+    *,
+    allow_brief_family_override: bool,
+) -> int | None:
+    scored: list[tuple[float, int, str, int]] = []
+    for template_index in template_indexes:
+        template = templates[template_index]
+        score = _project_template_score(
+            project,
+            template,
+            allow_brief_family_override=allow_brief_family_override,
+        )
+        if score < 0.5:
+            continue
+        scored.append(
+            (
+                score,
+                -int(template.get("priority", 100) or 100),
+                str(template.get("code") or ""),
+                template_index,
+            )
+        )
+    return max(scored)[3] if scored else None
+
+
+def _apply_template_to_project(project: ProjectBlueprint, template: dict[str, Any]) -> None:
+    nodes = [item.node for item in project.primary_occurrences] or project.unique_nodes
+    template_family = str(template.get("artifact_family") or project.artifact_family).strip()
+    if template_family:
+        project.artifact_family = template_family
+    template_artifact = _template_artifact_for(nodes, project.block_key, project.artifact_family, template)
+    if template_artifact:
+        project.artifact = template_artifact
+    template_title = _template_title_for(nodes, project.block_key, project.artifact_family, template)
+    if template_title:
+        project.title = template_title
+    enrichment = _template_enrichment_for(
+        nodes,
+        project.block_key,
+        project.artifact_family,
+        project.artifact,
+        template,
+    )
+    project.enrichment.update({key: value for key, value in enrichment.items() if value})
+    template_code = str(template.get("code") or "").strip()
+    project.artifact_template_code = template_code
+    project.template_binding = _template_binding_for(template)
+    if template_code:
+        project.artifact_key = f"{project.artifact_key}::template:{template_code}"
+
+
+def _best_brief_template_for_node(
+    node: PlanNode,
+    templates: list[dict[str, Any]],
+    available_indexes: set[int],
+) -> int | None:
+    scored: list[tuple[float, int, str, int]] = []
+    for template_index in sorted(available_indexes):
+        template = templates[template_index]
+        if str(template.get("source") or "").casefold() != "brief" or bool(template.get("repeatable")):
+            continue
+        score = _template_scope_overlap(node, template)
+        if score < 0.5:
+            continue
+        scored.append(
+            (
+                score,
+                -int(template.get("priority", 100) or 100),
+                str(template.get("code") or ""),
+                template_index,
+            )
+        )
+    return max(scored)[3] if scored else None
+
+
+def _partition_projects_for_brief_template_coverage(
+    projects: list[ProjectBlueprint],
+    artifact_templates: list[dict[str, Any]],
+) -> tuple[list[ProjectBlueprint], int]:
+    """Split only projects containing two or more clear brief-template groups."""
+
+    templates = [template for template in artifact_templates if isinstance(template, dict)]
+    available_indexes = {
+        index
+        for index, template in enumerate(templates)
+        if str(template.get("source") or "").casefold() == "brief" and not bool(template.get("repeatable"))
+    }
+    partitioned: list[ProjectBlueprint] = []
+    split_count = 0
+    for project in projects:
+        primary = project.primary_occurrences
+        if project.project_kind == "capstone" or len(primary) < 2 or len(available_indexes) < 2:
+            partitioned.append(project)
+            continue
+
+        groups: dict[int | None, list[SkillOccurrence]] = {}
+        for occurrence in primary:
+            template_index = _best_brief_template_for_node(occurrence.node, templates, available_indexes)
+            groups.setdefault(template_index, []).append(occurrence)
+        matched_indexes = [index for index in groups if index is not None]
+        if len(matched_indexes) < 2 or any(len(groups[index]) < 2 for index in matched_indexes):
+            partitioned.append(project)
+            continue
+
+        ordered_groups = sorted(
+            groups.items(),
+            key=lambda item: min(primary.index(occurrence) for occurrence in item[1]),
+        )
+        split_count += len(ordered_groups) - 1
+        for group_index, (template_index, occurrences) in enumerate(ordered_groups, start=1):
+            nodes = [occurrence.node for occurrence in occurrences]
+            artifact_family = _artifact_family_for(nodes[0])
+            split_project = ProjectBlueprint(
+                occurrences=list(occurrences),
+                block_key=project.block_key,
+                artifact=_artifact_for(nodes, project.block_key, artifact_family),
+                artifact_key=f"{project.artifact_key}::coverage:{group_index}",
+                artifact_family=artifact_family,
+                title=_project_title_for(project.block_key, group_index, len(ordered_groups)),
+                project_kind=project.project_kind,
+            )
+            if template_index is not None:
+                _apply_template_to_project(split_project, templates[template_index])
+                available_indexes.discard(template_index)
+            partitioned.append(split_project)
+    return partitioned, split_count
+
+
+def _assign_templates_to_projects(
+    projects: list[ProjectBlueprint],
+    artifact_templates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Bind templates after grouping, honoring one-use and brief coverage semantics."""
+
+    templates = [template for template in artifact_templates if isinstance(template, dict)]
+    nonrepeatable = [index for index, template in enumerate(templates) if not bool(template.get("repeatable"))]
+    repeatable = [index for index, template in enumerate(templates) if bool(template.get("repeatable"))]
+    # Capstone has its own mandatory release/demo contract. Ordinary artifact
+    # templates must not claim it merely because one repeated skill overlaps.
+    project_indexes = [index for index, project in enumerate(projects) if project.project_kind != "capstone"]
+    template_by_code = {
+        str(template.get("code") or ""): index
+        for index, template in enumerate(templates)
+        if str(template.get("code") or "")
+    }
+    assignments = {
+        project_index: template_by_code[project.artifact_template_code]
+        for project_index, project in enumerate(projects)
+        if project.artifact_template_code in template_by_code
+    }
+    prebound_projects = set(assignments)
+    prebound_count = len(assignments)
+    used_nonrepeatable = {
+        template_index
+        for template_index in assignments.values()
+        if template_index in nonrepeatable
+    }
+
+    strict_assignments = _maximum_unique_template_matches(
+        projects,
+        templates,
+        project_indexes=[index for index in project_indexes if index not in assignments],
+        template_indexes=[index for index in nonrepeatable if index not in used_nonrepeatable],
+        allow_brief_family_override=False,
+    )
+    assignments.update(strict_assignments)
+    strict_count = len(strict_assignments)
+    used_nonrepeatable.update(strict_assignments.values())
+
+    remaining_projects = [index for index in project_indexes if index not in assignments]
+    remaining_brief_templates = [
+        index
+        for index in nonrepeatable
+        if index not in used_nonrepeatable and str(templates[index].get("source") or "").casefold() == "brief"
     ]
-    scored = [(template, score) for template, score in scored if score >= 0.5]
-    if not scored:
-        return None
-    return max(scored, key=lambda item: (item[1], -int(item[0].get("priority", 100) or 100)))[0]
+    coverage_assignments = _maximum_unique_template_matches(
+        projects,
+        templates,
+        project_indexes=remaining_projects,
+        template_indexes=remaining_brief_templates,
+        allow_brief_family_override=True,
+    )
+    assignments.update(coverage_assignments)
+
+    repeat_assignment_count = 0
+    for project_index in project_indexes:
+        if project_index in assignments:
+            continue
+        template_index = _best_repeatable_template(
+            projects[project_index],
+            templates,
+            repeatable,
+            allow_brief_family_override=False,
+        )
+        if template_index is None:
+            template_index = _best_repeatable_template(
+                projects[project_index],
+                templates,
+                [
+                    index
+                    for index in repeatable
+                    if str(templates[index].get("source") or "").casefold() == "brief"
+                ],
+                allow_brief_family_override=True,
+            )
+        if template_index is not None:
+            assignments[project_index] = template_index
+            repeat_assignment_count += 1
+
+    for project_index, template_index in sorted(assignments.items()):
+        if project_index in prebound_projects:
+            continue
+        _apply_template_to_project(projects[project_index], templates[template_index])
+
+    used_template_indexes = set(assignments.values())
+    unused_codes = [
+        str(template.get("code") or "")
+        for index, template in enumerate(templates)
+        if index not in used_template_indexes and str(template.get("code") or "")
+    ]
+    return {
+        "db_template_count": len(templates),
+        "db_template_project_count": len(assignments),
+        "template_bound_project_count": len(assignments),
+        "template_assignment_prebound_count": prebound_count,
+        "template_assignment_strict_count": strict_count,
+        "template_assignment_coverage_count": len(coverage_assignments),
+        "template_repeat_assignment_count": repeat_assignment_count,
+        "template_unused_count": len(unused_codes),
+        "template_unused_codes": unused_codes,
+        "template_unbound_project_count": len(projects) - len(assignments),
+        "template_eligible_project_count": len(project_indexes),
+    }
 
 
 def _render_pattern(pattern: object, *, nodes: list[PlanNode], block_key: str, artifact_family: str, artifact: str = "") -> str:
@@ -411,28 +700,24 @@ def _split_nodes_for_project(
 def _pack_dynamic_artifact_projects(
     nodes: list[PlanNode],
     dag_payload: dict[str, Any],
-    artifact_templates: list[dict[str, Any]] | None = None,
     design_spec: CurriculumDesignSpec | None = None,
 ) -> tuple[list[ProjectBlueprint], dict[str, Any]]:
     max_skills = max(1, int(config.UP_MAX_SKILLS_PER_PROJECT))
     grouped: dict[str, list[PlanNode]] = {}
     group_order: list[str] = []
-    group_meta: dict[str, tuple[str, str, dict[str, Any] | None]] = {}
-    templates = artifact_templates or []
+    group_meta: dict[str, tuple[str, str]] = {}
     stage_by_node = design_spec.node_stage if design_spec else {}
     stage_by_index = dict(enumerate(design_spec.stages)) if design_spec else {}
     for node in _ordered_nodes(nodes, dag_payload):
-        template = _best_template_for_node(node, templates)
         stage_index = stage_by_node.get(node.tmp_id)
         stage = stage_by_index.get(stage_index) if stage_index is not None else None
         theme = stage.title if stage else _project_theme_for(node)
         dynamic_key = f"{stage.code}::{_artifact_family_for(node)}" if stage else _artifact_key_for(node)
-        template_code = str((template or {}).get("code") or "").strip()
-        artifact_key = f"{dynamic_key}::template:{template_code}" if template_code else dynamic_key
+        artifact_key = dynamic_key
         if artifact_key not in grouped:
             grouped[artifact_key] = []
             group_order.append(artifact_key)
-            group_meta[artifact_key] = (theme, _artifact_family_for(node), template)
+            group_meta[artifact_key] = (theme, _artifact_family_for(node))
         grouped[artifact_key].append(node)
 
     projects: list[ProjectBlueprint] = []
@@ -440,26 +725,22 @@ def _pack_dynamic_artifact_projects(
     split_count = 0
 
     for artifact_key in group_order:
-        block_key, artifact_family, template = group_meta[artifact_key]
+        block_key, artifact_family = group_meta[artifact_key]
         chunks = _split_nodes_for_project(grouped[artifact_key], dag_payload, max_skills=max_skills)
         split_count += max(0, len(chunks) - 1)
-        template_binding = _template_binding_for(template)
         for chunk_index, chunk in enumerate(chunks, start=1):
-            template_artifact = _template_artifact_for(chunk, block_key, artifact_family, template)
-            artifact = template_artifact or _artifact_for(chunk, block_key, artifact_family)
-            template_title = _template_title_for(chunk, block_key, artifact_family, template)
+            artifact = _artifact_for(chunk, block_key, artifact_family)
             project = _project_from_nodes(
                 chunk,
                 block_key=block_key,
                 artifact=artifact,
                 artifact_key=artifact_key,
                 artifact_family=artifact_family,
-                artifact_template_code=str((template or {}).get("code") or "").strip(),
-                enrichment=_template_enrichment_for(chunk, block_key, artifact_family, artifact, template),
-                title=template_title or _project_title_for(block_key, chunk_index, len(chunks)),
+                artifact_template_code="",
+                enrichment={},
+                title=_project_title_for(block_key, chunk_index, len(chunks)),
                 project_kind="dynamic_artifact",
             )
-            project.template_binding = template_binding
             projects.append(project)
             for node in chunk:
                 assignment[node.tmp_id] = artifact_key
@@ -470,12 +751,7 @@ def _pack_dynamic_artifact_projects(
         "artifact_project_count": len(projects),
         "artifact_split_count": split_count,
         "dynamic_group_count": len(group_order),
-        "artifact_family_counts": dict(Counter(family for _theme, family, _template in group_meta.values())),
-        "db_template_count": len(templates),
-        # db_template_project_count kept for backward compatibility; template_bound_project_count
-        # is the canonical name and counts projects with a durable TemplateBinding (slice 6a).
-        "db_template_project_count": len([project for project in projects if project.artifact_template_code]),
-        "template_bound_project_count": len([project for project in projects if project.template_binding]),
+        "artifact_family_counts": dict(Counter(family for _theme, family in group_meta.values())),
         "unassigned_node_count": 0,
         "assignment": assignment,
     }
@@ -605,7 +881,14 @@ def _pack_dynamic_artifact_blocks(
     artifact_templates: list[dict[str, Any]] | None = None,
     design_spec: CurriculumDesignSpec | None = None,
 ) -> tuple[list[CurriculumBlock], dict[str, Any]]:
-    projects, meta = _pack_dynamic_artifact_projects(nodes, dag_payload, artifact_templates, design_spec)
+    projects, meta = _pack_dynamic_artifact_projects(nodes, dag_payload, design_spec)
+    projects, coverage_split_count = _partition_projects_for_brief_template_coverage(
+        projects,
+        artifact_templates or [],
+    )
+    meta["template_coverage_split_count"] = coverage_split_count
+    meta["artifact_project_count"] = len(projects)
+    meta["artifact_split_count"] = int(meta.get("artifact_split_count", 0) or 0) + coverage_split_count
     projects = _reorder_projects_by_dag_edges(projects, dag_payload, design_spec)
     blocks = _blocks_from_projects(projects, design_spec)
     if design_spec and design_spec.capstone_required:
@@ -621,6 +904,9 @@ def _pack_dynamic_artifact_blocks(
                 )
             )
             meta["capstone_project_count"] = 1
+    all_projects = [project for block in blocks for project in block.projects]
+    meta.update(_assign_templates_to_projects(all_projects, artifact_templates or []))
+    meta["artifact_family_counts"] = dict(Counter(project.artifact_family for project in all_projects))
     return blocks, meta
 
 
