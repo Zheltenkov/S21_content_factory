@@ -13,6 +13,7 @@ _CLEAN = {
     "policy_area_coverage_pct": 100.0,
     "testable_criteria_coverage_pct": 100.0,
     "blocking_question_count": 0,
+    "uncovered_required_area_count": 0,
     "single_skill_project_pct": 20.0,
     "capstone_required": True,
     "capstone_present": True,
@@ -32,6 +33,7 @@ def test_each_violation_blocks() -> None:
         ("policy_area_coverage_pct", 80.0, "policy_area_incomplete"),
         ("testable_criteria_coverage_pct", 90.0, "untestable_criteria"),
         ("blocking_question_count", 3, "blocking_questions"),
+        ("uncovered_required_area_count", 2, "required_areas_uncovered"),
         ("single_skill_project_pct", 40.0, "single_skill_excess"),
     ]
     for key, value, code in cases:

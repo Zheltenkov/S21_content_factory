@@ -81,6 +81,13 @@ def _candidate_failures(metrics: dict) -> list[GateFailure]:
         add("untestable_criteria", "Есть проекты с непроверяемыми критериями приёмки", _num(metrics, "testable_criteria_coverage_pct", 100), 100)
     if _num(metrics, "blocking_question_count") > 0:
         add("blocking_questions", "Есть незакрытые блокирующие вопросы брифа", _num(metrics, "blocking_question_count"), 0)
+    if _num(metrics, "uncovered_required_area_count") > 0:
+        add(
+            "required_areas_uncovered",
+            "Не все обязательные области брифа покрыты принятыми навыками",
+            _num(metrics, "uncovered_required_area_count"),
+            0,
+        )
     if _num(metrics, "single_skill_project_pct") > SINGLE_SKILL_MAX_PCT:
         add("single_skill_excess", "Доля однонавыковых проектов выше допустимой", _num(metrics, "single_skill_project_pct"), SINGLE_SKILL_MAX_PCT)
     if bool(metrics.get("capstone_required")) and not bool(metrics.get("capstone_present")):

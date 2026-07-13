@@ -14,6 +14,7 @@ import math
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
+from difflib import SequenceMatcher
 from typing import Any
 
 from .. import language
@@ -24,6 +25,37 @@ from .edge_policy import curriculum_edge_role
 DESIGN_SPEC_VERSION = "curriculum-design:v2"
 MAX_JOURNEY_STAGES = 7
 MAX_OPEN_QUESTIONS = 8
+
+_AREA_STOP_WORDS = frozenset(
+    {
+        "а",
+        "в",
+        "во",
+        "для",
+        "до",
+        "и",
+        "из",
+        "или",
+        "к",
+        "как",
+        "на",
+        "над",
+        "но",
+        "от",
+        "по",
+        "под",
+        "при",
+        "с",
+        "со",
+        "and",
+        "for",
+        "of",
+        "the",
+        "to",
+    }
+)
+_AREA_MATCH_THRESHOLD = 0.4
+_TOKEN_MATCH_THRESHOLD = 0.8
 
 
 @dataclass(frozen=True)
@@ -406,13 +438,56 @@ def _area_similarity(left: str, right: str) -> float:
         return 1.0
     if left_norm in right_norm or right_norm in left_norm:
         return 0.9
-    left_tokens = set(left_norm.split())
-    right_tokens = set(right_norm.split())
-    return len(left_tokens & right_tokens) / max(len(left_tokens | right_tokens), 1)
+    left_tokens = _area_tokens(left_norm)
+    right_tokens = _area_tokens(right_norm)
+    if not left_tokens or not right_tokens:
+        return 0.0
+
+    # Greedy one-to-one matching prevents one broad token from covering several words.
+    candidates = sorted(
+        (
+            (_area_token_similarity(left_token, right_token), left_index, right_index)
+            for left_index, left_token in enumerate(left_tokens)
+            for right_index, right_token in enumerate(right_tokens)
+        ),
+        reverse=True,
+    )
+    matched_left: set[int] = set()
+    matched_right: set[int] = set()
+    matched_scores: list[float] = []
+    for score, left_index, right_index in candidates:
+        if score < _TOKEN_MATCH_THRESHOLD or left_index in matched_left or right_index in matched_right:
+            continue
+        matched_left.add(left_index)
+        matched_right.add(right_index)
+        matched_scores.append(score)
+
+    required_matches = 1 if min(len(left_tokens), len(right_tokens)) == 1 else 2
+    if len(matched_scores) < required_matches:
+        return 0.0
+    return sum(matched_scores) / min(len(left_tokens), len(right_tokens))
+
+
+def _area_tokens(value: str) -> tuple[str, ...]:
+    return tuple(token for token in value.split() if len(token) >= 2 and token not in _AREA_STOP_WORDS)
+
+
+def _area_token_similarity(left: str, right: str) -> float:
+    if left == right:
+        return 1.0
+
+    common_prefix = 0
+    for left_char, right_char in zip(left, right, strict=False):
+        if left_char != right_char:
+            break
+        common_prefix += 1
+    if common_prefix >= 4 and common_prefix / min(len(left), len(right)) >= 0.55:
+        return 0.9
+    return SequenceMatcher(None, left, right).ratio()
 
 
 def _areas_match(left: str, right: str) -> bool:
-    return _area_similarity(left, right) >= 0.5
+    return _area_similarity(left, right) >= _AREA_MATCH_THRESHOLD
 
 
 def _dag_positions(dag_payload: dict[str, Any]) -> dict[str, int]:
