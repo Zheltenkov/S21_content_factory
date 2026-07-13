@@ -99,7 +99,7 @@ def apply_brief_catalog_decisions(conn: CatalogConnection, brief_id: int) -> dic
     from content_factory.catalog.pipeline import llm as intake_llm
     from content_factory.catalog.pipeline import storage as intake_storage
 
-    clear_brief_dag_artifacts(conn, brief_id)
+    clear_brief_dag_artifacts(conn, brief_id, clear_edge_decisions=True)
     clear_brief_curriculum_plan_artifacts(conn, brief_id)
     promotion_stats = intake_storage.sync_promotions_for_brief(conn, brief_id)
     skill_set = intake_storage.sync_brief_skill_set(conn, brief_id)
@@ -214,7 +214,7 @@ def apply_candidate_decision(
     )
     if target_decision != "accepted":
         storage.revert_suggestion_promotion(conn, suggestion_id)
-    clear_brief_dag_artifacts(conn, brief_id)
+    clear_brief_dag_artifacts(conn, brief_id, clear_edge_decisions=True)
     clear_brief_curriculum_plan_artifacts(conn, brief_id)
     catalog_state = get_brief_catalog_apply_state(conn, brief_id)
     update_jobs_catalog_payload(

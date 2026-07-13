@@ -109,3 +109,45 @@ def test_update_review_status_updates_basic_review_row(catalog_conn: Any) -> Non
     assert row["resolution_note"] == "accepted by reviewer"
     assert row["reviewed_at"]
     assert row["updated_at"]
+
+
+def test_edge_review_decision_preserves_sibling_reviews(catalog_conn: Any) -> None:
+    brief_id = int(
+        catalog_conn.execute(
+            "INSERT INTO profile_brief(role, seniority, domain, raw_text) VALUES ('роль', 'junior', 'домен', 'brief')"
+        ).lastrowid
+        or 0
+    )
+    first_id = _insert_review(
+        catalog_conn,
+        review_id=101,
+        entity_type="prerequisite_edge",
+        source_ref=f"brief:{brief_id}",
+        reason_code="ai_proposed",
+        severity="info",
+        details=json.dumps(
+            {"review_kind": "prerequisite_edge", "edge_key": "S1->S2", "src_id": "S1", "dst_id": "S2"}
+        ),
+    )
+    second_id = _insert_review(
+        catalog_conn,
+        review_id=102,
+        entity_type="prerequisite_edge",
+        source_ref=f"brief:{brief_id}",
+        reason_code="ai_proposed",
+        severity="info",
+        details=json.dumps(
+            {"review_kind": "prerequisite_edge", "edge_key": "S2->S3", "src_id": "S2", "dst_id": "S3"}
+        ),
+    )
+
+    update_review_status(catalog_conn, first_id, "resolved", "accepted")
+
+    rows = catalog_conn.execute(
+        "SELECT id, status FROM review_queue WHERE id IN (?, ?) ORDER BY id",
+        (first_id, second_id),
+    ).fetchall()
+    assert [dict(row) for row in rows] == [
+        {"id": first_id, "status": "resolved"},
+        {"id": second_id, "status": "open"},
+    ]

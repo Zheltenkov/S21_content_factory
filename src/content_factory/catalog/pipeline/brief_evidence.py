@@ -13,12 +13,65 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, date, datetime, timedelta
-from typing import Any, cast
 
 from content_factory.catalog.db import CatalogConnection
 
 from . import config, llm
 from .models import Evidence
+
+_EVIDENCE_CONTAINER_KEYS = ("items", "results", "sources", "evidence")
+_EVIDENCE_CLAIM_KEYS = ("claim", "title", "name", "text", "snippet")
+_EVIDENCE_SOURCE_TYPES = {"vacancy", "framework", "syllabus", "other"}
+
+
+def _normalize_search_items(payload: object, citations: list[str] | None = None) -> list[dict[str, str]]:
+    """Validate provider JSON at the external-search boundary.
+
+    Search providers do not always follow the requested JSON schema: a response
+    may wrap results in an object or return plain strings. Preserve useful claims
+    while converting every accepted item to the schema consumed by the pipeline.
+    """
+
+    raw_items: list[object]
+    if isinstance(payload, list):
+        raw_items = payload
+    elif isinstance(payload, dict):
+        nested = next(
+            (payload.get(key) for key in _EVIDENCE_CONTAINER_KEYS if isinstance(payload.get(key), list)),
+            None,
+        )
+        raw_items = nested if isinstance(nested, list) else [payload]
+    else:
+        return []
+
+    normalized: list[dict[str, str]] = []
+    citation_values = citations or []
+    retrieved_today = date.today().isoformat()
+    for index, raw_item in enumerate(raw_items):
+        if isinstance(raw_item, str):
+            item: dict[str, object] = {"claim": raw_item}
+        elif isinstance(raw_item, dict):
+            item = raw_item
+        else:
+            continue
+
+        claim = next((str(item.get(key) or "").strip() for key in _EVIDENCE_CLAIM_KEYS if item.get(key)), "")
+        if not claim:
+            continue
+        source_type = str(item.get("source_type") or "other").strip().casefold()
+        if source_type not in _EVIDENCE_SOURCE_TYPES:
+            source_type = "other"
+        fallback_url = citation_values[index] if index < len(citation_values) else ""
+        normalized.append(
+            {
+                "claim": claim,
+                "source_type": source_type,
+                "url": str(item.get("url") or fallback_url).strip(),
+                "snippet": str(item.get("snippet") or "").strip(),
+                "retrieved_at": str(item.get("retrieved_at") or retrieved_today).strip(),
+            }
+        )
+    return normalized
 
 
 def _normalize_evidence_query(query: str) -> str:
@@ -47,7 +100,7 @@ def ensure_evidence_cache_table(conn: CatalogConnection) -> None:
     conn.commit()
 
 
-def _load_cached_search(cache_conn: CatalogConnection | None, query: str) -> list[dict] | None:
+def _load_cached_search(cache_conn: CatalogConnection | None, query: str) -> list[dict[str, str]] | None:
     if cache_conn is None:
         return None
     ensure_evidence_cache_table(cache_conn)
@@ -69,10 +122,13 @@ def _load_cached_search(cache_conn: CatalogConnection | None, query: str) -> lis
         payload = json.loads(str(row["response_json"]))
     except json.JSONDecodeError:
         return None
-    return payload if isinstance(payload, list) else None
+    normalized = _normalize_search_items(payload)
+    if normalized or payload == []:
+        return normalized
+    return None
 
 
-def _store_cached_search(cache_conn: CatalogConnection | None, query: str, items: list[dict]) -> None:
+def _store_cached_search(cache_conn: CatalogConnection | None, query: str, items: list[dict[str, str]]) -> None:
     if cache_conn is None:
         return
     ensure_evidence_cache_table(cache_conn)
@@ -102,7 +158,7 @@ def _store_cached_search(cache_conn: CatalogConnection | None, query: str, items
 
 
 # --------- grounded-поиск -> evidence ---------
-def search(query: str, cache_conn: CatalogConnection | None = None) -> list[dict]:
+def search(query: str, cache_conn: CatalogConnection | None = None) -> list[dict[str, str]]:
     cached = _load_cached_search(cache_conn, query)
     if cached is not None:
         return cached
@@ -119,16 +175,12 @@ def search(query: str, cache_conn: CatalogConnection | None = None) -> list[dict
                 [{"role": "system", "content": sys}, {"role": "user", "content": query}],
                 max_tokens=config.MODEL_SEARCH_MAX_TOKENS,
             )
-            items = json.loads(llm.content(resp))
+            payload = json.loads(llm.content(resp))
+            items = _normalize_search_items(payload, llm.citations(resp))
         except Exception:
             items = []
-        cits = llm.citations(resp) if items else []
-        for it in items:
-            it.setdefault("url", cits[0] if cits else "")
-            it.setdefault("snippet", "")
-            it.setdefault("retrieved_at", date.today().isoformat())
         _store_cached_search(cache_conn, query, items)
-        return cast("list[dict[Any, Any]]", items)
+        return items
     today = date.today().isoformat()
     DB = {
         "SQL": [("Уверенный SQL: SELECT, JOIN", "vacancy", "https://hh.ru/v/1", "SQL, JOIN, индексы"),
@@ -144,9 +196,9 @@ def search(query: str, cache_conn: CatalogConnection | None = None) -> list[dict
     }
     out = []
     ql = query.lower()
-    for key, items in DB.items():
+    for key, source_rows in DB.items():
         if key.lower() in ql:
-            for claim, st, url, snip in items:
+            for claim, st, url, snip in source_rows:
                 out.append({"claim": claim, "source_type": st, "url": url, "snippet": snip, "retrieved_at": today})
     _store_cached_search(cache_conn, query, out)
     return out

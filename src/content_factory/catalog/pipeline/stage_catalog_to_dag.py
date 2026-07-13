@@ -51,7 +51,7 @@ def _graph_candidates(cands: list[SkillCandidate]) -> list[SkillCandidate]:
     ]
 
 
-def propose_edges(cands: list[SkillCandidate]) -> list[PrereqEdge]:
+def propose_edges(cands: list[SkillCandidate], *, include_ai: bool = True) -> list[PrereqEdge]:
     """Структурные рёбра (учебные карты) + предложения ИИ. tmp_id как узлы."""
     by_name = {c.name: c.tmp_id for c in cands}
 
@@ -67,7 +67,7 @@ def propose_edges(cands: list[SkillCandidate]) -> list[PrereqEdge]:
         sa, sb = tid(a), tid(b)
         if sa and sb and sa != sb:
             edges.append(PrereqEdge(src=sa, dst=sb, relation_type="hard", confidence=0.9, source="syllabus"))
-    if config.USE_LIVE:
+    if include_ai and config.USE_LIVE:
         cl = [{"id": c.tmp_id, "name": c.name, "bloom": c.bloom} for c in cands]
         sys = (
             "Предложи только мягкие методические зависимости между навыками для построения учебной последовательности. "
@@ -103,7 +103,7 @@ def propose_edges(cands: list[SkillCandidate]) -> list[PrereqEdge]:
                     )
         except Exception:
             pass
-    else:
+    elif include_ai:
         # MOCK: одно ошибочное ребро (создаст цикл) + одно избыточное
         sql, rel, rest, _q = tid("SQL"), tid("реляцион"), tid("REST"), tid("очеред")
         if sql and rel:
@@ -427,7 +427,10 @@ def run(
     cands: list[SkillCandidate], edge_decisions: dict[str, str] | None = None
 ) -> tuple[list[PrereqEdge], nx.DiGraph, list[tuple[str, str]], list[tuple[str, str]], dict[str, Any]]:
     used_candidates = _graph_candidates(cands)
-    all_edges = deduplicate_edges(propose_edges(used_candidates))
+    # Once a methodologist has started reviewing edges, persisted decisions are
+    # the authoritative proposal snapshot. Re-querying the model here would
+    # create new review items after every human decision and prevent convergence.
+    all_edges = deduplicate_edges(propose_edges(used_candidates, include_ai=not bool(edge_decisions)))
     triage_edges(all_edges, used_candidates)
     apply_edge_decision_overrides(
         all_edges,

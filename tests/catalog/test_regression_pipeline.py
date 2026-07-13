@@ -1723,6 +1723,31 @@ def test_accepted_edge_decision_survives_missing_fresh_model_proposal() -> None:
     assert edges[0].src == "A"
     assert edges[0].dst == "B"
     assert edges[0].decision == "accept"
+
+
+def test_dag_run_does_not_query_model_after_human_edge_decision(monkeypatch: pytest.MonkeyPatch) -> None:
+    candidates = [
+        _candidate("A base", bloom="apply", decision="accepted"),
+        _candidate("B target", bloom="analyze", decision="accepted"),
+    ]
+    candidates[0].tmp_id = "A"
+    candidates[1].tmp_id = "B"
+    monkeypatch.setattr(config, "USE_LIVE", True)
+
+    def fail_if_called(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise AssertionError("The model must not propose a new edge set after human review starts")
+
+    monkeypatch.setattr(stage_catalog_to_dag.llm, "chat", fail_if_called)
+
+    edges, dag, _removed_cycle, _removed_transitive, payload = stage_catalog_to_dag.run(
+        candidates,
+        edge_decisions={"A->B": "accepted"},
+    )
+
+    assert len(edges) == 1
+    assert dag.has_edge("A", "B")
+    assert payload["edge_review_queue"] == []
+    assert payload["final_edges"][0]["source"] == "human"
     assert edges[0].source == "human"
 
 

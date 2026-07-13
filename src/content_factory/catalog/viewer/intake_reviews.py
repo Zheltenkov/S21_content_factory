@@ -308,7 +308,7 @@ def update_review_status(conn: CatalogConnection, review_id: int, new_status: st
             )
         from content_factory.catalog.viewer.intake_dag import clear_brief_dag_artifacts
 
-        clear_brief_dag_artifacts(conn, brief_id)
+        clear_brief_dag_artifacts(conn, brief_id, preserve_edge_reviews=True)
     elif suggestion_id and brief_id is not None:
         from content_factory.catalog.pipeline import storage
         from content_factory.catalog.viewer.intake_dag import clear_brief_dag_artifacts
@@ -326,7 +326,7 @@ def update_review_status(conn: CatalogConnection, review_id: int, new_status: st
             storage.promote_suggestion_to_catalog(conn, suggestion_id)
         else:
             storage.revert_suggestion_promotion(conn, suggestion_id)
-        clear_brief_dag_artifacts(conn, brief_id)
+        clear_brief_dag_artifacts(conn, brief_id, clear_edge_decisions=True)
         rebuild_brief_id = brief_id
     conn.commit()
     if rebuild_brief_id is not None:

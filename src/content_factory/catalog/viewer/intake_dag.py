@@ -162,10 +162,16 @@ def update_jobs_dag_payload(
     conn.commit()
 
 
-def clear_brief_dag_artifacts(conn: CatalogConnection, brief_id: int) -> None:
+def clear_brief_dag_artifacts(
+    conn: CatalogConnection,
+    brief_id: int,
+    *,
+    preserve_edge_reviews: bool = False,
+    clear_edge_decisions: bool = False,
+) -> None:
     if table_exists(conn, "skill_prerequisite") and column_exists(conn, "skill_prerequisite", "brief_id"):
         conn.execute("DELETE FROM skill_prerequisite WHERE brief_id = ?", (brief_id,))
-    if table_exists(conn, "review_queue"):
+    if table_exists(conn, "review_queue") and not preserve_edge_reviews:
         conn.execute(
             """
             DELETE FROM review_queue
@@ -175,6 +181,8 @@ def clear_brief_dag_artifacts(conn: CatalogConnection, brief_id: int) -> None:
             """,
             (f"brief:{brief_id}",),
         )
+    if clear_edge_decisions and table_exists(conn, "prerequisite_edge_decision"):
+        conn.execute("DELETE FROM prerequisite_edge_decision WHERE brief_id = ?", (brief_id,))
     conn.commit()
 
 
@@ -591,7 +599,7 @@ def build_dag_for_brief(conn: CatalogConnection, brief_id: int) -> dict[str, Any
 
     catalog_state = get_brief_catalog_apply_state(conn, brief_id)
     if not bool(catalog_state.get("catalog_applied")):
-        clear_brief_dag_artifacts(conn, brief_id)
+        clear_brief_dag_artifacts(conn, brief_id, clear_edge_decisions=True)
         clear_brief_curriculum_plan_artifacts(conn, brief_id)
         state = refresh_brief_dag_state(
             conn,
@@ -619,6 +627,14 @@ def build_dag_for_brief(conn: CatalogConnection, brief_id: int) -> dict[str, Any
             ),
             "curriculum_plan": plan_payload,
         }
+
+    edge_decisions = load_prerequisite_edge_decisions(conn, brief_id)
+    if edge_decisions:
+        from content_factory.catalog.viewer.intake_reviews import count_open_prerequisite_edge_reviews_for_brief
+
+        open_edge_reviews = count_open_prerequisite_edge_reviews_for_brief(conn, brief_id)
+        if open_edge_reviews:
+            raise ValueError(f"Resolve prerequisite edge reviews before rebuilding the DAG: {open_edge_reviews} open")
 
     clear_brief_dag_artifacts(conn, brief_id)
     cands, tmp_to_db = load_accepted_skill_candidates(conn, brief_id)
@@ -657,7 +673,7 @@ def build_dag_for_brief(conn: CatalogConnection, brief_id: int) -> dict[str, Any
     try:
         edges, dag, removed_cycle, removed_transitive, dag_payload = stage_catalog_to_dag.run(
             cands,
-            edge_decisions=load_prerequisite_edge_decisions(conn, brief_id),
+            edge_decisions=edge_decisions,
         )
     finally:
         intake_llm.set_usage_context(stage=None)
