@@ -6,9 +6,29 @@ from content_factory.catalog.pipeline.curriculum.project_quality import (
     is_classified,
     is_generic_artifact,
     is_generic_criterion,
+    is_testable_criterion,
     report_only_quality_metrics,
     title_violations,
 )
+
+
+def test_testable_criterion_requires_structure_not_just_non_generic() -> None:
+    # non-generic prose is NOT testable on its own
+    assert not is_testable_criterion("Проект выполнен качественно и защищён.")
+    # a check → expected-result form is testable
+    assert is_testable_criterion("- сервис: отвечает на health-check → 200 OK (скриншот, ручная)")
+    # the generic fallback is never testable
+    assert not is_testable_criterion("артефакт создан и предъявлен; результат можно проверить по заявленным ЗУН")
+
+
+def test_lab_projects_exempt_from_single_skill_limit() -> None:
+    rows = [
+        {"project_name": "A", "node_ids": ["x"], "project_type": "lab"},  # single-skill lab, exempt
+        {"project_name": "B", "node_ids": ["y"], "project_type": "project"},  # single-skill, counted
+        {"project_name": "C", "node_ids": ["z", "w"], "project_type": "project"},
+    ]
+    metrics = report_only_quality_metrics(rows)
+    assert metrics["single_skill_project_pct"] == round(1 / 3 * 100, 1)  # only B counts
 
 
 def test_is_classified_by_confidence_and_confirmation() -> None:
@@ -66,7 +86,8 @@ def test_report_only_metrics_counts() -> None:
         {
             "project_name": "Прототип продукта с AI",
             "artifact": "Запускаемый прототип",
-            "validation_criteria": "Workflow запускается и сохраняет результат.",
+            # structurally testable: a check → expected result with evidence
+            "validation_criteria": "- workflow: запускается на контрольном входе → сохраняет результат (журнал, ручная проверка)",
             "node_ids": ["a", "b"],
         },
         {

@@ -33,8 +33,13 @@ def _confidence(cand: SkillCandidate, evidence: list[Evidence]) -> float:
     return round(max(evidence_confidence if evs else 0.0, match_confidence), 2)
 
 
-# --------- жюри по серой зоне + триаж ---------
-def _juror(model: str, cand: SkillCandidate) -> int:
+# --------- эвристическая панель по серой зоне + триаж ---------
+# NB: this is NOT a real multi-model jury. Model names select a FIXED deterministic voting
+# rule (no model is actually called), so it is a heuristic panel. run_council /
+# select_council_candidates are kept as compatibility aliases; the honest names are
+# run_heuristic_panel / select_heuristic_panel_candidates.
+def _heuristic_vote(model: str, cand: SkillCandidate) -> int:
+    """A fixed deterministic vote keyed by model name — a heuristic, not a model call."""
     n = len(set(cand.evidence_ids))
     if model.startswith("openai"):
         return 1
@@ -55,18 +60,29 @@ def select_council_candidates(cands: list[SkillCandidate]) -> list[SkillCandidat
     return [cand for cand in cands if _is_for_resolve(cand) and _needs_panel(cand)]
 
 
-def run_council(cands: list[SkillCandidate]) -> dict[str, int]:
-    council_candidates = select_council_candidates(cands)
+def run_heuristic_panel(cands: list[SkillCandidate]) -> dict[str, int]:
+    """Run the deterministic heuristic panel over gray-zone candidates.
+
+    Despite the ``council``/``MODEL_PANEL`` naming, no model is called: each "vote" is a
+    fixed rule keyed by model name (see ``_heuristic_vote``). The panel adjusts confidence
+    for candidates that are not confidently matched. The ``council_*`` fields/metric keys
+    are kept for backward compatibility with the DB/UI.
+    """
+    panel_candidates = select_council_candidates(cands)
     if config.USE_COUNCIL:
-        for cand in council_candidates:
-            votes = [_juror(model, cand) for model in config.MODEL_PANEL]
+        for cand in panel_candidates:
+            votes = [_heuristic_vote(model, cand) for model in config.MODEL_PANEL]
             cand.council_ran = True
             cand.council_agreement = round(sum(votes) / len(votes), 2)
             cand.confidence = round(0.6 * cand.confidence + 0.4 * cand.council_agreement, 2)
     return {
-        "sent_to_council": len(council_candidates),
+        "sent_to_council": len(panel_candidates),
         "council_executed": len([cand for cand in cands if cand.council_ran]),
     }
+
+
+#: Compatibility alias — the honest name is run_heuristic_panel (see its docstring).
+run_council = run_heuristic_panel
 
 
 def _meets_auto_accept_policy(cand: SkillCandidate, spec: dict[str, Any] | None = None) -> bool:

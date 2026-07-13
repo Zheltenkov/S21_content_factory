@@ -52,6 +52,19 @@ def is_generic_criterion(criterion: str) -> bool:
     return all(marker in text for marker in _GENERIC_CRITERION_MARKERS)
 
 
+def is_testable_criterion(criterion: str) -> bool:
+    """True when the criterion is *structurally* verifiable, not merely non-generic.
+
+    A verifiable criterion links a check to an expected result (the ``→`` produced by the
+    policy acceptance renderer). Free prose that happens not to be the generic fallback is
+    NOT counted as testable — being non-generic is not the same as being checkable.
+    """
+    text = str(criterion or "")
+    if is_generic_criterion(text):
+        return False
+    return "→" in text
+
+
 def is_classified(row: dict[str, Any]) -> bool:
     """A project counts as classified when confirmed by a methodologist or auto-classified
     with high/medium confidence. Low/none confidence (or empty area) needs attention.
@@ -99,7 +112,14 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
     generic_criterion_count = sum(
         1 for row in rows if is_generic_criterion(row.get("validation_criteria") or "")
     )
-    single_skill_project_count = sum(1 for row in rows if len(row.get("node_ids") or []) <= 1)
+    # Labs are single-skill by design (explicit exception); they must not count against the
+    # single-skill share limit — the profile's single_skill_exempt_kinds owns this later.
+    single_skill_project_count = sum(
+        1
+        for row in rows
+        if len(row.get("node_ids") or []) <= 1 and str(row.get("project_type") or "") != "lab"
+    )
+    testable_criteria_count = sum(1 for row in rows if is_testable_criterion(row.get("validation_criteria") or ""))
     unclassified_policy_area_count = sum(1 for row in rows if not is_classified(row))
     low_confidence_classification_count = sum(
         1
@@ -111,9 +131,7 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "title_violation_count": title_violation_count,
         "generic_artifact_count": generic_artifact_count,
         "generic_criterion_count": generic_criterion_count,
-        "testable_criteria_coverage_pct": round(
-            (project_count - generic_criterion_count) / project_count * 100, 1
-        ),
+        "testable_criteria_coverage_pct": round(testable_criteria_count / project_count * 100, 1),
         "single_skill_project_pct": round(single_skill_project_count / project_count * 100, 1),
         "unclassified_policy_area_count": unclassified_policy_area_count,
         "policy_area_coverage_pct": round(

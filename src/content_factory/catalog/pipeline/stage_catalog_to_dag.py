@@ -51,7 +51,12 @@ def _graph_candidates(cands: list[SkillCandidate]) -> list[SkillCandidate]:
     ]
 
 
-def propose_edges(cands: list[SkillCandidate], *, include_ai: bool = True) -> list[PrereqEdge]:
+def propose_edges(
+    cands: list[SkillCandidate],
+    *,
+    include_ai: bool = True,
+    diagnostics: dict[str, Any] | None = None,
+) -> list[PrereqEdge]:
     """Структурные рёбра (учебные карты) + предложения ИИ. tmp_id как узлы."""
     by_name = {c.name: c.tmp_id for c in cands}
 
@@ -101,8 +106,12 @@ def propose_edges(cands: list[SkillCandidate], *, include_ai: bool = True) -> li
                             rationale=e.get("rationale", ""),
                         )
                     )
-        except Exception:
-            pass
+        except Exception as exc:
+            # Do not fail the draft, but record that AI edge proposal degraded so the
+            # methodologist knows the DAG lacks soft dependencies (not that there are none).
+            if diagnostics is not None:
+                diagnostics["ai_proposal_degraded"] = True
+                diagnostics["ai_proposal_error"] = str(exc)[:200]
     elif include_ai:
         # MOCK: одно ошибочное ребро (создаст цикл) + одно избыточное
         sql, rel, rest, _q = tid("SQL"), tid("реляцион"), tid("REST"), tid("очеред")
@@ -430,7 +439,10 @@ def run(
     # Once a methodologist has started reviewing edges, persisted decisions are
     # the authoritative proposal snapshot. Re-querying the model here would
     # create new review items after every human decision and prevent convergence.
-    all_edges = deduplicate_edges(propose_edges(used_candidates, include_ai=not bool(edge_decisions)))
+    diagnostics: dict[str, Any] = {}
+    all_edges = deduplicate_edges(
+        propose_edges(used_candidates, include_ai=not bool(edge_decisions), diagnostics=diagnostics)
+    )
     triage_edges(all_edges, used_candidates)
     apply_edge_decision_overrides(
         all_edges,
@@ -443,5 +455,8 @@ def run(
     dag_payload["used_candidate_ids"] = [cand.tmp_id for cand in used_candidates]
     dag_payload["candidate_edge_count"] = len(all_edges)
     dag_payload["accepted_edge_count"] = len(accepted_edges)
+    dag_payload["ai_proposal_degraded"] = bool(diagnostics.get("ai_proposal_degraded"))
+    if diagnostics.get("ai_proposal_error"):
+        dag_payload["ai_proposal_error"] = diagnostics["ai_proposal_error"]
     add_visual_preview_payload(dag_payload, all_edges, used_candidates)
     return all_edges, DAG, removed_cycle, removed_transitive, dag_payload
