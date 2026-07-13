@@ -63,6 +63,9 @@ class ProjectBlueprint:
     policy_area: str = ""
     # Artifact policy contract from the registry (slice 4); None when unclassified.
     artifact_contract: ArtifactContract | None = None
+    # Durable binding to the artifact template the project was built from (slice 6a);
+    # None when the project uses the policy artifact rather than a template.
+    template_binding: TemplateBinding | None = None
 
     @property
     def primary_occurrences(self) -> list[SkillOccurrence]:
@@ -146,6 +149,33 @@ class ArtifactContract:
             "acceptance_criteria": [criterion.as_dict() for criterion in self.acceptance_criteria],
             "execution_environment": self.execution_environment,
             "publication_constraints": list(self.publication_constraints),
+        }
+
+
+TemplateSource = Literal["brief", "global", "policy"]
+
+
+@dataclass(frozen=True)
+class TemplateBinding:
+    """Durable link from a project to the artifact template it was built from.
+
+    Captures a version snapshot (``template_version``) so a UP version records exactly which
+    template revision produced the project, and ``source`` so brief-scoped templates can be
+    distinguished from the global catalog. ``repeatable`` marks templates allowed to bind to
+    more than one project.
+    """
+
+    template_code: str
+    template_version: str = ""
+    source: TemplateSource = "global"
+    repeatable: bool = False
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "template_code": self.template_code,
+            "template_version": self.template_version,
+            "source": self.source,
+            "repeatable": self.repeatable,
         }
 
 

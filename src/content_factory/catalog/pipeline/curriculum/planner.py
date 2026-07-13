@@ -15,7 +15,16 @@ import networkx as nx
 
 from .. import config
 from .artifact_policy import apply_artifact_contracts
-from .domain import BloomBucket, CurriculumBlock, OccurrenceRole, PlanNode, ProjectBlueprint, SkillOccurrence
+from .domain import (
+    BloomBucket,
+    CurriculumBlock,
+    OccurrenceRole,
+    PlanNode,
+    ProjectBlueprint,
+    SkillOccurrence,
+    TemplateBinding,
+    TemplateSource,
+)
 from .edge_policy import CurriculumEdgeRole, curriculum_edge_role
 from .journey import CurriculumDesignSpec, build_curriculum_design_spec
 from .project_classification import classify_projects
@@ -235,6 +244,21 @@ def _template_scope_score(node: PlanNode, template: dict[str, Any]) -> float:
     return best
 
 
+def _template_binding_for(template: dict[str, Any] | None) -> TemplateBinding | None:
+    """Build a durable, version-snapshotted binding from a bound template dict."""
+    code = str((template or {}).get("code") or "").strip()
+    if not template or not code:
+        return None
+    source = str(template.get("source") or "").strip().casefold()
+    resolved_source: TemplateSource = "brief" if source == "brief" else "global"
+    return TemplateBinding(
+        template_code=code,
+        template_version=str(template.get("updated_at") or "").strip(),
+        source=resolved_source,
+        repeatable=bool(template.get("repeatable", False)),
+    )
+
+
 def _best_template_for_node(node: PlanNode, artifact_templates: list[dict[str, Any]]) -> dict[str, Any] | None:
     scored = [
         (template, _template_scope_score(node, template))
@@ -419,23 +443,24 @@ def _pack_dynamic_artifact_projects(
         block_key, artifact_family, template = group_meta[artifact_key]
         chunks = _split_nodes_for_project(grouped[artifact_key], dag_payload, max_skills=max_skills)
         split_count += max(0, len(chunks) - 1)
+        template_binding = _template_binding_for(template)
         for chunk_index, chunk in enumerate(chunks, start=1):
             template_artifact = _template_artifact_for(chunk, block_key, artifact_family, template)
             artifact = template_artifact or _artifact_for(chunk, block_key, artifact_family)
             template_title = _template_title_for(chunk, block_key, artifact_family, template)
-            projects.append(
-                _project_from_nodes(
-                    chunk,
-                    block_key=block_key,
-                    artifact=artifact,
-                    artifact_key=artifact_key,
-                    artifact_family=artifact_family,
-                    artifact_template_code=str((template or {}).get("code") or "").strip(),
-                    enrichment=_template_enrichment_for(chunk, block_key, artifact_family, artifact, template),
-                    title=template_title or _project_title_for(block_key, chunk_index, len(chunks)),
-                    project_kind="dynamic_artifact",
-                )
+            project = _project_from_nodes(
+                chunk,
+                block_key=block_key,
+                artifact=artifact,
+                artifact_key=artifact_key,
+                artifact_family=artifact_family,
+                artifact_template_code=str((template or {}).get("code") or "").strip(),
+                enrichment=_template_enrichment_for(chunk, block_key, artifact_family, artifact, template),
+                title=template_title or _project_title_for(block_key, chunk_index, len(chunks)),
+                project_kind="dynamic_artifact",
             )
+            project.template_binding = template_binding
+            projects.append(project)
             for node in chunk:
                 assignment[node.tmp_id] = artifact_key
 
@@ -447,7 +472,10 @@ def _pack_dynamic_artifact_projects(
         "dynamic_group_count": len(group_order),
         "artifact_family_counts": dict(Counter(family for _theme, family, _template in group_meta.values())),
         "db_template_count": len(templates),
+        # db_template_project_count kept for backward compatibility; template_bound_project_count
+        # is the canonical name and counts projects with a durable TemplateBinding (slice 6a).
         "db_template_project_count": len([project for project in projects if project.artifact_template_code]),
+        "template_bound_project_count": len([project for project in projects if project.template_binding]),
         "unassigned_node_count": 0,
         "assignment": assignment,
     }

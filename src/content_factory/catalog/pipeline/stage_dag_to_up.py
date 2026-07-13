@@ -599,6 +599,7 @@ def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, Any] | None) -> 
                 "artifact_key": project.artifact_key,
                 "artifact_family": project.artifact_family,
                 "artifact_template_code": project.artifact_template_code,
+                "template_binding": project.template_binding.as_dict() if project.template_binding else None,
                 "project_type": project.project_type,
                 "policy_area": project.policy_area,
                 "audience_level": _audience_label(spec),
@@ -692,6 +693,7 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
             "artifact_project_count": int(planner_meta.get("artifact_project_count", 0) or 0),
             "db_template_count": int(planner_meta.get("db_template_count", 0) or 0),
             "db_template_project_count": int(planner_meta.get("db_template_project_count", 0) or 0),
+            "template_bound_project_count": int(planner_meta.get("template_bound_project_count", 0) or 0),
             "unassigned_node_count": int(planner_meta.get("unassigned_node_count", 0) or 0),
             "journey_stage_count": 0,
             "uncovered_required_area_count": 0,
@@ -753,6 +755,7 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
         "artifact_project_count": int(planner_meta.get("artifact_project_count", 0) or 0),
         "db_template_count": int(planner_meta.get("db_template_count", 0) or 0),
         "db_template_project_count": int(planner_meta.get("db_template_project_count", 0) or 0),
+        "template_bound_project_count": int(planner_meta.get("template_bound_project_count", 0) or 0),
         "unassigned_node_count": int(planner_meta.get("unassigned_node_count", 0) or 0),
         "journey_stage_count": len((planner_meta.get("design_spec") or {}).get("stages") or []),
         "uncovered_required_area_count": len(
