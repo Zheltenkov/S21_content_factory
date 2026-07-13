@@ -236,19 +236,35 @@ def _project_name(project: ProjectBlueprint, block_index: int, project_index: in
     return _clean_project_title(anchor)
 
 
+def _cap_title_length(text: str, *, limit: int = 72) -> str:
+    """Trim to ``limit`` chars on a word boundary (no mid-word cut)."""
+    value = str(text or "").strip(" .,-:;")
+    if len(value) <= limit:
+        return value
+    clipped = value[:limit].rstrip()
+    boundary = clipped.rfind(" ")
+    if boundary >= limit // 2:
+        clipped = clipped[:boundary]
+    return clipped.rstrip(" .,-:;")
+
+
 def _deduplicate_project_name(name: str, project: ProjectBlueprint, seen: set[str], row_number: int) -> str:
-    """Keep project titles stable and unique without truncating their meaning."""
+    """Disambiguate duplicate titles by semantic refinement, bounded to the title length."""
 
     normalized = name.casefold().strip()
     if normalized not in seen:
         seen.add(normalized)
         return name
+    # Prefer a distinguishing skill (semantic), fall back to a compact positional marker
+    # (never "вариант N"); keep every candidate within the title length limit.
     anchor = _clean_project_title(project.unique_nodes[-1].name) if project.unique_nodes else ""
-    candidate = f"{name}: {anchor}" if anchor and anchor.casefold() not in normalized else f"{name} · проект {row_number}"
-    suffix = 2
+    if anchor and anchor.casefold() not in normalized:
+        candidate = _cap_title_length(f"{name}: {anchor}")
+    else:
+        candidate = _cap_title_length(name, limit=66) + f" ({row_number})"
     while candidate.casefold().strip() in seen:
-        candidate = f"{name} · вариант {suffix}"
-        suffix += 1
+        candidate = _cap_title_length(name, limit=66) + f" ({row_number})"
+        row_number += 1
     seen.add(candidate.casefold().strip())
     return candidate
 

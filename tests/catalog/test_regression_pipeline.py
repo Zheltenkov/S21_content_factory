@@ -1137,8 +1137,12 @@ def test_up_planner_uses_dynamic_catalog_themes_without_local_archetypes(monkeyp
     assert plan["status"] == "built"
     assert plan["report"]["quality_metrics"]["artifact_first"] is True
     assert all(not name.startswith("Практический проект:") for name in project_names)
-    assert any("Фермерство" in name for name in project_names)
-    assert any("Животноводство" in name for name in project_names)
+    # Titles are catalog-derived (from the input groups/skills), never hardcoded archetypes.
+    # ProjectTitlePolicy (slice 5) may render a project as its specific skill rather than the
+    # group label, so accept either the group theme or its distinctive skill content.
+    joined = " ".join(project_names).lower()
+    assert "фермерство" in joined or "почв" in joined or "полив" in joined
+    assert "животноводство" in joined or "кормлени" in joined or "стада" in joined
 
 
 def test_up_planner_splits_same_theme_by_artifact_compatibility(monkeypatch: pytest.MonkeyPatch) -> None:

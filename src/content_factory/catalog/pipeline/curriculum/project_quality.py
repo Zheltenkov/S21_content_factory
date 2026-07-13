@@ -15,9 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-#: First-cut ProjectTitlePolicy thresholds (the full policy lands in a later slice).
-TITLE_MAX_CHARS = 72
-TITLE_MAX_WORDS = 8
+from .title_policy import title_violations  # noqa: F401 — re-exported: full policy lives in title_policy
 
 #: Prefixes emitted by ``planner._artifact_for`` when no specialised artifact is bound.
 _GENERIC_ARTIFACT_PREFIXES = (
@@ -30,17 +28,6 @@ _GENERIC_CRITERION_MARKERS = (
     "создан и предъявлен",
     "результат можно проверить по заявленным ЗУН",
 )
-
-
-def title_violations(title: str) -> tuple[str, ...]:
-    """First-cut title-policy violations for a project title (report-only)."""
-    text = str(title or "").strip()
-    reasons: list[str] = []
-    if len(text) > TITLE_MAX_CHARS:
-        reasons.append("too_long")
-    if len(text.split()) > TITLE_MAX_WORDS:
-        reasons.append("too_many_words")
-    return tuple(reasons)
 
 
 def is_generic_artifact(artifact: str) -> bool:
@@ -75,7 +62,12 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "policy_area_coverage_pct": 0.0,
         }
     title_violation_count = sum(
-        1 for row in rows if title_violations(row.get("project_name") or row.get("title") or "")
+        1
+        for row in rows
+        if title_violations(
+            row.get("project_name") or row.get("title") or "",
+            stage_title=str(row.get("block_title") or ""),
+        )
     )
     generic_artifact_count = sum(1 for row in rows if is_generic_artifact(row.get("artifact") or ""))
     generic_criterion_count = sum(

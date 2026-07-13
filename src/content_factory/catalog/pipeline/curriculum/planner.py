@@ -19,6 +19,7 @@ from .domain import BloomBucket, CurriculumBlock, OccurrenceRole, PlanNode, Proj
 from .edge_policy import CurriculumEdgeRole, curriculum_edge_role
 from .journey import CurriculumDesignSpec, build_curriculum_design_spec
 from .project_classification import classify_projects
+from .title_policy import apply_title_policy
 
 _DANGLING_TAIL_WORDS = {
     "и",
@@ -757,6 +758,7 @@ def build_curriculum_blocks(
     repeated_threads = _add_spiral_occurrences(blocks, nodes, dag_payload)
     classify_projects(blocks)
     apply_artifact_contracts(blocks)
+    apply_title_policy(blocks)
     meta = {
         **artifact_meta,
         "artifact_match_count": 0,
