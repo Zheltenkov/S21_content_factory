@@ -20,6 +20,7 @@ from typing import Any
 
 from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.pipeline import config
+from content_factory.catalog.pipeline.curriculum.methodology_profile import resolve_profile
 from content_factory.catalog.pipeline.curriculum.project_quality import report_only_quality_metrics
 from content_factory.catalog.pipeline.curriculum.publication_gate import evaluate_publication_gate
 from content_factory.catalog.pipeline.curriculum.workload import build_workload_contract
@@ -374,13 +375,17 @@ def build_curriculum_plan_payload_from_rows(
     payload_report = _as_dict(payload.get("report"))
     raw_quality_metrics = _as_dict(payload_report.get("quality_metrics"))
     ui_quality_metrics = build_curriculum_quality_metrics_for_ui(rows, raw_quality_metrics)
+    # Re-resolve the profile the plan was BUILT with (never silently re-score by another one).
+    profile_snapshot = _as_dict(payload.get("methodology_profile"))
+    resolution = resolve_profile(profile_snapshot)
     report: dict[str, Any] = {
         "coverage_ok": bool(payload_report.get("coverage_ok", False)),
         "order_violations": _as_list(payload_report.get("order_violations")),
         "recommended_order_notes": _as_list(payload_report.get("recommended_order_notes")),
         "project_violations": _as_list(payload_report.get("project_violations")),
         "quality_metrics": ui_quality_metrics,
-        "publication_gate": evaluate_publication_gate(ui_quality_metrics).as_dict(),
+        "publication_gate": evaluate_publication_gate(ui_quality_metrics, profile=resolution.profile).as_dict(),
+        "methodology_profile_status": resolution.status,
     }
     design_spec = _as_dict(payload.get("design_spec"))
 
@@ -392,6 +397,7 @@ def build_curriculum_plan_payload_from_rows(
         "title": str(plan_meta.get("title") or payload.get("title") or "Черновик учебного плана"),
         "audience_level": str(plan_meta.get("audience_level") or payload.get("audience_level") or "Начальный"),
         "source_policy": str(plan_meta.get("source_policy") or payload.get("source_policy") or "accepted_only"),
+        "methodology_profile": profile_snapshot or (resolution.profile.snapshot() if resolution.profile else {}),
         "summary": {
             "blocks": len(block_payloads),
             "projects": len(rows),

@@ -21,14 +21,18 @@ def test_testable_criterion_requires_structure_not_just_non_generic() -> None:
     assert not is_testable_criterion("артефакт создан и предъявлен; результат можно проверить по заявленным ЗУН")
 
 
-def test_lab_projects_exempt_from_single_skill_limit() -> None:
+def test_single_skill_metric_reports_raw_facts_by_type_not_policy() -> None:
+    # Measurement is profile-independent: the RAW single-skill share plus by-type counts.
+    # The lab EXEMPTION is policy, applied by the publication gate, not baked into the metric.
     rows = [
-        {"project_name": "A", "node_ids": ["x"], "project_type": "lab"},  # single-skill lab, exempt
-        {"project_name": "B", "node_ids": ["y"], "project_type": "project"},  # single-skill, counted
+        {"project_name": "A", "node_ids": ["x"], "project_type": "lab"},
+        {"project_name": "B", "node_ids": ["y"], "project_type": "project"},
         {"project_name": "C", "node_ids": ["z", "w"], "project_type": "project"},
     ]
     metrics = report_only_quality_metrics(rows)
-    assert metrics["single_skill_project_pct"] == round(1 / 3 * 100, 1)  # only B counts
+    assert metrics["single_skill_project_pct"] == round(2 / 3 * 100, 1)  # raw: A and B
+    assert metrics["single_skill_count_by_type"] == {"lab": 1, "project": 1}
+    assert metrics["project_count_by_type"] == {"lab": 1, "project": 2}
 
 
 def test_is_classified_by_confidence_and_confirmation() -> None:

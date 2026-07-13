@@ -16,6 +16,7 @@ from content_factory.content_profile import infer_content_profile
 from . import config, language
 from .curriculum import CurriculumBlock, PlanNode, ProjectBlueprint, SkillOccurrence, build_curriculum_blocks
 from .curriculum.edge_policy import curriculum_edge_role
+from .curriculum.methodology_profile import DEFAULT_PROFILE, MethodologyProfile
 from .curriculum.project_quality import report_only_quality_metrics
 from .curriculum.publication_gate import evaluate_publication_gate
 from .curriculum.workload import build_workload_contract
@@ -784,7 +785,16 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
     }
 
 
-def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_payload: dict[str, Any]) -> dict[str, Any]:
+def run(
+    spec: dict[str, Any] | None,
+    candidates: list[SkillCandidate],
+    dag_payload: dict[str, Any],
+    *,
+    profile: MethodologyProfile | None = None,
+) -> dict[str, Any]:
+    # This is the build composition root: resolve the hardcoded default here, then pass the
+    # resolved profile object down. The identity is snapshotted so the read path re-resolves it.
+    profile = profile or DEFAULT_PROFILE
     # Планировщик работает только по фактически принятым узлам DAG.
     if not candidates or not dag_payload.get("order"):
         return {
@@ -793,6 +803,7 @@ def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_paylo
             "title": "Черновик учебного плана",
             "audience_level": _audience_label(spec),
             "source_policy": "accepted_only",
+            "methodology_profile": profile.snapshot(),
             "summary": {
                 "blocks": 0,
                 "projects": 0,
@@ -810,7 +821,7 @@ def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_paylo
                 "order_violations": [],
                 "project_violations": [],
                 "quality_metrics": _quality_metrics([], {}),
-                "publication_gate": evaluate_publication_gate(_quality_metrics([], {})).as_dict(),
+                "publication_gate": evaluate_publication_gate(_quality_metrics([], {}), profile=profile).as_dict(),
             },
         }
 
@@ -828,7 +839,7 @@ def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_paylo
     dag_waves = dag_payload.get("visual_waves") or dag_payload.get("waves") or []
     report["quality_metrics"]["dag_wave_count"] = len(dag_waves) if isinstance(dag_waves, list) else 0
     report["quality_metrics"]["up_block_count"] = len(blocks)
-    report["publication_gate"] = evaluate_publication_gate(report["quality_metrics"]).as_dict()
+    report["publication_gate"] = evaluate_publication_gate(report["quality_metrics"], profile=profile).as_dict()
     report["planner_meta"] = planner_meta
     design_spec = planner_meta.get("design_spec") if isinstance(planner_meta.get("design_spec"), dict) else {}
     is_invalid = bool(report["order_violations"] or report.get("project_violations"))
@@ -863,6 +874,7 @@ def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_paylo
         "title": "Черновик учебного плана",
         "audience_level": _audience_label(spec),
         "source_policy": "accepted_only",
+        "methodology_profile": profile.snapshot(),
         "planner_meta": planner_meta,
         "design_spec": design_spec,
         "summary": {

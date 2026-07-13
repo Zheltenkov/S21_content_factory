@@ -13,6 +13,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from .methodology_profile import MethodologyProfile
+
 
 @dataclass(frozen=True)
 class PublicationWaiver:
@@ -54,10 +56,6 @@ class GateResult:
         }
 
 
-#: Single-skill projects allowed as a share of all projects (labs are explicit exceptions).
-SINGLE_SKILL_MAX_PCT = 25.0
-
-
 def _num(metrics: dict, key: str, default: float = 0.0) -> float:
     try:
         return float(metrics.get(key, default) or 0)
@@ -65,32 +63,52 @@ def _num(metrics: dict, key: str, default: float = 0.0) -> float:
         return default
 
 
-def _candidate_failures(metrics: dict) -> list[GateFailure]:
+def _non_exempt_single_skill_pct(metrics: dict, profile: MethodologyProfile) -> float:
+    """Single-skill share EXCLUDING the profile's exempt project kinds (labs etc.)."""
+    project_count = _num(metrics, "project_count")
+    if project_count <= 0:
+        return _num(metrics, "single_skill_project_pct")  # legacy metric without by-type facts
+    by_type = metrics.get("single_skill_count_by_type")
+    if not isinstance(by_type, dict):
+        return _num(metrics, "single_skill_project_pct")  # legacy plan: raw pct
+    exempt = set(profile.single_skill_exempt_kinds)
+    non_exempt = sum(int(count or 0) for kind, count in by_type.items() if kind not in exempt)
+    return round(non_exempt / project_count * 100, 1)
+
+
+def _candidate_failures(metrics: dict, profile: MethodologyProfile) -> list[GateFailure]:
     failures: list[GateFailure] = []
+    thresholds = profile.publication_thresholds
 
     def add(code: str, message: str, value: float, threshold: float) -> None:
         failures.append(GateFailure(code=code, message=message, value=value, threshold=threshold))
 
+    # Universal mechanical/judgment checks (profile-independent).
     if _num(metrics, "title_violation_count") > 0:
         add("title_violations", "Есть названия проектов, нарушающие ProjectTitlePolicy", _num(metrics, "title_violation_count"), 0)
     if _num(metrics, "generic_artifact_count") > 0:
         add("generic_artifacts", "Есть проекты с generic-артефактом вместо policy-контракта", _num(metrics, "generic_artifact_count"), 0)
-    if _num(metrics, "policy_area_coverage_pct", 100) < 100:
-        add("policy_area_incomplete", "Не все проекты классифицированы по policy-области", _num(metrics, "policy_area_coverage_pct", 100), 100)
     if _num(metrics, "testable_criteria_coverage_pct", 100) < 100:
         add("untestable_criteria", "Есть проекты с непроверяемыми критериями приёмки", _num(metrics, "testable_criteria_coverage_pct", 100), 100)
     if _num(metrics, "blocking_question_count") > 0:
         add("blocking_questions", "Есть незакрытые блокирующие вопросы брифа", _num(metrics, "blocking_question_count"), 0)
     if _num(metrics, "uncovered_required_area_count") > 0:
-        add(
-            "required_areas_uncovered",
-            "Не все обязательные области брифа покрыты принятыми навыками",
-            _num(metrics, "uncovered_required_area_count"),
-            0,
-        )
-    if _num(metrics, "single_skill_project_pct") > SINGLE_SKILL_MAX_PCT:
-        add("single_skill_excess", "Доля однонавыковых проектов выше допустимой", _num(metrics, "single_skill_project_pct"), SINGLE_SKILL_MAX_PCT)
-    if bool(metrics.get("capstone_required")) and not bool(metrics.get("capstone_present")):
+        add("required_areas_uncovered", "Не все обязательные области брифа покрыты принятыми навыками", _num(metrics, "uncovered_required_area_count"), 0)
+
+    # Profile-interpreted checks (thresholds come from the resolved profile).
+    coverage = _num(metrics, "policy_area_coverage_pct", 100)
+    if coverage < thresholds.required_policy_coverage_pct:
+        add("policy_area_incomplete", "Не все проекты классифицированы по policy-области", coverage, thresholds.required_policy_coverage_pct)
+    single_skill_pct = _non_exempt_single_skill_pct(metrics, profile)
+    if single_skill_pct > thresholds.single_skill_max_pct:
+        add("single_skill_excess", "Доля однонавыковых проектов выше допустимой профилем", single_skill_pct, thresholds.single_skill_max_pct)
+
+    # Capstone requirement is interpreted by the profile's capstone policy.
+    capstone_required = (
+        profile.capstone_policy == "always"
+        or (profile.capstone_policy == "follow_design" and bool(metrics.get("capstone_required")))
+    )
+    if capstone_required and not bool(metrics.get("capstone_present")):
         add("capstone_missing", "Требуется capstone, но он отсутствует", 0, 1)
     return failures
 
@@ -98,17 +116,32 @@ def _candidate_failures(metrics: dict) -> list[GateFailure]:
 def evaluate_publication_gate(
     metrics: dict,
     *,
+    profile: MethodologyProfile | None,
     waivers: Iterable[PublicationWaiver] = (),
     up_version: str = "",
 ) -> GateResult:
-    """Evaluate the publish gate; failures with a matching waiver are released, not blocking."""
+    """Evaluate the publish gate through a RESOLVED profile (no hidden default).
+
+    ``profile`` is None only when the plan names a profile version we do not know: the draft
+    still opens, but publication is blocked with ``methodology_profile_unavailable`` — the
+    plan is never silently re-scored by a different profile. Failures with a matching waiver
+    are released, not blocking.
+    """
     waiver_list = list(waivers)
     waiver_codes = {
         waiver.code for waiver in waiver_list if not waiver.up_version or not up_version or waiver.up_version == up_version
     }
+    if profile is None:
+        unavailable = GateFailure(
+            code="methodology_profile_unavailable",
+            message="Профиль методологии, которым построен УП, недоступен в этой версии кода",
+            value=0,
+            threshold=1,
+        )
+        return GateResult(passed=False, failures=(unavailable,), waived=(), waivers=tuple(waiver_list))
     blocking: list[GateFailure] = []
     waived: list[GateFailure] = []
-    for failure in _candidate_failures(metrics):
+    for failure in _candidate_failures(metrics, profile):
         (waived if failure.code in waiver_codes else blocking).append(failure)
     return GateResult(
         passed=not blocking,

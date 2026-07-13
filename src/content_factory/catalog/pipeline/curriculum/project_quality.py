@@ -96,6 +96,10 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "generic_criterion_count": 0,
             "testable_criteria_coverage_pct": 0.0,
             "single_skill_project_pct": 0.0,
+            "single_skill_count": 0,
+            "project_count": 0,
+            "project_count_by_type": {},
+            "single_skill_count_by_type": {},
             "unclassified_policy_area_count": 0,
             "policy_area_coverage_pct": 0.0,
             "low_confidence_classification_count": 0,
@@ -112,13 +116,16 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
     generic_criterion_count = sum(
         1 for row in rows if is_generic_criterion(row.get("validation_criteria") or "")
     )
-    # Labs are single-skill by design (explicit exception); they must not count against the
-    # single-skill share limit — the profile's single_skill_exempt_kinds owns this later.
-    single_skill_project_count = sum(
-        1
-        for row in rows
-        if len(row.get("node_ids") or []) <= 1 and str(row.get("project_type") or "") != "lab"
-    )
+    # FACTS only — the single-skill EXEMPTION (labs etc.) is policy, applied by the gate via
+    # the profile's single_skill_exempt_kinds, not baked into the measurement.
+    single_skill_count = sum(1 for row in rows if len(row.get("node_ids") or []) <= 1)
+    project_count_by_type: dict[str, int] = {}
+    single_skill_count_by_type: dict[str, int] = {}
+    for row in rows:
+        project_type = str(row.get("project_type") or "project")
+        project_count_by_type[project_type] = project_count_by_type.get(project_type, 0) + 1
+        if len(row.get("node_ids") or []) <= 1:
+            single_skill_count_by_type[project_type] = single_skill_count_by_type.get(project_type, 0) + 1
     testable_criteria_count = sum(1 for row in rows if is_testable_criterion(row.get("validation_criteria") or ""))
     unclassified_policy_area_count = sum(1 for row in rows if not is_classified(row))
     low_confidence_classification_count = sum(
@@ -132,7 +139,13 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "generic_artifact_count": generic_artifact_count,
         "generic_criterion_count": generic_criterion_count,
         "testable_criteria_coverage_pct": round(testable_criteria_count / project_count * 100, 1),
-        "single_skill_project_pct": round(single_skill_project_count / project_count * 100, 1),
+        # RAW share of single-skill projects (NO exemptions) — the gate applies the profile's
+        # single_skill_exempt_kinds. Kept for backward compatibility with existing consumers.
+        "single_skill_project_pct": round(single_skill_count / project_count * 100, 1),
+        "single_skill_count": single_skill_count,
+        "project_count": project_count,
+        "project_count_by_type": project_count_by_type,
+        "single_skill_count_by_type": single_skill_count_by_type,
         "unclassified_policy_area_count": unclassified_policy_area_count,
         "policy_area_coverage_pct": round(
             (project_count - unclassified_policy_area_count) / project_count * 100, 1
