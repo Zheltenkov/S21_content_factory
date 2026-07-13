@@ -16,6 +16,7 @@ from content_factory.content_profile import infer_content_profile
 from . import config, language
 from .curriculum import CurriculumBlock, PlanNode, ProjectBlueprint, SkillOccurrence, build_curriculum_blocks
 from .curriculum.edge_policy import curriculum_edge_role
+from .curriculum.project_quality import report_only_quality_metrics
 from .models import SkillCandidate
 
 _DANGLING_TAIL_WORDS = {
@@ -682,6 +683,7 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
             "up_block_count": 0,
             "target_skills_per_project": [config.UP_TARGET_SKILLS_MIN, config.UP_TARGET_SKILLS_MAX],
             "target_outcomes_per_project": [config.UP_TARGET_OUTCOMES_MIN, config.UP_TARGET_OUTCOMES_MAX],
+            **report_only_quality_metrics(rows),
         }
     skill_counts = [len(row.get("node_ids") or []) for row in rows]
     primary_skill_counts = [int(row.get("primary_skill_count", len(row.get("node_ids") or [])) or 0) for row in rows]
@@ -744,6 +746,7 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
         ),
         "target_skills_per_project": [config.UP_TARGET_SKILLS_MIN, config.UP_TARGET_SKILLS_MAX],
         "target_outcomes_per_project": [config.UP_TARGET_OUTCOMES_MIN, config.UP_TARGET_OUTCOMES_MAX],
+        **report_only_quality_metrics(rows),
     }
 
 
