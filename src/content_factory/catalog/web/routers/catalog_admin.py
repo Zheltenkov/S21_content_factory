@@ -232,6 +232,7 @@ async def artifact_templates_post(request: Request, conn: CatalogConnection = De
             priority=parse_optional_int(form.get("priority")) or 100,
             status=form.get("status", "active").strip() or "active",
             source="methodologist",
+            repeatable=form.get("repeatable", "").strip().lower() in {"1", "true", "on", "yes"},
             scopes=parse_artifact_template_scopes(form),
         )
     elif action in {"activate_template", "deprecate_template"} and template_id:

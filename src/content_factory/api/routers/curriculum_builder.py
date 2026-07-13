@@ -300,7 +300,7 @@ async def curriculum_builder_template_proposal(
 
     form = await form_fields(request)
     action = form.get("action", "")
-    if action not in {"save_proposal", "accept_proposal", "reject_proposal"}:
+    if action not in {"save_proposal", "accept_proposal", "reject_proposal", "publish_proposal"}:
         raise HTTPException(status_code=404, detail="Invalid template proposal action")
 
     if action in {"save_proposal", "accept_proposal"}:
@@ -319,11 +319,16 @@ async def curriculum_builder_template_proposal(
             validation_criteria=form.get("validation_criteria", "").strip(),
             rationale=form.get("rationale", "").strip(),
             confidence=parse_optional_float(form.get("confidence")),
+            repeatable=form.get("repeatable", "").strip().lower() in {"1", "true", "on", "yes"},
         )
     if action == "accept_proposal":
         intake_storage.accept_curriculum_artifact_template_proposal(conn, proposal_id)
     elif action == "reject_proposal":
         intake_storage.reject_curriculum_artifact_template_proposal(conn, proposal_id)
+    elif action == "publish_proposal":
+        result = intake_storage.publish_curriculum_artifact_template_proposal(conn, proposal_id)
+        if result.get("status") != "published":
+            raise HTTPException(status_code=409, detail="Only an accepted brief template can be published")
     return _redirect_curriculum(brief_id=brief_id, anchor="#template-review")
 
 

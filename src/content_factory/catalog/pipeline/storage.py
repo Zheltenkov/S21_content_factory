@@ -17,6 +17,8 @@ from content_factory.catalog.pipeline.artifact_templates import (
     generate_curriculum_artifact_template_proposals,  # noqa: F401  re-exported for catalog consumers
     load_curriculum_artifact_template_proposals,  # noqa: F401  re-exported for catalog consumers
     load_curriculum_artifact_templates,  # noqa: F401  re-exported for catalog consumers
+    load_curriculum_artifact_templates_for_brief,  # noqa: F401  re-exported for catalog consumers
+    publish_curriculum_artifact_template_proposal,  # noqa: F401  re-exported for catalog consumers
     reject_curriculum_artifact_template_proposal,  # noqa: F401  re-exported for catalog consumers
     update_curriculum_artifact_template_proposal,  # noqa: F401  re-exported for catalog consumers
     upsert_curriculum_artifact_template,  # noqa: F401  re-exported for catalog consumers

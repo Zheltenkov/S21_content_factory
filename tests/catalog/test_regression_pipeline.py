@@ -1391,6 +1391,11 @@ def test_template_proposals_generate_and_accept() -> None:
             "Бриф про customer discovery и MVP.",
             {"role": "основатель", "seniority": "junior", "domain": "стартап"},
         )
+        other_brief_id = storage.save_brief(
+            conn,
+            "Другой независимый бриф.",
+            {"role": "аналитик", "seniority": "junior", "domain": "финансы"},
+        )
         candidates = [
             _candidate("Проводит интервью с пользователями", group="Исследование", decision="accepted"),
             _candidate("Формулирует инсайты проблемы", group="Исследование", decision="accepted"),
@@ -1407,12 +1412,41 @@ def test_template_proposals_generate_and_accept() -> None:
         assert "Проводит интервью с пользователями" in proposal["covered_skill_names"]
         assert proposal["scope_names"] == ["выявление проблемы и понимание клиента"]
 
+        storage.update_curriculum_artifact_template_proposal(
+            conn,
+            int(proposal["id"]),
+            title=str(proposal["title"]),
+            artifact_family=str(proposal["artifact_family"]),
+            scope_type=str(proposal["scope_type"]),
+            scope_names=list(proposal["scope_names"]),
+            artifact_description=str(proposal["artifact_description"]),
+            project_name_pattern=str(proposal["project_name_pattern"]),
+            materials_pattern=str(proposal["materials_pattern"]),
+            storytelling_pattern=str(proposal["storytelling_pattern"]),
+            validation_criteria=str(proposal["validation_criteria"]),
+            repeatable=True,
+        )
+
         accepted = storage.accept_curriculum_artifact_template_proposal(conn, int(proposal["id"]))
-        templates = storage.load_curriculum_artifact_templates(conn)
+        global_templates = storage.load_curriculum_artifact_templates(conn)
+        brief_templates = storage.load_curriculum_artifact_templates_for_brief(conn, brief_id)
+        other_brief_templates = storage.load_curriculum_artifact_templates_for_brief(conn, other_brief_id)
 
         assert accepted["status"] == "accepted"
-        assert templates
-        assert templates[0]["scopes"][0]["scope_name"] == "выявление проблемы и понимание клиента"
+        assert global_templates == []
+        assert other_brief_templates == []
+        assert brief_templates[0]["source"] == "brief"
+        assert brief_templates[0]["repeatable"] is True
+        assert brief_templates[0]["scopes"][0]["scope_name"] == "выявление проблемы и понимание клиента"
+
+        published = storage.publish_curriculum_artifact_template_proposal(conn, int(proposal["id"]))
+        global_templates = storage.load_curriculum_artifact_templates(conn)
+        other_brief_templates = storage.load_curriculum_artifact_templates_for_brief(conn, other_brief_id)
+
+        assert published["status"] == "published"
+        assert global_templates[0]["source"] == "proposal_publish"
+        assert global_templates[0]["repeatable"] is True
+        assert other_brief_templates[0]["code"] == proposal["code"]
     finally:
         conn.close()
         db_path.unlink(missing_ok=True)

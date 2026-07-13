@@ -224,6 +224,7 @@ def test_curriculum_builder_accepts_templates_then_builds_plan_explicitly(
 
     updates: list[int] = []
     accepts: list[int] = []
+    publishes: list[int] = []
     builds: list[int] = []
     monkeypatch.setattr(
         curriculum_builder.intake_storage,
@@ -234,6 +235,11 @@ def test_curriculum_builder_accepts_templates_then_builds_plan_explicitly(
         curriculum_builder.intake_storage,
         "accept_curriculum_artifact_template_proposal",
         lambda _conn, proposal_id: accepts.append(proposal_id),
+    )
+    monkeypatch.setattr(
+        curriculum_builder.intake_storage,
+        "publish_curriculum_artifact_template_proposal",
+        lambda _conn, proposal_id: publishes.append(proposal_id) or {"status": "published"},
     )
 
     proposal_response = client.post(
@@ -254,6 +260,16 @@ def test_curriculum_builder_accepts_templates_then_builds_plan_explicitly(
     assert updates == [12]
     assert accepts == [12]
     assert builds == []
+
+    publish_response = client.post(
+        "/app/curriculum/plans/30/template-proposals/12",
+        data={"action": "publish_proposal"},
+        follow_redirects=False,
+    )
+
+    assert publish_response.status_code == 303
+    assert publish_response.headers["location"] == "/app/curriculum?brief_id=7#template-review"
+    assert publishes == [12]
 
     monkeypatch.setattr(
         curriculum_builder,

@@ -3,7 +3,7 @@
 <section class="hero">
     <div>
         <h1>Предложения шаблонов УП</h1>
-        <p>Процесс: система предлагает шаблоны по принятым навыкам, методолог редактирует и принимает. После принятия УП перестраивается.</p>
+        <p>Принятие делает шаблон доступным только этому брифу. Глобальная публикация в справочник выполняется отдельно.</p>
         <div class="small muted">учебный план #{{ plan.id }} · бриф #{{ plan.brief_id }}</div>
     </div>
     <div class="review-actions">
@@ -71,6 +71,7 @@
             <span>{{ family.label }}</span>
             <span>уверенность {{ "%.2f"|format(proposal.confidence) }}</span>
             <span>{{ proposal.covered_skill_names|length }} навыков</span>
+            {% if proposal.repeatable %}<span>повторяемый</span>{% endif %}
             {% if proposal.accepted_template_id %}
             <span>шаблон #{{ proposal.accepted_template_id }}</span>
             {% endif %}
@@ -119,6 +120,10 @@
             </div>
 
             <label>
+                <span><input type="checkbox" name="repeatable" value="1" {% if proposal.repeatable %}checked{% endif %}> Можно назначить нескольким проектам этого УП</span>
+            </label>
+
+            <label>
                 <span>Описание проверяемого артефакта</span>
                 <textarea name="artifact_description" rows="3">{{ proposal.artifact_description }}</textarea>
             </label>
@@ -150,10 +155,15 @@
             <div class="review-actions">
                 {% if proposal.status == 'open' %}
                 <button type="submit" name="action" value="save_proposal" class="action-btn action-btn-light">Сохранить</button>
-                <button type="submit" name="action" value="accept_proposal" class="action-btn action-btn-primary">Принять и перестроить УП</button>
+                <button type="submit" name="action" value="accept_proposal" class="action-btn action-btn-primary">Принять для этого брифа</button>
                 <button type="submit" name="action" value="reject_proposal" class="action-btn action-btn-danger">Отклонить</button>
                 {% elif proposal.status == 'accepted' %}
-                <span class="action-btn action-btn-light disabled">Принято в рабочие шаблоны, УП перестроен</span>
+                <span class="action-btn action-btn-light disabled">Принято для этого брифа</span>
+                {% if proposal.accepted_template_id %}
+                <span class="action-btn action-btn-light disabled">Опубликовано в справочник</span>
+                {% else %}
+                <button type="submit" name="action" value="publish_proposal" class="action-btn action-btn-secondary">Опубликовать в справочник</button>
+                {% endif %}
                 {% else %}
                 <span class="action-btn action-btn-light disabled">Отклонено</span>
                 {% endif %}

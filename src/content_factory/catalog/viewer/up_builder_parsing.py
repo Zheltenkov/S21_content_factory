@@ -171,6 +171,8 @@ def _build_template_proposals(value: Any) -> list[BuilderTemplateProposal]:
                 rationale=_to_text(proposal.get("rationale")),
                 confidence=max(0.0, min(1.0, confidence)),
                 accepted_template_id=_to_optional_int(proposal.get("accepted_template_id")),
+                repeatable=bool(proposal.get("repeatable")),
+                published_at=_to_text(proposal.get("published_at")) or None,
             )
         )
     return sorted(proposals, key=lambda item: (not item.is_open, item.title.casefold(), item.proposal_id))

@@ -210,6 +210,8 @@ class BuilderTemplateProposal:
     rationale: str
     confidence: float
     accepted_template_id: int | None
+    repeatable: bool = False
+    published_at: str | None = None
 
     @property
     def family_label(self) -> str:
@@ -238,6 +240,10 @@ class BuilderTemplateProposal:
     @property
     def is_accepted(self) -> bool:
         return self.status == "accepted"
+
+    @property
+    def is_published(self) -> bool:
+        return self.accepted_template_id is not None or self.published_at is not None
 
 
 @dataclass(frozen=True)

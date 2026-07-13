@@ -196,6 +196,7 @@ async def up_plan_proposal_post(
             validation_criteria=form.get("validation_criteria", "").strip(),
             rationale=form.get("rationale", "").strip(),
             confidence=parse_optional_float(form.get("confidence")),
+            repeatable=form.get("repeatable", "").strip().lower() in {"1", "true", "on", "yes"},
         )
     if action == "accept_proposal":
         intake_storage.accept_curriculum_artifact_template_proposal(conn, proposal_id)
@@ -213,6 +214,10 @@ async def up_plan_proposal_post(
         conn.commit()
     elif action == "reject_proposal":
         intake_storage.reject_curriculum_artifact_template_proposal(conn, proposal_id)
+    elif action == "publish_proposal":
+        result = intake_storage.publish_curriculum_artifact_template_proposal(conn, proposal_id)
+        if result.get("status") != "published":
+            raise HTTPException(status_code=409, detail="Only an accepted brief template can be published")
     return _redirect_synced(f"/up/plans/{redirect_plan_id}/template-proposals")
 
 

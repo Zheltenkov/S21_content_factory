@@ -59,6 +59,10 @@
                 <span>Вес scope</span>
                 <input type="number" step="0.1" name="scope_weight" value="{{ edit_template.scope_weight if edit_template else '1.0' }}">
             </label>
+            <label>
+                <span>Повторное использование</span>
+                <span><input type="checkbox" name="repeatable" value="1" {% if edit_template and edit_template.repeatable %}checked{% endif %}> Можно назначать нескольким проектам</span>
+            </label>
         </div>
 
         <label>
@@ -124,6 +128,7 @@
                 <th>Тип</th>
                 <th>Scope</th>
                 <th>Приоритет</th>
+                <th>Повторяемый</th>
                 <th>Статус</th>
                 <th>Действие</th>
             </tr>
@@ -149,6 +154,7 @@
                     {% endif %}
                 </td>
                 <td>{{ template.priority }}</td>
+                <td>{{ 'да' if template.repeatable else 'нет' }}</td>
                 <td>
                     <span class="status-badge {% if template.status != 'active' %}warn{% endif %}">{{ template.status }}</span>
                 </td>

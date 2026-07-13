@@ -34,7 +34,7 @@ def load_curriculum_artifact_templates(con: CatalogConnection, active_only: bool
         f"""
         SELECT id, code, title, artifact_family, artifact_description,
                project_name_pattern, materials_pattern, storytelling_pattern,
-               validation_criteria, priority, status, source
+               validation_criteria, priority, status, source, repeatable, updated_at
         FROM curriculum_artifact_template
         {status_filter}
         ORDER BY priority ASC, id ASC
@@ -65,6 +65,81 @@ def load_curriculum_artifact_templates(con: CatalogConnection, active_only: bool
     return templates
 
 
+def _proposal_as_brief_template(proposal: dict[str, Any]) -> dict[str, Any]:
+    """Convert one accepted proposal into a planner template scoped to its brief."""
+
+    scope_type = str(proposal.get("scope_type") or "coverage_area")
+    scopes = [
+        {
+            "scope_type": scope_type,
+            "scope_id": None,
+            "scope_name": scope_name,
+            "normalized_scope_name": _normalize_catalog_key(scope_name),
+            "weight": 1.0,
+        }
+        for scope_name in proposal.get("scope_names") or []
+    ]
+    if not scopes:
+        scopes = [
+            {
+                "scope_type": "any",
+                "scope_id": None,
+                "scope_name": "*",
+                "normalized_scope_name": "*",
+                "weight": 1.0,
+            }
+        ]
+    return {
+        "id": None,
+        "proposal_id": int(proposal["id"]),
+        "code": str(proposal["code"]),
+        "title": str(proposal["title"]),
+        "artifact_family": str(proposal["artifact_family"]),
+        "artifact_description": str(proposal.get("artifact_description") or ""),
+        "project_name_pattern": str(proposal.get("project_name_pattern") or ""),
+        "materials_pattern": str(proposal.get("materials_pattern") or ""),
+        "storytelling_pattern": str(proposal.get("storytelling_pattern") or ""),
+        "validation_criteria": str(proposal.get("validation_criteria") or ""),
+        "priority": 20,
+        "status": "active",
+        "source": "brief",
+        "repeatable": bool(proposal.get("repeatable")),
+        "updated_at": proposal.get("accepted_at") or proposal.get("updated_at"),
+        "scopes": scopes,
+    }
+
+
+def load_curriculum_artifact_templates_for_brief(
+    con: CatalogConnection,
+    brief_id: int,
+) -> list[dict[str, Any]]:
+    """Load templates visible to one brief without leaking old implicit publications.
+
+    Accepted proposals for the current brief take precedence over explicit global
+    templates. Historical ``proposal_accept`` rows stay stored, but no longer act as
+    global templates because acceptance under the old contract was not publication.
+    """
+
+    brief_templates = [
+        _proposal_as_brief_template(proposal)
+        for proposal in load_curriculum_artifact_template_proposals(con, brief_id, status="accepted")
+    ]
+    global_templates = [
+        template
+        for template in load_curriculum_artifact_templates(con)
+        if str(template.get("source") or "") != "proposal_accept"
+    ]
+    merged: list[dict[str, Any]] = []
+    seen_codes: set[str] = set()
+    for template in [*brief_templates, *global_templates]:
+        code = str(template.get("code") or "")
+        if not code or code in seen_codes:
+            continue
+        seen_codes.add(code)
+        merged.append(template)
+    return merged
+
+
 def upsert_curriculum_artifact_template(
     con: CatalogConnection,
     *,
@@ -79,6 +154,7 @@ def upsert_curriculum_artifact_template(
     priority: int = 100,
     status: str = "active",
     source: str = "manual",
+    repeatable: bool = False,
     scopes: list[dict[str, Any]] | None = None,
 ) -> int:
     """Create or update a methodology-owned artifact template."""
@@ -88,9 +164,9 @@ def upsert_curriculum_artifact_template(
         INSERT INTO curriculum_artifact_template(
             code, title, artifact_family, artifact_description, project_name_pattern,
             materials_pattern, storytelling_pattern, validation_criteria, priority,
-            status, source, updated_at
+            status, source, repeatable, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(code) DO UPDATE SET
             title = excluded.title,
             artifact_family = excluded.artifact_family,
@@ -102,6 +178,7 @@ def upsert_curriculum_artifact_template(
             priority = excluded.priority,
             status = excluded.status,
             source = excluded.source,
+            repeatable = excluded.repeatable,
             updated_at = excluded.updated_at
         """,
         (
@@ -116,6 +193,7 @@ def upsert_curriculum_artifact_template(
             priority,
             status,
             source,
+            repeatable,
             _utc_now_iso(),
         ),
     )
@@ -165,7 +243,8 @@ def load_curriculum_artifact_template_proposals(
                scope_type, scope_names_json, artifact_description,
                project_name_pattern, materials_pattern, storytelling_pattern,
                validation_criteria, covered_skill_ids_json, covered_skill_names_json,
-               rationale, confidence, source, accepted_template_id, created_at, updated_at
+               rationale, confidence, source, accepted_template_id, repeatable,
+               accepted_at, published_at, created_at, updated_at
         FROM curriculum_artifact_template_proposal
         WHERE brief_id = ?
           {status_filter}
@@ -271,6 +350,7 @@ def _proposal_payload(scope_name: str, skill_rows: list[CatalogRow]) -> dict[str
         ),
         "confidence": 0.78 if len(skill_names) >= 2 else 0.68,
         "source": "deterministic_fallback",
+        "repeatable": False,
     }
 
 
@@ -463,6 +543,7 @@ def update_curriculum_artifact_template_proposal(
     validation_criteria: str,
     rationale: str = "",
     confidence: float | None = None,
+    repeatable: bool = False,
 ) -> None:
     con.execute(
         """
@@ -478,6 +559,7 @@ def update_curriculum_artifact_template_proposal(
             validation_criteria = ?,
             rationale = COALESCE(NULLIF(?, ''), rationale),
             confidence = COALESCE(?, confidence),
+            repeatable = ?,
             updated_at = ?
         WHERE id = ?
         """,
@@ -493,6 +575,7 @@ def update_curriculum_artifact_template_proposal(
             validation_criteria.strip(),
             rationale.strip(),
             confidence,
+            repeatable,
             _utc_now_iso(),
             proposal_id,
         ),
@@ -501,6 +584,8 @@ def update_curriculum_artifact_template_proposal(
 
 
 def accept_curriculum_artifact_template_proposal(con: CatalogConnection, proposal_id: int) -> dict[str, Any]:
+    """Accept a proposal for its brief without publishing it globally."""
+
     proposal = con.execute(
         """
         SELECT *
@@ -511,6 +596,36 @@ def accept_curriculum_artifact_template_proposal(con: CatalogConnection, proposa
     ).fetchone()
     if not proposal:
         return {"status": "missing", "proposal_id": proposal_id}
+    now = _utc_now_iso()
+    con.execute(
+        """
+        UPDATE curriculum_artifact_template_proposal
+        SET status = 'accepted',
+            accepted_at = COALESCE(accepted_at, ?),
+            updated_at = ?
+        WHERE id = ?
+        """,
+        (now, now, proposal_id),
+    )
+    con.commit()
+    return {"status": "accepted", "proposal_id": proposal_id, "template_id": None}
+
+
+def publish_curriculum_artifact_template_proposal(con: CatalogConnection, proposal_id: int) -> dict[str, Any]:
+    """Explicitly publish an accepted brief template to the global catalog."""
+
+    proposal = con.execute(
+        """
+        SELECT *
+        FROM curriculum_artifact_template_proposal
+        WHERE id = ?
+        """,
+        (proposal_id,),
+    ).fetchone()
+    if not proposal:
+        return {"status": "missing", "proposal_id": proposal_id}
+    if str(proposal["status"]) != "accepted":
+        return {"status": "not_accepted", "proposal_id": proposal_id}
     scope_names = [str(item) for item in _json_list(proposal["scope_names_json"]) if str(item).strip()]
     template_id = upsert_curriculum_artifact_template(
         con,
@@ -524,7 +639,8 @@ def accept_curriculum_artifact_template_proposal(con: CatalogConnection, proposa
         validation_criteria=str(proposal["validation_criteria"] or ""),
         priority=80,
         status="active",
-        source="proposal_accept",
+        source="proposal_publish",
+        repeatable=bool(proposal["repeatable"]),
         scopes=[
             {
                 "scope_type": str(proposal["scope_type"] or "coverage_area"),
@@ -537,15 +653,15 @@ def accept_curriculum_artifact_template_proposal(con: CatalogConnection, proposa
     con.execute(
         """
         UPDATE curriculum_artifact_template_proposal
-        SET status = 'accepted',
-            accepted_template_id = ?,
+        SET accepted_template_id = ?,
+            published_at = ?,
             updated_at = ?
         WHERE id = ?
         """,
-        (template_id, _utc_now_iso(), proposal_id),
+        (template_id, _utc_now_iso(), _utc_now_iso(), proposal_id),
     )
     con.commit()
-    return {"status": "accepted", "proposal_id": proposal_id, "template_id": template_id}
+    return {"status": "published", "proposal_id": proposal_id, "template_id": template_id}
 
 
 def reject_curriculum_artifact_template_proposal(con: CatalogConnection, proposal_id: int) -> None:

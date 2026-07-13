@@ -449,7 +449,7 @@ def load_brief_spec_for_plan(conn: CatalogConnection, brief_id: int) -> dict[str
             if value is not None
         }
     )
-    spec["artifact_templates"] = intake_storage.load_curriculum_artifact_templates(conn)
+    spec["artifact_templates"] = intake_storage.load_curriculum_artifact_templates_for_brief(conn, brief_id)
     return spec
 
 

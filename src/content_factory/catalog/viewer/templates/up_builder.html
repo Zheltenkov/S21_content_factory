@@ -543,6 +543,10 @@
                                 <span>Уверенность</span>
                                 <input type="number" step="0.01" min="0" max="1" name="confidence" value="{{ proposal.confidence }}">
                             </label>
+                            <label>
+                                <span>Повторное использование</span>
+                                <span><input type="checkbox" name="repeatable" value="1"{% if proposal.repeatable %} checked{% endif %}> Можно назначить нескольким проектам этого УП</span>
+                            </label>
                         </div>
 
                         <div class="builder-template-fields builder-template-fields-scope">
@@ -598,8 +602,17 @@
                 <div>
                     {% for proposal in builder.snapshot.accepted_template_proposals %}
                     <div class="builder-resolved-template-row">
-                        <strong>{{ proposal.title }}</strong>
-                        <span>{{ proposal.family_label }} · {{ proposal.covered_skill_names|length }} навыков</span>
+                        <div>
+                            <strong>{{ proposal.title }}</strong>
+                            <span>{{ proposal.family_label }} · {{ proposal.covered_skill_names|length }} навыков{% if proposal.repeatable %} · повторяемый{% endif %}</span>
+                        </div>
+                        {% if proposal.is_published %}
+                        <span class="status-badge">Опубликован глобально</span>
+                        {% else %}
+                        <form method="post" action="/app/curriculum/plans/{{ builder.snapshot.plan_id }}/template-proposals/{{ proposal.proposal_id }}">
+                            <button type="submit" name="action" value="publish_proposal" class="action-btn action-btn-light">Опубликовать в справочник</button>
+                        </form>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
