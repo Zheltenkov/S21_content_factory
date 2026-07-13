@@ -20,6 +20,8 @@ from typing import Any
 
 from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.pipeline import config
+from content_factory.catalog.pipeline.curriculum.project_quality import report_only_quality_metrics
+from content_factory.catalog.pipeline.curriculum.publication_gate import evaluate_publication_gate
 from content_factory.catalog.pipeline.curriculum.workload import build_workload_contract
 from content_factory.catalog.viewer._common import (
     _as_dict,
@@ -187,6 +189,9 @@ def build_curriculum_quality_metrics_for_ui(
     raw_metrics: dict[str, Any] | None,
 ) -> dict[str, Any]:
     metrics = dict(raw_metrics or {})
+    # Recompute the report-only contract metrics from the current rows so the publication
+    # gate reflects manual edits, not the value persisted at build time.
+    metrics.update(report_only_quality_metrics(rows))
     project_count = len(rows)
     skill_counts = [_count_up_skills(row) for row in rows]
     primary_skill_counts = [int(row.get("primary_skill_count", _count_up_skills(row)) or 0) for row in rows]
@@ -329,12 +334,14 @@ def build_curriculum_plan_payload_from_rows(
         message = default_message
     payload_report = _as_dict(payload.get("report"))
     raw_quality_metrics = _as_dict(payload_report.get("quality_metrics"))
+    ui_quality_metrics = build_curriculum_quality_metrics_for_ui(rows, raw_quality_metrics)
     report: dict[str, Any] = {
         "coverage_ok": bool(payload_report.get("coverage_ok", False)),
         "order_violations": _as_list(payload_report.get("order_violations")),
         "recommended_order_notes": _as_list(payload_report.get("recommended_order_notes")),
         "project_violations": _as_list(payload_report.get("project_violations")),
-        "quality_metrics": build_curriculum_quality_metrics_for_ui(rows, raw_quality_metrics),
+        "quality_metrics": ui_quality_metrics,
+        "publication_gate": evaluate_publication_gate(ui_quality_metrics).as_dict(),
     }
     design_spec = _as_dict(payload.get("design_spec"))
 

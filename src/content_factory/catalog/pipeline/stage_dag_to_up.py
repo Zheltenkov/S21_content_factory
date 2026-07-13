@@ -17,6 +17,7 @@ from . import config, language
 from .curriculum import CurriculumBlock, PlanNode, ProjectBlueprint, SkillOccurrence, build_curriculum_blocks
 from .curriculum.edge_policy import curriculum_edge_role
 from .curriculum.project_quality import report_only_quality_metrics
+from .curriculum.publication_gate import evaluate_publication_gate
 from .curriculum.workload import build_workload_contract
 from .models import SkillCandidate
 
@@ -797,7 +798,13 @@ def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_paylo
             "blocks": [],
             "csv_primary_header": CSV_PRIMARY_HEADER,
             "csv_secondary_header": CSV_SECONDARY_HEADER,
-            "report": {"coverage_ok": False, "order_violations": [], "project_violations": [], "quality_metrics": _quality_metrics([], {})},
+            "report": {
+                "coverage_ok": False,
+                "order_violations": [],
+                "project_violations": [],
+                "quality_metrics": _quality_metrics([], {}),
+                "publication_gate": evaluate_publication_gate(_quality_metrics([], {})).as_dict(),
+            },
         }
 
     nodes = build_plan_nodes(candidates)
@@ -814,6 +821,7 @@ def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_paylo
     dag_waves = dag_payload.get("visual_waves") or dag_payload.get("waves") or []
     report["quality_metrics"]["dag_wave_count"] = len(dag_waves) if isinstance(dag_waves, list) else 0
     report["quality_metrics"]["up_block_count"] = len(blocks)
+    report["publication_gate"] = evaluate_publication_gate(report["quality_metrics"]).as_dict()
     report["planner_meta"] = planner_meta
     design_spec = planner_meta.get("design_spec") if isinstance(planner_meta.get("design_spec"), dict) else {}
     is_invalid = bool(report["order_violations"] or report.get("project_violations"))

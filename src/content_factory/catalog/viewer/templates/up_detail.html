@@ -53,7 +53,31 @@
     </div>
 </section>
 {% set quality = plan.report.quality_metrics if plan.report and plan.report.quality_metrics else none %}
+{% set gate = plan.report.publication_gate if plan.report and plan.report.publication_gate else none %}
 {% set design = plan.design_spec if plan.design_spec else none %}
+{% if gate %}
+<section class="filter-panel" aria-label="Готовность к публикации">
+    <div class="summary-head">
+        <h2>Готовность к публикации</h2>
+        {% if gate.passed %}
+        <span class="status-badge">Готов к публикации</span>
+        {% else %}
+        <span class="status-badge review-severity">Заблокирован: {{ gate.failures|length }}</span>
+        {% endif %}
+    </div>
+    <div class="small muted">Черновик доступен всегда. Публикация/массовая генерация — только при 0 блокирующих нарушений (или методическом waiver).</div>
+    {% if gate.failures %}
+    <ul class="review-reason">
+        {% for failure in gate.failures %}
+        <li>{{ failure.message }} <span class="small muted">({{ failure.value }} / порог {{ failure.threshold }})</span></li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% if gate.waived %}
+    <div class="small muted">Waiver ({{ gate.waived|length }}): {% for failure in gate.waived %}{{ failure.code }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+    {% endif %}
+</section>
+{% endif %}
 {% if design and design.approved %}
 <section class="builder-program-design" aria-label="Принятый каркас программы">
     <div class="summary-head builder-program-design-head">
