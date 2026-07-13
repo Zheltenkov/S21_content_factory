@@ -6,38 +6,13 @@ import hashlib
 import json
 import os
 import re
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel
 
 from ..utils.markdown_display_normalizer import normalize_markdown_display_blocks
+from .checkpoint_models import HumanApprovalCheckpoint, RequirementMatrixItem
 from .decision import MethodologyGateInterrupt
-
-
-class HumanApprovalCheckpoint(BaseModel):
-    """A paused artifact that must be approved before the next flow node."""
-
-    id: str
-    stage: str
-    node_id: str
-    title: str
-    summary: str
-    resume_from_node: str
-    allowed_targets: list[str] = Field(default_factory=list)
-    artifact: dict[str, Any] = Field(default_factory=dict)
-    artifact_hash: str = ""
-
-
-class RequirementMatrixItem(BaseModel):
-    """Strict UI contract for methodology requirement matrix rows."""
-
-    model_config = ConfigDict(extra="forbid", strict=True, str_strip_whitespace=True)
-
-    id: str = Field(min_length=1, max_length=80)
-    title: str = Field(min_length=1, max_length=120)
-    status: Literal["pass", "fail"]
-    passed: bool
-    evidence: str = Field(min_length=1, max_length=500)
 
 
 class HumanApprovalCheckpointPolicy:
