@@ -16,6 +16,7 @@ Pure leaf: depends only on the domain dataclasses + stdlib.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from .domain import CurriculumBlock, PlanNode, ProjectBlueprint
 
@@ -39,8 +40,21 @@ PRIMARY_WEIGHT = 3
 #: Minimum weighted score to assign an area at all (a single primary hit = PRIMARY_WEIGHT
 #: clears it; a lone supporting-text hit = 1 does not).
 MIN_SCORE = 3
-#: The best area must beat the runner-up by this margin, else the project is ambiguous → "".
+#: The best area must beat the runner-up by this margin to be confident, else it is a
+#: low-confidence (ambiguous) guess routed to the methodologist worklist.
 MARGIN = 2
+#: A clearly dominant match: two primary hits (or one primary + strong support) with a gap.
+HIGH_SCORE = 6
+HIGH_MARGIN = 3
+
+
+@dataclass(frozen=True)
+class PolicyAreaResult:
+    """The classifier's per-project verdict: a candidate area + how sure + why."""
+
+    area: str
+    confidence: str  # high | medium | low | none
+    rationale: str
 
 
 def _norm(text: str) -> str:
@@ -52,16 +66,18 @@ def _primary_nodes(project: ProjectBlueprint) -> list[PlanNode]:
     return primary or project.unique_nodes
 
 
-def classify_policy_area(project: ProjectBlueprint) -> str:
-    """Weighted best-matching policy area, or "" when weak or ambiguous.
+def classify_policy_area(project: ProjectBlueprint) -> PolicyAreaResult:
+    """Weighted best-matching policy area with a confidence band and rationale.
 
-    Primary skills dominate; a single incidental keyword in tools/outcomes/supporting skills
-    is not enough (MIN_SCORE), and a near-tie between two areas stays unclassified (MARGIN).
-    Unclassified is the safe outcome — the gate flags it for a methodologist.
+    Primary skills dominate the score; a single incidental keyword in tools/outcomes weighs
+    little. A clear, dominant winner is high/medium confidence (auto-accepted); a weak or
+    near-tie match is a low-confidence guess (worklist); no keyword hit at all is "none".
+    The candidate area is kept even when low-confidence so the methodologist can confirm or
+    correct it in one step rather than starting from nothing.
     """
     nodes = project.unique_nodes
     if not nodes:
-        return ""
+        return PolicyAreaResult("", "none", "нет навыков в проекте")
     primary_ids = {node.tmp_id for node in _primary_nodes(project)}
     primary_text = _norm(" ".join(node.name + " " + node.group for node in nodes if node.tmp_id in primary_ids))
     supporting_text = _norm(
@@ -73,21 +89,34 @@ def classify_policy_area(project: ProjectBlueprint) -> str:
             for node in nodes
         )
     )
-    scores: list[tuple[int, str]] = []
+    scored: list[tuple[int, str, list[str], list[str]]] = []
     for area, hints in POLICY_AREA_HINTS:
-        primary_hits = sum(1 for hint in hints if hint in primary_text)
-        supporting_hits = sum(1 for hint in hints if hint in supporting_text)
-        score = PRIMARY_WEIGHT * primary_hits + supporting_hits
+        primary_matched = [hint for hint in hints if hint in primary_text]
+        supporting_matched = [hint for hint in hints if hint in supporting_text]
+        score = PRIMARY_WEIGHT * len(primary_matched) + len(supporting_matched)
         if score:
-            scores.append((score, area))
-    if not scores:
-        return ""
-    scores.sort(reverse=True)
-    best_score, best_area = scores[0]
-    second_score = scores[1][0] if len(scores) > 1 else 0
-    if best_score < MIN_SCORE or best_score - second_score < MARGIN:
-        return ""
-    return best_area
+            scored.append((score, area, primary_matched, supporting_matched))
+    if not scored:
+        return PolicyAreaResult("", "none", "нет совпадений по ключевым словам")
+    scored.sort(key=lambda item: item[0], reverse=True)
+    best_score, best_area, primary_matched, supporting_matched = scored[0]
+    second_score = scored[1][0] if len(scored) > 1 else 0
+    margin = best_score - second_score
+    parts: list[str] = []
+    if primary_matched:
+        parts.append("основные навыки: " + ", ".join(primary_matched))
+    if supporting_matched:
+        parts.append("контекст: " + ", ".join(supporting_matched))
+    rationale = "; ".join(parts) or "слабое совпадение"
+    if best_score >= HIGH_SCORE and margin >= HIGH_MARGIN:
+        confidence = "high"
+    elif best_score >= MIN_SCORE and margin >= MARGIN:
+        confidence = "medium"
+    else:
+        confidence = "low"
+        if margin < MARGIN and len(scored) > 1:
+            rationale += f"; неоднозначно с «{scored[1][1]}»"
+    return PolicyAreaResult(best_area, confidence, rationale)
 
 
 def classify_project_type(project: ProjectBlueprint) -> str:
@@ -100,11 +129,17 @@ def classify_project_type(project: ProjectBlueprint) -> str:
 
 
 def classify_projects(blocks: list[CurriculumBlock]) -> None:
-    """Assign project_type + policy_area to every project in place (post-grouping pass)."""
+    """Assign project_type + policy_area (+ confidence/rationale) in place (post-grouping)."""
     for block in blocks:
         for project in block.projects:
             project.project_type = classify_project_type(project)
+            project.policy_area_source = "auto"
             if project.project_type == "capstone":
                 project.policy_area = "capstone"
+                project.policy_area_confidence = "high"
+                project.policy_area_rationale = "итоговый интеграционный проект программы"
             else:
-                project.policy_area = classify_policy_area(project)
+                result = classify_policy_area(project)
+                project.policy_area = result.area
+                project.policy_area_confidence = result.confidence
+                project.policy_area_rationale = result.rationale

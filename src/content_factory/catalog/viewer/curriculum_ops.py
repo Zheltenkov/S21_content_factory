@@ -327,6 +327,9 @@ def build_curriculum_plan_payload_from_rows(
             # DB columns — restore them so the read-path metrics/gate match the build path.
             "project_type",
             "policy_area",
+            "policy_area_confidence",
+            "policy_area_rationale",
+            "policy_area_source",
             "template_binding",
         ):
             if transient_key in payload_row and transient_key not in row:

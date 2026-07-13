@@ -3,11 +3,35 @@
 from __future__ import annotations
 
 from content_factory.catalog.pipeline.curriculum.project_quality import (
+    is_classified,
     is_generic_artifact,
     is_generic_criterion,
     report_only_quality_metrics,
     title_violations,
 )
+
+
+def test_is_classified_by_confidence_and_confirmation() -> None:
+    assert is_classified({"policy_area": "ai_automation", "policy_area_confidence": "high"})
+    assert is_classified({"policy_area": "ai_automation", "policy_area_confidence": "medium"})
+    assert not is_classified({"policy_area": "ai_automation", "policy_area_confidence": "low"})
+    assert not is_classified({"policy_area": "", "policy_area_confidence": "none"})
+    # methodologist confirmation classifies regardless of confidence
+    assert is_classified({"policy_area": "operations", "policy_area_confidence": "low", "policy_area_source": "confirmed"})
+    # legacy row without a confidence field but with an area stays classified
+    assert is_classified({"policy_area": "operations"})
+
+
+def test_low_confidence_classification_metric() -> None:
+    rows = [
+        {"project_name": "A", "artifact": "x", "validation_criteria": "y", "node_ids": ["a", "b"], "policy_area": "ai_automation", "policy_area_confidence": "high"},
+        {"project_name": "B", "artifact": "x", "validation_criteria": "y", "node_ids": ["c", "d"], "policy_area": "operations", "policy_area_confidence": "low"},
+        {"project_name": "C", "artifact": "x", "validation_criteria": "y", "node_ids": ["e", "f"], "policy_area": "", "policy_area_confidence": "none"},
+    ]
+    metrics = report_only_quality_metrics(rows)
+    assert metrics["low_confidence_classification_count"] == 2  # low + none
+    assert metrics["unclassified_policy_area_count"] == 2
+    assert metrics["policy_area_coverage_pct"] == round(1 / 3 * 100, 1)
 
 
 def test_title_violations_flags_long_and_wordy() -> None:

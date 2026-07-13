@@ -39,28 +39,33 @@ def _project(nodes: list[PlanNode], *, kind: str = "integrative") -> ProjectBlue
 
 
 def test_policy_area_detects_engineering() -> None:
-    assert classify_policy_area(_project([_node("Настройка CI/CD пайплайна и релиза", tools=("Git",))])) == "engineering_discipline"
+    result = classify_policy_area(_project([_node("Настройка CI/CD пайплайна и релиза", tools=("Git",))]))
+    assert result.area == "engineering_discipline"
+    assert result.confidence in {"high", "medium"}
+    assert result.rationale
 
 
 def test_policy_area_detects_ai_automation() -> None:
-    assert classify_policy_area(_project([_node("Разработка AI workflow автоматизации поддержки")])) == "ai_automation"
+    assert classify_policy_area(_project([_node("Разработка AI workflow автоматизации поддержки")])).area == "ai_automation"
 
 
-def test_policy_area_empty_when_no_hint() -> None:
-    assert classify_policy_area(_project([_node("Абстрактная тема без ключевых слов")])) == ""
+def test_policy_area_none_when_no_hint() -> None:
+    result = classify_policy_area(_project([_node("Абстрактная тема без ключевых слов")]))
+    assert result.area == ""
+    assert result.confidence == "none"
 
 
-def test_incidental_supporting_keyword_does_not_classify() -> None:
-    # "исследование клиента" is not AI automation; a lone "ai" in a supporting tool must
-    # not classify it (MIN_SCORE) — unclassified is the safe outcome.
+def test_incidental_supporting_keyword_is_low_confidence_not_confident() -> None:
+    # A lone "ai" in a supporting tool must not confidently classify client research; it may
+    # keep the candidate but as a low-confidence guess for the methodologist, not high/medium.
     project = _project([_node("Исследование потребностей клиента", group="Продуктовое исследование", tools=("AI-ассистент",))])
-    assert classify_policy_area(project) != "ai_automation"
+    result = classify_policy_area(project)
+    assert not (result.area == "ai_automation" and result.confidence in {"high", "medium"})
 
 
 def test_primary_skill_wins_over_supporting() -> None:
-    # unit economics is monetization even if a supporting tool mentions reliability/ops.
-    project = _project([_node("Расчёт unit economics продукта", group="Монетизация")])
-    assert classify_policy_area(project) == "monetization"
+    result = classify_policy_area(_project([_node("Расчёт unit economics продукта", group="Монетизация")]))
+    assert result.area == "monetization"
 
 
 def test_project_type_lab_project_capstone() -> None:

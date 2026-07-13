@@ -58,9 +58,16 @@ class ProjectBlueprint:
     project_kind: str = "integrative"
     # Explicit classification assigned deterministically at grouping time (slice 3).
     # project_type: lab | project | capstone. policy_area: key into the artifact policy
-    # registry (slice 4); "" means unclassified → draft-only, never a silent generic.
+    # registry (slice 4); "" means no keyword match at all.
     project_type: str = "project"
     policy_area: str = ""
+    # Classification confidence + provenance (redirect slice A). confidence: high | medium
+    # | low | none | confirmed. source: auto (algorithm) | confirmed (methodologist). Only
+    # high/medium-auto or confirmed count as classified; low/none go to the methodologist
+    # worklist. rationale explains the decision for the per-project worklist.
+    policy_area_confidence: str = ""
+    policy_area_rationale: str = ""
+    policy_area_source: str = "auto"
     # Artifact policy contract from the registry (slice 4); None when unclassified.
     artifact_contract: ArtifactContract | None = None
     # Durable binding to the artifact template the project was built from (slice 6a);

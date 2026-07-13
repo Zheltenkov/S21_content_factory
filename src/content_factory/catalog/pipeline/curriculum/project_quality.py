@@ -52,6 +52,21 @@ def is_generic_criterion(criterion: str) -> bool:
     return all(marker in text for marker in _GENERIC_CRITERION_MARKERS)
 
 
+def is_classified(row: dict[str, Any]) -> bool:
+    """A project counts as classified when confirmed by a methodologist or auto-classified
+    with high/medium confidence. Low/none confidence (or empty area) needs attention.
+    Legacy rows without a confidence field but with an area are treated as classified."""
+    if str(row.get("policy_area_source") or "auto") == "confirmed":
+        return True
+    area = str(row.get("policy_area") or "").strip()
+    if not area:
+        return False
+    confidence = str(row.get("policy_area_confidence") or "")
+    if not confidence:  # legacy plan persisted before confidence existed
+        return True
+    return confidence in {"high", "medium"}
+
+
 def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Compute the report-only contract-quality metrics over final UP rows.
 
@@ -70,6 +85,7 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "single_skill_project_pct": 0.0,
             "unclassified_policy_area_count": 0,
             "policy_area_coverage_pct": 0.0,
+            "low_confidence_classification_count": 0,
         }
     title_violation_count = sum(
         1
@@ -84,7 +100,13 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         1 for row in rows if is_generic_criterion(row.get("validation_criteria") or "")
     )
     single_skill_project_count = sum(1 for row in rows if len(row.get("node_ids") or []) <= 1)
-    unclassified_policy_area_count = sum(1 for row in rows if not str(row.get("policy_area") or "").strip())
+    unclassified_policy_area_count = sum(1 for row in rows if not is_classified(row))
+    low_confidence_classification_count = sum(
+        1
+        for row in rows
+        if str(row.get("policy_area_source") or "auto") == "auto"
+        and str(row.get("policy_area_confidence") or "") in {"low", "none"}
+    )
     return {
         "title_violation_count": title_violation_count,
         "generic_artifact_count": generic_artifact_count,
@@ -97,4 +119,5 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "policy_area_coverage_pct": round(
             (project_count - unclassified_policy_area_count) / project_count * 100, 1
         ),
+        "low_confidence_classification_count": low_confidence_classification_count,
     }
