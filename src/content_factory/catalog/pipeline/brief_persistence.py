@@ -21,6 +21,11 @@ from content_factory.catalog.pipeline._storage_common import (
 from content_factory.catalog.pipeline.skill_promotion import sync_curriculum_plan_skill_set
 
 from .models import Evidence, SkillCandidate
+from .template_binding_snapshots import (
+    canonical_template_snapshot_json,
+    resolve_template_binding_snapshot,
+    template_snapshot_sha256,
+)
 
 
 def save_brief(con: CatalogConnection, raw: str, spec: dict) -> int:
@@ -269,7 +274,7 @@ def save_curriculum_plan(
                 None if row.get("cumulative_days") in (None, "") else float(row.get("cumulative_days", 0) or 0)
             )
             xp = None if row.get("xp") in (None, "") else int(row.get("xp", 0) or 0)
-            con.execute(
+            row_cursor = con.execute(
                 """
             INSERT INTO curriculum_plan_row(
                 plan_id, block_index, row_number, project_index_in_block, block_title, block_goal,
@@ -315,6 +320,42 @@ def save_curriculum_plan(
                     row.get("artifact_links"),
                 ),
             )
+            plan_row_id = int(row_cursor.lastrowid or 0)
+            template_binding = row.get("template_binding")
+            if isinstance(template_binding, dict):
+                if not _table_exists(con, "curriculum_plan_row_template_binding"):
+                    raise RuntimeError(
+                        "Migration 021_template_snapshot is required before saving template-bound curriculum rows"
+                    )
+                if not plan_row_id:
+                    raise RuntimeError("Persisted curriculum row did not return an identity")
+                snapshot = resolve_template_binding_snapshot(
+                    con,
+                    brief_id=brief_id,
+                    binding=template_binding,
+                )
+                con.execute(
+                    """
+                    INSERT INTO curriculum_plan_row_template_binding(
+                        plan_row_id, brief_id, proposal_id, template_id,
+                        template_code, template_version, source, repeatable,
+                        snapshot_json, snapshot_sha256
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        plan_row_id,
+                        brief_id,
+                        snapshot.get("proposal_id"),
+                        snapshot.get("template_id"),
+                        snapshot["template_code"],
+                        snapshot["template_version"],
+                        snapshot["source"],
+                        snapshot["repeatable"],
+                        canonical_template_snapshot_json(snapshot),
+                        template_snapshot_sha256(snapshot),
+                    ),
+                )
             row_count += 1
         skill_set = sync_curriculum_plan_skill_set(
             con,

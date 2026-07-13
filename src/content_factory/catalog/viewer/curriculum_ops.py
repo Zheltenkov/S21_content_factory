@@ -23,6 +23,7 @@ from content_factory.catalog.pipeline import config
 from content_factory.catalog.pipeline.curriculum.project_quality import report_only_quality_metrics
 from content_factory.catalog.pipeline.curriculum.publication_gate import evaluate_publication_gate
 from content_factory.catalog.pipeline.curriculum.workload import build_workload_contract
+from content_factory.catalog.pipeline.template_binding_snapshots import decode_and_verify_template_snapshot
 from content_factory.catalog.viewer._common import (
     _as_dict,
     _as_list,
@@ -164,7 +165,37 @@ def load_curriculum_plan_rows(conn: CatalogConnection, plan_id: int) -> list[dic
         """,
         (plan_id,),
     ).fetchall()
-    return [dict(row) for row in rows]
+    normalized_rows = [dict(row) for row in rows]
+    if not normalized_rows or not table_exists(conn, "curriculum_plan_row_template_binding"):
+        return normalized_rows
+    bindings = conn.execute(
+        """
+        SELECT plan_row_id, snapshot_json, snapshot_sha256
+        FROM curriculum_plan_row_template_binding
+        WHERE plan_row_id IN (
+            SELECT id FROM curriculum_plan_row WHERE plan_id = ?
+        )
+        """,
+        (plan_id,),
+    ).fetchall()
+    bindings_by_row_id: dict[int, dict[str, Any]] = {}
+    for binding in bindings:
+        snapshot = decode_and_verify_template_snapshot(
+            str(binding["snapshot_json"]),
+            str(binding["snapshot_sha256"]),
+        )
+        bindings_by_row_id[int(binding["plan_row_id"])] = {
+            "template_code": str(snapshot["template_code"]),
+            "template_version": str(snapshot.get("template_version") or ""),
+            "source": str(snapshot["source"]),
+            "repeatable": bool(snapshot.get("repeatable", False)),
+        }
+    for row in normalized_rows:
+        binding = bindings_by_row_id.get(int(row["id"]))
+        if binding is not None:
+            # The normalized snapshot relation is authoritative over legacy payload JSON.
+            row["template_binding"] = binding
+    return normalized_rows
 
 
 def _count_up_outcomes(row: dict[str, Any]) -> int:
@@ -593,7 +624,30 @@ def get_curriculum_plan_row(conn: CatalogConnection, plan_id: int, row_id: int) 
         "SELECT * FROM curriculum_plan_row WHERE id = ? AND plan_id = ?",
         (row_id, plan_id),
     ).fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    result = dict(row)
+    if table_exists(conn, "curriculum_plan_row_template_binding"):
+        binding = conn.execute(
+            """
+            SELECT snapshot_json, snapshot_sha256
+            FROM curriculum_plan_row_template_binding
+            WHERE plan_row_id = ?
+            """,
+            (row_id,),
+        ).fetchone()
+        if binding:
+            snapshot = decode_and_verify_template_snapshot(
+                str(binding["snapshot_json"]),
+                str(binding["snapshot_sha256"]),
+            )
+            result["template_binding"] = {
+                "template_code": str(snapshot["template_code"]),
+                "template_version": str(snapshot.get("template_version") or ""),
+                "source": str(snapshot["source"]),
+                "repeatable": bool(snapshot.get("repeatable", False)),
+            }
+    return result
 
 
 def parse_scope_names(raw_names: str | None, scope_type: str = "coverage_area") -> list[str]:
