@@ -35,7 +35,6 @@ from content_factory.catalog.viewer.route_zones import (
     show_secondary_nav,
 )
 from content_factory.catalog.viewer.ui_constants import (
-    DEFAULT_DB,
     DEFAULT_SUMMARY,
     INTAKE_PROGRESS_STEPS,
     TEMPLATES_DIR,
@@ -64,7 +63,6 @@ def render(
     *,
     request_path: str,
     ecosystem_active_code: str = "catalog",
-    db_path: Path | None = None,
     summary_path: Path | None = None,
 ) -> str:
     """Render a catalog template with the shared shell context.
@@ -74,9 +72,8 @@ def render(
     behave exactly as in the legacy viewer.
     """
 
-    db_path = db_path or DEFAULT_DB
     summary_path = summary_path or DEFAULT_SUMMARY
-    summary = refresh_summary_counts(load_summary(summary_path), db_path)
+    summary = refresh_summary_counts(load_summary(summary_path))
     shared: dict[str, Any] = {
         "ecosystem_nav": get_ecosystem_nav(ecosystem_active_code),
         "nav": get_main_nav(),

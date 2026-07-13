@@ -12,7 +12,6 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
-DEFAULT_DB = BASE_DIR.parent / "artifacts" / "skills_catalog.sqlite"
 DEFAULT_SUMMARY = BASE_DIR.parent / "artifacts" / "catalog_summary.json"
 
 ARTIFACT_FAMILY_OPTIONS = [

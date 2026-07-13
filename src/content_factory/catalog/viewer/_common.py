@@ -251,11 +251,11 @@ def load_summary(summary_path: Path) -> dict[str, Any]:
     return loaded if isinstance(loaded, dict) else {}
 
 
-def refresh_summary_counts(summary: dict[str, Any], db_path: Path) -> dict[str, Any]:
+def refresh_summary_counts(summary: dict[str, Any]) -> dict[str, Any]:
     refreshed = dict(summary or {})
     counts = dict(refreshed.get("counts") or {})
     try:
-        conn = open_catalog_connection(db_path)
+        conn = open_catalog_connection()
         counts.update(
             {
                 "profiles": int(conn.execute("SELECT COUNT(*) FROM profile").fetchone()[0]) if table_exists(conn, "profile") else counts.get("profiles", 0),

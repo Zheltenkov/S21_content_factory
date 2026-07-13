@@ -201,7 +201,6 @@ from content_factory.catalog.viewer.read_queries import (
 from content_factory.catalog.viewer.ui_constants import (
     ARTIFACT_FAMILY_OPTIONS,  # noqa: F401
     ARTIFACT_SCOPE_TYPE_OPTIONS,  # noqa: F401
-    DEFAULT_DB,  # noqa: F401
     DEFAULT_SUMMARY,  # noqa: F401
     INTAKE_PROGRESS_STEPS,  # noqa: F401
     STATIC_DIR,  # noqa: F401
