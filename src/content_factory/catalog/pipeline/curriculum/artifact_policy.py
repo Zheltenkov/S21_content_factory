@@ -159,10 +159,14 @@ def render_acceptance_text(contract: ArtifactContract) -> str:
 
 
 def apply_artifact_contracts(blocks: list[CurriculumBlock]) -> None:
-    """Attach policy contracts and replace generic fallbacks for classified projects.
+    """Attach policy contracts and enforce the methodical floor for classified projects.
 
-    Only the generic artifact/criteria fallbacks are replaced; template-provided enrichment
-    and unclassified projects are left untouched (draft-only, flagged elsewhere).
+    For a classified project the acceptance criteria ALWAYS come from the policy contract —
+    the methodical minimum, even over a template's (possibly weaker) themed criteria (P0-5).
+    The artifact description is replaced when it is the generic fallback, and ALWAYS for the
+    capstone, whose production contract (MVP / release / demo) must apply regardless of the
+    stale "интеграционный артефакт" text (P0-3). Themed template artifacts for non-capstone
+    projects are kept. Unclassified projects (no contract) are left untouched.
     """
     for block in blocks:
         for project in block.projects:
@@ -170,7 +174,7 @@ def apply_artifact_contracts(blocks: list[CurriculumBlock]) -> None:
             project.artifact_contract = contract
             if contract is None:
                 continue
-            if is_generic_artifact(project.artifact):
+            if project.policy_area == "capstone" or is_generic_artifact(project.artifact):
                 project.artifact = render_artifact_line(contract)
-            if not project.enrichment.get("validation_criteria"):
-                project.enrichment["validation_criteria"] = render_acceptance_text(contract)
+            # Methodical floor: acceptance criteria are authoritative from the policy contract.
+            project.enrichment["validation_criteria"] = render_acceptance_text(contract)

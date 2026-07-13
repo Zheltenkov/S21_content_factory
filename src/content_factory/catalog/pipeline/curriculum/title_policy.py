@@ -80,10 +80,19 @@ def build_project_title(project: ProjectBlueprint, *, stage_title: str = "") -> 
     if not anchor_nodes:
         return "Проект"
     anchor = _compact(anchor_nodes[0].name, max_words=TITLE_MAX_WORDS, max_chars=TITLE_MAX_CHARS)
+    theme = _stage_theme(stage_title)
     # Never echo the stage theme; if the compacted anchor collapses onto it, add a second skill.
-    if _stage_theme(stage_title) and _norm(anchor) == _stage_theme(stage_title) and len(anchor_nodes) > 1:
+    if theme and _norm(anchor) == theme and len(anchor_nodes) > 1:
         extra = _compact(anchor_nodes[1].name, max_words=4, max_chars=32)
         anchor = _compact(f"{anchor}: {extra}", max_words=TITLE_MAX_WORDS, max_chars=TITLE_MAX_CHARS)
+    # Converge on the min-word rule: a 2-word skill title is padded with domain context (the
+    # block theme, then a second skill) so the generator's own output passes the validator.
+    if len(anchor.split()) < TITLE_MIN_WORDS:
+        if theme and _norm(anchor) != theme:
+            anchor = _compact(f"{anchor}: {theme}", max_words=TITLE_MAX_WORDS, max_chars=TITLE_MAX_CHARS)
+        if len(anchor.split()) < TITLE_MIN_WORDS and len(anchor_nodes) > 1:
+            extra = _compact(anchor_nodes[1].name, max_words=4, max_chars=32)
+            anchor = _compact(f"{anchor}: {extra}", max_words=TITLE_MAX_WORDS, max_chars=TITLE_MAX_CHARS)
     return anchor or "Проект"
 
 

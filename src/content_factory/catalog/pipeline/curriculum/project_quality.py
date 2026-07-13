@@ -23,6 +23,13 @@ _GENERIC_ARTIFACT_PREFIXES = (
     "Интегративный артефакт (",
 )
 
+#: Substrings of stale/formal artifacts that read as generic (e.g. the old capstone
+#: "интеграционный артефакт" that is not a runnable result).
+_GENERIC_ARTIFACT_MARKERS = (
+    "интеграционный артефакт",
+    "интеграционного артефакта",
+)
+
 #: Markers of the generic assessment-criteria fallback in ``_project_assessment_criteria``.
 _GENERIC_CRITERION_MARKERS = (
     "создан и предъявлен",
@@ -33,7 +40,10 @@ _GENERIC_CRITERION_MARKERS = (
 def is_generic_artifact(artifact: str) -> bool:
     """True when the artifact is the deterministic generic fallback, not a bound one."""
     text = str(artifact or "").strip()
-    return any(text.startswith(prefix) for prefix in _GENERIC_ARTIFACT_PREFIXES)
+    if any(text.startswith(prefix) for prefix in _GENERIC_ARTIFACT_PREFIXES):
+        return True
+    lowered = text.casefold()
+    return any(marker in lowered for marker in _GENERIC_ARTIFACT_MARKERS)
 
 
 def is_generic_criterion(criterion: str) -> bool:

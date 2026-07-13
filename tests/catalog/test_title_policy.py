@@ -46,6 +46,14 @@ def test_build_title_from_skill_not_stage() -> None:
     assert title_violations(title, stage_title="Блок 1. Инженерная культура") == ()
 
 
+def test_build_title_converges_on_min_words() -> None:
+    # A 2-word skill title is padded with the block theme so it satisfies the min-word rule.
+    proj = _project([_node("Прототипирование продукта")])
+    title = build_project_title(proj, stage_title="Блок 2. AI-инструменты в маркетинге")
+    assert title_violations(title, stage_title="Блок 2. AI-инструменты в маркетинге") == ()
+    assert len(title.split()) >= 3
+
+
 def test_apply_regenerates_only_violating_titles() -> None:
     good = _project([_node("Проектирование REST API сервиса")], title="Проектирование REST API сервиса")
     bad = _project([_node("Автоматизация процессов поддержки")], title="Ф" * 120)  # too long

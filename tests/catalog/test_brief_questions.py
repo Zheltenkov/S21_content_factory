@@ -27,6 +27,13 @@ def test_editorial_question_is_non_blocking() -> None:
     assert question.blocking is False
 
 
+def test_storytelling_and_cases_questions_are_editorial() -> None:
+    for text in ("Какие кейсы использовать в проектах?", "Какой сторителлинг взять за основу?"):
+        question = classify_question(text)
+        assert question.category == "editorial"
+        assert question.blocking is False
+
+
 def test_unmatched_question_blocks_by_default() -> None:
     question = classify_question("Нужен ли отдельный вводный проект?")
     assert question.category == "uncategorized"

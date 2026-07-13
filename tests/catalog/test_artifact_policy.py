@@ -64,11 +64,23 @@ def test_apply_replaces_generic_for_classified_keeps_unclassified() -> None:
     assert is_generic_artifact(unclassified.artifact)
 
 
-def test_apply_does_not_override_template_criteria() -> None:
+def test_policy_criteria_override_template_as_methodical_floor() -> None:
+    # P0-5: for a classified project the policy acceptance criteria are the methodical floor,
+    # authoritative even over a template's themed (possibly weaker) criteria.
     proj = _project("ai_automation", "Проверяемый артефакт (практика) по навыку «X»")
     proj.enrichment["validation_criteria"] = "Тематический критерий из шаблона"
     apply_artifact_contracts([CurriculumBlock(block_keys=("b",), projects=[proj])])
-    assert proj.enrichment["validation_criteria"] == "Тематический критерий из шаблона"
+    assert proj.enrichment["validation_criteria"] != "Тематический критерий из шаблона"
+    assert "Критерии приёмки" in proj.enrichment["validation_criteria"]
+
+
+def test_capstone_artifact_always_replaced_with_contract() -> None:
+    # P0-3: the capstone production contract must apply even over a non-generic stale artifact.
+    cap = _project("capstone", "Итоговый интеграционный артефакт по программе")
+    apply_artifact_contracts([CurriculumBlock(block_keys=("b",), projects=[cap])])
+    assert cap.artifact_contract is not None
+    assert "интеграционный артефакт" not in cap.artifact.casefold()
+    assert "MVP" in cap.artifact or "demo" in cap.artifact.casefold()
 
 
 def test_render_acceptance_text_lists_criteria() -> None:
