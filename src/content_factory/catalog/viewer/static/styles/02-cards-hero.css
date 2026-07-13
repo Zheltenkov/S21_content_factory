@@ -1,0 +1,89 @@
+.summary-card,
+.entity-card,
+.tree-card,
+.hero,
+.table-wrap,
+.skill-card,
+.workspace-next-step {
+    background: var(--panel);
+    border: 1px solid rgba(230, 229, 224, 0.9);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.summary-card {
+    padding: 16px 18px;
+}
+
+.summary-card-warn {
+    border-color: rgba(167, 106, 20, 0.35);
+    background: linear-gradient(180deg, var(--panel) 0%, var(--s21-warn-bg) 100%);
+}
+
+.summary-card-soft {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--s21-surface-2) 100%);
+}
+
+.summary-label {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+}
+
+.summary-value {
+    margin-top: 6px;
+    font-size: 1.6rem;
+    font-weight: 600;
+}
+
+.content-panel {
+    display: grid;
+    gap: 22px;
+}
+
+.hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 26px 28px;
+    overflow: hidden;
+}
+
+.hero h1 {
+    margin: 0 0 8px;
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    line-height: 1.05;
+    font-weight: 600;
+}
+
+.page-shell-intake .hero h1 {
+    font-size: clamp(1.32rem, 1.8vw, 1.65rem);
+    line-height: 1.14;
+}
+
+.page-shell-intake .hero {
+    align-items: center;
+    padding-block: 18px;
+}
+
+.page-shell-intake .hero p,
+.page-shell-intake .hero .small,
+.page-shell-intake .workspace-job-card {
+    font-size: 0.9rem;
+}
+
+.page-shell-intake .hero .action-btn {
+    min-height: 34px;
+    padding: 7px 13px;
+    font-size: 0.88rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.page-shell-intake .hero > .review-actions {
+    align-items: center;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+}

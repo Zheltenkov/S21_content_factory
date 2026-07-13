@@ -1,0 +1,157 @@
+.workspace-job-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 237, 0.96));
+}
+
+.workspace-control-panel {
+    padding: 0;
+    overflow: hidden;
+}
+
+.workspace-control-panel > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+}
+
+.workspace-control-panel[open] > summary {
+    margin-bottom: 0;
+    border-bottom: 1px solid rgba(230, 229, 224, 0.62);
+}
+
+.workspace-control-summary-main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px 10px;
+    min-width: 0;
+}
+
+.workspace-control-summary-main strong {
+    font-size: 1rem;
+}
+
+.workspace-control-summary-text {
+    color: var(--ink-soft);
+    font-size: 0.88rem;
+    overflow-wrap: anywhere;
+}
+
+.workspace-control-body {
+    display: grid;
+    gap: 12px;
+    padding: 14px 16px 16px;
+}
+
+.workspace-control-card {
+    padding: 13px 14px;
+    border: 1px solid rgba(230, 229, 224, 0.72);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: none;
+}
+
+.workspace-control-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.workspace-control-card-head h2 {
+    margin: 3px 0 0;
+    font-size: clamp(1rem, 1.4vw, 1.2rem);
+    line-height: 1.16;
+}
+
+.workspace-control-panel .intake-progress-card {
+    padding: 11px 12px;
+    border-radius: 14px;
+    box-shadow: none;
+    margin-top: 8px;
+}
+
+.workspace-control-panel .intake-progress-steps {
+    grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+    gap: 7px;
+}
+
+.workspace-control-panel .intake-progress-step {
+    padding: 6px 8px;
+    font-size: 0.78rem;
+}
+
+.compact-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 8px;
+}
+
+.workspace-control-panel .workflow-stepper {
+    grid-template-columns: repeat(5, minmax(120px, 1fr));
+    gap: 7px;
+}
+
+.workspace-control-panel .workflow-step {
+    padding: 8px 9px;
+    border-radius: 13px;
+    box-shadow: none;
+}
+
+.workspace-control-panel .workflow-step-label {
+    font-size: 0.82rem;
+}
+
+.workspace-control-panel .workflow-step-description {
+    font-size: 0.74rem;
+}
+
+.workspace-control-panel .workspace-next-step {
+    padding: 14px 16px;
+    box-shadow: none;
+}
+
+.workspace-control-panel .workspace-next-step h2 {
+    font-size: clamp(1.1rem, 1.7vw, 1.45rem);
+}
+
+.compact-summary-row {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+    gap: 9px;
+}
+
+.compact-summary-row .summary-card {
+    min-width: 0;
+    padding: 12px 14px;
+    box-shadow: none;
+}
+
+.workspace-history-card > summary {
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.workspace-history-card[open] > summary {
+    margin-bottom: 12px;
+}
+
+.workspace-next-step {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 22px 26px;
+    border-color: rgba(14, 143, 111, 0.28);
+    background:
+        radial-gradient(circle at top right, rgba(14, 143, 111, 0.09), transparent 32%),
+        linear-gradient(180deg, var(--panel) 0%, var(--s21-surface-2) 100%);
+}
+
+.workspace-next-step h2 {
+    margin: 4px 0 6px;
+    font-size: clamp(1.35rem, 2vw, 1.9rem);
+    line-height: 1.08;
+}

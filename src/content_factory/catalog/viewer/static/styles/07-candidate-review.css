@@ -1,0 +1,599 @@
+.candidate-review-hero {
+    align-items: center;
+    gap: 18px;
+}
+
+.candidate-review-copy {
+    min-width: 0;
+}
+
+.page-shell-intake .candidate-review-hero p.small {
+    max-width: 1120px;
+    margin-top: 8px;
+    font-size: 0.78rem;
+    line-height: 1.34;
+}
+
+.page-shell-intake .candidate-review-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    min-width: 172px;
+    justify-items: stretch;
+}
+
+.page-shell-intake .candidate-review-actions .action-btn {
+    width: 100%;
+    min-height: 34px;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+}
+
+.primary-workspace {
+    border-color: rgba(14, 143, 111, 0.24);
+}
+
+.candidate-card-workspace {
+    display: grid;
+    gap: 18px;
+}
+
+.candidate-card-list {
+    display: grid;
+    gap: 16px;
+}
+
+.candidate-list-panel {
+    padding: 14px 16px;
+    border-color: rgba(14, 143, 111, 0.2);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(247, 244, 237, 0.66));
+}
+
+.candidate-list-panel > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.candidate-list-panel > summary .pill {
+    flex: 0 0 auto;
+}
+
+.candidate-list-panel-complete {
+    background: linear-gradient(180deg, rgba(216, 242, 234, 0.42), rgba(255, 255, 255, 0.78));
+}
+
+.candidate-list-panel-complete:not([open]) {
+    padding-top: 12px;
+    padding-bottom: 12px;
+}
+
+.candidate-review-card {
+    border: 1px solid rgba(230, 229, 224, 0.86);
+    border-radius: var(--radius);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 244, 237, 0.8)),
+        var(--panel);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.candidate-review-card.candidate-card-collapsed {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 237, 0.72)),
+        var(--panel);
+}
+
+.candidate-card-main {
+    padding: 20px 22px;
+}
+
+.candidate-card-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: start;
+}
+
+.candidate-card-title-block {
+    min-width: 0;
+}
+
+.candidate-card-title-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.candidate-card-title-line h2 {
+    margin: 0;
+    font-size: 1.12rem;
+    line-height: 1.26;
+    font-weight: 760;
+    color: var(--ink);
+}
+
+.candidate-bloom-pill,
+.candidate-resolution-pill,
+.candidate-match-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 0.82rem;
+    font-weight: 720;
+    line-height: 1.15;
+}
+
+.candidate-bloom-pill {
+    background: rgba(14, 143, 111, 0.11);
+    color: var(--accent-deep);
+}
+
+.candidate-meta-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-top: 9px;
+    color: var(--ink);
+    line-height: 1.35;
+}
+
+.candidate-tools,
+.candidate-source {
+    margin-top: 8px;
+}
+
+.candidate-card-actions {
+    min-width: 188px;
+    display: grid;
+    justify-items: end;
+    gap: 7px;
+}
+
+.candidate-card-action-label {
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    font-weight: 650;
+}
+
+.candidate-card-actions .candidate-action-form {
+    display: grid;
+    grid-template-columns: repeat(4, 42px);
+    align-items: center;
+    justify-content: end;
+    gap: 8px;
+}
+
+.candidate-card-actions .candidate-action-form .action-btn-icon {
+    width: 42px;
+    min-width: 42px;
+    height: 40px;
+}
+
+.candidate-expand-toggle {
+    border: 0;
+    background: transparent;
+    color: var(--accent-deep);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 650;
+    cursor: pointer;
+    padding: 2px 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.candidate-decision-compact {
+    display: none;
+}
+
+.candidate-card-collapsed .candidate-card-main {
+    padding-top: 14px;
+    padding-bottom: 14px;
+}
+
+.candidate-card-collapsed .candidate-card-head {
+    align-items: center;
+}
+
+.candidate-card-collapsed .candidate-card-title-line h2 {
+    font-size: 1.02rem;
+}
+
+.candidate-card-collapsed .candidate-source,
+.candidate-card-collapsed .candidate-meta-line,
+.candidate-card-collapsed .candidate-tools,
+.candidate-card-collapsed .candidate-card-title-block > .small,
+.candidate-card-collapsed .candidate-card-divider,
+.candidate-card-collapsed .candidate-diagnostic-row,
+.candidate-card-collapsed .candidate-score-strip,
+.candidate-card-collapsed .candidate-recommendation-panel,
+.candidate-card-collapsed .candidate-card-details {
+    display: none;
+}
+
+.candidate-card-collapsed .candidate-decision-compact {
+    display: inline-flex;
+}
+
+.candidate-card-divider {
+    height: 1px;
+    margin: 16px 0 14px;
+    background: rgba(230, 229, 224, 0.86);
+}
+
+.candidate-diagnostic-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px 12px;
+}
+
+.candidate-resolution-pill {
+    background: rgba(15, 20, 25, 0.06);
+    color: var(--ink);
+}
+
+.candidate-match-chip {
+    background: rgba(167, 106, 20, 0.16);
+    color: #8b5a18;
+}
+
+.candidate-nearest {
+    color: var(--ink);
+    line-height: 1.35;
+}
+
+.candidate-nearest a {
+    color: var(--accent-deep);
+    font-weight: 650;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.candidate-score-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    margin-top: 12px;
+    color: var(--ink-soft);
+    line-height: 1.35;
+}
+
+.candidate-score-strip strong {
+    color: var(--ink);
+}
+
+.candidate-decision-badge {
+    margin-left: 2px;
+}
+
+.candidate-recommendation-panel {
+    margin-top: 14px;
+    padding: 13px 15px;
+    border-radius: 14px;
+    border: 1px solid rgba(230, 229, 224, 0.72);
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.candidate-recommendation-panel.candidate-recommendation-create,
+.candidate-recommendation-panel.candidate-recommendation-link,
+.candidate-recommendation-panel.candidate-recommendation-done {
+    border-color: rgba(14, 143, 111, 0.24);
+    background: linear-gradient(135deg, rgba(216, 242, 234, 0.68), rgba(255, 255, 255, 0.9));
+    color: var(--ink);
+}
+
+.candidate-recommendation-panel.candidate-recommendation-check,
+.candidate-recommendation-panel.candidate-recommendation-review {
+    border-color: rgba(167, 106, 20, 0.32);
+    background: linear-gradient(135deg, rgba(167, 106, 20, 0.18), rgba(255, 255, 255, 0.9));
+    color: var(--ink);
+}
+
+.candidate-recommendation-panel.candidate-recommendation-rejected {
+    border-color: rgba(167, 106, 20, 0.3);
+    background: linear-gradient(135deg, rgba(251, 229, 220, 0.74), rgba(255, 255, 255, 0.9));
+    color: var(--ink);
+}
+
+.candidate-recommendation-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent-deep);
+    font-weight: 780;
+}
+
+.candidate-card-details {
+    margin-top: 12px;
+}
+
+.candidate-card-details > summary {
+    cursor: pointer;
+    color: var(--ink);
+    font-weight: 650;
+}
+
+.candidate-card-details > summary::marker {
+    color: var(--accent);
+}
+
+.param-index {
+    display: inline-flex;
+    margin-right: 4px;
+    color: var(--accent-deep);
+    font-family: var(--mono);
+    font-size: 0.78em;
+    font-weight: 800;
+}
+
+.candidate-card-legend {
+    padding: 16px 18px;
+    border: 1px solid rgba(14, 143, 111, 0.22);
+    border-radius: var(--radius);
+    background:
+        radial-gradient(circle at top left, rgba(14, 143, 111, 0.1), transparent 34%),
+        linear-gradient(135deg, rgba(236, 250, 246, 0.92), rgba(255, 255, 255, 0.95) 62%);
+    box-shadow: 0 14px 30px rgba(14, 143, 111, 0.07);
+}
+
+.legend-title {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(14, 143, 111, 0.1);
+    color: var(--accent-deep);
+    font-size: 0.84rem;
+    font-weight: 750;
+    margin-bottom: 12px;
+}
+
+.legend-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px 18px;
+    color: var(--ink-soft);
+    font-size: 0.86rem;
+    line-height: 1.35;
+}
+
+.legend-grid > div {
+    padding: 7px 9px;
+    border: 1px solid rgba(14, 143, 111, 0.12);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.62);
+}
+
+.primary-workspace .data-table th,
+.primary-workspace .data-table td {
+    padding: 10px 14px;
+    line-height: 1.35;
+}
+
+.primary-workspace .data-table td:first-child {
+    max-width: 300px;
+}
+
+.filter-panel {
+    padding: 18px 20px;
+    background: var(--panel);
+    border: 1px solid rgba(230, 229, 224, 0.9);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.collapse-panel {
+    padding: 16px 18px;
+    border: 1px solid rgba(230, 229, 224, 0.76);
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 12px 26px rgba(15, 20, 25, 0.05);
+}
+
+.collapse-panel > summary {
+    cursor: pointer;
+    font-weight: 650;
+    list-style: none;
+    color: var(--ink);
+}
+
+.collapse-panel > summary::-webkit-details-marker {
+    display: none;
+}
+
+.collapse-panel[open] > summary {
+    margin-bottom: 16px;
+}
+
+.technical-details > summary {
+    color: var(--ink-soft);
+}
+
+.technical-intake-details {
+    display: grid;
+    gap: 14px;
+}
+
+.technical-intake-details[open] {
+    padding-bottom: 18px;
+}
+
+.technical-intake-details .hero,
+.technical-intake-details .filter-panel,
+.technical-intake-details .table-wrap {
+    margin-top: 12px;
+}
+
+.technical-section-title {
+    padding: 14px 16px;
+    box-shadow: none;
+}
+
+.technical-section-title h1 {
+    font-size: clamp(1.12rem, 1.5vw, 1.45rem);
+}
+
+.technical-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    align-items: stretch;
+    margin-top: 12px;
+}
+
+.technical-summary-grid .summary-card {
+    min-width: 0;
+    padding: 12px 14px;
+    box-shadow: none;
+}
+
+.technical-summary-grid .summary-label {
+    font-size: 0.78rem;
+}
+
+.technical-summary-grid .summary-value {
+    font-size: 1rem;
+    line-height: 1.24;
+    overflow-wrap: anywhere;
+}
+
+.technical-summary-grid-small {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 180px));
+}
+
+.service-section-title {
+    padding: 10px 16px;
+    margin-top: 10px;
+    box-shadow: none;
+}
+
+.service-section-title h1 {
+    font-size: clamp(1rem, 1.3vw, 1.28rem);
+    line-height: 1.2;
+}
+
+.service-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(108px, max-content));
+    gap: 8px;
+    align-items: stretch;
+    margin-top: 8px;
+}
+
+.service-metrics-grid .summary-card {
+    min-width: 0;
+    padding: 9px 12px;
+    border-radius: 14px;
+    box-shadow: none;
+}
+
+.service-metrics-grid .summary-label {
+    font-size: 0.72rem;
+    line-height: 1.2;
+}
+
+.service-metrics-grid .summary-value {
+    font-size: 1.04rem;
+    line-height: 1.14;
+    overflow-wrap: anywhere;
+}
+
+.service-metrics-grid-tight {
+    grid-template-columns: repeat(auto-fit, minmax(92px, max-content));
+}
+
+.service-table-wrap {
+    margin-top: 8px;
+    overflow-x: auto;
+}
+
+.service-data-table {
+    min-width: 980px;
+}
+
+.service-data-table th,
+.service-data-table td {
+    padding: 8px 10px;
+    font-size: 0.86rem;
+    line-height: 1.22;
+}
+
+.quality-observability {
+    display: grid;
+    gap: 10px;
+}
+
+.quality-observability[open] {
+    padding-bottom: 14px;
+}
+
+.quality-observability > summary {
+    font-size: 0.92rem;
+    line-height: 1.25;
+}
+
+.quality-observability .table-wrap {
+    margin-top: 0;
+    padding: 12px 14px;
+    overflow-x: auto;
+    box-shadow: none;
+}
+
+.quality-observability .table-wrap h2 {
+    margin: 0 0 10px;
+    font-size: clamp(1rem, 1.35vw, 1.22rem);
+    line-height: 1.2;
+}
+
+.quality-observability .data-table {
+    min-width: 760px;
+}
+
+.quality-observability .data-table th,
+.quality-observability .data-table td {
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    line-height: 1.24;
+    vertical-align: middle;
+}
+
+.quality-observability .data-table td:first-child {
+    min-width: 180px;
+}
+
+.quality-observability .small {
+    font-size: 0.72rem;
+    line-height: 1.2;
+}
+
+.must-areas-panel {
+    padding: 16px 20px;
+    overflow: visible;
+}
+
+.must-areas-title {
+    margin-bottom: 10px;
+    color: var(--muted);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.must-areas-list {
+    display: grid;
+    gap: 5px;
+    margin: 0;
+    padding-left: 22px;
+}
+
+.must-areas-list li {
+    line-height: 1.35;
+}
