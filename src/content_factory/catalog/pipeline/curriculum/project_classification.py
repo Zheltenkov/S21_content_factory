@@ -33,25 +33,60 @@ POLICY_AREA_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
-def _project_text(nodes: list[PlanNode]) -> str:
-    parts: list[str] = []
-    for node in nodes:
-        parts.extend([node.name, node.group, node.block_key, *node.outcomes_can, *node.outcomes_skills, *node.tools])
-    text = " ".join(parts).casefold().replace("ё", "е")
-    return re.sub(r"\s+", " ", text)
+#: A hint in a PRIMARY skill weighs this much more than one in supporting text
+#: (tools / outcomes / secondary skills), so incidental keywords do not classify a project.
+PRIMARY_WEIGHT = 3
+#: Minimum weighted score to assign an area at all (a single primary hit = PRIMARY_WEIGHT
+#: clears it; a lone supporting-text hit = 1 does not).
+MIN_SCORE = 3
+#: The best area must beat the runner-up by this margin, else the project is ambiguous → "".
+MARGIN = 2
 
 
-def classify_policy_area(nodes: list[PlanNode]) -> str:
-    """Return the best-matching policy-area key, or "" when nothing matches confidently."""
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", " ".join(text.split()).casefold().replace("ё", "е"))
+
+
+def _primary_nodes(project: ProjectBlueprint) -> list[PlanNode]:
+    primary = [occurrence.node for occurrence in project.primary_occurrences]
+    return primary or project.unique_nodes
+
+
+def classify_policy_area(project: ProjectBlueprint) -> str:
+    """Weighted best-matching policy area, or "" when weak or ambiguous.
+
+    Primary skills dominate; a single incidental keyword in tools/outcomes/supporting skills
+    is not enough (MIN_SCORE), and a near-tie between two areas stays unclassified (MARGIN).
+    Unclassified is the safe outcome — the gate flags it for a methodologist.
+    """
+    nodes = project.unique_nodes
     if not nodes:
         return ""
-    text = _project_text(nodes)
-    best_area = ""
-    best_score = 0
+    primary_ids = {node.tmp_id for node in _primary_nodes(project)}
+    primary_text = _norm(" ".join(node.name + " " + node.group for node in nodes if node.tmp_id in primary_ids))
+    supporting_text = _norm(
+        " ".join(
+            node.block_key
+            + " "
+            + " ".join([*node.outcomes_can, *node.outcomes_skills, *node.tools])
+            + ("" if node.tmp_id in primary_ids else " " + node.name + " " + node.group)
+            for node in nodes
+        )
+    )
+    scores: list[tuple[int, str]] = []
     for area, hints in POLICY_AREA_HINTS:
-        score = sum(1 for hint in hints if hint in text)
-        if score > best_score:
-            best_area, best_score = area, score
+        primary_hits = sum(1 for hint in hints if hint in primary_text)
+        supporting_hits = sum(1 for hint in hints if hint in supporting_text)
+        score = PRIMARY_WEIGHT * primary_hits + supporting_hits
+        if score:
+            scores.append((score, area))
+    if not scores:
+        return ""
+    scores.sort(reverse=True)
+    best_score, best_area = scores[0]
+    second_score = scores[1][0] if len(scores) > 1 else 0
+    if best_score < MIN_SCORE or best_score - second_score < MARGIN:
+        return ""
     return best_area
 
 
@@ -72,4 +107,4 @@ def classify_projects(blocks: list[CurriculumBlock]) -> None:
             if project.project_type == "capstone":
                 project.policy_area = "capstone"
             else:
-                project.policy_area = classify_policy_area(project.unique_nodes)
+                project.policy_area = classify_policy_area(project)
