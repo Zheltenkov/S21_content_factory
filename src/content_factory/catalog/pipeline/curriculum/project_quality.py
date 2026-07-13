@@ -71,6 +71,8 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "generic_criterion_count": 0,
             "testable_criteria_coverage_pct": 0.0,
             "single_skill_project_pct": 0.0,
+            "unclassified_policy_area_count": 0,
+            "policy_area_coverage_pct": 0.0,
         }
     title_violation_count = sum(
         1 for row in rows if title_violations(row.get("project_name") or row.get("title") or "")
@@ -80,6 +82,7 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         1 for row in rows if is_generic_criterion(row.get("validation_criteria") or "")
     )
     single_skill_project_count = sum(1 for row in rows if len(row.get("node_ids") or []) <= 1)
+    unclassified_policy_area_count = sum(1 for row in rows if not str(row.get("policy_area") or "").strip())
     return {
         "title_violation_count": title_violation_count,
         "generic_artifact_count": generic_artifact_count,
@@ -88,4 +91,8 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
             (project_count - generic_criterion_count) / project_count * 100, 1
         ),
         "single_skill_project_pct": round(single_skill_project_count / project_count * 100, 1),
+        "unclassified_policy_area_count": unclassified_policy_area_count,
+        "policy_area_coverage_pct": round(
+            (project_count - unclassified_policy_area_count) / project_count * 100, 1
+        ),
     }

@@ -583,6 +583,8 @@ def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, Any] | None) -> 
                 "artifact_key": project.artifact_key,
                 "artifact_family": project.artifact_family,
                 "artifact_template_code": project.artifact_template_code,
+                "project_type": project.project_type,
+                "policy_area": project.policy_area,
                 "audience_level": _audience_label(spec),
                 "required_tools": required_tools,
                 "materials": "",

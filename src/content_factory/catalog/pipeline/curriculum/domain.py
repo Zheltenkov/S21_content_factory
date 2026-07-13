@@ -56,6 +56,11 @@ class ProjectBlueprint:
     enrichment: dict[str, str] = field(default_factory=dict)
     title: str = ""
     project_kind: str = "integrative"
+    # Explicit classification assigned deterministically at grouping time (slice 3).
+    # project_type: lab | project | capstone. policy_area: key into the artifact policy
+    # registry (slice 4); "" means unclassified → draft-only, never a silent generic.
+    project_type: str = "project"
+    policy_area: str = ""
 
     @property
     def primary_occurrences(self) -> list[SkillOccurrence]:
