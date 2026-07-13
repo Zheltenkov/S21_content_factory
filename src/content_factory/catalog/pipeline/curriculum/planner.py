@@ -14,6 +14,7 @@ from typing import Any
 import networkx as nx
 
 from .. import config
+from .artifact_policy import apply_artifact_contracts
 from .domain import BloomBucket, CurriculumBlock, OccurrenceRole, PlanNode, ProjectBlueprint, SkillOccurrence
 from .edge_policy import CurriculumEdgeRole, curriculum_edge_role
 from .journey import CurriculumDesignSpec, build_curriculum_design_spec
@@ -755,6 +756,7 @@ def build_curriculum_blocks(
     core_threads = _select_core_threads(nodes, dag_payload)
     repeated_threads = _add_spiral_occurrences(blocks, nodes, dag_payload)
     classify_projects(blocks)
+    apply_artifact_contracts(blocks)
     meta = {
         **artifact_meta,
         "artifact_match_count": 0,

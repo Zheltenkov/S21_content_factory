@@ -61,6 +61,8 @@ class ProjectBlueprint:
     # registry (slice 4); "" means unclassified → draft-only, never a silent generic.
     project_type: str = "project"
     policy_area: str = ""
+    # Artifact policy contract from the registry (slice 4); None when unclassified.
+    artifact_contract: ArtifactContract | None = None
 
     @property
     def primary_occurrences(self) -> list[SkillOccurrence]:
@@ -91,6 +93,60 @@ class CurriculumBlock:
     stage_code: str = ""
     title: str = ""
     goal: str = ""
+
+
+VerificationMode = Literal["automatic", "manual"]
+
+
+@dataclass(frozen=True)
+class AcceptanceCriterion:
+    """One structured, verifiable acceptance condition for a project artifact."""
+
+    subject: str
+    check: str
+    expected_result: str
+    evidence_type: str
+    verification_mode: VerificationMode = "manual"
+    blocking: bool = True
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "subject": self.subject,
+            "check": self.check,
+            "expected_result": self.expected_result,
+            "evidence_type": self.evidence_type,
+            "verification_mode": self.verification_mode,
+            "blocking": self.blocking,
+        }
+
+
+@dataclass(frozen=True)
+class ArtifactContract:
+    """The minimum verifiable result for a project, keyed by policy area.
+
+    The deterministic methodical floor: what must be produced (deliverables), what proves
+    it (evidence), how it is accepted (acceptance_criteria), and where it runs. The LLM may
+    reword these for the project theme but cannot replace a runnable result with a schema.
+    """
+
+    artifact_type: str
+    policy_area: str
+    deliverables: tuple[str, ...]
+    evidence_requirements: tuple[str, ...]
+    acceptance_criteria: tuple[AcceptanceCriterion, ...]
+    execution_environment: str = ""
+    publication_constraints: tuple[str, ...] = ()
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "artifact_type": self.artifact_type,
+            "policy_area": self.policy_area,
+            "deliverables": list(self.deliverables),
+            "evidence_requirements": list(self.evidence_requirements),
+            "acceptance_criteria": [criterion.as_dict() for criterion in self.acceptance_criteria],
+            "execution_environment": self.execution_environment,
+            "publication_constraints": list(self.publication_constraints),
+        }
 
 
 @dataclass(frozen=True)
