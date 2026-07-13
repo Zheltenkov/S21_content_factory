@@ -117,7 +117,9 @@ def test_professional_workflow_is_domain_neutral() -> None:
     assert [area for stage in design.stages for area in stage.coverage_areas] == areas
 
 
-def test_approved_design_with_open_questions_is_ready_with_questions() -> None:
+def test_approved_design_with_blocking_question_is_blocked_by_questions() -> None:
+    # An unclassified methodical question blocks publication by default (slice 7); the
+    # draft is still buildable (ready is True), so this is coherent with the epic invariant.
     design = build_curriculum_design_spec(
         {
             "must_include_areas": ["Сбор данных", "Анализ", "Публикация"],
@@ -130,6 +132,24 @@ def test_approved_design_with_open_questions_is_ready_with_questions() -> None:
     accepted = approve_curriculum_design_spec(design)
 
     assert accepted.ready is True
+    assert accepted.blocking_question_count == 1
+    assert accepted.readiness_state == "blocked_by_questions"
+
+
+def test_approved_design_with_only_editorial_question_is_ready_with_questions() -> None:
+    design = build_curriculum_design_spec(
+        {
+            "must_include_areas": ["Сбор данных", "Анализ", "Публикация"],
+            "raw_text": "Можно переформулировать название второго блока?",
+        },
+        [_node("D1", "Сбор данных"), _node("D2", "Анализ"), _node("D3", "Публикация")],
+        {"order": [{"id": "D1"}, {"id": "D2"}, {"id": "D3"}], "final_edges": []},
+    )
+
+    accepted = approve_curriculum_design_spec(design)
+
+    assert accepted.ready is True
+    assert accepted.blocking_question_count == 0
     assert accepted.readiness_state == "ready_with_questions"
     assert accepted.design_hash == design.design_hash
 

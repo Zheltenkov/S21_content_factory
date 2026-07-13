@@ -17,6 +17,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from .. import language
+from .brief_questions import BriefQuestion, classify_questions, count_blocking
 from .domain import PlanNode
 from .edge_policy import curriculum_edge_role
 
@@ -99,11 +100,22 @@ class CurriculumDesignSpec:
         return hashlib.sha256(encoded).hexdigest()
 
     @property
+    def brief_questions(self) -> tuple[BriefQuestion, ...]:
+        """Open questions typed with a category + blocking decision (slice 7)."""
+        return classify_questions(self.open_questions)
+
+    @property
+    def blocking_question_count(self) -> int:
+        return count_blocking(self.brief_questions)
+
+    @property
     def readiness_state(self) -> str:
         if self.uncovered_required_areas:
             return "blocked"
         if not self.approved:
             return "needs_review"
+        if self.blocking_question_count:
+            return "blocked_by_questions"
         if self.open_questions:
             return "ready_with_questions"
         return "ready"
@@ -120,6 +132,8 @@ class CurriculumDesignSpec:
             "capstone_title": self.capstone_title,
             "dag_fingerprint": self.dag_fingerprint,
             "open_questions": list(self.open_questions),
+            "brief_questions": [question.as_dict() for question in self.brief_questions],
+            "blocking_question_count": self.blocking_question_count,
             "uncovered_required_areas": list(self.uncovered_required_areas),
             "dag_adjustments": list(self.dag_adjustments),
             "approved": self.approved,

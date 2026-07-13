@@ -700,6 +700,7 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
             "capstone_required": False,
             "capstone_present": False,
             "design_readiness_state": "not_available",
+            "blocking_question_count": 0,
             "dag_wave_count": int(planner_meta.get("dag_wave_count", 0) or 0),
             "up_block_count": 0,
             "target_skills_per_project": [config.UP_TARGET_SKILLS_MIN, config.UP_TARGET_SKILLS_MAX],
@@ -765,6 +766,9 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
         "capstone_present": bool(int(planner_meta.get("capstone_project_count", 0) or 0)),
         "design_readiness_state": str(
             (planner_meta.get("design_spec") or {}).get("readiness_state") or "not_available"
+        ),
+        "blocking_question_count": int(
+            (planner_meta.get("design_spec") or {}).get("blocking_question_count", 0) or 0
         ),
         "target_skills_per_project": [config.UP_TARGET_SKILLS_MIN, config.UP_TARGET_SKILLS_MAX],
         "target_outcomes_per_project": [config.UP_TARGET_OUTCOMES_MIN, config.UP_TARGET_OUTCOMES_MAX],
