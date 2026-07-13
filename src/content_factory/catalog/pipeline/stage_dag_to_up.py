@@ -17,6 +17,7 @@ from . import config, language
 from .curriculum import CurriculumBlock, PlanNode, ProjectBlueprint, SkillOccurrence, build_curriculum_blocks
 from .curriculum.edge_policy import curriculum_edge_role
 from .curriculum.project_quality import report_only_quality_metrics
+from .curriculum.workload import build_workload_contract
 from .models import SkillCandidate
 
 _DANGLING_TAIL_WORDS = {
@@ -759,7 +760,14 @@ def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_paylo
             "title": "Черновик учебного плана",
             "audience_level": _audience_label(spec),
             "source_policy": "accepted_only",
-            "summary": {"blocks": 0, "projects": 0, "total_hours": 0, "total_days": 0, "total_xp": 0},
+            "summary": {
+                "blocks": 0,
+                "projects": 0,
+                "total_hours": 0,
+                "total_days": 0,
+                "workload": build_workload_contract(0, spec, default_hours_per_week=config.UP_HOURS_PER_WEEK).as_dict(),
+                "total_xp": 0,
+            },
             "rows": [],
             "blocks": [],
             "csv_primary_header": CSV_PRIMARY_HEADER,
@@ -821,7 +829,14 @@ def run(spec: dict[str, Any] | None, candidates: list[SkillCandidate], dag_paylo
             "blocks": len(block_payloads),
             "projects": len(rows),
             "total_hours": int(total_hours) if isfinite(total_hours) else 0,
+            # total_days is retained for DB/CSV compatibility (deprecated); the canonical
+            # workload figure is the derived weeks/months in "workload" below.
             "total_days": round(total_days, 2) if isfinite(total_days) else 0.0,
+            "workload": build_workload_contract(
+                total_hours if isfinite(total_hours) else 0,
+                spec,
+                default_hours_per_week=config.UP_HOURS_PER_WEEK,
+            ).as_dict(),
             "total_xp": int(total_xp),
             "avg_skills_per_project": report["quality_metrics"]["avg_skills_per_project"],
             "avg_outcomes_per_project": report["quality_metrics"]["avg_outcomes_per_project"],

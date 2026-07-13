@@ -39,6 +39,13 @@
     <div class="summary-card"><div class="summary-label">Блоков</div><div class="summary-value">{{ plan.summary.blocks }}</div></div>
     <div class="summary-card"><div class="summary-label">Проектов</div><div class="summary-value">{{ plan.summary.projects }}</div></div>
     <div class="summary-card"><div class="summary-label">Астр. часы</div><div class="summary-value">{{ plan.summary.total_hours }}</div></div>
+    {% if plan.summary.workload %}
+    <div class="summary-card">
+        <div class="summary-label">Длительность</div>
+        <div class="summary-value">{{ plan.summary.workload.duration_weeks }} нед.</div>
+        <div class="summary-label">≈ {{ plan.summary.workload.duration_months }} мес. · {{ plan.summary.workload.hours_per_week }} ч/нед</div>
+    </div>
+    {% endif %}
     <div class="summary-card{% if plan.template_proposal_count == 0 and plan.row_count %} summary-card-warn{% endif %}">
         <div class="summary-label">Шаблоны УП</div>
         <div class="summary-value">{{ plan.template_proposal_count or 0 }}</div>

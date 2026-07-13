@@ -19,6 +19,8 @@ from math import isfinite
 from typing import Any
 
 from content_factory.catalog.db import CatalogConnection
+from content_factory.catalog.pipeline import config
+from content_factory.catalog.pipeline.curriculum.workload import build_workload_contract
 from content_factory.catalog.viewer._common import (
     _as_dict,
     _as_list,
@@ -36,7 +38,14 @@ def build_deferred_curriculum_plan_payload(message: str, audience_level: str = "
         "title": "Черновик учебного плана",
         "audience_level": audience_level,
         "source_policy": "accepted_only",
-        "summary": {"blocks": 0, "projects": 0, "total_hours": 0, "total_days": 0, "total_xp": 0},
+        "summary": {
+            "blocks": 0,
+            "projects": 0,
+            "total_hours": 0,
+            "total_days": 0,
+            "workload": build_workload_contract(0, None, default_hours_per_week=config.UP_HOURS_PER_WEEK).as_dict(),
+            "total_xp": 0,
+        },
         "rows": [],
         "blocks": [],
         "csv_primary_header": [],
@@ -342,6 +351,12 @@ def build_curriculum_plan_payload_from_rows(
             "projects": len(rows),
             "total_hours": int(total_hours) if isfinite(total_hours) else 0,
             "total_days": round(total_days, 2) if isfinite(total_days) else 0.0,
+            "workload": _as_dict(_as_dict(payload.get("summary")).get("workload"))
+            or build_workload_contract(
+                total_hours if isfinite(total_hours) else 0,
+                None,
+                default_hours_per_week=config.UP_HOURS_PER_WEEK,
+            ).as_dict(),
             "total_xp": int(total_xp),
         },
         "rows": rows,

@@ -136,6 +136,9 @@ MODEL_TEMPLATE_COUNCIL = os.environ.get("MODEL_TEMPLATE_COUNCIL", MODEL_PLAN)
 MODEL_TEMPLATE_COUNCIL_MAX_TOKENS = int(os.environ.get("MODEL_TEMPLATE_COUNCIL_MAX_TOKENS", "4000"))
 UP_TEMPLATE_COUNCIL_TIMEOUT_SECONDS = int(os.environ.get("UP_TEMPLATE_COUNCIL_TIMEOUT_SECONDS", str(REQUEST_TIMEOUT_SECONDS)))
 UP_HOURS_PER_DAY = float(os.environ.get("UP_HOURS_PER_DAY", "2.94"))
+# Assumed weekly study intensity when the brief does not state hours/week. Used to derive
+# the canonical WorkloadContract (weeks/months); replaces the misleading "days" figure.
+UP_HOURS_PER_WEEK = float(os.environ.get("UP_HOURS_PER_WEEK", "20"))
 UP_XP_PER_HOUR = int(os.environ.get("UP_XP_PER_HOUR", "10"))
 UP_MAX_SKILLS_PER_PROJECT = int(os.environ.get("UP_MAX_SKILLS_PER_PROJECT", "4"))
 UP_TARGET_SKILLS_MIN = int(os.environ.get("UP_TARGET_SKILLS_MIN", "2"))

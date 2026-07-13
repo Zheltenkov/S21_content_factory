@@ -830,6 +830,13 @@
     <div class="summary-card"><div class="summary-label">Блоков</div><div class="summary-value">{{ result.curriculum_plan.summary.blocks }}</div></div>
     <div class="summary-card"><div class="summary-label">Проектов</div><div class="summary-value">{{ result.curriculum_plan.summary.projects }}</div></div>
     <div class="summary-card"><div class="summary-label">Астр. часы</div><div class="summary-value">{{ result.curriculum_plan.summary.total_hours }}</div></div>
+    {% if result.curriculum_plan.summary.workload %}
+    <div class="summary-card">
+        <div class="summary-label">Длительность</div>
+        <div class="summary-value">{{ result.curriculum_plan.summary.workload.duration_weeks }} нед.</div>
+        <div class="summary-label">≈ {{ result.curriculum_plan.summary.workload.duration_months }} мес. · {{ result.curriculum_plan.summary.workload.hours_per_week }} ч/нед</div>
+    </div>
+    {% endif %}
 </section>
 {% if result.curriculum_plan.blocks %}
 <section class="table-wrap">

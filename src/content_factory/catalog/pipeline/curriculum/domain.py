@@ -89,6 +89,32 @@ class CurriculumBlock:
 
 
 @dataclass(frozen=True)
+class WorkloadContract:
+    """Canonical UP workload: hours are authoritative, calendar duration is derived.
+
+    Replaces the misleading "total_days" figure (hours / a fixed ``UP_HOURS_PER_DAY``
+    constant) that read like a calendar duration. Weeks/months are computed from the
+    built UP's actual total hours and the assumed study intensity; ``study_days_per_week``
+    is populated only when the brief states it.
+    """
+
+    total_hours: int
+    hours_per_week: int
+    duration_weeks: float
+    duration_months: float
+    study_days_per_week: int | None = None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "total_hours": self.total_hours,
+            "hours_per_week": self.hours_per_week,
+            "duration_weeks": self.duration_weeks,
+            "duration_months": self.duration_months,
+            "study_days_per_week": self.study_days_per_week,
+        }
+
+
+@dataclass(frozen=True)
 class PlanQualityMetrics:
     """Post-generation metrics for methodologist review and regression tests."""
 

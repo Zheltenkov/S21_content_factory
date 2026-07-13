@@ -4,7 +4,14 @@ The package keeps pedagogical planning separate from DAG construction and CSV/UI
 rendering. The public entry point is ``build_curriculum_blocks``.
 """
 
-from .domain import CurriculumBlock, PlanNode, PlanQualityMetrics, ProjectBlueprint, SkillOccurrence
+from .domain import (
+    CurriculumBlock,
+    PlanNode,
+    PlanQualityMetrics,
+    ProjectBlueprint,
+    SkillOccurrence,
+    WorkloadContract,
+)
 from .journey import (
     CurriculumDesignSpec,
     CurriculumStageSpec,
@@ -21,6 +28,7 @@ __all__ = [
     "PlanQualityMetrics",
     "ProjectBlueprint",
     "SkillOccurrence",
+    "WorkloadContract",
     "approve_curriculum_design_spec",
     "build_curriculum_blocks",
     "build_curriculum_design_spec",
