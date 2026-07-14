@@ -9,14 +9,17 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Dependency metadata first for layer caching, then the source tree.
+# Install deps + editable package first (depends only on pyproject + src), so that
+# static/migrations/alembic edits below DON'T invalidate the slow pip layer — redeploys
+# that only touch UI/static rebuild in seconds instead of reinstalling every dependency.
 COPY pyproject.toml README.md ./
 COPY src ./src
+RUN pip install --upgrade pip && pip install -e .
+
+# Data files copied AFTER the pip layer (cheap layers; changing them keeps pip cached).
 COPY migrations ./migrations
 COPY static ./static
 COPY alembic.ini ./
-
-RUN pip install --upgrade pip && pip install -e .
 
 # Runtime data dirs (mounted as a named volume in compose so content survives redeploys).
 RUN mkdir -p /data/uploads /data/artifacts
