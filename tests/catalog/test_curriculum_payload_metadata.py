@@ -6,6 +6,7 @@ from content_factory.catalog.viewer.curriculum_ops import build_curriculum_plan_
 def test_payload_metadata_restores_artifact_before_enrichment_metrics() -> None:
     stored_row = {
         "row_number": 1,
+        "primary_node_ids": ["S1"],
         "artifact": "Проверяемый прототип",
         "project_content_type": "hard_code",
         "content_profile_decision": {"profile": "hard_code", "source": "project_signals"},
@@ -16,6 +17,7 @@ def test_payload_metadata_restores_artifact_before_enrichment_metrics() -> None:
         "activity_archetype_modifiers": ["experiment"],
         "activity_archetype_source": "auto",
         "activity_archetype_version": "activity-archetype/v1",
+        "activity_archetype_decision_key": "opaque-project-key",
         "artifact_contract": {
             "artifact_type": "evidence_report",
             "policy_area": "",
@@ -58,6 +60,8 @@ def test_payload_metadata_restores_artifact_before_enrichment_metrics() -> None:
     assert payload["rows"][0]["activity_archetype_suggestion"] == "investigate"
     assert payload["rows"][0]["activity_archetype_modifiers"] == ["experiment"]
     assert payload["rows"][0]["activity_archetype_version"] == "activity-archetype/v1"
+    assert payload["rows"][0]["primary_node_ids"] == ["S1"]
+    assert payload["rows"][0]["activity_archetype_decision_key"] == "opaque-project-key"
     assert payload["rows"][0]["artifact_contract"]["artifact_type"] == "evidence_report"
     assert payload["rows"][0]["artifact_contract_sources"] == ["archetype_skeleton"]
     assert payload["rows"][0]["artifact_merge_diagnostics"][0]["severity"] == "warning"

@@ -313,6 +313,7 @@ def build_curriculum_plan_payload_from_rows(
         payload_row = payload_rows_by_number.get(int(row.get("row_number", 0) or 0), {})
         for transient_key in (
             "node_ids",
+            "primary_node_ids",
             "node_names",
             "primary_skill_count",
             "repeat_skill_count",
@@ -338,6 +339,7 @@ def build_curriculum_plan_payload_from_rows(
             "activity_archetype_modifiers",
             "activity_archetype_source",
             "activity_archetype_version",
+            "activity_archetype_decision_key",
             "template_binding",
             "artifact_contract",
             "artifact_contract_sources",

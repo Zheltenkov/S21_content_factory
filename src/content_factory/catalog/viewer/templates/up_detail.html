@@ -86,6 +86,68 @@
     {% endif %}
 </section>
 {% endif %}
+{% if (quality and (quality.activity_archetype_unclassified_count or quality.artifact_merge_error_count)) or (design and design.blocking_question_count) %}
+<section class="filter-panel" id="methodology-review" aria-label="Методические решения">
+    <div class="summary-head">
+        <div>
+            <h2>Методические решения</h2>
+            <div class="small muted">Подтверждения сохраняются в версии каркаса и пересобирают УП.</div>
+        </div>
+        <span class="pill">
+            типов практики {{ quality.activity_archetype_unclassified_count or 0 }} · конфликтов {{ quality.artifact_merge_error_count or 0 }} · вопросов {{ design.blocking_question_count or 0 }}
+        </span>
+    </div>
+
+    {% if quality and (quality.activity_archetype_unclassified_count or quality.artifact_merge_error_count) %}
+    <details class="builder-analysis-details">
+        <summary>Подтвердить предложенные типы практики</summary>
+        <form method="post" action="{{ base }}/up/plans/{{ plan.id }}/methodology">
+            <input type="hidden" name="action" value="confirm_archetypes">
+            <div class="form-grid-2">
+                {% for row in plan.rows %}
+                {% set merge_errors = row.artifact_merge_diagnostics|selectattr('severity', 'equalto', 'error')|list %}
+                {% if not row.activity_archetype or merge_errors %}
+                <label>
+                    <span class="small"><strong>{{ row.row_number }}. {{ row.project_name }}</strong></span>
+                    <select name="archetype_{{ row.row_number }}">
+                        <option value="">Нужно решение</option>
+                        {% for code, label in archetype_labels.items() %}
+                        <option value="{{ code }}"{% if (row.activity_archetype or row.activity_archetype_suggestion) == code %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="small muted">{{ row.activity_archetype_reasons|join('; ') }}</span>
+                </label>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <div class="review-actions">
+                <button type="submit" class="action-btn action-btn-primary">Подтвердить выбранные</button>
+            </div>
+        </form>
+    </details>
+    {% endif %}
+
+    {% if design and design.blocking_question_count %}
+    <details class="builder-analysis-details">
+        <summary>Ответить на блокирующие вопросы брифа</summary>
+        <form method="post" action="{{ base }}/up/plans/{{ plan.id }}/methodology">
+            <input type="hidden" name="action" value="answer_questions">
+            <div class="form-grid-2">
+                {% for question in design.brief_questions if question.blocking and question.status == 'open' %}
+                <label>
+                    <span class="small"><strong>{{ question.text }}</strong></span>
+                    <input type="text" name="question_{{ question.key }}" placeholder="Решение методолога" required>
+                </label>
+                {% endfor %}
+            </div>
+            <div class="review-actions">
+                <button type="submit" class="action-btn action-btn-primary">Сохранить ответы</button>
+            </div>
+        </form>
+    </details>
+    {% endif %}
+</section>
+{% endif %}
 {% if design and design.approved %}
 <section class="builder-program-design" aria-label="Принятый каркас программы">
     <div class="summary-head builder-program-design-head">

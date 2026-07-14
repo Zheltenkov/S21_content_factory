@@ -386,3 +386,69 @@ def test_up_plan_csv_invalid_status_409(client: TestClient) -> None:
     r = client.get(f"{_PREFIX}/up/plans/{plan_id}/csv")
     assert r.status_code == 409
     assert "DAG order violations" in r.text
+
+
+def test_up_methodology_batch_confirmation_rebuilds_plan(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from content_factory.catalog.web.routers import up as up_router
+
+    monkeypatch.setattr(
+        up_router,
+        "_require_plan",
+        lambda _conn, _plan_id: {
+            "brief_id": 7,
+            "rows": [
+                {
+                    "row_number": 1,
+                    "project_type": "project",
+                    "artifact_family": "analysis",
+                    "primary_node_ids": ["S1"],
+                    "node_ids": ["S1", "S2"],
+                    "activity_archetype_decision_key": "opaque-project-key",
+                }
+            ],
+            "design_spec": {"brief_questions": []},
+        },
+    )
+    saved: list[dict[str, str]] = []
+    monkeypatch.setattr(
+        up_router,
+        "save_brief_curriculum_methodology_decisions",
+        lambda _conn, _brief_id, **kwargs: saved.append(
+            kwargs["activity_archetype_confirmations"]
+        ),
+    )
+    monkeypatch.setattr(
+        up_router,
+        "approve_brief_curriculum_design",
+        lambda _conn, _brief_id: {"approved": True},
+    )
+    monkeypatch.setattr(
+        up_router,
+        "build_curriculum_plan_for_brief",
+        lambda _conn, _brief_id: {"plan_id": 88},
+    )
+    monkeypatch.setattr(up_router, "_sync_up_curriculum", lambda: None)
+
+    response = client.post(
+        f"{_PREFIX}/up/plans/55/methodology",
+        data={"action": "confirm_archetypes", "archetype_1": "investigate"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == f"{_PREFIX}/up/plans/88#methodology-review"
+    assert list(saved[0].values()) == ["investigate"]
+    assert list(saved[0]) == ["opaque-project-key"]
+
+
+def test_up_detail_contains_compact_methodology_review_forms() -> None:
+    template = Path("src/content_factory/catalog/viewer/templates/up_detail.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'id="methodology-review"' in template
+    assert 'value="confirm_archetypes"' in template
+    assert 'value="answer_questions"' in template

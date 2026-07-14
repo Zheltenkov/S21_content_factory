@@ -26,6 +26,7 @@ def test_v1_is_frozen_and_v2_is_default() -> None:
     assert DIGITAL_PRODUCT_PROJECT_BASED_V1.artifact_policy_set == "digital-product-project/v1"
 
     v2_thresholds = DIGITAL_PRODUCT_PROJECT_BASED_V2.publication_thresholds
+    assert v2_thresholds.required_policy_coverage_pct == 0.0
     assert v2_thresholds.required_activity_archetype_coverage_pct == 100.0
     assert v2_thresholds.required_artifact_contract_coverage_pct == 100.0
     assert v2_thresholds.max_artifact_merge_error_count == 0

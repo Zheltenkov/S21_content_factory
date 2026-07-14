@@ -156,3 +156,58 @@ def test_unresolved_project_keeps_draft_and_requests_methodologist() -> None:
     assert project.artifact == "Черновой предметный результат"
     assert project.artifact_contract_sources == ("draft",)
     assert "draft_artifact_contract_unresolved" in _diagnostic_codes(project)
+
+
+def test_analysis_template_rejects_runnable_prototype_profile_contract() -> None:
+    project = _project(artifact="Отчёт об исследовании клиента")
+    project.activity_archetype = "investigate"
+    project.policy_area = "product_creation"
+    project.artifact_family = "analysis"
+    project.template_binding = TemplateBinding(
+        template_code="customer-research",
+        source="brief",
+    )
+
+    apply_artifact_contracts(
+        [CurriculumBlock(block_keys=("b",), projects=[project])],
+        profile=DEFAULT_PROFILE,
+    )
+
+    assert project.artifact_contract is not None
+    assert project.artifact_contract.artifact_type == "evidence_report"
+    assert "profile" not in project.artifact_contract_sources
+    assert "template_profile_incompatible" in _diagnostic_codes(project)
+    conflict = next(
+        diagnostic
+        for diagnostic in project.artifact_merge_diagnostics
+        if diagnostic.code == "template_profile_incompatible"
+    )
+    assert conflict.severity == "error"
+
+
+def test_methodologist_can_resolve_template_profile_conflict_by_confirming_family() -> None:
+    project = _project(artifact="Отчёт об исследовании клиента")
+    project.activity_archetype = "investigate"
+    project.activity_archetype_source = "methodologist"
+    project.policy_area = "product_creation"
+    project.artifact_family = "analysis"
+    project.template_binding = TemplateBinding(
+        template_code="customer-research",
+        source="brief",
+    )
+
+    apply_artifact_contracts(
+        [CurriculumBlock(block_keys=("b",), projects=[project])],
+        profile=DEFAULT_PROFILE,
+    )
+
+    assert project.artifact_contract is not None
+    assert project.artifact_contract.artifact_type == "evidence_report"
+    assert "template_profile_incompatible" not in _diagnostic_codes(project)
+    assert "template_profile_conflict_resolved" in _diagnostic_codes(project)
+    resolved = next(
+        diagnostic
+        for diagnostic in project.artifact_merge_diagnostics
+        if diagnostic.code == "template_profile_conflict_resolved"
+    )
+    assert resolved.severity == "info"

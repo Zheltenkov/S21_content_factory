@@ -402,11 +402,68 @@ def _best_brief_template_for_node(
     return max(scored)[3] if scored else None
 
 
+def _unique_node_template_seeds(
+    occurrences: list[SkillOccurrence],
+    templates: list[dict[str, Any]],
+    available_indexes: set[int],
+) -> dict[int, int]:
+    """Maximum-cardinality greedy seeds for one-use accepted brief templates."""
+
+    candidates: list[tuple[float, int, str, int, int]] = []
+    for occurrence_index, occurrence in enumerate(occurrences):
+        for template_index in sorted(available_indexes):
+            template = templates[template_index]
+            if str(template.get("source") or "").casefold() != "brief" or bool(
+                template.get("repeatable")
+            ):
+                continue
+            score = _template_scope_overlap(occurrence.node, template)
+            if score < 0.5:
+                continue
+            candidates.append(
+                (
+                    score,
+                    -int(template.get("priority", 100) or 100),
+                    str(template.get("code") or ""),
+                    occurrence_index,
+                    template_index,
+                )
+            )
+    matched_occurrences: set[int] = set()
+    matched_templates: set[int] = set()
+    seeds: dict[int, int] = {}
+    for _score, _priority, _code, occurrence_index, template_index in sorted(
+        candidates,
+        reverse=True,
+    ):
+        if occurrence_index in matched_occurrences or template_index in matched_templates:
+            continue
+        seeds[occurrence_index] = template_index
+        matched_occurrences.add(occurrence_index)
+        matched_templates.add(template_index)
+    return seeds
+
+
+def _nearest_seeded_template(
+    node: PlanNode,
+    templates: list[dict[str, Any]],
+    seeded_indexes: set[int],
+) -> int:
+    return max(
+        seeded_indexes,
+        key=lambda index: (
+            _template_scope_overlap(node, templates[index]),
+            -int(templates[index].get("priority", 100) or 100),
+            str(templates[index].get("code") or ""),
+        ),
+    )
+
+
 def _partition_projects_for_brief_template_coverage(
     projects: list[ProjectBlueprint],
     artifact_templates: list[dict[str, Any]],
 ) -> tuple[list[ProjectBlueprint], int]:
-    """Split only projects containing two or more clear brief-template groups."""
+    """Split grouped projects so every clearly scoped accepted brief template is usable."""
 
     templates = [template for template in artifact_templates if isinstance(template, dict)]
     available_indexes = {
@@ -422,14 +479,22 @@ def _partition_projects_for_brief_template_coverage(
             partitioned.append(project)
             continue
 
-        groups: dict[int | None, list[SkillOccurrence]] = {}
-        for occurrence in primary:
-            template_index = _best_brief_template_for_node(occurrence.node, templates, available_indexes)
-            groups.setdefault(template_index, []).append(occurrence)
-        matched_indexes = [index for index in groups if index is not None]
-        if len(matched_indexes) < 2 or any(len(groups[index]) < 2 for index in matched_indexes):
+        seeds = _unique_node_template_seeds(primary, templates, available_indexes)
+        seeded_indexes = set(seeds.values())
+        if len(seeded_indexes) < 2:
             partitioned.append(project)
             continue
+
+        groups: dict[int, list[SkillOccurrence]] = {index: [] for index in seeded_indexes}
+        for occurrence_index, occurrence in enumerate(primary):
+            template_index = seeds.get(occurrence_index)
+            if template_index is None:
+                template_index = _nearest_seeded_template(
+                    occurrence.node,
+                    templates,
+                    seeded_indexes,
+                )
+            groups[template_index].append(occurrence)
 
         ordered_groups = sorted(
             groups.items(),
@@ -448,9 +513,8 @@ def _partition_projects_for_brief_template_coverage(
                 title=_project_title_for(project.block_key, group_index, len(ordered_groups)),
                 project_kind=project.project_kind,
             )
-            if template_index is not None:
-                _apply_template_to_project(split_project, templates[template_index])
-                available_indexes.discard(template_index)
+            _apply_template_to_project(split_project, templates[template_index])
+            available_indexes.discard(template_index)
             partitioned.append(split_project)
     return partitioned, split_count
 
@@ -1075,7 +1139,14 @@ def build_curriculum_blocks(
     core_threads = _select_core_threads(nodes, dag_payload)
     repeated_threads = _add_spiral_occurrences(blocks, nodes, dag_payload)
     classify_projects(blocks)
-    classify_activity_archetypes(blocks)
+    classify_activity_archetypes(
+        blocks,
+        confirmations=(
+            dict(design_spec.activity_archetype_confirmations)
+            if design_spec is not None
+            else None
+        ),
+    )
     apply_artifact_contracts(blocks, profile=profile)
     apply_title_policy(blocks)
     meta = {

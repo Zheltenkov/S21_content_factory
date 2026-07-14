@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 
+from .archetype_classification import BRIEF_ARTIFACT_ARCHETYPES
 from .artifact_skeletons import build_archetype_skeleton
 from .domain import (
     AcceptanceCriterion,
@@ -21,6 +22,29 @@ from .domain import (
 from .project_quality import is_generic_artifact, is_testable_criterion
 
 COMPOSITION_VERSION = "artifact-composition/v1"
+
+# A brief template describes the intended assessment family. Profile contracts may refine
+# it only when their artifact type is semantically compatible; otherwise the universal
+# archetype skeleton wins and publication is blocked by an explicit merge error.
+_FAMILY_COMPATIBLE_PROFILE_TYPES: dict[str, frozenset[str]] = {
+    "analysis": frozenset({"evidence_report", "monetization_model", "decision_case"}),
+    "document": frozenset({"decision_case", "evidence_report", "monetization_model", "design_package"}),
+    "design": frozenset({"design_package", "decision_case", "monetization_model"}),
+    "configuration": frozenset(
+        {"operational_result", "operated_service", "executable_workflow", "engineered_repository"}
+    ),
+    "production": frozenset(
+        {
+            "working_implementation",
+            "runnable_prototype",
+            "executable_workflow",
+            "engineered_repository",
+            "market_material",
+            "ai_quality_harness",
+            "capstone_release",
+        }
+    ),
+}
 
 
 def _norm(text: str) -> str:
@@ -64,6 +88,16 @@ def _template_source(project: ProjectBlueprint) -> ArtifactContractSource | None
     if project.template_binding is None:
         return None
     return "brief_template" if project.template_binding.source == "brief" else "global_template"
+
+
+def _brief_template_accepts_profile(
+    project: ProjectBlueprint,
+    profile_contract: ArtifactContract,
+) -> bool:
+    if project.template_binding is None or project.template_binding.source != "brief":
+        return True
+    compatible_types = _FAMILY_COMPATIBLE_PROFILE_TYPES.get(project.artifact_family)
+    return compatible_types is None or profile_contract.artifact_type in compatible_types
 
 
 def _merge_structured_contracts(
@@ -144,11 +178,41 @@ def compose_project_artifact(
 ) -> None:
     """Compose artifact slots and persist provenance plus conflict diagnostics on a project."""
     skeleton = build_archetype_skeleton(project)
-    merged = _merge_structured_contracts(profile_contract, skeleton)
     diagnostics: list[ArtifactMergeDiagnostic] = []
     template_source = _template_source(project)
+    effective_profile_contract = profile_contract
+    if profile_contract is not None and not _brief_template_accepts_profile(project, profile_contract):
+        effective_profile_contract = None
+        family_archetype = BRIEF_ARTIFACT_ARCHETYPES.get(project.artifact_family)
+        resolved_by_methodologist = (
+            project.activity_archetype_source == "methodologist"
+            and project.activity_archetype == family_archetype
+        )
+        diagnostics.append(
+            ArtifactMergeDiagnostic(
+                code=(
+                    "template_profile_conflict_resolved"
+                    if resolved_by_methodologist
+                    else "template_profile_incompatible"
+                ),
+                severity="info" if resolved_by_methodologist else "error",
+                slot="artifact_type",
+                sources=("brief_template", "profile"),
+                resolution=(
+                    f"Методолог подтвердил семейство {project.artifact_family}; "
+                    f"профильный тип {profile_contract.artifact_type} исключён из merge."
+                    if resolved_by_methodologist
+                    else (
+                        f"Семейство шаблона {project.artifact_family} несовместимо с профильным "
+                        f"типом {profile_contract.artifact_type}; профильный контракт исключён, "
+                        "требуется решение методолога."
+                    )
+                ),
+            )
+        )
+    merged = _merge_structured_contracts(effective_profile_contract, skeleton)
     structured_source_list: list[ArtifactContractSource] = []
-    if profile_contract is not None:
+    if effective_profile_contract is not None:
         structured_source_list.append("profile")
     if skeleton is not None:
         structured_source_list.append("archetype_skeleton")
@@ -185,9 +249,9 @@ def compose_project_artifact(
             )
         )
     if (
-        profile_contract is not None
+        effective_profile_contract is not None
         and skeleton is not None
-        and profile_contract.artifact_type != skeleton.artifact_type
+        and effective_profile_contract.artifact_type != skeleton.artifact_type
     ):
         diagnostics.append(
             ArtifactMergeDiagnostic(
@@ -196,7 +260,7 @@ def compose_project_artifact(
                 slot="artifact_type",
                 sources=("profile", "archetype_skeleton"),
                 resolution=(
-                    f"Выбран профильный тип {profile_contract.artifact_type}; "
+                    f"Выбран профильный тип {effective_profile_contract.artifact_type}; "
                     f"универсальный тип {skeleton.artifact_type} сохранён через обязательные slots."
                 ),
             )

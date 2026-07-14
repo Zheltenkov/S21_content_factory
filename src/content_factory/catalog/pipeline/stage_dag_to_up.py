@@ -592,6 +592,10 @@ def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, Any] | None) -> 
                 "learning_outcomes": "\n".join(item for item in [outcomes_know, outcomes_can, outcomes_skills] if item),
                 "skills_list": _project_skill_list(project),
                 "node_ids": project.node_ids,
+                "primary_node_ids": [
+                    occurrence.node.tmp_id for occurrence in project.primary_occurrences
+                ]
+                or project.node_ids,
                 "node_names": [node.name for node in project_nodes],
                 "occurrence_count": len(project.occurrences),
                 "primary_skill_count": len(project.primary_occurrences),
@@ -622,6 +626,7 @@ def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, Any] | None) -> 
                 "activity_archetype_modifiers": list(project.activity_archetype_modifiers),
                 "activity_archetype_source": project.activity_archetype_source,
                 "activity_archetype_version": project.activity_archetype_version,
+                "activity_archetype_decision_key": project.activity_archetype_decision_key,
                 "audience_level": _audience_label(spec),
                 "required_tools": required_tools,
                 "materials": "",

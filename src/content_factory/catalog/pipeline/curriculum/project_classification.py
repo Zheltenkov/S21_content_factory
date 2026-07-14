@@ -28,15 +28,18 @@ POLICY_AREA_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("ai_automation", ("ai", "ии", "автоматиз", "workflow", "воркфлоу", "агент", "llm", "промпт", "нейросет", "пайплайн данн")),
     ("operations", ("эксплуат", "deploy", "деплой", "разверт", "развёрт", "мониторинг", "логир", "health", "backup", "runbook", "инцидент", "sre", "надежн", "надёжн")),
     ("engineering_discipline", ("ci", "cd", "git", "тест", "репозитор", "релиз", "сборк", "версион", "code review", "ревью кода", "пайплайн сборк")),
-    ("marketing_sales", ("маркет", "продаж", "лендинг", "реклам", "трафик", "конверси", "воронк", "канал привлеч", "продуктов аналитик")),
+    ("marketing_sales", ("маркет", "продаж", "лендинг", "реклам", "трафик", "конверси", "воронк", "канал привлеч", "позиционир", "продуктов аналитик")),
     ("monetization", ("монетиз", "тариф", "unit econom", "юнит эконом", "ценообраз", "выручк", "revenue", "подписк", "прайс")),
-    ("product_creation", ("прототип", "mvp", "продукт", "приложен", "сервис", "созда", "разработ", "постро", "запуск продукт")),
+    ("product_creation", ("прототип", "mvp", "приложен", "сервис", "созда", "разработ", "постро")),
 )
 
 
 #: A hint in a PRIMARY skill weighs this much more than one in supporting text
 #: (tools / outcomes / secondary skills), so incidental keywords do not classify a project.
-PRIMARY_WEIGHT = 3
+PRIMARY_NAME_WEIGHT = 4
+PRIMARY_ACTION_WEIGHT = 3
+ARTIFACT_WEIGHT = 2
+SUPPORTING_WEIGHT = 1
 #: Minimum weighted score to assign an area at all (a single primary hit = PRIMARY_WEIGHT
 #: clears it; a lone supporting-text hit = 1 does not).
 MIN_SCORE = 3
@@ -61,6 +64,18 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", " ".join(text.split()).casefold().replace("ё", "е"))
 
 
+def _contains_hint(text: str, hint: str) -> bool:
+    """Match short technical tokens at word boundaries and stems as substrings."""
+
+    if len(hint) <= 2 and hint.isalnum():
+        return re.search(rf"(?<!\w){re.escape(hint)}(?!\w)", text) is not None
+    return hint in text
+
+
+def _matches(text: str, hints: tuple[str, ...]) -> list[str]:
+    return [hint for hint in hints if _contains_hint(text, hint)]
+
+
 def _primary_nodes(project: ProjectBlueprint) -> list[PlanNode]:
     primary = [occurrence.node for occurrence in project.primary_occurrences]
     return primary or project.unique_nodes
@@ -78,33 +93,60 @@ def classify_policy_area(project: ProjectBlueprint) -> PolicyAreaResult:
     nodes = project.unique_nodes
     if not nodes:
         return PolicyAreaResult("", "none", "нет навыков в проекте")
-    primary_ids = {node.tmp_id for node in _primary_nodes(project)}
-    primary_text = _norm(" ".join(node.name + " " + node.group for node in nodes if node.tmp_id in primary_ids))
-    supporting_text = _norm(
+    primary_nodes = _primary_nodes(project)
+    primary_ids = {node.tmp_id for node in primary_nodes}
+    primary_text = _norm(" ".join(node.name for node in primary_nodes))
+    action_text = _norm(
         " ".join(
-            node.block_key
-            + " "
-            + " ".join([*node.outcomes_can, *node.outcomes_skills, *node.tools])
-            + ("" if node.tmp_id in primary_ids else " " + node.name + " " + node.group)
-            for node in nodes
+            outcome
+            for node in primary_nodes
+            for outcome in (*node.outcomes_can, *node.outcomes_skills)
         )
     )
-    scored: list[tuple[int, str, list[str], list[str]]] = []
+    supporting_text = _norm(
+        " ".join(
+            occurrence.node.name
+            + " "
+            + " ".join(
+                (*occurrence.node.outcomes_can, *occurrence.node.outcomes_skills, *occurrence.node.tools)
+            )
+            for occurrence in project.occurrences
+            if occurrence.node.tmp_id not in primary_ids and not occurrence.is_repeat
+        )
+    )
+    artifact_text = ""
+    if project.template_binding is not None and project.template_binding.source == "brief":
+        artifact_text = _norm(f"{project.artifact_family} {project.artifact}")
+
+    scored: list[tuple[int, str, list[str], list[str], list[str], list[str]]] = []
     for area, hints in POLICY_AREA_HINTS:
-        primary_matched = [hint for hint in hints if hint in primary_text]
-        supporting_matched = [hint for hint in hints if hint in supporting_text]
-        score = PRIMARY_WEIGHT * len(primary_matched) + len(supporting_matched)
+        primary_matched = _matches(primary_text, hints)
+        action_matched = _matches(action_text, hints)
+        artifact_matched = _matches(artifact_text, hints)
+        supporting_matched = _matches(supporting_text, hints)
+        score = (
+            PRIMARY_NAME_WEIGHT * len(primary_matched)
+            + PRIMARY_ACTION_WEIGHT * len(action_matched)
+            + ARTIFACT_WEIGHT * len(artifact_matched)
+            + SUPPORTING_WEIGHT * len(supporting_matched)
+        )
         if score:
-            scored.append((score, area, primary_matched, supporting_matched))
+            scored.append(
+                (score, area, primary_matched, action_matched, artifact_matched, supporting_matched)
+            )
     if not scored:
         return PolicyAreaResult("", "none", "нет совпадений по ключевым словам")
     scored.sort(key=lambda item: item[0], reverse=True)
-    best_score, best_area, primary_matched, supporting_matched = scored[0]
+    best_score, best_area, primary_matched, action_matched, artifact_matched, supporting_matched = scored[0]
     second_score = scored[1][0] if len(scored) > 1 else 0
     margin = best_score - second_score
     parts: list[str] = []
     if primary_matched:
         parts.append("основные навыки: " + ", ".join(primary_matched))
+    if action_matched:
+        parts.append("наблюдаемые действия: " + ", ".join(action_matched))
+    if artifact_matched:
+        parts.append("ожидаемый артефакт: " + ", ".join(artifact_matched))
     if supporting_matched:
         parts.append("контекст: " + ", ".join(supporting_matched))
     rationale = "; ".join(parts) or "слабое совпадение"

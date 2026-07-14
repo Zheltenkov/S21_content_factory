@@ -22,9 +22,9 @@ from .brief_questions import BriefQuestion, classify_questions, count_blocking
 from .domain import PlanNode
 from .edge_policy import curriculum_edge_role
 
-DESIGN_SPEC_VERSION = "curriculum-design:v2"
+DESIGN_SPEC_VERSION = "curriculum-design:v5"
 MAX_JOURNEY_STAGES = 7
-MAX_OPEN_QUESTIONS = 8
+MAX_OPEN_QUESTIONS = 32
 
 _AREA_STOP_WORDS = frozenset(
     {
@@ -91,6 +91,8 @@ class CurriculumDesignSpec:
     open_questions: tuple[str, ...] = ()
     uncovered_required_areas: tuple[str, ...] = ()
     dag_adjustments: tuple[str, ...] = ()
+    question_answers: tuple[tuple[str, str], ...] = ()
+    activity_archetype_confirmations: tuple[tuple[str, str], ...] = ()
     approved: bool = False
     version: str = DESIGN_SPEC_VERSION
 
@@ -128,13 +130,18 @@ class CurriculumDesignSpec:
             "uncovered_required_areas": list(self.uncovered_required_areas),
             "dag_adjustments": list(self.dag_adjustments),
         }
+        if self.version != "curriculum-design:v2":
+            payload["question_answers"] = dict(self.question_answers)
+            payload["activity_archetype_confirmations"] = dict(
+                self.activity_archetype_confirmations
+            )
         encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
 
     @property
     def brief_questions(self) -> tuple[BriefQuestion, ...]:
         """Open questions typed with a category + blocking decision (slice 7)."""
-        return classify_questions(self.open_questions)
+        return classify_questions(self.open_questions, answers=dict(self.question_answers))
 
     @property
     def blocking_question_count(self) -> int:
@@ -148,7 +155,7 @@ class CurriculumDesignSpec:
             return "needs_review"
         if self.blocking_question_count:
             return "blocked_by_questions"
-        if self.open_questions:
+        if any(question.status == "open" for question in self.brief_questions):
             return "ready_with_questions"
         return "ready"
 
@@ -168,6 +175,10 @@ class CurriculumDesignSpec:
             "blocking_question_count": self.blocking_question_count,
             "uncovered_required_areas": list(self.uncovered_required_areas),
             "dag_adjustments": list(self.dag_adjustments),
+            "question_answers": dict(self.question_answers),
+            "activity_archetype_confirmations": dict(
+                self.activity_archetype_confirmations
+            ),
             "approved": self.approved,
             "ready": self.ready,
             "readiness_state": self.readiness_state,
@@ -204,10 +215,20 @@ def build_curriculum_design_spec(
         _normalize(area) for area in required_areas if any(_areas_match(area, node.block_key) for node in node_list)
     }
     uncovered = tuple(area for area in required_areas if _normalize(area) not in covered_areas)
-    open_questions = tuple(_text_list(accepted_spec.get("open_questions"))) or _extract_open_questions(raw_text)
+    accepted_version = _text(accepted_spec.get("version"))
+    if accepted_version == DESIGN_SPEC_VERSION:
+        open_questions = tuple(_text_list(accepted_spec.get("open_questions"))) or _extract_open_questions(raw_text)
+    else:
+        # Question extraction is versioned with the design contract. Re-run it on
+        # upgrades instead of carrying malformed legacy fragments into a new approval.
+        open_questions = _extract_open_questions(raw_text)
     journey_type = _text(accepted_spec.get("journey_type")) or _detect_journey_type(data, raw_text)
     capstone_required = _as_bool(accepted_spec.get("capstone_required")) or _capstone_required(data, raw_text)
     capstone_title = _text(accepted_spec.get("capstone_title")) or _capstone_title(journey_type, raw_text)
+    question_answers = _text_mapping(accepted_spec.get("question_answers"))
+    archetype_confirmations = _text_mapping(
+        accepted_spec.get("activity_archetype_confirmations")
+    )
 
     draft = CurriculumDesignSpec(
         journey_type=journey_type,
@@ -219,8 +240,10 @@ def build_curriculum_design_spec(
         open_questions=open_questions,
         uncovered_required_areas=uncovered,
         dag_adjustments=adjustments,
+        question_answers=question_answers,
+        activity_archetype_confirmations=archetype_confirmations,
         approved=False,
-        version=_text(accepted_spec.get("version")) or DESIGN_SPEC_VERSION,
+        version=DESIGN_SPEC_VERSION,
     )
     approval_requested = _as_bool(accepted_spec.get("approved")) or _as_bool(data.get("curriculum_design_approved"))
     accepted_hash = _text(accepted_spec.get("design_hash"))
@@ -420,13 +443,55 @@ def _extract_open_questions(raw_text: str) -> tuple[str, ...]:
         line = " ".join(raw_line.split()).strip(" |-")
         if "?" not in line:
             continue
-        for fragment in re.findall(r"[^?]{4,240}\?", line):
-            question = fragment.strip(" |-")
+        # A structured field such as "Какие темы?: A, B" already contains its answer.
+        if "|" not in line and re.match(r"^[^?]+\?\s*:\s*\S+", line):
+            continue
+        question_text = line.rsplit("|", 1)[-1].strip()
+        for fragment in re.findall(r"[^?]+\?", question_text):
+            question = _atomic_question(fragment)
+            if len(question) < 5:
+                continue
             if question and question not in questions:
                 questions.append(question)
             if len(questions) >= MAX_OPEN_QUESTIONS:
                 return tuple(questions)
     return tuple(questions)
+
+
+def _atomic_question(fragment: str) -> str:
+    question = fragment.strip(" |-:")
+    deictic = re.match(
+        r"^(?P<context>.+?)[;:]+\s*(?:а\s+)?это\s+что\s+такое\?$",
+        question,
+        flags=re.IGNORECASE,
+    )
+    if deictic:
+        context = deictic.group("context").strip(" |-:")
+        return f"Что такое «{context}»?"
+    starters = tuple(
+        re.finditer(
+            r"\b(?:кто|что|какая|какие|какой|каков|как|где|когда|зачем|почему|сколько|"
+            r"нужен ли|нужна ли|нужно ли|можно ли|доступен ли|доступна ли|должен ли|"
+            r"должна ли|будут ли)\b",
+            question,
+            flags=re.IGNORECASE,
+        )
+    )
+    if starters:
+        question = question[starters[-1].start() :]
+    return question.strip()
+
+
+def _text_mapping(value: Any) -> tuple[tuple[str, str], ...]:
+    if not isinstance(value, dict):
+        return ()
+    return tuple(
+        sorted(
+            (str(key).strip(), str(item).strip())
+            for key, item in value.items()
+            if str(key).strip() and str(item).strip()
+        )
+    )
 
 
 def _area_similarity(left: str, right: str) -> float:

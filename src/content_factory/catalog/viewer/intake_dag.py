@@ -506,6 +506,74 @@ def approve_brief_curriculum_design(conn: CatalogConnection, brief_id: int) -> d
     return accepted
 
 
+def save_brief_curriculum_methodology_decisions(
+    conn: CatalogConnection,
+    brief_id: int,
+    *,
+    question_answers: dict[str, str] | None = None,
+    activity_archetype_confirmations: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Version methodologist answers and archetype confirmations with the design spec."""
+
+    from content_factory.catalog.pipeline.curriculum.journey import DESIGN_SPEC_VERSION
+
+    row = conn.execute(
+        "SELECT metadata_json FROM profile_brief WHERE id = ?",
+        (brief_id,),
+    ).fetchone()
+    if not row:
+        raise ValueError("Brief not found")
+
+    metadata = _load_json_object(row["metadata_json"])
+    raw_design = metadata.get("curriculum_design_spec")
+    design = dict(raw_design) if isinstance(raw_design, dict) else {}
+
+    answers = _load_json_object(design.get("question_answers"))
+    answers.update(
+        {
+            str(key): str(value).strip()
+            for key, value in (question_answers or {}).items()
+            if str(key).strip() and str(value).strip()
+        }
+    )
+
+    allowed_archetypes = {
+        "investigate",
+        "design",
+        "construct",
+        "operate",
+        "decide",
+        "perform",
+    }
+    confirmations = _load_json_object(design.get("activity_archetype_confirmations"))
+    confirmations.update(
+        {
+            str(key): str(value)
+            for key, value in (activity_archetype_confirmations or {}).items()
+            if str(key).strip() and str(value) in allowed_archetypes
+        }
+    )
+
+    # Decisions change the immutable design contract. Clear the old approval hash and let
+    # approve_brief_curriculum_design produce a fresh, reproducible snapshot.
+    design.update(
+        {
+            "version": DESIGN_SPEC_VERSION,
+            "question_answers": answers,
+            "activity_archetype_confirmations": confirmations,
+            "approved": False,
+        }
+    )
+    design.pop("design_hash", None)
+    metadata["curriculum_design_spec"] = design
+    conn.execute(
+        "UPDATE profile_brief SET metadata_json = ? WHERE id = ?",
+        (json.dumps(metadata, ensure_ascii=False), brief_id),
+    )
+    conn.commit()
+    return design
+
+
 def load_latest_brief_dag_payload(conn: CatalogConnection, brief_id: int) -> dict[str, Any]:
     """Load the durable DAG snapshot used for an explicit plan rebuild."""
 

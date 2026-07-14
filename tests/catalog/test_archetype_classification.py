@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from content_factory.catalog.pipeline.curriculum.archetype_classification import (
     CLASSIFICATION_VERSION,
+    activity_archetype_decision_key,
     classify_activity_archetype,
     classify_activity_archetypes,
 )
@@ -12,6 +13,7 @@ from content_factory.catalog.pipeline.curriculum.domain import (
     PlanNode,
     ProjectBlueprint,
     SkillOccurrence,
+    TemplateBinding,
 )
 
 
@@ -125,6 +127,62 @@ def test_unknown_activity_degrades_to_unclassified() -> None:
     assert result.assigned is None
     assert result.suggested is None
     assert result.confidence == "none"
+
+
+def test_accepted_brief_artifact_family_is_strong_archetype_evidence() -> None:
+    project = _project(_node("Работа с потребностями клиента", bloom=4))
+    project.artifact_family = "analysis"
+    project.template_binding = TemplateBinding(
+        template_code="customer-research",
+        source="brief",
+    )
+
+    result = classify_activity_archetype(project)
+
+    assert result.assigned == "investigate"
+    assert result.confidence == "high"
+    assert any("brief-template" in reason for reason in result.reasons)
+
+
+def test_repeat_skill_is_not_equal_to_primary_activity_signal() -> None:
+    primary = _node(
+        "Презентация решения",
+        outcomes=("Проводит презентацию решения для заказчика",),
+        bloom=3,
+    )
+    repeat = _node(
+        "Развёртывание и мониторинг сервиса",
+        outcomes=("Эксплуатирует сервис",),
+        bloom=3,
+    )
+    project = ProjectBlueprint(
+        occurrences=[
+            SkillOccurrence(node=primary, role="primary"),
+            SkillOccurrence(node=repeat, role="reinforcement", touch_index=2),
+        ],
+        block_key="test",
+        artifact="Запись презентации",
+    )
+
+    result = classify_activity_archetype(project)
+
+    assert result.assigned == "perform"
+
+
+def test_batch_confirmation_overrides_ambiguous_suggestion_by_stable_key() -> None:
+    project = _project(_node("Неоднозначная практика", bloom=2))
+    key = activity_archetype_decision_key(project)
+
+    classify_activity_archetypes(
+        [CurriculumBlock(block_keys=("test",), projects=[project])],
+        confirmations={key: "perform"},
+    )
+
+    assert project.activity_archetype == "perform"
+    assert project.activity_archetype_source == "methodologist"
+    assert project.activity_archetype_confidence == "high"
+    assert project.activity_archetype_version == "manual/v1"
+    assert project.activity_archetype_decision_key == key
 
 
 def test_block_pass_is_additive_and_preserves_methodologist_override() -> None:

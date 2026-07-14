@@ -89,6 +89,7 @@ class ProjectBlueprint:
     activity_archetype_modifiers: tuple[ActivityModifier, ...] = ()
     activity_archetype_source: ArchetypeSource = "auto"
     activity_archetype_version: str = ""
+    activity_archetype_decision_key: str = ""
     # Artifact policy contract from the registry (slice 4); None when unclassified.
     artifact_contract: ArtifactContract | None = None
     artifact_contract_sources: tuple[ArtifactContractSource, ...] = ()

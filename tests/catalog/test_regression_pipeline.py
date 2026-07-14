@@ -1446,7 +1446,7 @@ def test_coverage_loop_splits_only_clear_multi_template_project_groups() -> None
     assert [len(item.primary_occurrences) for item in partitioned] == [2, 2]
 
 
-def test_coverage_loop_does_not_create_single_skill_template_project() -> None:
+def test_coverage_loop_may_create_single_skill_lab_for_accepted_brief_template() -> None:
     nodes = [
         PlanNode("S1", "Планирование продукта", "Стратегия", "Стратегия", 4, (), (), (), ()),
         PlanNode("S2", "Определение MVP", "Продукт", "MVP", 4, (), (), (), ()),
@@ -1479,8 +1479,9 @@ def test_coverage_loop_does_not_create_single_skill_template_project() -> None:
         [project], templates
     )
 
-    assert split_count == 0
-    assert partitioned == [project]
+    assert split_count == 1
+    assert [item.artifact_template_code for item in partitioned] == ["strategy", "mvp"]
+    assert [len(item.primary_occurrences) for item in partitioned] == [1, 2]
 
 
 def test_up_planner_can_group_accepted_recommended_edges(monkeypatch: pytest.MonkeyPatch) -> None:

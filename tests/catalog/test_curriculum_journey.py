@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from content_factory.catalog.pipeline.curriculum.brief_questions import question_key
 from content_factory.catalog.pipeline.curriculum.domain import PlanNode
 from content_factory.catalog.pipeline.curriculum.journey import (
     approve_curriculum_design_spec,
@@ -267,3 +268,51 @@ def test_changed_operational_dag_invalidates_previous_design_approval() -> None:
     assert changed.design_hash != accepted["design_hash"]
     assert changed.approved is False
     assert changed.ready is False
+
+
+def test_question_answers_are_versioned_in_design_and_close_blocker() -> None:
+    question = "Какая целевая аудитория программы?"
+    design = build_curriculum_design_spec(
+        {
+            "raw_text": question,
+            "curriculum_design_spec": {
+                "version": "curriculum-design:v3",
+                "question_answers": {
+                    question_key(question): "Junior-специалисты, запускающие первый продукт."
+                },
+            },
+        },
+        [_node("A", "Основы")],
+        {"order": [{"id": "A"}], "final_edges": []},
+    )
+
+    assert design.blocking_question_count == 0
+    assert design.brief_questions[0].status == "answered"
+    assert approve_curriculum_design_spec(design).readiness_state == "ready"
+    assert design.as_dict()["question_answers"] == {
+        question_key(question): "Junior-специалисты, запускающие первый продукт."
+    }
+    assert len(design.design_hash) == 64
+
+
+def test_legacy_design_reextracts_questions_with_current_parser() -> None:
+    raw_text = (
+        "Портрет участника: способен запускать продукт. "
+        "Какие дополнительные ресурсы нужны, чтобы создать и запустить продукт?"
+    )
+    design = build_curriculum_design_spec(
+        {
+            "raw_text": raw_text,
+            "curriculum_design_spec": {
+                "version": "curriculum-design:v3",
+                "open_questions": [raw_text],
+            },
+        },
+        [],
+        {},
+    )
+
+    assert design.version == "curriculum-design:v5"
+    assert design.open_questions == (
+        "Какие дополнительные ресурсы нужны, чтобы создать и запустить продукт?",
+    )

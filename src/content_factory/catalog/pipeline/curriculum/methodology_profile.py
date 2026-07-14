@@ -75,7 +75,8 @@ DIGITAL_PRODUCT_PROJECT_BASED_V2 = MethodologyProfile(
     single_skill_exempt_kinds=("lab",),
     capstone_policy="follow_design",
     publication_thresholds=PublicationThresholds(
-        required_policy_coverage_pct=100.0,
+        # Domain policy is diagnostic; universal readiness is enforced below.
+        required_policy_coverage_pct=0.0,
         single_skill_max_pct=25.0,
         required_activity_archetype_coverage_pct=100.0,
         required_artifact_contract_coverage_pct=100.0,

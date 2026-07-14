@@ -8,7 +8,9 @@ from the evidence to prevent a circular dependency with artifact-contract select
 
 from __future__ import annotations
 
+import hashlib
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from .domain import (
@@ -91,6 +93,8 @@ ARCHETYPE_ACTION_HINTS: tuple[tuple[ActivityArchetype, tuple[str, ...]], ...] = 
             "monitor",
             "maintain",
             "runbook",
+            "поддержк",
+            "обратн связ",
         ),
     ),
     (
@@ -107,6 +111,9 @@ ARCHETYPE_ACTION_HINTS: tuple[tuple[ActivityArchetype, tuple[str, ...]], ...] = 
             "prioritis",
             "justify",
             "select option",
+            "управленческ ритм",
+            "управленческ решен",
+            "governance",
         ),
     ),
     (
@@ -122,6 +129,8 @@ ARCHETYPE_ACTION_HINTS: tuple[tuple[ActivityArchetype, tuple[str, ...]], ...] = 
             "аудирован",
             "письменн",
             "демонстрац навыка",
+            "демонстрац результат",
+            "защит",
             "communicat",
             "present",
             "negotiat",
@@ -145,6 +154,15 @@ HIGH_MARGIN = 3
 MEDIUM_SCORE = 3
 MEDIUM_MARGIN = 2
 
+BRIEF_ARTIFACT_ARCHETYPES: dict[str, ActivityArchetype] = {
+    "analysis": "investigate",
+    "design": "design",
+    "configuration": "operate",
+    "production": "construct",
+    "document": "decide",
+}
+MANUAL_CLASSIFICATION_VERSION = "manual/v1"
+
 
 @dataclass(frozen=True)
 class ArchetypeResult:
@@ -165,6 +183,29 @@ def _norm(text: str) -> str:
 def _primary_nodes(project: ProjectBlueprint) -> list[PlanNode]:
     primary = [occurrence.node for occurrence in project.primary_occurrences]
     return primary or project.unique_nodes
+
+
+def activity_archetype_decision_key(project: ProjectBlueprint) -> str:
+    """Return a stable key for a versioned methodologist decision."""
+
+    return activity_archetype_decision_key_from_parts(
+        project_type=project.project_type,
+        artifact_family=project.artifact_family,
+        node_ids=[node.tmp_id for node in _primary_nodes(project)],
+    )
+
+
+def activity_archetype_decision_key_from_parts(
+    *,
+    project_type: object,
+    artifact_family: object,
+    node_ids: object,
+) -> str:
+    """Build the same decision key from a persisted UP row."""
+
+    ids = sorted(str(item) for item in node_ids) if isinstance(node_ids, list | tuple) else []
+    raw = "|".join((str(project_type), str(artifact_family), *ids))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
 
 
 def _matched_hints(text: str, hints: tuple[str, ...]) -> tuple[str, ...]:
@@ -208,19 +249,46 @@ def classify_activity_archetype(project: ProjectBlueprint) -> ArchetypeResult:
         return ArchetypeResult(None, None, "none", ("нет навыков в проекте",), tuple(modifiers))
 
     primary_nodes = _primary_nodes(project)
+    primary_ids = {node.tmp_id for node in primary_nodes}
     primary_text = _norm(" ".join(node.name for node in primary_nodes))
     outcome_text = _norm(
         " ".join(
             outcome
-            for node in nodes
+            for node in primary_nodes
             for outcome in (*node.outcomes_know, *node.outcomes_can, *node.outcomes_skills)
         )
     )
-    supporting_text = _norm(" ".join(node.name for node in nodes if node not in primary_nodes))
-    tools_text = _norm(" ".join(tool for node in nodes for tool in node.tools))
+    supporting_text = _norm(
+        " ".join(
+            occurrence.node.name
+            for occurrence in project.occurrences
+            if occurrence.node.tmp_id not in primary_ids and not occurrence.is_repeat
+        )
+    )
+    tools_text = _norm(" ".join(tool for node in primary_nodes for tool in node.tools))
     source_text = " ".join((primary_text, outcome_text, supporting_text))
     if _experiment_modifier(source_text):
         modifiers.append("experiment")
+
+    brief_template_archetype = None
+    if project.template_binding is not None and project.template_binding.source == "brief":
+        brief_template_archetype = BRIEF_ARTIFACT_ARCHETYPES.get(project.artifact_family)
+    if brief_template_archetype is not None:
+        return ArchetypeResult(
+            brief_template_archetype,
+            brief_template_archetype,
+            "high",
+            (f"brief-template artifact_family={project.artifact_family}",),
+            tuple(modifiers),
+        )
+    if project.project_kind == "capstone":
+        return ArchetypeResult(
+            "construct",
+            "construct",
+            "high",
+            ("capstone release contract",),
+            tuple(modifiers),
+        )
 
     tool_hints = dict(ARCHETYPE_TOOL_HINTS)
     bloom_priors = set(_bloom_priors(primary_nodes))
@@ -285,13 +353,34 @@ def classify_activity_archetype(project: ProjectBlueprint) -> ArchetypeResult:
     )
 
 
-def classify_activity_archetypes(blocks: list[CurriculumBlock]) -> None:
+def classify_activity_archetypes(
+    blocks: list[CurriculumBlock],
+    *,
+    confirmations: Mapping[str, str] | None = None,
+) -> None:
     """Populate the additive activity axis without touching legacy policy classification."""
+    accepted = confirmations or {}
+    allowed = {archetype for archetype, _hints in ARCHETYPE_ACTION_HINTS}
     for block in blocks:
         for project in block.projects:
+            decision_key = activity_archetype_decision_key(project)
+            project.activity_archetype_decision_key = decision_key
             if project.activity_archetype_source == "methodologist" and project.activity_archetype:
                 continue
             result = classify_activity_archetype(project)
+            confirmed = accepted.get(decision_key, "")
+            if confirmed in allowed:
+                project.activity_archetype = confirmed
+                project.activity_archetype_suggestion = confirmed
+                project.activity_archetype_confidence = "high"
+                project.activity_archetype_reasons = (
+                    "подтверждено методологом в batch-review",
+                    *result.reasons,
+                )
+                project.activity_archetype_modifiers = result.modifiers
+                project.activity_archetype_source = "methodologist"
+                project.activity_archetype_version = MANUAL_CLASSIFICATION_VERSION
+                continue
             project.activity_archetype = result.assigned or ""
             project.activity_archetype_suggestion = result.suggested or ""
             project.activity_archetype_confidence = result.confidence

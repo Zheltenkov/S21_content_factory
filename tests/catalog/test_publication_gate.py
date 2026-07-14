@@ -42,11 +42,10 @@ def test_v2_clean_metrics_pass() -> None:
     assert result.failures == ()
 
 
-def test_each_violation_blocks_under_v1() -> None:
+def test_each_universal_violation_blocks_under_v2() -> None:
     cases = [
         ("title_violation_count", 2, "title_violations"),
         ("generic_artifact_count", 1, "generic_artifacts"),
-        ("policy_area_coverage_pct", 80.0, "policy_area_incomplete"),
         ("testable_criteria_coverage_pct", 90.0, "untestable_criteria"),
         ("blocking_question_count", 3, "blocking_questions"),
     ]
@@ -54,6 +53,14 @@ def test_each_violation_blocks_under_v1() -> None:
         result = _gate({**_CLEAN, key: value})
         assert result.passed is False
         assert code in {failure.code for failure in result.failures}
+
+
+def test_domain_policy_is_report_only_in_v2_but_frozen_v1_still_gates_it() -> None:
+    metrics = {**_CLEAN, "policy_area_coverage_pct": 20.0}
+
+    assert evaluate_publication_gate(metrics, profile=DEFAULT_PROFILE).passed is True
+    legacy = evaluate_publication_gate(metrics, profile=DIGITAL_PRODUCT_PROJECT_BASED_V1)
+    assert "policy_area_incomplete" in {failure.code for failure in legacy.failures}
 
 
 def test_labs_exempt_from_single_skill_via_profile() -> None:

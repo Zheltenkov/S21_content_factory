@@ -18,6 +18,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from content_factory.catalog.db import CatalogConnection
 from content_factory.catalog.pipeline import storage as intake_storage
+from content_factory.catalog.pipeline.curriculum.archetype_classification import (
+    activity_archetype_decision_key_from_parts,
+)
 from content_factory.catalog.viewer._common import parse_optional_float
 from content_factory.catalog.viewer.curriculum_ops import (
     cleanup_empty_curriculum_plans,
@@ -31,7 +34,11 @@ from content_factory.catalog.viewer.curriculum_ops import (
     parse_scope_names,
     update_curriculum_plan_row,
 )
-from content_factory.catalog.viewer.intake_dag import build_curriculum_plan_for_brief
+from content_factory.catalog.viewer.intake_dag import (
+    approve_brief_curriculum_design,
+    build_curriculum_plan_for_brief,
+    save_brief_curriculum_methodology_decisions,
+)
 from content_factory.catalog.viewer.intake_runtime import ensure_intake_runtime_schema
 from content_factory.catalog.viewer.ui_constants import ARTIFACT_FAMILY_OPTIONS, ARTIFACT_SCOPE_TYPE_OPTIONS
 from content_factory.catalog.web.deps import catalog_db_path, get_conn
@@ -112,6 +119,83 @@ def up_plan_delete(plan_id: int, conn: CatalogConnection = Depends(get_conn)) ->
     ensure_intake_runtime_schema(conn, catalog_db_path())
     delete_curriculum_plan(conn, plan_id)
     return _redirect_synced("/up")
+
+
+@router.post("/up/plans/{plan_id}/methodology")
+async def up_plan_methodology_post(
+    plan_id: int,
+    request: Request,
+    conn: CatalogConnection = Depends(get_conn),
+) -> RedirectResponse:
+    """Persist compact batch decisions, re-approve the design, and rebuild the UP."""
+
+    ensure_intake_runtime_schema(conn, catalog_db_path())
+    plan = _require_plan(conn, plan_id)
+    brief_id = int(plan.get("brief_id") or 0)
+    if not brief_id:
+        raise HTTPException(status_code=404, detail="Curriculum plan has no brief")
+    form = await _form(request)
+    action = form.get("action", "")
+    question_answers: dict[str, str] = {}
+    archetype_confirmations: dict[str, str] = {}
+
+    if action == "confirm_archetypes":
+        rows_by_number = {
+            int(row.get("row_number", 0) or 0): row
+            for row in plan.get("rows", [])
+            if isinstance(row, dict)
+        }
+        for field, value in form.items():
+            if not field.startswith("archetype_") or not value:
+                continue
+            try:
+                row_number = int(field.removeprefix("archetype_"))
+            except ValueError:
+                continue
+            row = rows_by_number.get(row_number)
+            if row is None:
+                continue
+            decision_key = str(row.get("activity_archetype_decision_key") or "")
+            if not decision_key:
+                decision_key = activity_archetype_decision_key_from_parts(
+                    project_type=row.get("project_type", ""),
+                    artifact_family=row.get("artifact_family", ""),
+                    node_ids=row.get("primary_node_ids") or row.get("node_ids", []),
+                )
+            archetype_confirmations[decision_key] = value
+    elif action == "answer_questions":
+        raw_design = plan.get("design_spec")
+        design = raw_design if isinstance(raw_design, dict) else {}
+        valid_question_keys = {
+            str(question.get("key") or "")
+            for question in design.get("brief_questions", [])
+            if isinstance(question, dict)
+        }
+        question_answers = {
+            field.removeprefix("question_"): value.strip()
+            for field, value in form.items()
+            if field.startswith("question_")
+            and field.removeprefix("question_") in valid_question_keys
+            and value.strip()
+        }
+    else:
+        raise HTTPException(status_code=400, detail="Unknown methodology action")
+
+    if not question_answers and not archetype_confirmations:
+        raise HTTPException(status_code=400, detail="No methodology decisions supplied")
+    try:
+        save_brief_curriculum_methodology_decisions(
+            conn,
+            brief_id,
+            question_answers=question_answers,
+            activity_archetype_confirmations=archetype_confirmations,
+        )
+        approve_brief_curriculum_design(conn, brief_id)
+        rebuilt = build_curriculum_plan_for_brief(conn, brief_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    rebuilt_plan_id = int(rebuilt.get("plan_id") or plan_id)
+    return _redirect_synced(f"/up/plans/{rebuilt_plan_id}#methodology-review")
 
 
 @router.get("/up/plans/{plan_id}/csv")

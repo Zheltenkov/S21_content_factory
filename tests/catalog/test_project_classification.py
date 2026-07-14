@@ -68,6 +68,38 @@ def test_primary_skill_wins_over_supporting() -> None:
     assert result.area == "monetization"
 
 
+def test_repeat_skill_cannot_override_primary_project_semantics() -> None:
+    project = ProjectBlueprint(
+        occurrences=[
+            SkillOccurrence(
+                node=_node("Позиционирование продукта и подготовка лендинга"),
+                role="primary",
+            ),
+            SkillOccurrence(
+                node=_node("Развёртывание сервиса и мониторинг"),
+                role="reinforcement",
+                touch_index=2,
+            ),
+        ],
+        block_key="Маркетинг",
+        artifact="Лендинг и отчёт теста канала",
+        artifact_family="production",
+    )
+
+    result = classify_policy_area(project)
+
+    assert result.area == "marketing_sales"
+    assert "разверт" not in result.rationale
+
+
+def test_short_ai_token_does_not_match_inside_russian_word() -> None:
+    result = classify_policy_area(
+        _project([_node("Выводы об исследовании аудитории", group="Исследование клиента")])
+    )
+
+    assert result.area != "ai_automation"
+
+
 def test_project_type_lab_project_capstone() -> None:
     assert classify_project_type(_project([_node("SQL")])) == "lab"
     assert classify_project_type(_project([_node("SQL"), _node("REST")])) == "project"
