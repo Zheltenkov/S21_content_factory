@@ -501,12 +501,15 @@ async def register(
                 detail="Имя пользователя уже занято"
             )
 
-    # Создаем пользователя
+    # Создаем пользователя. Роль по умолчанию — из env, чтобы пилот мог выдавать всем
+    # регистрирующимся права admin (редактирование каталога) без правки кода; по умолчанию
+    # "user". Откат — сменить DEFAULT_REGISTER_ROLE и перезапустить, без редеплоя.
     user = User(
         email=email,
         username=register_data.username,
         hashed_password=User.hash_password(register_data.password),
-        is_active=True
+        is_active=True,
+        role=os.getenv("DEFAULT_REGISTER_ROLE", "user"),
     )
 
     db.add(user)
