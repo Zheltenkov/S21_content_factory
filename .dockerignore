@@ -1,0 +1,17 @@
+.venv/
+.git/
+.gitnexus/
+node_modules/
+**/__pycache__/
+**/*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+tests/
+reports/
+uploads/
+artifacts/
+*.log
+.env
+.env.*
+!.env.example
