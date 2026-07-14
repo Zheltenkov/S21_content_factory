@@ -331,7 +331,18 @@ def build_curriculum_plan_payload_from_rows(
             "policy_area_confidence",
             "policy_area_rationale",
             "policy_area_source",
+            "activity_archetype",
+            "activity_archetype_suggestion",
+            "activity_archetype_confidence",
+            "activity_archetype_reasons",
+            "activity_archetype_modifiers",
+            "activity_archetype_source",
+            "activity_archetype_version",
             "template_binding",
+            "artifact_contract",
+            "artifact_contract_sources",
+            "artifact_slot_sources",
+            "artifact_merge_diagnostics",
         ):
             if transient_key in payload_row and transient_key not in row:
                 row[transient_key] = payload_row[transient_key]

@@ -63,3 +63,18 @@ def test_readpath_unknown_version_blocks_publish_not_draft() -> None:
     gate = built["report"]["publication_gate"]
     assert gate["passed"] is False
     assert any(f["code"] == "methodology_profile_unavailable" for f in gate["failures"])
+
+
+def test_readpath_v2_keeps_unresolved_plan_editable_but_not_publishable() -> None:
+    meta = _plan_meta({"profile_id": "digital_product_project_based", "version": "2"})
+
+    built = build_curriculum_plan_payload_from_rows(meta, _ROWS)
+
+    assert built["rows"]
+    assert built["report"]["methodology_profile_status"] == "resolved"
+    gate = built["report"]["publication_gate"]
+    assert gate["passed"] is False
+    assert {failure["code"] for failure in gate["failures"]} >= {
+        "activity_archetype_incomplete",
+        "artifact_contract_incomplete",
+    }

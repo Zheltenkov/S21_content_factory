@@ -76,6 +76,23 @@ def _non_exempt_single_skill_pct(metrics: dict, profile: MethodologyProfile) -> 
     return round(non_exempt / project_count * 100, 1)
 
 
+def _count_map(metrics: dict, key: str) -> dict[str, int]:
+    """Normalize a report-only count map without trusting persisted payload types."""
+    raw = metrics.get(key)
+    if not isinstance(raw, dict):
+        return {}
+    normalized: dict[str, int] = {}
+    for item, count in raw.items():
+        name = str(item or "").strip()
+        if not name:
+            continue
+        try:
+            normalized[name] = max(0, int(count or 0))
+        except (TypeError, ValueError):
+            normalized[name] = 0
+    return normalized
+
+
 def _candidate_failures(metrics: dict, profile: MethodologyProfile) -> list[GateFailure]:
     failures: list[GateFailure] = []
     thresholds = profile.publication_thresholds
@@ -99,6 +116,53 @@ def _candidate_failures(metrics: dict, profile: MethodologyProfile) -> list[Gate
     coverage = _num(metrics, "policy_area_coverage_pct", 100)
     if coverage < thresholds.required_policy_coverage_pct:
         add("policy_area_incomplete", "Не все проекты классифицированы по policy-области", coverage, thresholds.required_policy_coverage_pct)
+
+    archetype_coverage = _num(metrics, "activity_archetype_coverage_pct")
+    if archetype_coverage < thresholds.required_activity_archetype_coverage_pct:
+        add(
+            "activity_archetype_incomplete",
+            "Не для всех проектов подтверждён способ учебной деятельности",
+            archetype_coverage,
+            thresholds.required_activity_archetype_coverage_pct,
+        )
+
+    allowed_archetypes = set(profile.allowed_activity_archetypes)
+    if allowed_archetypes:
+        archetype_counts = _count_map(metrics, "activity_archetype_count_by_type")
+        unsupported = {
+            archetype: count
+            for archetype, count in archetype_counts.items()
+            if archetype not in allowed_archetypes and count > 0
+        }
+        unsupported_count = sum(unsupported.values())
+        if unsupported_count:
+            labels = ", ".join(sorted(unsupported))
+            add(
+                "activity_archetype_not_allowed",
+                f"Профиль не допускает архетипы: {labels}",
+                unsupported_count,
+                0,
+            )
+
+    contract_coverage = _num(metrics, "artifact_contract_coverage_pct")
+    if contract_coverage < thresholds.required_artifact_contract_coverage_pct:
+        add(
+            "artifact_contract_incomplete",
+            "Не для всех проектов собран проверяемый контракт артефакта",
+            contract_coverage,
+            thresholds.required_artifact_contract_coverage_pct,
+        )
+
+    merge_error_count = _num(metrics, "artifact_merge_error_count")
+    max_merge_errors = thresholds.max_artifact_merge_error_count
+    if max_merge_errors is not None and merge_error_count > max_merge_errors:
+        add(
+            "artifact_contract_merge_errors",
+            "При сборке контрактов артефактов остались неразрешённые конфликты",
+            merge_error_count,
+            max_merge_errors,
+        )
+
     single_skill_pct = _non_exempt_single_skill_pct(metrics, profile)
     if single_skill_pct > thresholds.single_skill_max_pct:
         add("single_skill_excess", "Доля однонавыковых проектов выше допустимой профилем", single_skill_pct, thresholds.single_skill_max_pct)

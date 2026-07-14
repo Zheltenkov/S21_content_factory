@@ -49,6 +49,8 @@ def is_generic_artifact(artifact: str) -> bool:
 def is_generic_criterion(criterion: str) -> bool:
     """True when the assessment criterion is the generic fallback (not project-specific)."""
     text = str(criterion or "")
+    if "→" in text:
+        return False
     return all(marker in text for marker in _GENERIC_CRITERION_MARKERS)
 
 
@@ -60,8 +62,6 @@ def is_testable_criterion(criterion: str) -> bool:
     NOT counted as testable — being non-generic is not the same as being checkable.
     """
     text = str(criterion or "")
-    if is_generic_criterion(text):
-        return False
     return "→" in text
 
 
@@ -103,6 +103,16 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "unclassified_policy_area_count": 0,
             "policy_area_coverage_pct": 0.0,
             "low_confidence_classification_count": 0,
+            "activity_archetype_coverage_pct": 0.0,
+            "activity_archetype_unclassified_count": 0,
+            "activity_archetype_ambiguous_count": 0,
+            "activity_archetype_count_by_type": {},
+            "activity_modifier_count_by_type": {},
+            "artifact_contract_coverage_pct": 0.0,
+            "artifact_contract_unresolved_count": 0,
+            "artifact_merge_warning_count": 0,
+            "artifact_merge_error_count": 0,
+            "artifact_contract_source_count_by_type": {},
         }
     title_violation_count = sum(
         1
@@ -134,6 +144,47 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         if str(row.get("policy_area_source") or "auto") == "auto"
         and str(row.get("policy_area_confidence") or "") in {"low", "none"}
     )
+    activity_archetype_count_by_type: dict[str, int] = {}
+    activity_modifier_count_by_type: dict[str, int] = {}
+    activity_archetype_unclassified_count = 0
+    activity_archetype_ambiguous_count = 0
+    artifact_contract_count = 0
+    artifact_merge_warning_count = 0
+    artifact_merge_error_count = 0
+    artifact_contract_source_count_by_type: dict[str, int] = {}
+    for row in rows:
+        archetype = str(row.get("activity_archetype") or "").strip()
+        suggestion = str(row.get("activity_archetype_suggestion") or "").strip()
+        if archetype:
+            activity_archetype_count_by_type[archetype] = activity_archetype_count_by_type.get(archetype, 0) + 1
+        else:
+            activity_archetype_unclassified_count += 1
+            if suggestion:
+                activity_archetype_ambiguous_count += 1
+        modifiers = row.get("activity_archetype_modifiers") or []
+        if isinstance(modifiers, (list, tuple)):
+            for modifier in modifiers:
+                key = str(modifier or "").strip()
+                if key:
+                    activity_modifier_count_by_type[key] = activity_modifier_count_by_type.get(key, 0) + 1
+        if isinstance(row.get("artifact_contract"), dict) and row.get("artifact_contract"):
+            artifact_contract_count += 1
+        sources = row.get("artifact_contract_sources") or []
+        if isinstance(sources, (list, tuple)):
+            for source in sources:
+                key = str(source or "").strip()
+                if key:
+                    artifact_contract_source_count_by_type[key] = (
+                        artifact_contract_source_count_by_type.get(key, 0) + 1
+                    )
+        diagnostics = row.get("artifact_merge_diagnostics") or []
+        if isinstance(diagnostics, list):
+            for diagnostic in diagnostics:
+                if not isinstance(diagnostic, dict):
+                    continue
+                severity = str(diagnostic.get("severity") or "").strip()
+                artifact_merge_warning_count += int(severity == "warning")
+                artifact_merge_error_count += int(severity == "error")
     return {
         "title_violation_count": title_violation_count,
         "generic_artifact_count": generic_artifact_count,
@@ -151,4 +202,17 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
             (project_count - unclassified_policy_area_count) / project_count * 100, 1
         ),
         "low_confidence_classification_count": low_confidence_classification_count,
+        "activity_archetype_coverage_pct": round(
+            (project_count - activity_archetype_unclassified_count) / project_count * 100,
+            1,
+        ),
+        "activity_archetype_unclassified_count": activity_archetype_unclassified_count,
+        "activity_archetype_ambiguous_count": activity_archetype_ambiguous_count,
+        "activity_archetype_count_by_type": activity_archetype_count_by_type,
+        "activity_modifier_count_by_type": activity_modifier_count_by_type,
+        "artifact_contract_coverage_pct": round(artifact_contract_count / project_count * 100, 1),
+        "artifact_contract_unresolved_count": project_count - artifact_contract_count,
+        "artifact_merge_warning_count": artifact_merge_warning_count,
+        "artifact_merge_error_count": artifact_merge_error_count,
+        "artifact_contract_source_count_by_type": artifact_contract_source_count_by_type,
     }

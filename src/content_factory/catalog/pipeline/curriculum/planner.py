@@ -14,6 +14,7 @@ from typing import Any
 import networkx as nx
 
 from .. import config
+from .archetype_classification import classify_activity_archetypes
 from .artifact_policy import apply_artifact_contracts
 from .domain import (
     BloomBucket,
@@ -27,6 +28,7 @@ from .domain import (
 )
 from .edge_policy import CurriculumEdgeRole, curriculum_edge_role
 from .journey import CurriculumDesignSpec, build_curriculum_design_spec
+from .methodology_profile import MethodologyProfile
 from .project_classification import classify_projects
 from .title_policy import apply_title_policy
 
@@ -1063,6 +1065,8 @@ def build_curriculum_blocks(
     dag_payload: dict[str, Any],
     artifact_templates: list[dict[str, Any]] | None = None,
     planning_context: dict[str, Any] | None = None,
+    *,
+    profile: MethodologyProfile,
 ) -> tuple[list[CurriculumBlock], dict[str, Any]]:
     """Build project blocks and return planner metadata."""
     journey_enabled = bool((planning_context or {}).get("must_include_areas") or (planning_context or {}).get("curriculum_design_spec"))
@@ -1071,7 +1075,8 @@ def build_curriculum_blocks(
     core_threads = _select_core_threads(nodes, dag_payload)
     repeated_threads = _add_spiral_occurrences(blocks, nodes, dag_payload)
     classify_projects(blocks)
-    apply_artifact_contracts(blocks)
+    classify_activity_archetypes(blocks)
+    apply_artifact_contracts(blocks, profile=profile)
     apply_title_policy(blocks)
     meta = {
         **artifact_meta,

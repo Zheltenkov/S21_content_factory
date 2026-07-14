@@ -1,22 +1,27 @@
-"""Artifact policy registry + Capstone contract (contract epic, slice 4).
+"""Profile-specific artifact policy registry and compatibility facade.
 
 The deterministic methodical floor per policy area (from the review's artifact matrix): what
 must be produced, what proves it, and how it is accepted. Keyed by the ``policy_area`` set
 in slice 3. This is a code registry, not a prompt — the LLM may reword deliverables for the
 project theme but cannot replace a runnable result with a schema.
 
-Applied as a post-grouping pass: a classified project's generic artifact/criteria fallback
-is replaced with the policy-backed contract; an unclassified project (``policy_area == ""``)
-gets no contract and keeps its generic fallback (draft-only, flagged), never a silent
-substitution. Template-provided enrichment is left untouched (that is slice 6's concern).
-
-Pure leaf: depends only on the domain dataclasses + the generic detector.
+The registry is the domain-specific profile layer. Universal assessment requirements live
+in ``artifact_skeletons`` and the explicit slot merge lives in ``artifact_composition``.
 """
 
 from __future__ import annotations
 
+from .artifact_composition import (
+    compose_project_artifact,
+)
+from .artifact_composition import (
+    render_acceptance_text as render_acceptance_text,
+)
+from .artifact_composition import (
+    render_artifact_line as render_artifact_line,
+)
 from .domain import AcceptanceCriterion, ArtifactContract, CurriculumBlock, ProjectBlueprint
-from .project_quality import is_generic_artifact
+from .methodology_profile import MethodologyProfile
 
 
 def _ac(subject: str, check: str, expected: str, evidence: str, *, mode: str = "manual") -> AcceptanceCriterion:
@@ -130,51 +135,34 @@ POLICY_REGISTRY: dict[str, ArtifactContract] = {
     ),
 }
 
-
-def build_artifact_contract(project: ProjectBlueprint) -> ArtifactContract | None:
-    """Return the policy contract for a classified project, or None when unclassified."""
-    return POLICY_REGISTRY.get(project.policy_area or "")
-
-
-def render_artifact_line(contract: ArtifactContract) -> str:
-    """A specific, policy-backed artifact description replacing the generic fallback."""
-    deliverables = ", ".join(contract.deliverables)
-    evidence = ", ".join(contract.evidence_requirements)
-    line = f"Проект сдаётся как {deliverables}"
-    if evidence:
-        line += f"; доказательство: {evidence}"
-    return line
+PROFILE_POLICY_SETS: dict[str, dict[str, ArtifactContract]] = {
+    "digital-product-project/v1": POLICY_REGISTRY,
+}
 
 
-def render_acceptance_text(contract: ArtifactContract) -> str:
-    """Render the acceptance criteria as a checkable, project-specific criteria block."""
-    lines = ["Критерии приёмки:"]
-    for criterion in contract.acceptance_criteria:
-        mode = "авто" if criterion.verification_mode == "automatic" else "ручная проверка"
-        lines.append(
-            f"- {criterion.subject}: {criterion.check} → {criterion.expected_result} "
-            f"({criterion.evidence_type}, {mode})"
-        )
-    return "\n".join(lines)
+def build_artifact_contract(
+    project: ProjectBlueprint,
+    *,
+    profile: MethodologyProfile,
+) -> ArtifactContract | None:
+    """Return the project policy contract selected by the resolved methodology profile."""
+    policy_set = PROFILE_POLICY_SETS.get(profile.artifact_policy_set)
+    if policy_set is None:
+        return None
+    return policy_set.get(project.policy_area or "")
 
 
-def apply_artifact_contracts(blocks: list[CurriculumBlock]) -> None:
-    """Attach policy contracts and enforce the methodical floor for classified projects.
-
-    For a classified project the acceptance criteria ALWAYS come from the policy contract —
-    the methodical minimum, even over a template's (possibly weaker) themed criteria (P0-5).
-    The artifact description is replaced when it is the generic fallback, and ALWAYS for the
-    capstone, whose production contract (MVP / release / demo) must apply regardless of the
-    stale "интеграционный артефакт" text (P0-3). Themed template artifacts for non-capstone
-    projects are kept. Unclassified projects (no contract) are left untouched.
-    """
+def apply_artifact_contracts(
+    blocks: list[CurriculumBlock],
+    *,
+    profile: MethodologyProfile,
+) -> None:
+    """Compose template, profile, activity skeleton and draft layers for every project."""
+    policy_set_available = profile.artifact_policy_set in PROFILE_POLICY_SETS
     for block in blocks:
         for project in block.projects:
-            contract = build_artifact_contract(project)
-            project.artifact_contract = contract
-            if contract is None:
-                continue
-            if project.policy_area == "capstone" or is_generic_artifact(project.artifact):
-                project.artifact = render_artifact_line(contract)
-            # Methodical floor: acceptance criteria are authoritative from the policy contract.
-            project.enrichment["validation_criteria"] = render_acceptance_text(contract)
+            compose_project_artifact(
+                project,
+                profile_contract=build_artifact_contract(project, profile=profile),
+                profile_policy_set_available=policy_set_available,
+            )

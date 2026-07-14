@@ -55,6 +55,14 @@
 {% set quality = plan.report.quality_metrics if plan.report and plan.report.quality_metrics else none %}
 {% set gate = plan.report.publication_gate if plan.report and plan.report.publication_gate else none %}
 {% set design = plan.design_spec if plan.design_spec else none %}
+{% set archetype_labels = {
+    "investigate": "Исследование",
+    "design": "Проектирование",
+    "construct": "Создание",
+    "operate": "Эксплуатация",
+    "decide": "Принятие решений",
+    "perform": "Выполнение и коммуникация"
+} %}
 {% if gate %}
 <section class="filter-panel" aria-label="Готовность к публикации">
     <div class="summary-head">
@@ -175,6 +183,16 @@
             <div class="summary-label">Артефактов / критериев</div>
             <div class="summary-value">{{ quality.artifact_field_count or 0 }} / {{ quality.validation_criteria_count or 0 }}</div>
         </div>
+        <div class="summary-card{% if quality.activity_archetype_unclassified_count %} summary-card-warn{% endif %}">
+            <div class="summary-label">Тип практики определён</div>
+            <div class="summary-value">{{ quality.activity_archetype_coverage_pct or 0 }}%</div>
+            <div class="small muted">не определено {{ quality.activity_archetype_unclassified_count or 0 }}, предложено {{ quality.activity_archetype_ambiguous_count or 0 }}</div>
+        </div>
+        <div class="summary-card{% if quality.artifact_contract_unresolved_count or quality.artifact_merge_error_count %} summary-card-warn{% endif %}">
+            <div class="summary-label">Контракты артефактов</div>
+            <div class="summary-value">{{ quality.artifact_contract_coverage_pct or 0 }}%</div>
+            <div class="small muted">без контракта {{ quality.artifact_contract_unresolved_count or 0 }}, предупреждений {{ quality.artifact_merge_warning_count or 0 }}</div>
+        </div>
     </section>
     <p class="small muted">
         Цель по плотности skills: {{ quality.target_skills_per_project|join("–") if quality.target_skills_per_project else "—" }} на проект.
@@ -241,6 +259,19 @@
                     {% if row.artifact %}
                     <div class="up-enrichment-note"><strong>Артефакт:</strong> {{ row.artifact }}</div>
                     {% endif %}
+                    {% if row.activity_archetype or row.activity_archetype_suggestion %}
+                    {% set shown_archetype = row.activity_archetype or row.activity_archetype_suggestion %}
+                    <div class="up-enrichment-note" title="{{ row.activity_archetype_reasons|join('; ') if row.activity_archetype_reasons else '' }}">
+                        <strong>Тип практики:</strong> {{ archetype_labels.get(shown_archetype, shown_archetype) }}
+                        {% if not row.activity_archetype %}<span class="small muted">предложение · {{ row.activity_archetype_confidence }}</span>{% endif %}
+                        {% if row.activity_archetype_modifiers %}<span class="small muted">· {{ row.activity_archetype_modifiers|join(', ') }}</span>{% endif %}
+                    </div>
+                    {% endif %}
+                    {% for diagnostic in row.artifact_merge_diagnostics or [] if diagnostic.severity != "info" %}
+                    <div class="up-enrichment-note" title="{{ diagnostic.code }} · {{ diagnostic.sources|join(', ') }}">
+                        <strong>Контракт:</strong> {{ diagnostic.resolution }}
+                    </div>
+                    {% endfor %}
                 </td>
                 <td class="small">{{ row.outcomes_know or "—" }}</td>
                 <td class="small">{{ row.outcomes_can or "—" }}</td>

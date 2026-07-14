@@ -1187,7 +1187,7 @@ def test_up_row_enricher_fills_fields_without_changing_node_ids(monkeypatch: pyt
     assert row["project_name"]
     assert row["project_summary"]
     assert row["storytelling"]
-    assert "Критерии проверки" in row["materials"]
+    assert "Критерии приёмки" in row["materials"]
     assert row["validation_criteria"]
     assert plan["report"]["quality_metrics"]["enriched_project_count"] == len(plan["rows"])
     assert plan["report"]["quality_metrics"]["enrichment_completeness_pct"] == 100.0

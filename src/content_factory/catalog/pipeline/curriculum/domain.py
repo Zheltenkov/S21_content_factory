@@ -7,6 +7,18 @@ from typing import Literal
 
 OccurrenceRole = Literal["primary", "supporting", "reinforcement", "assessment"]
 BloomBucket = Literal["know", "can", "skills"]
+ActivityArchetype = Literal["investigate", "design", "construct", "operate", "decide", "perform"]
+ActivityModifier = Literal["experiment", "integrative"]
+ArchetypeConfidence = Literal["high", "medium", "low", "none"]
+ArchetypeSource = Literal["auto", "methodologist"]
+ArtifactContractSource = Literal[
+    "brief_template",
+    "global_template",
+    "profile",
+    "archetype_skeleton",
+    "draft",
+]
+ArtifactDiagnosticSeverity = Literal["info", "warning", "error"]
 
 
 @dataclass(frozen=True)
@@ -68,8 +80,20 @@ class ProjectBlueprint:
     policy_area_confidence: str = ""
     policy_area_rationale: str = ""
     policy_area_source: str = "auto"
+    # Additive assessment axis. Low/medium-confidence classifications keep a suggestion
+    # while the assigned archetype stays empty for explicit methodologist review.
+    activity_archetype: ActivityArchetype | Literal[""] = ""
+    activity_archetype_suggestion: ActivityArchetype | Literal[""] = ""
+    activity_archetype_confidence: ArchetypeConfidence = "none"
+    activity_archetype_reasons: tuple[str, ...] = ()
+    activity_archetype_modifiers: tuple[ActivityModifier, ...] = ()
+    activity_archetype_source: ArchetypeSource = "auto"
+    activity_archetype_version: str = ""
     # Artifact policy contract from the registry (slice 4); None when unclassified.
     artifact_contract: ArtifactContract | None = None
+    artifact_contract_sources: tuple[ArtifactContractSource, ...] = ()
+    artifact_slot_sources: dict[str, tuple[ArtifactContractSource, ...]] = field(default_factory=dict)
+    artifact_merge_diagnostics: tuple[ArtifactMergeDiagnostic, ...] = ()
     # Durable binding to the artifact template the project was built from (slice 6a);
     # None when the project uses the policy artifact rather than a template.
     template_binding: TemplateBinding | None = None
@@ -146,6 +170,8 @@ class ArtifactContract:
     acceptance_criteria: tuple[AcceptanceCriterion, ...]
     execution_environment: str = ""
     publication_constraints: tuple[str, ...] = ()
+    activity_archetype: str = ""
+    composition_version: str = ""
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -156,6 +182,28 @@ class ArtifactContract:
             "acceptance_criteria": [criterion.as_dict() for criterion in self.acceptance_criteria],
             "execution_environment": self.execution_environment,
             "publication_constraints": list(self.publication_constraints),
+            "activity_archetype": self.activity_archetype,
+            "composition_version": self.composition_version,
+        }
+
+
+@dataclass(frozen=True)
+class ArtifactMergeDiagnostic:
+    """One explainable decision or conflict produced while composing artifact slots."""
+
+    code: str
+    severity: ArtifactDiagnosticSeverity
+    slot: str
+    sources: tuple[ArtifactContractSource, ...]
+    resolution: str
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "code": self.code,
+            "severity": self.severity,
+            "slot": self.slot,
+            "sources": list(self.sources),
+            "resolution": self.resolution,
         }
 
 

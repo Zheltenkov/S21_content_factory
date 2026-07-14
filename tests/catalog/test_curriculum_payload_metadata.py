@@ -9,6 +9,29 @@ def test_payload_metadata_restores_artifact_before_enrichment_metrics() -> None:
         "artifact": "Проверяемый прототип",
         "project_content_type": "hard_code",
         "content_profile_decision": {"profile": "hard_code", "source": "project_signals"},
+        "activity_archetype": "",
+        "activity_archetype_suggestion": "investigate",
+        "activity_archetype_confidence": "medium",
+        "activity_archetype_reasons": ["результаты: анализ", "score=5; margin=2"],
+        "activity_archetype_modifiers": ["experiment"],
+        "activity_archetype_source": "auto",
+        "activity_archetype_version": "activity-archetype/v1",
+        "artifact_contract": {
+            "artifact_type": "evidence_report",
+            "policy_area": "",
+            "activity_archetype": "investigate",
+        },
+        "artifact_contract_sources": ["archetype_skeleton"],
+        "artifact_slot_sources": {"artifact": ["archetype_skeleton"]},
+        "artifact_merge_diagnostics": [
+            {
+                "code": "activity_skeleton_unavailable",
+                "severity": "warning",
+                "slot": "contract",
+                "sources": ["archetype_skeleton"],
+                "resolution": "Требуется методолог.",
+            }
+        ],
     }
     db_row = {
         "id": 10,
@@ -32,4 +55,12 @@ def test_payload_metadata_restores_artifact_before_enrichment_metrics() -> None:
 
     assert payload["rows"][0]["artifact"] == "Проверяемый прототип"
     assert payload["rows"][0]["project_content_type"] == "hard_code"
+    assert payload["rows"][0]["activity_archetype_suggestion"] == "investigate"
+    assert payload["rows"][0]["activity_archetype_modifiers"] == ["experiment"]
+    assert payload["rows"][0]["activity_archetype_version"] == "activity-archetype/v1"
+    assert payload["rows"][0]["artifact_contract"]["artifact_type"] == "evidence_report"
+    assert payload["rows"][0]["artifact_contract_sources"] == ["archetype_skeleton"]
+    assert payload["rows"][0]["artifact_merge_diagnostics"][0]["severity"] == "warning"
+    assert payload["report"]["quality_metrics"]["artifact_contract_coverage_pct"] == 100.0
+    assert payload["report"]["quality_metrics"]["artifact_merge_warning_count"] == 1
     assert payload["report"]["quality_metrics"]["enrichment_completeness_pct"] == 100.0

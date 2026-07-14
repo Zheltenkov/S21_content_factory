@@ -58,6 +58,40 @@ def test_low_confidence_classification_metric() -> None:
     assert metrics["policy_area_coverage_pct"] == round(1 / 3 * 100, 1)
 
 
+def test_activity_archetype_metrics_are_report_only_facts() -> None:
+    rows = [
+        {
+            "project_name": "A",
+            "node_ids": ["a", "b"],
+            "activity_archetype": "construct",
+            "activity_archetype_suggestion": "construct",
+            "activity_archetype_modifiers": ["integrative"],
+        },
+        {
+            "project_name": "B",
+            "node_ids": ["c", "d"],
+            "activity_archetype": "",
+            "activity_archetype_suggestion": "investigate",
+            "activity_archetype_modifiers": ["experiment"],
+        },
+        {
+            "project_name": "C",
+            "node_ids": ["e", "f"],
+            "activity_archetype": "",
+            "activity_archetype_suggestion": "",
+            "activity_archetype_modifiers": [],
+        },
+    ]
+
+    metrics = report_only_quality_metrics(rows)
+
+    assert metrics["activity_archetype_coverage_pct"] == round(1 / 3 * 100, 1)
+    assert metrics["activity_archetype_unclassified_count"] == 2
+    assert metrics["activity_archetype_ambiguous_count"] == 1
+    assert metrics["activity_archetype_count_by_type"] == {"construct": 1}
+    assert metrics["activity_modifier_count_by_type"] == {"integrative": 1, "experiment": 1}
+
+
 def test_title_violations_flags_long_and_wordy() -> None:
     assert title_violations("Прототип продукта с AI") == ()
     assert "too_long" in title_violations("П" * 80)
@@ -77,12 +111,15 @@ def test_is_generic_criterion_matches_assessment_fallback() -> None:
     )
     assert is_generic_criterion(generic)
     assert not is_generic_criterion("Workflow запускается на контрольном входе и сохраняет результат.")
+    assert not is_generic_criterion(generic + "\n- запуск: проверен → получен результат")
+    assert is_testable_criterion(generic + "\n- запуск: проверен → получен результат")
 
 
 def test_report_only_metrics_empty() -> None:
     metrics = report_only_quality_metrics([])
     assert metrics["title_violation_count"] == 0
     assert metrics["single_skill_project_pct"] == 0.0
+    assert metrics["artifact_contract_coverage_pct"] == 0.0
 
 
 def test_report_only_metrics_counts() -> None:
@@ -93,6 +130,11 @@ def test_report_only_metrics_counts() -> None:
             # structurally testable: a check → expected result with evidence
             "validation_criteria": "- workflow: запускается на контрольном входе → сохраняет результат (журнал, ручная проверка)",
             "node_ids": ["a", "b"],
+            "artifact_contract": {"artifact_type": "working_implementation"},
+            "artifact_contract_sources": ["profile", "archetype_skeleton"],
+            "artifact_merge_diagnostics": [
+                {"code": "refined", "severity": "info"},
+            ],
         },
         {
             "project_name": "П" * 90,  # long title violation
@@ -102,6 +144,9 @@ def test_report_only_metrics_counts() -> None:
                 "результат можно проверить по заявленным ЗУН."
             ),  # generic criterion
             "node_ids": ["c"],  # single skill
+            "artifact_merge_diagnostics": [
+                {"code": "unresolved", "severity": "warning"},
+            ],
         },
     ]
     metrics = report_only_quality_metrics(rows)
@@ -110,3 +155,10 @@ def test_report_only_metrics_counts() -> None:
     assert metrics["generic_criterion_count"] == 1
     assert metrics["single_skill_project_pct"] == 50.0
     assert metrics["testable_criteria_coverage_pct"] == 50.0
+    assert metrics["artifact_contract_coverage_pct"] == 50.0
+    assert metrics["artifact_contract_unresolved_count"] == 1
+    assert metrics["artifact_merge_warning_count"] == 1
+    assert metrics["artifact_contract_source_count_by_type"] == {
+        "profile": 1,
+        "archetype_skeleton": 1,
+    }

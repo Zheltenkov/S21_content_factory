@@ -602,11 +602,26 @@ def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, Any] | None) -> 
                 "artifact_family": project.artifact_family,
                 "artifact_template_code": project.artifact_template_code,
                 "template_binding": project.template_binding.as_dict() if project.template_binding else None,
+                "artifact_contract": project.artifact_contract.as_dict() if project.artifact_contract else None,
+                "artifact_contract_sources": list(project.artifact_contract_sources),
+                "artifact_slot_sources": {
+                    slot: list(sources) for slot, sources in project.artifact_slot_sources.items()
+                },
+                "artifact_merge_diagnostics": [
+                    diagnostic.as_dict() for diagnostic in project.artifact_merge_diagnostics
+                ],
                 "project_type": project.project_type,
                 "policy_area": project.policy_area,
                 "policy_area_confidence": project.policy_area_confidence,
                 "policy_area_rationale": project.policy_area_rationale,
                 "policy_area_source": project.policy_area_source,
+                "activity_archetype": project.activity_archetype,
+                "activity_archetype_suggestion": project.activity_archetype_suggestion,
+                "activity_archetype_confidence": project.activity_archetype_confidence,
+                "activity_archetype_reasons": list(project.activity_archetype_reasons),
+                "activity_archetype_modifiers": list(project.activity_archetype_modifiers),
+                "activity_archetype_source": project.activity_archetype_source,
+                "activity_archetype_version": project.activity_archetype_version,
                 "audience_level": _audience_label(spec),
                 "required_tools": required_tools,
                 "materials": "",
@@ -829,7 +844,13 @@ def run(
     artifact_templates = (spec or {}).get("artifact_templates")
     if not isinstance(artifact_templates, list):
         artifact_templates = []
-    blocks, planner_meta = build_curriculum_blocks(nodes, dag_payload, artifact_templates, planning_context=spec)
+    blocks, planner_meta = build_curriculum_blocks(
+        nodes,
+        dag_payload,
+        artifact_templates,
+        planning_context=spec,
+        profile=profile,
+    )
     rows = _format_rows(blocks, spec)
     total_hours = sum(float(row.get("effort_hours", 0) or 0) for row in rows)
     total_days = sum(float(row.get("effort_days", 0) or 0) for row in rows)

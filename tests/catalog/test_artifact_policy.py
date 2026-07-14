@@ -14,6 +14,7 @@ from content_factory.catalog.pipeline.curriculum.domain import (
     ProjectBlueprint,
     SkillOccurrence,
 )
+from content_factory.catalog.pipeline.curriculum.methodology_profile import DEFAULT_PROFILE
 from content_factory.catalog.pipeline.curriculum.project_quality import (
     is_generic_artifact,
     is_generic_criterion,
@@ -43,8 +44,8 @@ def test_every_policy_area_has_criteria_with_evidence() -> None:
 
 
 def test_build_contract_none_when_unclassified() -> None:
-    assert build_artifact_contract(_project("", "x")) is None
-    assert build_artifact_contract(_project("ai_automation", "x")) is not None
+    assert build_artifact_contract(_project("", "x"), profile=DEFAULT_PROFILE) is None
+    assert build_artifact_contract(_project("ai_automation", "x"), profile=DEFAULT_PROFILE) is not None
 
 
 def test_apply_replaces_generic_for_classified_keeps_unclassified() -> None:
@@ -53,7 +54,7 @@ def test_apply_replaces_generic_for_classified_keeps_unclassified() -> None:
     unclassified = _project("", generic)
     block = CurriculumBlock(block_keys=("b",), projects=[classified, unclassified])
 
-    apply_artifact_contracts([block])
+    apply_artifact_contracts([block], profile=DEFAULT_PROFILE)
 
     # classified: contract attached, generic artifact + criteria replaced with policy-backed
     assert classified.artifact_contract is not None
@@ -69,7 +70,10 @@ def test_policy_criteria_override_template_as_methodical_floor() -> None:
     # authoritative even over a template's themed (possibly weaker) criteria.
     proj = _project("ai_automation", "Проверяемый артефакт (практика) по навыку «X»")
     proj.enrichment["validation_criteria"] = "Тематический критерий из шаблона"
-    apply_artifact_contracts([CurriculumBlock(block_keys=("b",), projects=[proj])])
+    apply_artifact_contracts(
+        [CurriculumBlock(block_keys=("b",), projects=[proj])],
+        profile=DEFAULT_PROFILE,
+    )
     assert proj.enrichment["validation_criteria"] != "Тематический критерий из шаблона"
     assert "Критерии приёмки" in proj.enrichment["validation_criteria"]
 
@@ -77,7 +81,10 @@ def test_policy_criteria_override_template_as_methodical_floor() -> None:
 def test_capstone_artifact_always_replaced_with_contract() -> None:
     # P0-3: the capstone production contract must apply even over a non-generic stale artifact.
     cap = _project("capstone", "Итоговый интеграционный артефакт по программе")
-    apply_artifact_contracts([CurriculumBlock(block_keys=("b",), projects=[cap])])
+    apply_artifact_contracts(
+        [CurriculumBlock(block_keys=("b",), projects=[cap])],
+        profile=DEFAULT_PROFILE,
+    )
     assert cap.artifact_contract is not None
     assert "интеграционный артефакт" not in cap.artifact.casefold()
     assert "MVP" in cap.artifact or "demo" in cap.artifact.casefold()
