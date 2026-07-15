@@ -592,7 +592,14 @@ class PracticeNodeService:
                 *list(practice_warnings or []),
                 *(["Нарушен контракт количества практических задач."] if task_count_mismatch else []),
                 *(["Практика содержит нерешённые hard-ошибки."] if hard_practice_issues else []),
-                *(["PracticeCritic оставил нерешённые критические замечания."] if critical_critic_issues else []),
+                *(
+                    [
+                        "PracticeCritic оставил нерешённые критические замечания: "
+                        + (self._describe_critic_issues(practice_critic_issues) or "детали не переданы критиком")
+                    ]
+                    if critical_critic_issues
+                    else []
+                ),
             ],
             status=(
                 "error"
@@ -615,13 +622,43 @@ class PracticeNodeService:
         return int(value) if value is not None else None
 
     @staticmethod
-    def _has_blocking_critic_issues(issues: list[Any]) -> bool:
+    def _blocking_critic_issues(issues: list[Any]) -> list[Any]:
         blocking = {"critical", "hard", "error"}
+        found: list[Any] = []
         for issue in issues:
             severity = issue.get("severity") if isinstance(issue, dict) else getattr(issue, "severity", None)
             if str(severity or "").strip().lower() in blocking:
-                return True
-        return False
+                found.append(issue)
+        return found
+
+    @classmethod
+    def _has_blocking_critic_issues(cls, issues: list[Any]) -> bool:
+        return bool(cls._blocking_critic_issues(issues))
+
+    @classmethod
+    def _describe_critic_issues(cls, issues: list[Any]) -> str:
+        """Render the critic's blocking findings into the failure text.
+
+        Without this the run reports only "found N findings": the methodologist is told the
+        practice is unacceptable but not what is wrong, and the findings die with the run.
+        """
+        parts: list[str] = []
+        for issue in cls._blocking_critic_issues(issues):
+            if isinstance(issue, dict):
+                message, suggestion, index = issue.get("message"), issue.get("suggestion"), issue.get("task_index")
+            else:
+                message = getattr(issue, "message", None)
+                suggestion = getattr(issue, "suggestion", None)
+                index = getattr(issue, "task_index", None)
+            text = str(message or "").strip()
+            if not text:
+                continue
+            if index:
+                text = f"задача {index}: {text}"
+            if str(suggestion or "").strip():
+                text = f"{text} → {str(suggestion).strip()}"
+            parts.append(text)
+        return "; ".join(parts)
 
     def _hydrate_contracts(self, flow_context: dict[str, Any]) -> None:
         flow_context.setdefault("story_map_contract", _runtime_attr(self.runtime_state, "story_map_contract", None))

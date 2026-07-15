@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -117,9 +119,23 @@ class CurriculumInsights:
         return asdict(self)
 
 
+def _track_slug(track: str) -> str:
+    """Filesystem-safe, length-capped cache key for a track name.
+
+    A track can be a whole UP stage title ("маркетинг ...: позиционирование, ... → продажи ...").
+    Used raw it blew past the 255-byte filename limit (OSError 36) and carried ':' and '/', which
+    are illegal or path-splitting depending on the OS — the cache write failed and generation
+    silently degraded to a fallback practice plan. Keep a readable prefix, then a digest of the
+    FULL name so distinct tracks can never collide after truncation.
+    """
+    cleaned = re.sub(r"[^\w-]+", "-", track, flags=re.UNICODE).strip("-")
+    digest = hashlib.sha256(track.encode("utf-8")).hexdigest()[:12]
+    return f"{cleaned[:60]}-{digest}" if cleaned else digest
+
+
 def _graph_path(track: str) -> Path:
     GRAPH_DIR.mkdir(parents=True, exist_ok=True)
-    return GRAPH_DIR / f"{track}_curriculum.json"
+    return GRAPH_DIR / f"{_track_slug(track)}_curriculum.json"
 
 
 def save_graph(graph: CurriculumGraph) -> None:
