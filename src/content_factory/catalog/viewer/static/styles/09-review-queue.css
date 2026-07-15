@@ -240,19 +240,39 @@
 .review-pipeline-form {
     display: grid;
     align-items: end;
-    grid-template-columns: minmax(320px, 1fr) 460px;
+    gap: 12px;
+    /* Button column sizes to its label instead of a fixed 460px slab: the select keeps the
+       rest of the row, so a long brief title stays readable instead of being squeezed. */
+    grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .review-pipeline-form label {
     min-width: 0;
 }
 
-.review-pipeline-form .action-btn {
+.review-pipeline-form select {
     width: 100%;
+    text-overflow: ellipsis;
+}
+
+.review-pipeline-form .action-btn {
+    width: auto;
     min-height: 42px;
+    padding-inline: 20px;
     justify-content: center;
     text-align: center;
-    white-space: normal;
+    white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+    .review-pipeline-form {
+        grid-template-columns: 1fr;
+    }
+
+    .review-pipeline-form .action-btn {
+        width: 100%;
+        white-space: normal;
+    }
 }
 
 .action-btn.is-disabled,

@@ -67,7 +67,7 @@
 <section class="filter-panel review-pipeline-actions">
     <form class="filter-form review-pipeline-form" method="post" action="{{ base }}/reviews/apply-catalog">
         <label>
-            <span>Применение принятых навыков в справочник</span>
+            <span>Шаг 1 · Применение принятых навыков в справочник</span>
             <select name="brief_id">
                 {% for option in dag_build_options %}
                 <option value="{{ option.brief_id }}">
@@ -83,7 +83,7 @@
     </form>
     <form class="filter-form review-pipeline-form" method="post" action="{{ base }}/reviews/build-dag">
         <label>
-            <span>Построение DAG по брифу</span>
+            <span>Шаг 2 · Построение DAG по брифу — сюда же после подтверждения связей</span>
             <select name="brief_id">
                 {% for option in dag_build_options %}
                 <option value="{{ option.brief_id }}">
@@ -95,7 +95,7 @@
                 {% endfor %}
             </select>
         </label>
-        <button type="submit" class="action-btn action-btn-primary">Построить граф из принятого</button>
+        <button type="submit" class="action-btn action-btn-secondary">Построить граф из принятого</button>
     </form>
 </section>
 {% endif %}
