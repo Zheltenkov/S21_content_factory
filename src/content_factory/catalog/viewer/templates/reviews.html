@@ -65,25 +65,13 @@
 
 {% if dag_build_options %}
 <section class="filter-panel review-pipeline-actions">
-    <form class="filter-form review-pipeline-form" method="post" action="{{ base }}/reviews/apply-catalog">
-        <label>
-            <span>Шаг 1 · Применение принятых навыков в справочник</span>
-            <select name="brief_id">
-                {% for option in dag_build_options %}
-                <option value="{{ option.brief_id }}">
-                    #{{ option.brief_id }}
-                    {% if option.role %} · {{ option.role }}{% endif %}
-                    · принято {{ option.accepted_atomic_count }}
-                    · открыто в проверке {{ option.open_review_count }}
-                </option>
-                {% endfor %}
-            </select>
-        </label>
-        <button type="submit" class="action-btn action-btn-primary">Применить в справочник и набор навыков</button>
-    </form>
+    {# Applying skills to the catalog deliberately WIPES this brief's edge decisions (so newly
+       applied skills get fresh AI edge proposals). Offering it here — on the page where those
+       decisions are made — silently destroyed the methodologist's work. It lives in the
+       constructor instead, where it is sequenced as step 1 before edges are reviewed at all. #}
     <form class="filter-form review-pipeline-form" method="post" action="{{ base }}/reviews/build-dag">
         <label>
-            <span>Шаг 2 · Построение DAG по брифу — сюда же после подтверждения связей</span>
+            <span>Пересобрать граф по брифу — после того как разобрали связи</span>
             <select name="brief_id">
                 {% for option in dag_build_options %}
                 <option value="{{ option.brief_id }}">
@@ -95,8 +83,12 @@
                 {% endfor %}
             </select>
         </label>
-        <button type="submit" class="action-btn action-btn-secondary">Построить граф из принятого</button>
+        <button type="submit" class="action-btn action-btn-primary">Построить граф из принятого</button>
     </form>
+    <p class="small muted">
+        Применение навыков в справочник живёт в конструкторе — оно сбрасывает решения по связям,
+        поэтому после их разбора сюда возвращаться не нужно.
+    </p>
 </section>
 {% endif %}
 

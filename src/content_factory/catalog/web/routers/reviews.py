@@ -1,8 +1,8 @@
 """Review queue UI served by the native FastAPI catalog router.
 
 GET renders the same ``reviews.html`` as the legacy viewer; POST updates a review
-status (PRG, preserving the active filters in the redirect) and the two brief-level
-actions (build-dag / apply-catalog) that jump to the resulting intake job.
+status (PRG, preserving the active filters in the redirect) and rebuilds the brief's DAG
+(build-dag), jumping to the resulting intake job.
 """
 
 from __future__ import annotations
@@ -11,7 +11,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from content_factory.catalog.db import CatalogConnection
-from content_factory.catalog.viewer.intake_catalog_apply import apply_brief_catalog_decisions
 from content_factory.catalog.viewer.intake_dag import build_dag_for_brief, list_dag_build_options
 from content_factory.catalog.viewer.intake_reviews import (
     list_reviews,
@@ -111,17 +110,7 @@ async def reviews_build_dag(request: Request, conn: CatalogConnection = Depends(
     return _redirect("/reviews")
 
 
-@router.post("/reviews/apply-catalog")
-async def reviews_apply_catalog(request: Request, conn: CatalogConnection = Depends(get_conn)) -> RedirectResponse:
-    ensure_intake_runtime_schema(conn, catalog_db_path())
-    form = await _form(request)
-    try:
-        brief_id = int(form.get("brief_id", "0"))
-    except ValueError:
-        raise HTTPException(status_code=404, detail="Invalid brief id") from None
-    apply_result = apply_brief_catalog_decisions(conn, brief_id)
-    dag_state = apply_result.get("dag_state") if isinstance(apply_result, dict) else None
-    latest_job_id = dag_state.get("latest_job_id") if isinstance(dag_state, dict) else None
-    if latest_job_id:
-        return RedirectResponse(f"/app/curriculum?job_id={latest_job_id}", status_code=303)
-    return _redirect("/reviews")
+# NOTE: there is deliberately no apply-catalog action here. Applying skills resets this brief's
+# prerequisite-edge decisions (see apply_brief_catalog_decisions), so exposing it on the edge-review
+# page silently destroyed the reviews the methodologist had just made. The constructor owns that
+# step: POST /app/curriculum/jobs/{job_id}/apply-catalog, sequenced before edge review.
