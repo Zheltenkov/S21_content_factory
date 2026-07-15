@@ -136,7 +136,9 @@ def _build_blockers(snapshot: BuilderSnapshot) -> list[BuilderBlocker]:
                 action=_design_review_action(snapshot),
             )
         )
-    if snapshot.dag_valid and snapshot.template_open > 0:
+    # Gate on a ready design: up_builder.html renders #template-review only then, so offering
+    # this before the design is accepted would point the methodologist at a dead anchor.
+    if snapshot.dag_valid and snapshot.template_open > 0 and snapshot.design_spec and snapshot.design_spec.ready:
         blockers.append(
             BuilderBlocker(
                 title="Шаблоны УП требуют решения",

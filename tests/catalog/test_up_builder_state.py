@@ -398,3 +398,40 @@ def test_builder_requires_design_approval_after_valid_dag() -> None:
     assert state.stages[4].label == "Каркас"
     assert state.stages[4].status == "active"
     assert state.blockers[0].title == "Каркас программы требует решения"
+
+
+def test_template_blocker_waits_for_a_ready_design() -> None:
+    """A template blocker before the design is ready would link to a section that does not render.
+
+    up_builder.html only renders ``#template-review`` when the design is ready, so offering
+    "Проверить шаблоны УП" while required areas are uncovered gives the methodologist a dead button.
+    """
+
+    blocked_design = CurriculumDesignSpec(
+        journey_type="professional_workflow",
+        program_goal="Освоить процесс",
+        stages=(CurriculumStageSpec("stage-01", "Основы", "Освоить основы", ("Основы",), ("S1",)),),
+        capstone_required=False,
+        capstone_title="Итоговый проект",
+        approved=True,
+        uncovered_required_areas=("определение границ MVP и продуктовая приоритизация",),
+    )
+
+    state = derive_curriculum_builder_state(
+        BuilderSnapshot(
+            brief_id=6,
+            latest_job_id=14,
+            total_suggestions=2,
+            accepted_atomic_count=2,
+            catalog_applied=True,
+            dag_nodes=2,
+            dag_order_count=2,
+            template_total=10,
+            template_open=10,
+            design_spec=blocked_design,
+        )
+    )
+
+    titles = [blocker.title for blocker in state.blockers]
+    assert "Шаблоны УП требуют решения" not in titles
+    assert "Каркас программы требует решения" in titles
