@@ -453,8 +453,18 @@ def load_brief_spec_for_plan(conn: CatalogConnection, brief_id: int) -> dict[str
     return spec
 
 
-def approve_brief_curriculum_design(conn: CatalogConnection, brief_id: int) -> dict[str, Any]:
-    """Persist an immutable journey snapshot outside the standard UP document."""
+def approve_brief_curriculum_design(
+    conn: CatalogConnection,
+    brief_id: int,
+    *,
+    acknowledge_uncovered: bool = False,
+) -> dict[str, Any]:
+    """Persist an immutable journey snapshot outside the standard UP document.
+
+    ``acknowledge_uncovered`` lets the methodologist accept a design whose required areas are
+    not all covered by accepted skills — a deliberate, recorded gap instead of a dead end.
+    Publication stays blocked by the gate, which keeps counting those areas.
+    """
 
     from content_factory.catalog.viewer.intake_reviews import count_open_prerequisite_edge_reviews_for_brief
 
@@ -492,10 +502,10 @@ def approve_brief_curriculum_design(conn: CatalogConnection, brief_id: int) -> d
     candidates, _ = load_accepted_skill_candidates(conn, brief_id)
     nodes = stage_dag_to_up.build_plan_nodes(candidates)
     design = build_curriculum_design_spec(load_brief_spec_for_plan(conn, brief_id), nodes, dag_payload)
-    if design.uncovered_required_areas:
+    if design.uncovered_required_areas and not acknowledge_uncovered:
         missing = ", ".join(design.uncovered_required_areas)
         raise ValueError(f"Required coverage areas are not assigned to accepted skills: {missing}")
-    accepted = approve_curriculum_design_spec(design).as_dict()
+    accepted = approve_curriculum_design_spec(design, acknowledge_uncovered=acknowledge_uncovered).as_dict()
     metadata = _load_json_object(brief["metadata_json"])
     metadata["curriculum_design_spec"] = accepted
     conn.execute(

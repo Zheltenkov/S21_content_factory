@@ -72,7 +72,7 @@ def _build_stages(snapshot: BuilderSnapshot) -> list[BuilderStage]:
         design_status = "pending"
     elif snapshot.design_spec and snapshot.design_spec.ready:
         design_status = "done"
-    elif snapshot.design_spec and snapshot.design_spec.uncovered_required_areas:
+    elif snapshot.design_spec and snapshot.design_spec.blocking_uncovered_areas:
         design_status = "warn"
     elif snapshot.dag_valid and snapshot.design_spec:
         design_status = "active"
@@ -123,9 +123,9 @@ def _build_blockers(snapshot: BuilderSnapshot) -> list[BuilderBlocker]:
             )
         )
     if snapshot.dag_valid and snapshot.design_spec and not snapshot.design_spec.ready:
-        if snapshot.design_spec.uncovered_required_areas:
+        if snapshot.design_spec.blocking_uncovered_areas:
             description = "Не покрыты обязательные области: " + ", ".join(
-                snapshot.design_spec.uncovered_required_areas
+                snapshot.design_spec.blocking_uncovered_areas
             )
         else:
             description = "Проверьте этапы, итоговый проект и открытые вопросы брифа, затем примите каркас."
@@ -353,8 +353,8 @@ def _dag_stage_description(snapshot: BuilderSnapshot) -> str:
 def _design_stage_description(snapshot: BuilderSnapshot) -> str:
     if snapshot.design_spec and snapshot.design_spec.ready:
         return f"этапов {len(snapshot.design_spec.stages)}"
-    if snapshot.design_spec and snapshot.design_spec.uncovered_required_areas:
-        return f"не покрыто {len(snapshot.design_spec.uncovered_required_areas)}"
+    if snapshot.design_spec and snapshot.design_spec.blocking_uncovered_areas:
+        return f"не покрыто {len(snapshot.design_spec.blocking_uncovered_areas)}"
     if snapshot.design_spec:
         return "нужно принять"
     return "после DAG"

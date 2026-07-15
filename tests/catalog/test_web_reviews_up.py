@@ -303,14 +303,26 @@ def test_curriculum_builder_approves_program_design_inside_constructor(
     monkeypatch.setattr(
         curriculum_builder,
         "approve_brief_curriculum_design",
-        lambda _conn, brief_id: approved.append(brief_id) or {"approved": True},
+        lambda _conn, brief_id, acknowledge_uncovered=False: approved.append((brief_id, acknowledge_uncovered))
+        or {"approved": True},
     )
 
     response = client.post("/app/curriculum/briefs/7/design/approve", follow_redirects=False)
 
     assert response.status_code == 303
     assert response.headers["location"] == "/app/curriculum?brief_id=7#program-design"
-    assert approved == [7]
+    # Plain approve must NOT silently acknowledge uncovered areas — that needs the explicit field.
+    assert approved == [(7, False)]
+
+    approved.clear()
+    acknowledged = client.post(
+        "/app/curriculum/briefs/7/design/approve",
+        data={"acknowledge_uncovered": "1"},
+        follow_redirects=False,
+    )
+
+    assert acknowledged.status_code == 303
+    assert approved == [(7, True)]
 
 
 def test_up_cleanup_empty_redirects(client: TestClient) -> None:

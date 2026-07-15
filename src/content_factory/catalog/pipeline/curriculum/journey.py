@@ -90,6 +90,10 @@ class CurriculumDesignSpec:
     dag_fingerprint: str = ""
     open_questions: tuple[str, ...] = ()
     uncovered_required_areas: tuple[str, ...] = ()
+    # Areas the methodologist explicitly accepted as a known gap. Kept SEPARATE from
+    # ``uncovered_required_areas`` on purpose: the gap stays a recorded fact (the publication
+    # gate keeps counting it), the acknowledgement only unblocks the draft path.
+    acknowledged_uncovered_areas: tuple[str, ...] = ()
     dag_adjustments: tuple[str, ...] = ()
     question_answers: tuple[tuple[str, str], ...] = ()
     activity_archetype_confirmations: tuple[tuple[str, str], ...] = ()
@@ -113,8 +117,14 @@ class CurriculumDesignSpec:
         }.get(self.journey_type, self.journey_type)
 
     @property
+    def blocking_uncovered_areas(self) -> tuple[str, ...]:
+        """Uncovered areas the methodologist has NOT explicitly accepted as a gap."""
+        acknowledged = {_normalize(area) for area in self.acknowledged_uncovered_areas}
+        return tuple(area for area in self.uncovered_required_areas if _normalize(area) not in acknowledged)
+
+    @property
     def ready(self) -> bool:
-        return self.approved and not self.uncovered_required_areas
+        return self.approved and not self.blocking_uncovered_areas
 
     @property
     def design_hash(self) -> str:
@@ -128,6 +138,7 @@ class CurriculumDesignSpec:
             "dag_fingerprint": self.dag_fingerprint,
             "open_questions": list(self.open_questions),
             "uncovered_required_areas": list(self.uncovered_required_areas),
+            "acknowledged_uncovered_areas": list(self.acknowledged_uncovered_areas),
             "dag_adjustments": list(self.dag_adjustments),
         }
         if self.version != "curriculum-design:v2":
@@ -149,7 +160,7 @@ class CurriculumDesignSpec:
 
     @property
     def readiness_state(self) -> str:
-        if self.uncovered_required_areas:
+        if self.blocking_uncovered_areas:
             return "blocked"
         if not self.approved:
             return "needs_review"
@@ -174,6 +185,8 @@ class CurriculumDesignSpec:
             "brief_questions": [question.as_dict() for question in self.brief_questions],
             "blocking_question_count": self.blocking_question_count,
             "uncovered_required_areas": list(self.uncovered_required_areas),
+            "acknowledged_uncovered_areas": list(self.acknowledged_uncovered_areas),
+            "blocking_uncovered_areas": list(self.blocking_uncovered_areas),
             "dag_adjustments": list(self.dag_adjustments),
             "question_answers": dict(self.question_answers),
             "activity_archetype_confirmations": dict(
@@ -215,6 +228,13 @@ def build_curriculum_design_spec(
         _normalize(area) for area in required_areas if any(_areas_match(area, node.block_key) for node in node_list)
     }
     uncovered = tuple(area for area in required_areas if _normalize(area) not in covered_areas)
+    # Rehydrate the methodologist's gap acknowledgements, but only for areas that are STILL
+    # uncovered: one accepted for an area that later got a skill (or left the brief) is moot,
+    # and a newly uncovered area must be decided again rather than inherit an old blanket pass.
+    previously_acknowledged = {
+        _normalize(area) for area in _text_list(accepted_spec.get("acknowledged_uncovered_areas"))
+    }
+    acknowledged_uncovered = tuple(area for area in uncovered if _normalize(area) in previously_acknowledged)
     accepted_version = _text(accepted_spec.get("version"))
     if accepted_version == DESIGN_SPEC_VERSION:
         open_questions = tuple(_text_list(accepted_spec.get("open_questions"))) or _extract_open_questions(raw_text)
@@ -239,6 +259,7 @@ def build_curriculum_design_spec(
         dag_fingerprint=_dag_fingerprint(dag_payload or {}),
         open_questions=open_questions,
         uncovered_required_areas=uncovered,
+        acknowledged_uncovered_areas=acknowledged_uncovered,
         dag_adjustments=adjustments,
         question_answers=question_answers,
         activity_archetype_confirmations=archetype_confirmations,
@@ -252,9 +273,20 @@ def build_curriculum_design_spec(
     return draft
 
 
-def approve_curriculum_design_spec(spec: CurriculumDesignSpec) -> CurriculumDesignSpec:
-    """Return an immutable accepted snapshot for persistence in brief metadata."""
+def approve_curriculum_design_spec(
+    spec: CurriculumDesignSpec,
+    *,
+    acknowledge_uncovered: bool = False,
+) -> CurriculumDesignSpec:
+    """Return an immutable accepted snapshot for persistence in brief metadata.
 
+    ``acknowledge_uncovered`` records that the methodologist knowingly accepts the currently
+    uncovered required areas. That unblocks the draft path only — the areas stay listed in
+    ``uncovered_required_areas``, so the publication gate keeps refusing to publish them.
+    """
+
+    if acknowledge_uncovered:
+        return replace(spec, approved=True, acknowledged_uncovered_areas=spec.uncovered_required_areas)
     return replace(spec, approved=True)
 
 

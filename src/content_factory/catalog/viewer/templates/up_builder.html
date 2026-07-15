@@ -459,10 +459,24 @@
                 {% endif %}
             </div>
 
-            {% if design.uncovered_required_areas %}
+            {% if design.blocking_uncovered_areas %}
             <div class="builder-design-warning">
-                <strong>Каркас нельзя принять</strong>
-                <span>Не покрыты принятыми skills: {{ design.uncovered_required_areas|join(", ") }}.</span>
+                <strong>Не покрыты обязательные области</strong>
+                <span>Нет принятых навыков под: {{ design.blocking_uncovered_areas|join(", ") }}.</span>
+                <p class="small">Закройте область навыком — либо примите каркас с осознанным пробелом:
+                    решение будет записано, работа над УП продолжится, но <strong>опубликовать</strong> УП
+                    с непокрытой областью проверка всё равно не даст.</p>
+                <form method="post" action="/app/curriculum/briefs/{{ builder.snapshot.brief_id }}/design/approve">
+                    <input type="hidden" name="acknowledge_uncovered" value="1">
+                    <button type="submit" class="action-btn action-btn-secondary">Принять каркас с незакрытой областью</button>
+                </form>
+            </div>
+            {% endif %}
+
+            {% if design.acknowledged_uncovered_areas %}
+            <div class="builder-design-warning">
+                <strong>Приняты как осознанный пробел</strong>
+                <span>{{ design.acknowledged_uncovered_areas|join(", ") }}. Публикация УП останется заблокированной, пока области не закрыты.</span>
             </div>
             {% endif %}
 
@@ -475,7 +489,7 @@
             </details>
             {% endif %}
 
-            {% if not design.ready and not design.uncovered_required_areas %}
+            {% if not design.ready and not design.blocking_uncovered_areas %}
             <form class="builder-design-approval" method="post" action="/app/curriculum/briefs/{{ builder.snapshot.brief_id }}/design/approve">
                 <p class="small">Принятие фиксирует этот каркас отдельно от документа УП. Открытые вопросы сохранятся как контекст методолога.</p>
                 <button type="submit" class="action-btn action-btn-primary">Принять каркас программы</button>

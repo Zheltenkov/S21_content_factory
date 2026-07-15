@@ -316,3 +316,95 @@ def test_legacy_design_reextracts_questions_with_current_parser() -> None:
     assert design.open_questions == (
         "Какие дополнительные ресурсы нужны, чтобы создать и запустить продукт?",
     )
+
+
+def test_acknowledged_gap_unblocks_the_design_but_keeps_the_gap_recorded() -> None:
+    """Методолог осознанно принимает каркас с незакрытой областью.
+
+    Раньше это был тупик: форма приёма пряталась, а закрыть область было нечем. Теперь
+    решение методолога снимает блок draft-пути, но сам факт пробела НЕ стирается.
+    """
+    design = build_curriculum_design_spec(
+        {"must_include_areas": ["Сбор данных", "Визуализация", "Публикация"]},
+        [_node("S1", "Сбор данных"), _node("S2", "Визуализация")],
+        {"order": [{"id": "S1"}, {"id": "S2"}], "final_edges": []},
+    )
+
+    accepted = approve_curriculum_design_spec(design, acknowledge_uncovered=True)
+
+    assert accepted.ready is True
+    assert accepted.acknowledged_uncovered_areas == ("Публикация",)
+    assert accepted.uncovered_required_areas == ("Публикация",)
+    assert accepted.readiness_state != "blocked"
+    assert accepted.as_dict()["acknowledged_uncovered_areas"] == ["Публикация"]
+
+
+def test_acknowledged_gap_still_blocks_publication() -> None:
+    """Инвариант: осознанный пробел открывает draft, но НЕ публикацию.
+
+    stage_dag_to_up считает метрику из design_spec["uncovered_required_areas"], поэтому она
+    обязана остаться заполненной после подтверждения.
+    """
+    from content_factory.catalog.pipeline.curriculum.methodology_profile import DEFAULT_PROFILE
+    from content_factory.catalog.pipeline.curriculum.publication_gate import evaluate_publication_gate
+
+    design = build_curriculum_design_spec(
+        {"must_include_areas": ["Сбор данных", "Публикация"]},
+        [_node("S1", "Сбор данных")],
+        {"order": [{"id": "S1"}], "final_edges": []},
+    )
+    accepted = approve_curriculum_design_spec(design, acknowledge_uncovered=True)
+
+    metrics = {"uncovered_required_area_count": len(accepted.as_dict()["uncovered_required_areas"])}
+    result = evaluate_publication_gate(metrics, profile=DEFAULT_PROFILE)
+
+    assert result.passed is False
+    assert "required_areas_uncovered" in {failure.code for failure in result.failures}
+
+
+def test_acknowledgement_survives_rebuild_and_drops_once_the_area_is_covered() -> None:
+    design = build_curriculum_design_spec(
+        {"must_include_areas": ["Сбор данных", "Публикация"]},
+        [_node("S1", "Сбор данных")],
+        {"order": [{"id": "S1"}], "final_edges": []},
+    )
+    accepted = approve_curriculum_design_spec(design, acknowledge_uncovered=True)
+    stored = {"must_include_areas": ["Сбор данных", "Публикация"], "curriculum_design_spec": accepted.as_dict()}
+
+    rebuilt = build_curriculum_design_spec(
+        stored, [_node("S1", "Сбор данных")], {"order": [{"id": "S1"}], "final_edges": []}
+    )
+    assert rebuilt.acknowledged_uncovered_areas == ("Публикация",)
+    assert rebuilt.ready is True
+
+    covered = build_curriculum_design_spec(
+        stored,
+        [_node("S1", "Сбор данных"), _node("S2", "Публикация")],
+        {"order": [{"id": "S1"}, {"id": "S2"}], "final_edges": []},
+    )
+    assert covered.uncovered_required_areas == ()
+    assert covered.acknowledged_uncovered_areas == ()
+
+
+def test_a_new_uncovered_area_still_blocks_despite_an_older_acknowledgement() -> None:
+    """Подтверждение точечное: оно не выдаёт индульгенцию будущим пробелам."""
+    design = build_curriculum_design_spec(
+        {"must_include_areas": ["Сбор данных", "Публикация"]},
+        [_node("S1", "Сбор данных")],
+        {"order": [{"id": "S1"}], "final_edges": []},
+    )
+    accepted = approve_curriculum_design_spec(design, acknowledge_uncovered=True)
+
+    widened = build_curriculum_design_spec(
+        {
+            "must_include_areas": ["Сбор данных", "Публикация", "Тестирование"],
+            "curriculum_design_spec": accepted.as_dict(),
+        },
+        [_node("S1", "Сбор данных")],
+        {"order": [{"id": "S1"}], "final_edges": []},
+    )
+
+    assert "Тестирование" in widened.uncovered_required_areas
+    assert widened.acknowledged_uncovered_areas == ("Публикация",)
+    assert widened.blocking_uncovered_areas == ("Тестирование",)
+    assert widened.ready is False

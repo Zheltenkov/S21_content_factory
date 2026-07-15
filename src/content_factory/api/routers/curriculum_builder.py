@@ -247,15 +247,22 @@ def curriculum_builder_build_dag(job_id: int, conn: CatalogConnection = Depends(
 
 
 @router.post("/app/curriculum/briefs/{brief_id}/design/approve")
-def curriculum_builder_approve_design(
+async def curriculum_builder_approve_design(
     brief_id: int,
+    request: Request,
     conn: CatalogConnection = Depends(get_conn),
 ) -> RedirectResponse:
-    """Accept the journey contract before template review and final UP assembly."""
+    """Accept the journey contract before template review and final UP assembly.
+
+    Posting ``acknowledge_uncovered`` accepts a design with required areas still uncovered as a
+    deliberate, recorded gap — otherwise an uncovered area is a hard 409 and the UP cannot move on.
+    """
 
     ensure_intake_runtime_schema(conn, catalog_db_path())
+    fields = await form_fields(request)
+    acknowledge = fields.get("acknowledge_uncovered", "") == "1"
     try:
-        approve_brief_curriculum_design(conn, brief_id)
+        approve_brief_curriculum_design(conn, brief_id, acknowledge_uncovered=acknowledge)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return _redirect_curriculum(brief_id=brief_id, anchor="#program-design")
