@@ -54,6 +54,14 @@ _UI_STATES: dict[str, Any] = {}
 _UI_REPORTS: dict[str, Any] = {}
 _UI_LOCK = Lock()
 
+# Branch runs (a branch = an archive whose entries are projects). Kept process-local like the
+# single-run UI: the BranchReport for the summary, the per-project AuditReport objects for the
+# full-report drill-down, and the work dir to reclaim on eviction. _UI_LOCK guards all three.
+_BRANCH_RUNS: dict[str, Any] = {}
+_BRANCH_REPORTS: dict[str, dict[int, Any]] = {}
+_BRANCH_WORK_DIRS: dict[str, Path] = {}
+_MAX_BRANCH_RUNS = 10
+
 
 @page_router.get("")
 @page_router.get("/")
@@ -255,6 +263,20 @@ def _new_ui_work_dir(state_key: str, prefix: str) -> Path:
     return work_dir
 
 
+# A "load branch" form injected next to the single-run form, reusing the page's own .upload-zone /
+# .button classes. Kept here (not in the legacy web_rendering module) so the single-run UI is untouched.
+_BRANCH_FORM_HTML = """
+    <form method="post" action="/app/auditor/branch" enctype="multipart/form-data" class="branch-run-form">
+      <label class="upload-zone" for="branch_archive_input">
+        <input id="branch_archive_input" name="branch_archive" type="file" accept=".zip,.tar,.gz,.tgz">
+        <span class="upload-title">Загрузить ветку</span>
+        <span class="upload-name">Архив архивов/папок проектов (в каждом — README)</span>
+      </label>
+      <button class="button" type="submit">Проверить ветку</button>
+    </form>
+"""
+
+
 def _rewrite_auditor_page_html(html: str) -> str:
     """Rewrite absolute links emitted by the original auditor UI for the shared app prefix."""
 
@@ -267,7 +289,249 @@ def _rewrite_auditor_page_html(html: str) -> str:
     rewritten = html
     for source, target in replacements:
         rewritten = rewritten.replace(source, target)
+    # Add the branch upload next to the single-project run form (idempotent: only once).
+    if "branch-run-form" not in rewritten:
+        rewritten = rewritten.replace('<form id="run-form"', _BRANCH_FORM_HTML + '<form id="run-form"', 1)
     return rewritten
+
+
+def _run_single_project_audit(
+    project_dir: Path,
+    output_dir: Path,
+    *,
+    use_model: bool,
+    allow_network: bool,
+    include_unknown: bool,
+) -> Any:
+    """Run the single-project audit engine on one project dir. Mirrors _run_auditor_job settings."""
+
+    from content_factory.audit import domain, env, exporters, orchestrator
+
+    env_values = env.load_env_file(WORKSPACE_ROOT / ".env")
+    settings = domain.AuditSettings(
+        input_path=project_dir,
+        output_path=output_dir,
+        allow_network=allow_network,
+        use_model=use_model,
+        include_unknown=include_unknown,
+        openrouter_api_key=env.get_env_value(("POLZA_AI_API_KEY", "OPENROUTER_API_KEY", "OPEN_ROUTER_API_KEY"), env_values),
+        openrouter_model=env.get_env_value(("OPENROUTER_MODEL", "OPEN_ROUTER_MODEL"), env_values),
+        openrouter_fact_model=env.get_env_value(("OPENROUTER_FACT_MODEL", "OPEN_ROUTER_FACT_MODEL"), env_values),
+        openrouter_tech_model=env.get_env_value(("OPENROUTER_TECH_MODEL", "OPEN_ROUTER_TECH_MODEL"), env_values),
+    )
+    report = orchestrator.AuditRunner(settings).run()
+    exporters.write_report(report, output_dir)
+    return report
+
+
+def _run_branch_from_dir(
+    branch_dir: Path,
+    extract_root: Path,
+    out_root: Path,
+    *,
+    use_model: bool,
+    allow_network: bool,
+    include_unknown: bool,
+) -> tuple[Any, dict[str, Any]]:
+    """Enumerate + audit every project in an extracted branch. Returns (BranchReport, out_dir->report)."""
+
+    from content_factory.audit import branch as branch_mod
+
+    entries = branch_mod.enumerate_branch(branch_dir, extract_root)
+    reports_by_outdir: dict[str, Any] = {}
+
+    def run_project(project_dir: Path, out_dir: Path) -> dict[str, Any]:
+        report = _run_single_project_audit(
+            project_dir,
+            out_dir,
+            use_model=use_model,
+            allow_network=allow_network,
+            include_unknown=include_unknown,
+        )
+        reports_by_outdir[str(out_dir)] = report
+        summary: dict[str, Any] = report.summary.model_dump(mode="json")
+        return summary
+
+    branch_report = branch_mod.run_branch_audit(entries, out_root, run_project)
+    return branch_report, reports_by_outdir
+
+
+def _evict_old_branch_runs() -> None:
+    """Cap process-local branch runs; reclaim the work dir of anything evicted. Call under _UI_LOCK."""
+
+    while len(_BRANCH_RUNS) > _MAX_BRANCH_RUNS:
+        oldest = next(iter(_BRANCH_RUNS))
+        _BRANCH_RUNS.pop(oldest, None)
+        _BRANCH_REPORTS.pop(oldest, None)
+        work_dir = _BRANCH_WORK_DIRS.pop(oldest, None)
+        if work_dir is not None:
+            shutil.rmtree(work_dir, ignore_errors=True)
+
+
+def _project_verdict(summary: dict[str, Any] | None) -> tuple[str, int, str]:
+    """(verdict label, findings count, severity breakdown) for one project's summary row."""
+
+    if not isinstance(summary, dict):
+        return ("—", 0, "")
+    findings = int(summary.get("findings_total") or 0)
+    raw_severity = summary.get("by_severity")
+    by_severity: dict[str, Any] = raw_severity if isinstance(raw_severity, dict) else {}
+    severity = ", ".join(f"{name}: {count}" for name, count in by_severity.items() if count)
+    verdict = "✓ чисто" if findings == 0 else f"⚠ {findings}"
+    return (verdict, findings, severity)
+
+
+def _render_branch_summary(branch_id: str, report: Any) -> str:
+    """Self-contained summary page: per-project verdicts (drill-down links) + the skip list."""
+
+    from html import escape
+
+    rows: list[str] = []
+    for index, project in enumerate(report.projects):
+        if project.status == "failed":
+            rows.append(
+                f'<tr class="failed"><td>{escape(project.name)}</td><td>✗ ошибка</td><td>—</td>'
+                f'<td>{escape(project.error or "")}</td><td>—</td></tr>'
+            )
+            continue
+        verdict, _findings, severity = _project_verdict(project.summary)
+        link = f"/app/auditor/branch/{branch_id}/project/{index}"
+        rows.append(
+            f'<tr><td>{escape(project.name)}</td><td>{escape(verdict)}</td>'
+            f'<td>{escape(severity) or "—"}</td><td class="muted">—</td>'
+            f'<td><a class="open" href="{escape(link)}">Открыть отчёт →</a></td></tr>'
+        )
+    skips = "".join(
+        f'<li><strong>{escape(skip.name)}</strong> — {escape(skip.message)}</li>' for skip in report.skipped
+    )
+    skip_block = (
+        f'<section class="skips"><h2>Пропущено ({len(report.skipped)})</h2><ul>{skips}</ul></section>'
+        if report.skipped
+        else ""
+    )
+    table = (
+        '<table><thead><tr><th>Проект</th><th>Вердикт</th><th>Severity</th>'
+        '<th>Замечание</th><th></th></tr></thead><tbody>' + "".join(rows) + "</tbody></table>"
+        if rows
+        else '<p class="muted">В ветке не найдено ни одного проекта с README.</p>'
+    )
+    return f"""<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Аудит ветки</title><link rel="stylesheet" href="/static/css/fonts.css">
+<style>
+ body{{font-family:'Inter',system-ui,sans-serif;margin:0;background:#f6f8f7;color:#1c2b27;padding:32px;}}
+ .wrap{{max-width:1080px;margin:0 auto;}}
+ h1{{font-size:1.5rem;margin:0 0 4px;}} .sub{{color:#5b6b66;margin:0 0 24px;}}
+ a.back{{color:#0e8f6f;text-decoration:none;font-size:.9rem;}}
+ table{{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);}}
+ th,td{{text-align:left;padding:12px 16px;border-bottom:1px solid #eef2f0;font-size:.92rem;}}
+ th{{background:#f0f4f2;font-weight:600;color:#3a4a45;}}
+ tr.failed td{{background:#fff6f5;}} .muted{{color:#8a9691;}}
+ a.open{{color:#0e8f6f;text-decoration:none;font-weight:600;white-space:nowrap;}}
+ .skips{{margin-top:24px;background:#fffaf0;border-left:3px solid #f0b429;border-radius:8px;padding:12px 18px;}}
+ .skips h2{{font-size:1rem;margin:.2rem 0 .5rem;}} .skips li{{margin:.25rem 0;color:#5b5138;}}
+</style></head><body><div class="wrap">
+<a class="back" href="/app/auditor">← к аудитору</a>
+<h1>Аудит ветки</h1>
+<p class="sub">Проверено проектов: <strong>{report.completed_count}</strong> ·
+ с ошибкой: <strong>{report.failed_count}</strong> · пропущено: <strong>{len(report.skipped)}</strong></p>
+{table}
+{skip_block}
+</div></body></html>"""
+
+
+@page_router.post("/branch")
+async def run_auditor_branch(
+    request: Request,
+    branch_archive: UploadFile | None = File(None),
+    use_model: bool = Form(False),
+    allow_network: bool = Form(False),
+    include_unknown: bool = Form(True),
+) -> HTMLResponse:
+    """Audit a branch (archive of project archives/folders) and render the summary."""
+
+    user = await validate_request_user(request)
+    state_key, _state = _auditor_page_state(user)
+    if branch_archive is None or not branch_archive.filename:
+        raise HTTPException(status_code=400, detail="Не выбран архив ветки")
+
+    work_dir = _new_ui_work_dir(state_key, "branch")
+    archive_name = Path(branch_archive.filename).name or "branch_archive"
+    archive_path = work_dir / _safe_upload_name(archive_name)
+    await _store_upload(branch_archive, archive_path)
+    if archive_path.stat().st_size > MAX_ARCHIVE_BYTES:
+        shutil.rmtree(work_dir, ignore_errors=True)
+        raise HTTPException(status_code=413, detail="Архив ветки слишком большой")
+
+    branch_dir = work_dir / "branch"
+    extract_root = work_dir / "extract"
+    out_root = work_dir / "reports"
+    try:
+        _extract_archive(archive_path, branch_dir)
+        branch_report, reports_by_outdir = await run_in_threadpool(
+            _run_branch_from_dir,
+            branch_dir,
+            extract_root,
+            out_root,
+            use_model=use_model,
+            allow_network=allow_network,
+            include_unknown=include_unknown,
+        )
+    except HTTPException:
+        shutil.rmtree(work_dir, ignore_errors=True)
+        raise
+    except Exception as exc:  # noqa: BLE001 - surface branch-level failures to the UI.
+        shutil.rmtree(work_dir, ignore_errors=True)
+        raise HTTPException(status_code=400, detail=f"Не удалось обработать ветку: {exc}") from exc
+
+    branch_id = uuid.uuid4().hex
+    index_map = {
+        index: reports_by_outdir[project.report_dir]
+        for index, project in enumerate(branch_report.projects)
+        if project.report_dir and project.report_dir in reports_by_outdir
+    }
+    with _UI_LOCK:
+        _BRANCH_RUNS[branch_id] = branch_report
+        _BRANCH_REPORTS[branch_id] = index_map
+        _BRANCH_WORK_DIRS[branch_id] = work_dir
+        _evict_old_branch_runs()
+    return HTMLResponse(_render_branch_summary(branch_id, branch_report), headers={"Cache-Control": "no-store"})
+
+
+@page_router.get("/branch/{branch_id}")
+async def get_auditor_branch_summary(request: Request, branch_id: str) -> HTMLResponse:
+    """Re-render the summary of a completed branch run."""
+
+    await validate_request_user(request)
+    with _UI_LOCK:
+        report = _BRANCH_RUNS.get(branch_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Ветка не найдена или устарела")
+    return HTMLResponse(_render_branch_summary(branch_id, report), headers={"Cache-Control": "no-store"})
+
+
+@page_router.get("/branch/{branch_id}/project/{index}")
+async def get_auditor_branch_project(request: Request, branch_id: str, index: int) -> HTMLResponse:
+    """Full single-project report for one project inside the branch (drill-down)."""
+
+    user = await validate_request_user(request)
+    _state_key, state = _auditor_page_state(user)
+    with _UI_LOCK:
+        report_obj = _BRANCH_REPORTS.get(branch_id, {}).get(index)
+        branch_report = _BRANCH_RUNS.get(branch_id)
+        if report_obj is None or branch_report is None:
+            raise HTTPException(status_code=404, detail="Отчёт проекта не найден")
+        # Point the per-user state at this project's report dir so downloads resolve to it.
+        project = branch_report.projects[index]
+        if project.report_dir:
+            state.report_dir = Path(project.report_dir)
+    web_app = _load_auditor_web_app()
+    html = web_app.render_page(report_obj, state)
+    back = (
+        f'<div style="max-width:1080px;margin:12px auto;padding:0 16px;">'
+        f'<a href="/app/auditor/branch/{branch_id}" style="color:#0e8f6f;text-decoration:none;">← к ветке</a></div>'
+    )
+    return HTMLResponse(back + _rewrite_auditor_page_html(html), headers={"Cache-Control": "no-store"})
 
 
 @router.get("/runs/{run_id}")
