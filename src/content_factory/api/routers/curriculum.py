@@ -76,7 +76,7 @@ CURRICULUM_COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
     "total_workload_days": ("общая трудоемкость, дни",),
     "xp": ("xp за проект",),
     "passing_threshold": ("% прохождения проекта",),
-    "required_software": ("необходимое по/веб", "необходимое по"),
+    "required_software": ("необходимое по и среда", "необходимое по/веб", "необходимое по"),
     "platform_name": ("название проекта на платформе и в gitlab",),
     "gitlab_link": ("ссылки на gitlab/google docs", "ссылки на gitlab"),
 }

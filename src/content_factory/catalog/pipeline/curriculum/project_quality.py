@@ -15,7 +15,44 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..models import BLOOM
 from .title_policy import title_violations  # noqa: F401 — re-exported: full policy lives in title_policy
+
+#: score -> canonical Bloom name (remember=1 … create=6), for the program-balance report.
+_BLOOM_NAME_BY_SCORE = {score: name for name, score in BLOOM.items()}
+#: Bloom scores that count as higher-order thinking (analyze / evaluate / create).
+_HIGHER_ORDER_MIN_SCORE = 4
+#: Below this share of higher-order skills the program gets a (non-blocking) worklist hint.
+_HIGHER_ORDER_MIN_SHARE_PCT = 15.0
+#: Too few skills to draw a program-level conclusion — stay quiet on a stub УП.
+_MIN_SKILLS_FOR_BLOOM_HINT = 4
+
+
+def program_bloom_balance(bloom_levels: list[int]) -> dict[str, Any]:
+    """Program-level Bloom distribution plus a report-only worklist hint.
+
+    Bloom's taxonomy earns its value at the PROGRAM level: a curriculum weighted only to
+    remember/understand/apply under-develops higher-order thinking. This measures the spread
+    across ALL skills in the УП and, when the higher-order share (analyze/evaluate/create) is
+    thin on a large-enough program, returns a hint. Nothing blocks — it is a methodologist
+    signal, mirroring the rest of ``report_only_quality_metrics``.
+    """
+    scores = [int(level) for level in bloom_levels if isinstance(level, (int, float))]
+    distribution = dict.fromkeys(BLOOM, 0)
+    for score in scores:
+        name = _BLOOM_NAME_BY_SCORE.get(score)
+        if name:
+            distribution[name] += 1
+    total = len(scores)
+    higher_order = sum(1 for score in scores if score >= _HIGHER_ORDER_MIN_SCORE)
+    higher_order_pct = round(higher_order / total * 100, 1) if total else 0.0
+    hint = ""
+    if total >= _MIN_SKILLS_FOR_BLOOM_HINT and higher_order_pct < _HIGHER_ORDER_MIN_SHARE_PCT:
+        hint = (
+            f"Мало заданий высоких уровней Блума (анализ/оценка/создание): {higher_order_pct}%. "
+            "Усильте задания на анализ, оценку и синтез."
+        )
+    return {"distribution": distribution, "higher_order_pct": higher_order_pct, "total": total, "hint": hint}
 
 #: Prefixes emitted by ``planner._artifact_for`` when no specialised artifact is bound.
 _GENERIC_ARTIFACT_PREFIXES = (
@@ -113,6 +150,9 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "artifact_merge_warning_count": 0,
             "artifact_merge_error_count": 0,
             "artifact_contract_source_count_by_type": {},
+            "bloom_distribution": dict.fromkeys(BLOOM, 0),
+            "bloom_higher_order_pct": 0.0,
+            "bloom_balance_hint": "",
         }
     title_violation_count = sum(
         1
@@ -185,6 +225,13 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 severity = str(diagnostic.get("severity") or "").strip()
                 artifact_merge_warning_count += int(severity == "warning")
                 artifact_merge_error_count += int(severity == "error")
+    program_bloom_levels = [
+        int(level)
+        for row in rows
+        for level in (row.get("bloom_levels") or [])
+        if isinstance(level, (int, float))
+    ]
+    bloom_balance = program_bloom_balance(program_bloom_levels)
     return {
         "title_violation_count": title_violation_count,
         "generic_artifact_count": generic_artifact_count,
@@ -215,4 +262,7 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "artifact_merge_warning_count": artifact_merge_warning_count,
         "artifact_merge_error_count": artifact_merge_error_count,
         "artifact_contract_source_count_by_type": artifact_contract_source_count_by_type,
+        "bloom_distribution": bloom_balance["distribution"],
+        "bloom_higher_order_pct": bloom_balance["higher_order_pct"],
+        "bloom_balance_hint": bloom_balance["hint"],
     }

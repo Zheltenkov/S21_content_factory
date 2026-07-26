@@ -177,6 +177,42 @@ def test_live_brief_area_paraphrases_count_as_covered() -> None:
     assert [area for stage in design.stages for area in stage.coverage_areas] == required_areas
 
 
+def test_format_question_is_synthesized_when_brief_is_silent() -> None:
+    design = build_curriculum_design_spec(
+        {"must_include_areas": ["Основы"], "raw_text": "Программа готовит аналитика данных."},
+        [_node("S1", "Основы")],
+        {"order": [{"id": "S1"}], "final_edges": []},
+    )
+
+    format_questions = [q for q in design.brief_questions if q.category == "learning_format"]
+    assert format_questions, "silent brief must be asked about group/individual format"
+    assert format_questions[0].blocking is True
+
+
+def test_no_format_question_when_brief_states_the_format() -> None:
+    design = build_curriculum_design_spec(
+        {
+            "must_include_areas": ["Основы"],
+            "raw_text": "Программа готовит аналитика; все проекты выполняются индивидуально.",
+        },
+        [_node("S1", "Основы")],
+        {"order": [{"id": "S1"}], "final_edges": []},
+    )
+
+    assert not [q for q in design.brief_questions if q.category == "learning_format"]
+
+
+def test_no_format_question_when_brief_text_is_absent() -> None:
+    # An empty context is not a "silent brief" — nothing to ask against.
+    design = build_curriculum_design_spec(
+        {"must_include_areas": ["Основы"]},
+        [_node("S1", "Основы")],
+        {"order": [{"id": "S1"}], "final_edges": []},
+    )
+
+    assert design.open_questions == ()
+
+
 def test_professional_workflow_is_domain_neutral() -> None:
     areas = ["Подготовка образца", "Измерение", "Интерпретация", "Отчёт"]
     design = build_curriculum_design_spec(
@@ -196,7 +232,7 @@ def test_approved_design_with_blocking_question_is_blocked_by_questions() -> Non
     design = build_curriculum_design_spec(
         {
             "must_include_areas": ["Сбор данных", "Анализ", "Публикация"],
-            "raw_text": "Какой объём выборки считать достаточным?",
+            "raw_text": "Какой объём выборки считать достаточным? Формат работы индивидуальный.",
         },
         [_node("D1", "Сбор данных"), _node("D2", "Анализ"), _node("D3", "Публикация")],
         {"order": [{"id": "D1"}, {"id": "D2"}, {"id": "D3"}], "final_edges": []},
@@ -213,7 +249,7 @@ def test_approved_design_with_only_editorial_question_is_ready_with_questions() 
     design = build_curriculum_design_spec(
         {
             "must_include_areas": ["Сбор данных", "Анализ", "Публикация"],
-            "raw_text": "Можно переформулировать название второго блока?",
+            "raw_text": "Можно переформулировать название второго блока? Формат работы индивидуальный.",
         },
         [_node("D1", "Сбор данных"), _node("D2", "Анализ"), _node("D3", "Публикация")],
         {"order": [{"id": "D1"}, {"id": "D2"}, {"id": "D3"}], "final_edges": []},
@@ -274,7 +310,7 @@ def test_question_answers_are_versioned_in_design_and_close_blocker() -> None:
     question = "Какая целевая аудитория программы?"
     design = build_curriculum_design_spec(
         {
-            "raw_text": question,
+            "raw_text": f"{question} Все проекты индивидуальные.",
             "curriculum_design_spec": {
                 "version": "curriculum-design:v3",
                 "question_answers": {
@@ -297,7 +333,7 @@ def test_question_answers_are_versioned_in_design_and_close_blocker() -> None:
 
 def test_legacy_design_reextracts_questions_with_current_parser() -> None:
     raw_text = (
-        "Портрет участника: способен запускать продукт. "
+        "Портрет участника: способен запускать продукт. Проекты индивидуальные. "
         "Какие дополнительные ресурсы нужны, чтобы создать и запустить продукт?"
     )
     design = build_curriculum_design_spec(

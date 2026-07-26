@@ -50,7 +50,7 @@ CSV_PRIMARY_HEADER = [
     "Обр. результаты — что узнает (ЗНАТЬ)",
     "Обр. результаты — что умеет (УМЕТЬ)",
     "Обр. результаты — какой навык (НАВЫКИ)",
-    "Необходимое ПО",
+    "Необходимое ПО и среда",
     "Доп. материалы для генерации",
     "Сторителлинг",
     "Формат",
@@ -597,6 +597,7 @@ def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, Any] | None) -> 
                 ]
                 or project.node_ids,
                 "node_names": [node.name for node in project_nodes],
+                "bloom_levels": [node.bloom for node in project_nodes],
                 "occurrence_count": len(project.occurrences),
                 "primary_skill_count": len(project.primary_occurrences),
                 "repeat_skill_count": len([occurrence for occurrence in project.occurrences if occurrence.is_repeat]),

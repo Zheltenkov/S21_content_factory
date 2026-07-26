@@ -242,6 +242,7 @@ def build_curriculum_design_spec(
         # Question extraction is versioned with the design contract. Re-run it on
         # upgrades instead of carrying malformed legacy fragments into a new approval.
         open_questions = _extract_open_questions(raw_text)
+    open_questions = _append_format_question_if_silent(raw_text, open_questions)
     journey_type = _text(accepted_spec.get("journey_type")) or _detect_journey_type(data, raw_text)
     capstone_required = _as_bool(accepted_spec.get("capstone_required")) or _capstone_required(data, raw_text)
     capstone_title = _text(accepted_spec.get("capstone_title")) or _capstone_title(journey_type, raw_text)
@@ -467,6 +468,29 @@ def _capstone_title(journey_type: str, raw_text: str) -> str:
     if journey_type == "research_cycle":
         return "Итоговое исследование и защита результатов"
     return "Итоговый интеграционный проект"
+
+
+#: A real brief that states the format uses one of these signals; its absence means "silent".
+_LEARNING_FORMAT_SIGNAL = re.compile(
+    r"(индивидуальн|групповой или|групповая работа|групповой формат|"
+    r"командн|в команде|в одиночку|в паре|формат обучени|формат работ|формат заняти)",
+    re.IGNORECASE,
+)
+LEARNING_FORMAT_QUESTION = "Формат обучения групповой или индивидуальный?"
+
+
+def _append_format_question_if_silent(raw_text: str, questions: tuple[str, ...]) -> tuple[str, ...]:
+    """Ask group-vs-individual format when a real brief never states it.
+
+    Format drives ``group_size`` downstream; a silent brief should surface the decision as a
+    blocking question rather than let the generator guess. Only fires when there IS brief text
+    (an empty context cannot be called "silent") and the question is not already present.
+    """
+    if not raw_text.strip() or _LEARNING_FORMAT_SIGNAL.search(raw_text):
+        return questions
+    if LEARNING_FORMAT_QUESTION in questions:
+        return questions
+    return (*questions, LEARNING_FORMAT_QUESTION)
 
 
 def _extract_open_questions(raw_text: str) -> tuple[str, ...]:

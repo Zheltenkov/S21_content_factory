@@ -36,6 +36,18 @@ def test_storytelling_and_cases_questions_are_editorial() -> None:
         assert question.blocking is False
 
 
+def test_group_or_individual_question_is_learning_format_and_blocks() -> None:
+    question = classify_question("Формат обучения групповой или индивидуальный?")
+    assert question.category == "learning_format"
+    assert question.blocking is True
+
+
+def test_practice_format_question_still_beats_learning_format() -> None:
+    # "формат практики" is about assessment, not group/individual — must stay practice_format.
+    question = classify_question("В каком формате практики оценивать задания?")
+    assert question.category == "practice_format"
+
+
 def test_unmatched_question_blocks_by_default() -> None:
     question = classify_question("Нужен ли отдельный вводный проект?")
     assert question.category == "uncategorized"

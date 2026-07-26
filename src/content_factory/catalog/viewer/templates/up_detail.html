@@ -255,6 +255,13 @@
             <div class="summary-value">{{ quality.artifact_contract_coverage_pct or 0 }}%</div>
             <div class="small muted">без контракта {{ quality.artifact_contract_unresolved_count or 0 }}, предупреждений {{ quality.artifact_merge_warning_count or 0 }}</div>
         </div>
+        <div class="summary-card{% if quality.bloom_balance_hint %} summary-card-warn{% endif %}" title="Баланс уровней таксономии Блума по всей программе. Ценность таксономии — в балансе уровней, а не в отдельном занятии.">
+            <div class="summary-label">Высокие уровни Блума</div>
+            <div class="summary-value">{{ quality.bloom_higher_order_pct or 0 }}%</div>
+            <div class="small muted">
+                {% if quality.bloom_balance_hint %}{{ quality.bloom_balance_hint }}{% else %}анализ / оценка / создание{% endif %}
+            </div>
+        </div>
     </section>
     <p class="small muted">
         Цель по плотности skills: {{ quality.target_skills_per_project|join("–") if quality.target_skills_per_project else "—" }} на проект.
@@ -290,7 +297,7 @@
         <thead>
             <tr class="up-header-row">
                 {% for head in plan.csv_primary_header %}
-                <th>{{ head or " " }}</th>
+                <th{% if head == "Необходимое ПО и среда" %} title="Программы и среда выполнения проекта (например VS Code, Docker, браузер) — это не формат заданий и не предметные инструменты."{% endif %}>{{ head or " " }}</th>
                 {% endfor %}
                 <th>Действия</th>
             </tr>

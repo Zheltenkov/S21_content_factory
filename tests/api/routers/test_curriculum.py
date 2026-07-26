@@ -25,6 +25,18 @@ def client():
     app.dependency_overrides.clear()
 
 
+def test_required_software_header_variants_resolve_to_same_field():
+    """Старые и новый заголовки колонки ПО реимпортируются в required_software."""
+    from content_factory.api.routers.curriculum import (
+        CURRICULUM_COLUMN_ALIASES,
+        _resolve_column,
+    )
+
+    aliases = CURRICULUM_COLUMN_ALIASES["required_software"]
+    for header in ("Необходимое ПО", "Необходимое ПО/веб", "Необходимое ПО и среда"):
+        assert _resolve_column([header], aliases) == 0, header
+
+
 def test_curriculum_router_exposes_persisted_plan_routes():
     """Роутер отдает УП из общего каталога для генератора."""
 

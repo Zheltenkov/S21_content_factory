@@ -7,9 +7,43 @@ from content_factory.catalog.pipeline.curriculum.project_quality import (
     is_generic_artifact,
     is_generic_criterion,
     is_testable_criterion,
+    program_bloom_balance,
     report_only_quality_metrics,
     title_violations,
 )
+
+
+def test_program_bloom_balance_flags_thin_higher_order() -> None:
+    # remember/understand/apply only — nothing at analyze/evaluate/create
+    balance = program_bloom_balance([1, 2, 3, 3, 2])
+    assert balance["higher_order_pct"] == 0.0
+    assert balance["hint"], "a low-order-only program must get a worklist hint"
+    assert "анализ" in balance["hint"].lower()
+
+
+def test_program_bloom_balance_is_quiet_when_higher_order_present() -> None:
+    balance = program_bloom_balance([3, 4, 5, 6, 3])
+    assert balance["higher_order_pct"] > 0
+    assert balance["hint"] == ""
+    assert balance["distribution"]["analyze"] == 1
+    assert balance["distribution"]["create"] == 1
+
+
+def test_program_bloom_balance_empty_and_tiny_are_neutral() -> None:
+    assert program_bloom_balance([])["hint"] == ""
+    # too few skills to draw a program-level conclusion — no nagging on a stub
+    assert program_bloom_balance([1, 2])["hint"] == ""
+
+
+def test_report_metrics_surface_program_bloom_balance_from_rows() -> None:
+    rows = [
+        {"project_name": "A", "node_ids": ["a", "b"], "bloom_levels": [1, 2]},
+        {"project_name": "B", "node_ids": ["c", "d"], "bloom_levels": [2, 3]},
+    ]
+    metrics = report_only_quality_metrics(rows)
+    assert metrics["bloom_higher_order_pct"] == 0.0
+    assert metrics["bloom_balance_hint"]
+    assert metrics["bloom_distribution"]["understand"] == 2
 
 
 def test_testable_criterion_requires_structure_not_just_non_generic() -> None:
