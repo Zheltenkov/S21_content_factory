@@ -363,6 +363,27 @@ def test_render_recent_branches_lists_newest_first() -> None:
         auditor._BRANCH_CREATED.update(saved_created)
 
 
+def test_prune_branch_workdir_keeps_only_reports_and_meta(tmp_path) -> None:
+    work_dir = tmp_path / "wd"
+    work_dir.mkdir()
+    (work_dir / "DS_Bootcamp.zip").write_bytes(b"x")  # raw upload
+    (work_dir / "branch").mkdir()
+    (work_dir / "branch" / "f").write_text("x", encoding="utf-8")
+    (work_dir / "extract").mkdir()
+    out_root = work_dir / "reports"
+    (out_root / "p1").mkdir(parents=True)
+    (out_root / "p1" / "report.json").write_text("{}", encoding="utf-8")
+    (work_dir / "branch_meta.json").write_text("{}", encoding="utf-8")
+
+    auditor._prune_branch_workdir(work_dir, out_root)
+
+    assert not (work_dir / "DS_Bootcamp.zip").exists()  # raw archive dropped
+    assert not (work_dir / "branch").exists()  # extracted branch dropped
+    assert not (work_dir / "extract").exists()  # inner-archive scratch dropped
+    assert (out_root / "p1" / "report.json").exists()  # reports kept (for drill-down)
+    assert (work_dir / "branch_meta.json").exists()  # index kept (for reload)
+
+
 def test_load_project_report_returns_none_without_artifact(tmp_path) -> None:
     assert auditor._load_project_report(BranchProjectResult(name="x", status="failed")) is None
     no_json = BranchProjectResult(name="x", status="completed", report_dir=str(tmp_path))

@@ -486,6 +486,26 @@ def _evict_old_branch_runs() -> None:
             shutil.rmtree(work_dir, ignore_errors=True)
 
 
+def _prune_branch_workdir(work_dir: Path, out_root: Path) -> None:
+    """After a branch audit, drop the intermediate artifacts (raw archive, extracted branch and
+    inner-archive scratch) and keep only what the summary/drill-down need: the reports + meta."""
+    keep = {out_root.name, _BRANCH_META_FILE}
+    try:
+        children = list(work_dir.iterdir())
+    except OSError:
+        return
+    for child in children:
+        if child.name in keep:
+            continue
+        if child.is_dir():
+            shutil.rmtree(child, ignore_errors=True)
+        else:
+            try:
+                child.unlink()
+            except OSError:
+                pass
+
+
 def _evict_old_branch_uploads() -> None:
     """Cap pending (uploaded-but-not-audited) archives; reclaim evicted work dirs. Under _UI_LOCK."""
     while len(_BRANCH_UPLOADS) > _MAX_PENDING_UPLOADS:
@@ -766,6 +786,7 @@ def _run_branch_job(
                 job["state"] = "done"
             _evict_old_branch_runs()
         _persist_branch(branch_id, branch_report, work_dir, archive_name, created_at)
+        _prune_branch_workdir(work_dir, out_root)  # keep only reports + meta on disk
     except Exception as exc:  # noqa: BLE001 - report the branch-level failure to the poller.
         shutil.rmtree(work_dir, ignore_errors=True)
         set_job(state="error", error=str(exc))
