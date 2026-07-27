@@ -420,6 +420,18 @@ def test_prune_branch_workdir_keeps_only_reports_and_meta(tmp_path) -> None:
     assert (work_dir / "branch_meta.json").exists()  # index kept (for reload)
 
 
+def test_download_name_prefixes_the_project_for_branch_reports() -> None:
+    from pathlib import Path
+
+    # branch drill-down: report_dir is the project folder -> download named after the project
+    assert (
+        auditor._download_name(Path("/out/DSB6_MovieLens.ID_886515-master.zip"), "report.xlsx")
+        == "DSB6_MovieLens.ID_886515-master_report.xlsx"
+    )
+    # single-run report dir is generic -> keep the plain filename
+    assert auditor._download_name(Path("/x/reports"), "report.xlsx") == "report.xlsx"
+
+
 def test_load_project_report_returns_none_without_artifact(tmp_path) -> None:
     assert auditor._load_project_report(BranchProjectResult(name="x", status="failed")) is None
     no_json = BranchProjectResult(name="x", status="completed", report_dir=str(tmp_path))

@@ -134,6 +134,26 @@ async def run_auditor_page(
         )
 
 
+def _download_name(report_dir: Path, file_name: str) -> str:
+    """Default download filename to the project name when the report dir carries one.
+
+    Branch drill-down points the report dir at a project folder (e.g. ``DSB6_...-master.zip``),
+    so ``report.xlsx`` downloads as ``DSB6_..._report.xlsx``. Single runs use a generic
+    ``reports`` dir — keep the plain filename there.
+    """
+    project = report_dir.name
+    if project in {"reports", "", "."}:
+        return file_name
+    lowered = project.lower()
+    for suffix in (".tar.gz", ".tgz", ".tar", ".zip"):
+        if lowered.endswith(suffix):
+            project = project[: -len(suffix)]
+            break
+    project = project.strip("._-") or "report"
+    stem, ext = os.path.splitext(file_name)
+    return f"{project}_{stem}{ext}"
+
+
 @page_router.get("/download")
 async def download_auditor_page_file(
     request: Request,
@@ -152,7 +172,7 @@ async def download_auditor_page_file(
         raise HTTPException(status_code=400, detail="Недопустимый путь отчёта")
     if not path.exists():
         raise HTTPException(status_code=404, detail="Файл отчёта не найден")
-    return FileResponse(str(path), filename=file_name)
+    return FileResponse(str(path), filename=_download_name(report_dir, file_name))
 
 
 @page_router.get("/logout")
