@@ -199,6 +199,32 @@ def test_run_branch_audit_collects_results_and_isolates_failures(tmp_path: Path)
     assert report.as_dict()["skipped_count"] == 1
 
 
+def test_run_branch_audit_reports_progress_after_each_project(tmp_path: Path) -> None:
+    from content_factory.audit.branch import BranchEntry, run_branch_audit
+
+    proj_a = tmp_path / "a"
+    proj_a.mkdir()
+    proj_b = tmp_path / "b"
+    proj_b.mkdir()
+    entries = [
+        BranchEntry(name="a.zip", is_project=True, project_dir=proj_a),
+        BranchEntry(name="loose.txt", is_project=False, reason=SKIP_LOOSE_FILE),
+        BranchEntry(name="b.zip", is_project=True, project_dir=proj_b),
+    ]
+    events: list[tuple[int, int, str, str]] = []
+
+    def on_progress(done: int, total: int, name: str, status: str) -> None:
+        events.append((done, total, name, status))
+
+    run_branch_audit(entries, tmp_path / "out", lambda pd, od: {"ok": 1}, on_progress=on_progress)
+
+    # total counts only project entries (2); progress fires once per project, done increasing
+    assert [event[0] for event in events] == [1, 2]
+    assert all(event[1] == 2 for event in events)
+    assert events[0][2] == "a.zip" and events[0][3] == "completed"
+    assert events[1][2] == "b.zip"
+
+
 def test_run_branch_audit_with_no_projects_is_empty_not_error(tmp_path: Path) -> None:
     from content_factory.audit.branch import BranchEntry, run_branch_audit
 

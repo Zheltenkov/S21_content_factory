@@ -238,17 +238,28 @@ class BranchReport:
 
 # run_project(project_dir, output_dir) -> summary dict; raises on failure.
 ProjectAuditor = Callable[[Path, Path], dict[str, Any]]
+# on_progress(done, total, name, status) — fired after each project so a caller can report "X of N".
+ProgressCallback = Callable[[int, int, str, str], None]
 
 
-def run_branch_audit(entries: list[BranchEntry], output_root: Path, run_project: ProjectAuditor) -> BranchReport:
+def run_branch_audit(
+    entries: list[BranchEntry],
+    output_root: Path,
+    run_project: ProjectAuditor,
+    on_progress: ProgressCallback | None = None,
+) -> BranchReport:
     """Audit every project entry with the injected single-project auditor; collect a branch report.
 
     Each project is isolated: a failure is captured as a failed result (with the message) and never
     aborts the branch, so one broken project does not lose the reports for the rest. Skips carry
-    their reason straight through from enumeration.
+    their reason straight through from enumeration. ``on_progress`` (if given) is called after each
+    project with ``(done, total, name, status)`` where ``total`` counts only project entries — a
+    background caller uses it to publish live "X of N done" progress.
     """
     projects: list[BranchProjectResult] = []
     skipped: list[BranchSkip] = []
+    total = sum(1 for entry in entries if entry.is_project and entry.project_dir is not None)
+    done = 0
     for entry in entries:
         if not entry.is_project or entry.project_dir is None:
             skipped.append(
@@ -264,8 +275,13 @@ def run_branch_audit(entries: list[BranchEntry], output_root: Path, run_project:
                     name=entry.name, status="completed", summary=summary, report_dir=str(project_out)
                 )
             )
+            status = "completed"
         except Exception as exc:  # noqa: BLE001 - one project's failure must not sink the branch.
             projects.append(BranchProjectResult(name=entry.name, status="failed", error=str(exc)))
+            status = "failed"
+        done += 1
+        if on_progress is not None:
+            on_progress(done, total, entry.name, status)
     return BranchReport(projects=projects, skipped=skipped)
 
 

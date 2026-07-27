@@ -9,12 +9,12 @@ import uuid
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from threading import Lock
+from threading import Lock, Thread
 from types import ModuleType
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -60,6 +60,8 @@ _UI_LOCK = Lock()
 _BRANCH_RUNS: dict[str, Any] = {}
 _BRANCH_REPORTS: dict[str, dict[int, Any]] = {}
 _BRANCH_WORK_DIRS: dict[str, Path] = {}
+# Live progress for in-flight (and finished) branch jobs: branch_id -> mutable status dict.
+_BRANCH_JOBS: dict[str, dict[str, Any]] = {}
 _MAX_BRANCH_RUNS = 10
 
 
@@ -367,37 +369,6 @@ def _run_single_project_audit(
     return report
 
 
-def _run_branch_from_dir(
-    branch_dir: Path,
-    extract_root: Path,
-    out_root: Path,
-    *,
-    use_model: bool,
-    allow_network: bool,
-    include_unknown: bool,
-) -> tuple[Any, dict[str, Any]]:
-    """Enumerate + audit every project in an extracted branch. Returns (BranchReport, out_dir->report)."""
-
-    from content_factory.audit import branch as branch_mod
-
-    entries = branch_mod.enumerate_branch(branch_dir, extract_root)
-    reports_by_outdir: dict[str, Any] = {}
-
-    def run_project(project_dir: Path, out_dir: Path) -> dict[str, Any]:
-        report = _run_single_project_audit(
-            project_dir,
-            out_dir,
-            use_model=use_model,
-            allow_network=allow_network,
-            include_unknown=include_unknown,
-        )
-        reports_by_outdir[str(out_dir)] = report
-        summary: dict[str, Any] = report.summary.model_dump(mode="json")
-        return summary
-
-    branch_report = branch_mod.run_branch_audit(entries, out_root, run_project)
-    return branch_report, reports_by_outdir
-
 
 def _evict_old_branch_runs() -> None:
     """Cap process-local branch runs; reclaim the work dir of anything evicted. Call under _UI_LOCK."""
@@ -406,6 +377,7 @@ def _evict_old_branch_runs() -> None:
         oldest = next(iter(_BRANCH_RUNS))
         _BRANCH_RUNS.pop(oldest, None)
         _BRANCH_REPORTS.pop(oldest, None)
+        _BRANCH_JOBS.pop(oldest, None)
         work_dir = _BRANCH_WORK_DIRS.pop(oldest, None)
         if work_dir is not None:
             shutil.rmtree(work_dir, ignore_errors=True)
@@ -483,6 +455,142 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
 </div></body></html>"""
 
 
+def _run_branch_job(
+    branch_id: str,
+    branch_dir: Path,
+    extract_root: Path,
+    out_root: Path,
+    work_dir: Path,
+    *,
+    use_model: bool,
+    allow_network: bool,
+    include_unknown: bool,
+) -> None:
+    """Background thread: enumerate + audit a branch, publishing live progress into _BRANCH_JOBS.
+
+    Runs off the request so a long branch (~2 min per project) never blocks the HTTP response or
+    hits the proxy timeout. Progress is polled via the status endpoint; the finished BranchReport
+    lands in the same stores the summary/drill-down already read.
+    """
+
+    from content_factory.audit import branch as branch_mod
+
+    def set_job(**changes: Any) -> None:
+        with _UI_LOCK:
+            job = _BRANCH_JOBS.get(branch_id)
+            if job is not None:
+                job.update(changes)
+
+    try:
+        entries = branch_mod.enumerate_branch(branch_dir, extract_root)
+        total = sum(1 for entry in entries if entry.is_project and entry.project_dir is not None)
+        set_job(total=total)
+        reports_by_outdir: dict[str, Any] = {}
+
+        def run_project(project_dir: Path, out_dir: Path) -> dict[str, Any]:
+            report = _run_single_project_audit(
+                project_dir,
+                out_dir,
+                use_model=use_model,
+                allow_network=allow_network,
+                include_unknown=include_unknown,
+            )
+            reports_by_outdir[str(out_dir)] = report
+            summary: dict[str, Any] = report.summary.model_dump(mode="json")
+            return summary
+
+        def on_progress(done: int, total_count: int, name: str, status: str) -> None:
+            with _UI_LOCK:
+                job = _BRANCH_JOBS.get(branch_id)
+                if job is None:
+                    return
+                job["completed"] = done
+                job["total"] = total_count
+                job["current"] = name
+                if status == "failed":
+                    job["failed"] = int(job.get("failed", 0)) + 1
+
+        branch_report = branch_mod.run_branch_audit(entries, out_root, run_project, on_progress)
+        index_map = {
+            index: reports_by_outdir[project.report_dir]
+            for index, project in enumerate(branch_report.projects)
+            if project.report_dir and project.report_dir in reports_by_outdir
+        }
+        with _UI_LOCK:
+            _BRANCH_RUNS[branch_id] = branch_report
+            _BRANCH_REPORTS[branch_id] = index_map
+            _BRANCH_WORK_DIRS[branch_id] = work_dir
+            job = _BRANCH_JOBS.get(branch_id)
+            if job is not None:
+                job["state"] = "done"
+            _evict_old_branch_runs()
+    except Exception as exc:  # noqa: BLE001 - report the branch-level failure to the poller.
+        shutil.rmtree(work_dir, ignore_errors=True)
+        set_job(state="error", error=str(exc))
+
+
+def _render_branch_processing(branch_id: str) -> str:
+    """Self-contained processing page: a determinate 'X of N' bar that polls the status endpoint
+    and redirects to the summary once the background job finishes."""
+
+    status_url = f"/app/auditor/branch/{branch_id}/status"
+    summary_url = f"/app/auditor/branch/{branch_id}"
+    return f"""<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Аудит ветки — обработка</title><link rel="stylesheet" href="/static/css/fonts.css">
+<style>
+ body{{font-family:'Inter',system-ui,sans-serif;margin:0;background:#f6f8f7;color:#1c2b27;padding:32px;}}
+ .wrap{{max-width:720px;margin:0 auto;}}
+ h1{{font-size:1.5rem;margin:0 0 4px;}} .sub{{color:#5b6b66;margin:0 0 24px;}}
+ a.back{{color:#0e8f6f;text-decoration:none;font-size:.9rem;}}
+ .card{{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:24px;}}
+ .bar-track{{height:12px;border-radius:999px;background:#d1fae5;overflow:hidden;margin:14px 0 10px;}}
+ .bar-fill{{height:100%;width:0;border-radius:999px;background:#10b981;transition:width .4s ease;}}
+ .bar-label{{font-size:.95rem;color:#3a4a45;font-weight:600;}}
+ .bar-note{{font-size:.82rem;color:#8a9691;margin-top:6px;}}
+ .err{{color:#b02a2a;font-weight:600;}}
+</style></head><body><div class="wrap">
+<a class="back" href="/app/auditor">← к аудитору</a>
+<h1>Обработка ветки</h1>
+<p class="sub">Полный аудит: ≈ 2 минуты на проект. Можно не закрывать вкладку — прогресс обновляется сам.</p>
+<div class="card">
+  <div class="bar-label" id="bar-label">Подготовка…</div>
+  <div class="bar-track"><div class="bar-fill" id="bar-fill"></div></div>
+  <div class="bar-note" id="bar-note">Идёт распаковка и перечисление проектов…</div>
+</div>
+</div>
+<script>
+(function(){{
+  var statusUrl={status_url!r}, summaryUrl={summary_url!r};
+  var fill=document.getElementById('bar-fill');
+  var label=document.getElementById('bar-label');
+  var note=document.getElementById('bar-note');
+  function tick(){{
+    fetch(statusUrl,{{headers:{{'X-Requested-With':'fetch'}}}}).then(function(r){{
+      if(!r.ok) throw new Error('status '+r.status);
+      return r.json();
+    }}).then(function(j){{
+      if(j.state==='error'){{
+        label.className='bar-label err';
+        label.textContent='Ошибка обработки ветки';
+        note.textContent=j.error||'не удалось обработать ветку';
+        return;
+      }}
+      var total=j.total||0, done=j.completed||0, failed=j.failed||0;
+      var pct=total?Math.round(done/total*100):0;
+      fill.style.width=pct+'%';
+      label.textContent=total?('Готово '+done+' из '+total+' проектов'):'Подготовка…';
+      note.textContent=(failed?('с ошибкой: '+failed+' · '):'')+(j.current?('сейчас: '+j.current):'перечисление проектов…');
+      if(j.done){{ window.location.href=summaryUrl; return; }}
+      setTimeout(tick,2000);
+    }}).catch(function(){{ setTimeout(tick,3000); }});
+  }}
+  tick();
+}})();
+</script>
+</body></html>"""
+
+
 @page_router.post("/branch")
 async def run_auditor_branch(
     request: Request,
@@ -491,10 +599,11 @@ async def run_auditor_branch(
     allow_network: bool = Form(True),
     include_unknown: bool = Form(True),
 ) -> HTMLResponse:
-    """Audit a branch (archive of project archives/folders) and render the summary.
+    """Kick off a branch audit in the background and return the live-progress page.
 
     Always a full audit — the model (LLM: facts, market, accuracy) and network link checks
-    match the single-project run; there is no shallow mode.
+    match the single-project run. The heavy work runs off-request (one project ≈ 2 min), so a
+    large branch never blocks the response or trips the proxy timeout; the page polls for progress.
     """
 
     user = await validate_request_user(request)
@@ -515,34 +624,30 @@ async def run_auditor_branch(
     out_root = work_dir / "reports"
     try:
         _extract_archive(archive_path, branch_dir)
-        branch_report, reports_by_outdir = await run_in_threadpool(
-            _run_branch_from_dir,
-            branch_dir,
-            extract_root,
-            out_root,
-            use_model=use_model,
-            allow_network=allow_network,
-            include_unknown=include_unknown,
-        )
     except HTTPException:
         shutil.rmtree(work_dir, ignore_errors=True)
         raise
-    except Exception as exc:  # noqa: BLE001 - surface branch-level failures to the UI.
+    except Exception as exc:  # noqa: BLE001 - surface outer-archive failures to the UI.
         shutil.rmtree(work_dir, ignore_errors=True)
-        raise HTTPException(status_code=400, detail=f"Не удалось обработать ветку: {exc}") from exc
+        raise HTTPException(status_code=400, detail=f"Не удалось распаковать архив ветки: {exc}") from exc
 
     branch_id = uuid.uuid4().hex
-    index_map = {
-        index: reports_by_outdir[project.report_dir]
-        for index, project in enumerate(branch_report.projects)
-        if project.report_dir and project.report_dir in reports_by_outdir
-    }
     with _UI_LOCK:
-        _BRANCH_RUNS[branch_id] = branch_report
-        _BRANCH_REPORTS[branch_id] = index_map
-        _BRANCH_WORK_DIRS[branch_id] = work_dir
-        _evict_old_branch_runs()
-    return HTMLResponse(_render_branch_summary(branch_id, branch_report), headers={"Cache-Control": "no-store"})
+        _BRANCH_JOBS[branch_id] = {
+            "state": "running",
+            "total": 0,
+            "completed": 0,
+            "failed": 0,
+            "current": "",
+            "error": None,
+        }
+    Thread(
+        target=_run_branch_job,
+        args=(branch_id, branch_dir, extract_root, out_root, work_dir),
+        kwargs={"use_model": use_model, "allow_network": allow_network, "include_unknown": include_unknown},
+        daemon=True,
+    ).start()
+    return HTMLResponse(_render_branch_processing(branch_id), headers={"Cache-Control": "no-store"})
 
 
 @page_router.get("/branch/{branch_id}")
@@ -555,6 +660,31 @@ async def get_auditor_branch_summary(request: Request, branch_id: str) -> HTMLRe
     if report is None:
         raise HTTPException(status_code=404, detail="Ветка не найдена или устарела")
     return HTMLResponse(_render_branch_summary(branch_id, report), headers={"Cache-Control": "no-store"})
+
+
+@page_router.get("/branch/{branch_id}/status")
+async def get_auditor_branch_status(request: Request, branch_id: str) -> JSONResponse:
+    """Live progress of a background branch job, polled by the processing page."""
+
+    await validate_request_user(request)
+    with _UI_LOCK:
+        job = _BRANCH_JOBS.get(branch_id)
+        snapshot = dict(job) if job is not None else None
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Задача ветки не найдена или устарела")
+    state = str(snapshot.get("state", "running"))
+    return JSONResponse(
+        {
+            "state": state,
+            "total": snapshot.get("total", 0),
+            "completed": snapshot.get("completed", 0),
+            "failed": snapshot.get("failed", 0),
+            "current": snapshot.get("current", ""),
+            "error": snapshot.get("error"),
+            "done": state == "done",
+            "summary_url": f"/app/auditor/branch/{branch_id}",
+        }
+    )
 
 
 @page_router.get("/branch/{branch_id}/project/{index}")
