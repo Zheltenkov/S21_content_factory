@@ -1,8 +1,27 @@
 from pathlib import Path
 
+from content_factory.audit.domain import TextLocation
 from content_factory.audit.extraction import extract_entities
 from content_factory.audit.image_rights import assess_image_rights, image_rights_signals
 from content_factory.audit.ingestion import discover_content_units, load_unit_files
+from content_factory.audit.rights_checks import _evidence_prompt
+
+
+def test_evidence_prompt_serializes_query_carrying_a_location_object() -> None:
+    # image_evidence_queries keeps a TextLocation on the query (needed to place the finding),
+    # but json.dumps of the whole query would crash on it — the prompt must drop that metadata.
+    query = {
+        "kind": "image_provenance",
+        "title": "Возможный источник изображения",
+        "text": "Найди источник и лицензию изображения",
+        "quote": "![](https://x/y.png)",
+        "location": TextLocation(file_path="README.md", line_start=3),
+    }
+
+    prompt = _evidence_prompt(query)  # must not raise "TextLocation is not JSON serializable"
+
+    assert "image_provenance" in prompt
+    assert "README.md" not in prompt  # location metadata is not part of the search prompt
 
 
 def _png_header(width: int, height: int) -> bytes:

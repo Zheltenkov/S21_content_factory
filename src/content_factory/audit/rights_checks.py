@@ -208,7 +208,7 @@ class RightsAndOriginalityChecker(BaseChecker):
 
         signals: list[RightsSignal] = []
         for query in self._evidence_queries(unit, entities)[: self.max_external_lookups]:
-            prompt = json.dumps(query, ensure_ascii=False, indent=2)
+            prompt = _evidence_prompt(query)
             try:
                 record, _cache_hit = _cached_model_json(
                     context,
@@ -271,6 +271,18 @@ class RightsAndOriginalityChecker(BaseChecker):
 
 
 RightsChecker = RightsAndOriginalityChecker
+
+
+def _evidence_prompt(query: dict[str, object]) -> str:
+    """Serialize an evidence query into the search prompt for the model.
+
+    Evidence queries carry a ``location`` (a ``TextLocation`` pydantic model) so the resulting
+    finding can be placed, but that object is not JSON-serializable and is irrelevant to the
+    search itself — drop it from the prompt. ``default=str`` guards any other stray object so a
+    single query can never crash the whole audit.
+    """
+    prompt_payload = {key: value for key, value in query.items() if key != "location"}
+    return json.dumps(prompt_payload, ensure_ascii=False, indent=2, default=str)
 
 
 def _dependency_license_signal(

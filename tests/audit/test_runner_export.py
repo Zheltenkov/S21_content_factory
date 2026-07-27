@@ -115,6 +115,38 @@ def test_exporter_does_not_write_pass_findings(workspace_tmp_path: Path) -> None
     assert "Проверено" not in sheet
 
 
+def test_exporter_serializes_basemodel_left_in_finding_extra(workspace_tmp_path: Path) -> None:
+    # A checker can leak a pydantic model (e.g. TextLocation) into the free-form ``extra`` dict;
+    # model_dump(mode="json") leaves it raw, so json.dumps must still handle it, not crash the run.
+    import json
+
+    output = workspace_tmp_path / "reports"
+    report = AuditReport(
+        summary=RunSummary(started_at="2026-06-08T00:00:00+00:00", input_path=str(workspace_tmp_path)),
+        units=[],
+        entities=[],
+        findings=[
+            Finding(
+                finding_id="loc",
+                unit_id="unit",
+                branch=None,
+                criterion=Criterion.CORRECTNESS,
+                severity=Severity.MAJOR,
+                verdict=Verdict.FAIL,
+                confidence=0.8,
+                recommendation="—",
+                checker_name="image_rights",
+                extra={"location": TextLocation(file_path="README.md", line_start=5)},
+            )
+        ],
+    )
+
+    write_report(report, output)  # must not raise "Object of type TextLocation is not JSON serializable"
+
+    data = json.loads((output / "report.json").read_text(encoding="utf-8"))
+    assert data["findings"][0]["extra"]["location"]["file_path"] == "README.md"
+
+
 def test_exporter_merges_recommendation_into_explanation(workspace_tmp_path: Path) -> None:
     output = workspace_tmp_path / "reports"
     report = AuditReport(
