@@ -218,11 +218,12 @@ def test_run_branch_audit_reports_progress_after_each_project(tmp_path: Path) ->
 
     run_branch_audit(entries, tmp_path / "out", lambda pd, od: {"ok": 1}, on_progress=on_progress)
 
-    # total counts only project entries (2); progress fires once per project, done increasing
-    assert [event[0] for event in events] == [1, 2]
+    # total counts only project entries (2); progress fires once per project with a monotonically
+    # increasing "done". Projects run concurrently, so completion order is not fixed — check the set.
+    assert sorted(event[0] for event in events) == [1, 2]
     assert all(event[1] == 2 for event in events)
-    assert events[0][2] == "a.zip" and events[0][3] == "completed"
-    assert events[1][2] == "b.zip"
+    assert {event[2] for event in events} == {"a.zip", "b.zip"}
+    assert all(event[3] == "completed" for event in events)
 
 
 def test_branch_report_round_trips_through_dict() -> None:
@@ -242,6 +243,29 @@ def test_branch_report_round_trips_through_dict() -> None:
     assert restored.completed_count == 1 and restored.failed_count == 1
     assert restored.projects[0].report_dir == "/out/a"
     assert restored.skipped[0].reason == "loose_file"
+
+
+def test_run_branch_audit_preserves_entry_order_under_concurrency(tmp_path: Path) -> None:
+    import time
+
+    from content_factory.audit.branch import BranchEntry, run_branch_audit
+
+    entries = []
+    for i in range(4):
+        project = tmp_path / f"p{i}"
+        project.mkdir()
+        entries.append(BranchEntry(name=f"p{i}.zip", is_project=True, project_dir=project))
+
+    def slow(project_dir: Path, out_dir: Path) -> dict:
+        # p0 sleeps longest so it finishes LAST — the report must still list it FIRST.
+        index = int(project_dir.name[1:])
+        time.sleep(0.02 * (4 - index))
+        return {"i": index}
+
+    report = run_branch_audit(entries, tmp_path / "out", slow, max_workers=4)
+
+    assert [project.name for project in report.projects] == ["p0.zip", "p1.zip", "p2.zip", "p3.zip"]
+    assert report.completed_count == 4
 
 
 def test_run_branch_audit_with_no_projects_is_empty_not_error(tmp_path: Path) -> None:

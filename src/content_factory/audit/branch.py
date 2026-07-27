@@ -13,11 +13,17 @@ from __future__ import annotations
 
 import re
 import tarfile
+import threading
 import zipfile
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+#: Projects audited at once inside one branch. Audits are I/O-bound (LLM + network), so a small
+#: pool cuts total time ~N× without exhausting memory or the model provider's rate limit.
+DEFAULT_BRANCH_CONCURRENCY = 3
 
 # The auditor's own notion of a README (extra_checkers.README_RE): readme.md, readme_rus.md, ...
 _README_RE = re.compile(r"(?i)^readme(?:_[a-z]+)?\.md$")
@@ -270,20 +276,21 @@ def run_branch_audit(
     output_root: Path,
     run_project: ProjectAuditor,
     on_progress: ProgressCallback | None = None,
+    max_workers: int = DEFAULT_BRANCH_CONCURRENCY,
 ) -> BranchReport:
     """Audit every project entry with the injected single-project auditor; collect a branch report.
 
-    Each project is isolated: a failure is captured as a failed result (with the message) and never
-    aborts the branch, so one broken project does not lose the reports for the rest. Skips carry
-    their reason straight through from enumeration. ``on_progress`` (if given) is called after each
-    project with ``(done, total, name, status)`` where ``total`` counts only project entries — a
-    background caller uses it to publish live "X of N done" progress.
+    Projects are audited concurrently (a small pool — see ``max_workers``), each into its own output
+    dir, so one branch finishes in roughly ``total / max_workers`` project-times instead of the full
+    sum. Each project is isolated: a failure is captured as a failed result (with the message) and
+    never aborts the branch. Skips carry their reason straight through from enumeration.
+    ``on_progress`` (if given) is called as each project *completes* with ``(done, total, name,
+    status)`` where ``total`` counts only project entries and ``done`` increases monotonically; the
+    final ``projects`` list keeps the original entry order regardless of completion order.
     """
-    projects: list[BranchProjectResult] = []
     skipped: list[BranchSkip] = []
-    total = sum(1 for entry in entries if entry.is_project and entry.project_dir is not None)
-    done = 0
-    for entry in entries:
+    work: list[tuple[int, BranchEntry, Path]] = []
+    for index, entry in enumerate(entries):
         if not entry.is_project or entry.project_dir is None:
             skipped.append(
                 BranchSkip(name=entry.name, reason=entry.reason or "skipped", message=entry.reason_message)
@@ -291,20 +298,40 @@ def run_branch_audit(
             continue
         project_out = output_root / _safe_dirname(entry.name)
         project_out.mkdir(parents=True, exist_ok=True)
+        work.append((index, entry, project_out))
+
+    total = len(work)
+    results: dict[int, BranchProjectResult] = {}
+    progress_lock = threading.Lock()
+    done = 0
+
+    def audit_one(item: tuple[int, BranchEntry, Path]) -> tuple[int, BranchProjectResult]:
+        nonlocal done
+        index, entry, project_out = item
+        assert entry.project_dir is not None
         try:
             summary = run_project(entry.project_dir, project_out)
-            projects.append(
-                BranchProjectResult(
-                    name=entry.name, status="completed", summary=summary, report_dir=str(project_out)
-                )
+            result = BranchProjectResult(
+                name=entry.name, status="completed", summary=summary, report_dir=str(project_out)
             )
             status = "completed"
         except Exception as exc:  # noqa: BLE001 - one project's failure must not sink the branch.
-            projects.append(BranchProjectResult(name=entry.name, status="failed", error=str(exc)))
+            result = BranchProjectResult(name=entry.name, status="failed", error=str(exc))
             status = "failed"
-        done += 1
+        with progress_lock:
+            done += 1
+            done_now = done
         if on_progress is not None:
-            on_progress(done, total, entry.name, status)
+            on_progress(done_now, total, entry.name, status)
+        return index, result
+
+    if total:
+        with ThreadPoolExecutor(max_workers=max(1, min(max_workers, total))) as pool:
+            for future in as_completed([pool.submit(audit_one, item) for item in work]):
+                index, result = future.result()
+                results[index] = result
+
+    projects = [results[index] for index, _entry, _out in work]
     return BranchReport(projects=projects, skipped=skipped)
 
 
