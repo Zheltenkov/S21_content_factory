@@ -114,7 +114,7 @@ def test_post_branch_requires_a_file(branch_client: TestClient) -> None:
     assert branch_client.post("/app/auditor/branch").status_code == 400
 
 
-def test_branch_full_audit_flags_flow_to_the_engine_when_checked(
+def test_branch_always_runs_full_audit_with_model_and_network(
     branch_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     captured: dict = {}
@@ -124,30 +124,12 @@ def test_branch_full_audit_flags_flow_to_the_engine_when_checked(
         return _fake_branch_report(), {}
 
     monkeypatch.setattr(auditor, "_run_branch_from_dir", fake_run)
+    # no depth toggles are sent — the route defaults to a full audit (model + network on)
     branch_client.post(
         "/app/auditor/branch",
-        data={"use_model": "true", "allow_network": "true"},
         files={"branch_archive": ("branch.zip", _tiny_branch_zip(), "application/zip")},
     )
     assert captured["use_model"] is True and captured["allow_network"] is True
-
-
-def test_branch_runs_shallow_when_checkboxes_unchecked(
-    branch_client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    captured: dict = {}
-
-    def fake_run(branch_dir, extract_root, out_root, **kwargs):
-        captured.update(kwargs)
-        return _fake_branch_report(), {}
-
-    monkeypatch.setattr(auditor, "_run_branch_from_dir", fake_run)
-    # unchecked checkboxes send nothing -> the route falls back to its Form(False) default
-    branch_client.post(
-        "/app/auditor/branch",
-        files={"branch_archive": ("branch.zip", _tiny_branch_zip(), "application/zip")},
-    )
-    assert captured["use_model"] is False and captured["allow_network"] is False
 
 
 def test_drilldown_renders_stored_report_and_404s_out_of_range(

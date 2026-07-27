@@ -279,8 +279,6 @@ _INTAKE_GRID_STYLE = """
 .intake-card .button{align-self:flex-start;margin-top:auto}
 .intake-card input[type=text]{width:100%}
 .branch-card{border-color:#34d399;background:#f0fdf9}
-.branch-opt{display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;cursor:pointer}
-.branch-opt input{margin:0}
 .branch-progress{margin-top:10px}
 .branch-progress-label{font-size:12px;color:#0e8f6f;margin-bottom:6px}
 .branch-progress-track{height:6px;border-radius:999px;background:#d1fae5;overflow:hidden}
@@ -299,8 +297,6 @@ _BRANCH_FORM_HTML = """
         <span class="upload-title">Загрузить ветку</span>
         <span class="upload-name">Архив архивов/папок проектов (в каждом — README)</span>
       </label>
-      <label class="branch-opt"><input type="checkbox" name="use_model" value="true" checked> Полный аудит с моделью (LLM: факты, рынок, точность)</label>
-      <label class="branch-opt"><input type="checkbox" name="allow_network" value="true" checked> Проверять ссылки в сети</label>
       <button class="button" type="submit">Проверить ветку</button>
       <div class="branch-progress" hidden aria-live="polite">
         <div class="branch-progress-label">Обработка ветки… полный аудит ≈ 2 минуты на проект, не закрывайте вкладку</div>
@@ -491,11 +487,15 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
 async def run_auditor_branch(
     request: Request,
     branch_archive: UploadFile | None = File(None),
-    use_model: bool = Form(False),
-    allow_network: bool = Form(False),
+    use_model: bool = Form(True),
+    allow_network: bool = Form(True),
     include_unknown: bool = Form(True),
 ) -> HTMLResponse:
-    """Audit a branch (archive of project archives/folders) and render the summary."""
+    """Audit a branch (archive of project archives/folders) and render the summary.
+
+    Always a full audit — the model (LLM: facts, market, accuracy) and network link checks
+    match the single-project run; there is no shallow mode.
+    """
 
     user = await validate_request_user(request)
     state_key, _state = _auditor_page_state(user)
