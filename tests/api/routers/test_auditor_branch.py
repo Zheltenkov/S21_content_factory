@@ -138,8 +138,8 @@ def _post_branch(client: TestClient, names: tuple[str, ...] = ("p1", "p2")) -> s
         files={"branch_archive": ("branch.zip", _branch_zip(names), "application/zip")},
     )
     assert response.status_code == 200
-    assert "Обработка ветки" in response.text  # processing page, not the summary
-    return response.text.split("/app/auditor/branch/", 1)[1].split("/status", 1)[0]
+    progress_url = response.json()["progress_url"]  # POST returns the stable progress URL, not HTML
+    return progress_url.split("/app/auditor/branch/", 1)[1].split("/progress", 1)[0]
 
 
 def test_post_branch_starts_a_job_and_processes_to_summary(branch_client: TestClient, sync_engine: None) -> None:
@@ -156,6 +156,37 @@ def test_post_branch_starts_a_job_and_processes_to_summary(branch_client: TestCl
 
 def test_post_branch_requires_a_file(branch_client: TestClient) -> None:
     assert branch_client.post("/app/auditor/branch").status_code == 400
+
+
+def test_progress_page_redirects_to_summary_when_finished(branch_client: TestClient, sync_engine: None) -> None:
+    branch_id = _post_branch(branch_client)  # sync engine -> job already done
+    redirected = branch_client.get(f"/app/auditor/branch/{branch_id}/progress", follow_redirects=False)
+    assert redirected.status_code == 303
+    assert redirected.headers["location"] == f"/app/auditor/branch/{branch_id}"
+
+
+def test_progress_page_shows_the_bar_while_running(branch_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    # A thread that never runs leaves the job in the "running" state so /progress renders the bar.
+    class _NoopThread:
+        def __init__(self, *a, **k) -> None: ...
+        def start(self) -> None: ...
+
+    monkeypatch.setattr(auditor, "Thread", _NoopThread)
+    branch_id = _post_branch(branch_client)
+    page = branch_client.get(f"/app/auditor/branch/{branch_id}/progress")
+    assert page.status_code == 200
+    assert "bar-fill" in page.text and "Обработка ветки" in page.text
+    assert branch_client.get("/app/auditor/branch/nope/progress").status_code == 404
+
+
+def test_delete_branch_removes_the_run(branch_client: TestClient, sync_engine: None) -> None:
+    branch_id = _post_branch(branch_client)
+    assert branch_client.get(f"/app/auditor/branch/{branch_id}").status_code == 200
+
+    deleted = branch_client.post(f"/app/auditor/branch/{branch_id}/delete", follow_redirects=False)
+    assert deleted.status_code == 303
+    assert deleted.headers["location"] == "/app/auditor"
+    assert branch_client.get(f"/app/auditor/branch/{branch_id}").status_code == 404
 
 
 def test_branch_status_reports_progress_fields_and_404s_for_unknown(
@@ -303,6 +334,7 @@ def test_render_recent_branches_lists_newest_first() -> None:
         assert "Недавние ветки" in html
         assert html.index("new.zip") < html.index("old.zip")  # newest first
         assert "/app/auditor/branch/b" in html
+        assert "/app/auditor/branch/b/delete" in html  # per-row delete control
     finally:
         auditor._BRANCH_RUNS.clear()
         auditor._BRANCH_RUNS.update(saved_runs)

@@ -16,7 +16,7 @@ from types import ModuleType
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -339,6 +339,10 @@ _BRANCH_FORM_HTML = """
           };
           xhr.onload = function () {
             if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                var data = JSON.parse(xhr.responseText);
+                if (data && data.progress_url) { window.location.href = data.progress_url; return; }
+              } catch (e) {}
               document.open(); document.write(xhr.responseText); document.close();
             } else {
               if (label) label.textContent = "Ошибка загрузки (" + xhr.status + ")";
@@ -448,6 +452,20 @@ def _evict_old_branch_runs() -> None:
             shutil.rmtree(work_dir, ignore_errors=True)
 
 
+def _delete_branch(branch_id: str) -> bool:
+    """Drop a branch run from every store and reclaim its work dir (incl. persisted meta)."""
+    with _UI_LOCK:
+        existed = branch_id in _BRANCH_RUNS or branch_id in _BRANCH_JOBS
+        _BRANCH_RUNS.pop(branch_id, None)
+        _BRANCH_REPORTS.pop(branch_id, None)
+        _BRANCH_JOBS.pop(branch_id, None)
+        _BRANCH_CREATED.pop(branch_id, None)
+        work_dir = _BRANCH_WORK_DIRS.pop(branch_id, None)
+    if work_dir is not None:
+        shutil.rmtree(work_dir, ignore_errors=True)
+    return existed
+
+
 def _persist_branch(branch_id: str, report: Any, work_dir: Path, archive_name: str, created_at: str) -> None:
     """Write a branch run's index to disk so its summary/drill-down survive a restart.
 
@@ -526,10 +544,16 @@ def _render_recent_branches() -> str:
         name = escape(info.get("archive_name") or "Ветка")
         created = escape((info.get("created_at") or "").replace("T", " ")[:16])
         link = f"/app/auditor/branch/{branch_id}"
+        delete_action = f"/app/auditor/branch/{branch_id}/delete"
         rows.append(
-            f'<li><a href="{link}" style="color:#0e8f6f;text-decoration:none;font-weight:600;">{name}</a>'
+            '<li style="display:flex;align-items:center;justify-content:space-between;gap:12px;">'
+            f'<span><a href="{link}" style="color:#0e8f6f;text-decoration:none;font-weight:600;">{name}</a>'
             f'<span style="color:#8a9691;font-size:.85rem;"> · {report.completed_count} проверено · '
-            f"{report.failed_count} с ошибкой · {created}</span></li>"
+            f"{report.failed_count} с ошибкой · {created}</span></span>"
+            f'<form method="post" action="{delete_action}" style="margin:0;" '
+            "onsubmit=\"return confirm('Удалить эту ветку из списка?');\">"
+            '<button type="submit" title="Удалить" style="border:none;background:none;color:#b02a2a;'
+            'cursor:pointer;font-size:1.15rem;line-height:1;">&times;</button></form></li>'
         )
     return (
         '<section class="filter-panel" style="margin-top:16px;">'
@@ -773,7 +797,7 @@ async def run_auditor_branch(
     use_model: bool = Form(True),
     allow_network: bool = Form(True),
     include_unknown: bool = Form(True),
-) -> HTMLResponse:
+) -> Response:
     """Kick off a branch audit in the background and return the live-progress page.
 
     Always a full audit — the model (LLM: facts, market, accuracy) and network link checks
@@ -822,6 +846,25 @@ async def run_auditor_branch(
         kwargs={"use_model": use_model, "allow_network": allow_network, "include_unknown": include_unknown},
         daemon=True,
     ).start()
+    # Return the progress URL (not the page) so the client navigates to a stable GET route —
+    # refreshing it re-renders the live progress instead of re-POSTing (which would start a new run).
+    return JSONResponse({"progress_url": f"/app/auditor/branch/{branch_id}/progress"})
+
+
+@page_router.get("/branch/{branch_id}/progress")
+async def get_auditor_branch_progress(request: Request, branch_id: str) -> Response:
+    """Stable, refresh-safe progress page for an in-flight branch job; redirects when finished."""
+
+    await validate_request_user(request)
+    _ensure_branches_loaded()
+    with _UI_LOCK:
+        job = _BRANCH_JOBS.get(branch_id)
+        finished = branch_id in _BRANCH_RUNS or (job is not None and job.get("state") == "done")
+        exists = job is not None or branch_id in _BRANCH_RUNS
+    if not exists:
+        raise HTTPException(status_code=404, detail="Задача ветки не найдена или устарела")
+    if finished:
+        return RedirectResponse(f"/app/auditor/branch/{branch_id}", status_code=303)
     return HTMLResponse(_render_branch_processing(branch_id), headers={"Cache-Control": "no-store"})
 
 
@@ -836,6 +879,16 @@ async def get_auditor_branch_summary(request: Request, branch_id: str) -> HTMLRe
     if report is None:
         raise HTTPException(status_code=404, detail="Ветка не найдена или устарела")
     return HTMLResponse(_render_branch_summary(branch_id, report), headers={"Cache-Control": "no-store"})
+
+
+@page_router.post("/branch/{branch_id}/delete")
+async def delete_auditor_branch(request: Request, branch_id: str) -> Response:
+    """Remove one branch run (from the recent list) and reclaim its artifacts."""
+
+    await validate_request_user(request)
+    _ensure_branches_loaded()
+    _delete_branch(branch_id)
+    return RedirectResponse("/app/auditor", status_code=303)
 
 
 @page_router.get("/branch/{branch_id}/status")
