@@ -71,6 +71,7 @@ _BRANCH_UPLOADS: dict[str, dict[str, Any]] = {}
 _MAX_BRANCH_RUNS = 10
 _MAX_PENDING_UPLOADS = 10
 _BRANCH_META_FILE = "branch_meta.json"
+_BRANCH_JOB_FILE = "branch_job.json"
 _BRANCHES_LOADED = False
 
 
@@ -529,6 +530,23 @@ def _delete_branch(branch_id: str) -> bool:
     return existed
 
 
+def _flush_job_file(branch_id: str, work_dir: Path, archive_name: str, created_at: str) -> None:
+    """Persist the live job progress so a page refresh (even after a restart) can read it.
+
+    The audit thread cannot resume across a restart, but writing progress lets the status endpoint
+    return the last known state (marked interrupted on reload) instead of a bare 404.
+    """
+    with _UI_LOCK:
+        job = dict(_BRANCH_JOBS.get(branch_id) or {})
+    if not job:
+        return
+    payload = {"branch_id": branch_id, "archive_name": archive_name, "created_at": created_at, "job": job}
+    try:
+        (work_dir / _BRANCH_JOB_FILE).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def _persist_branch(branch_id: str, report: Any, work_dir: Path, archive_name: str, created_at: str) -> None:
     """Write a branch run's index to disk so its summary/drill-down survive a restart.
 
@@ -578,6 +596,22 @@ def _load_persisted_branches() -> None:
             _BRANCH_RUNS[branch_id] = report
             _BRANCH_WORK_DIRS[branch_id] = work_dir
             _BRANCH_CREATED[branch_id] = info
+
+    # A job file without a completed meta means the run was cut off by a restart — the audit thread
+    # is gone and cannot resume, so surface it as "interrupted" instead of a bare 404.
+    for job_path in root.rglob(_BRANCH_JOB_FILE):
+        try:
+            payload = json.loads(job_path.read_text(encoding="utf-8"))
+            branch_id = str(payload["branch_id"])
+            job = dict(payload.get("job") or {})
+        except (OSError, ValueError, KeyError):
+            continue
+        with _UI_LOCK:
+            if branch_id in _BRANCH_RUNS or branch_id in _BRANCH_JOBS:
+                continue
+            job["state"] = "interrupted"
+            _BRANCH_JOBS[branch_id] = job
+            _BRANCH_WORK_DIRS[branch_id] = job_path.parent
 
 
 def _ensure_branches_loaded() -> None:
@@ -734,6 +768,8 @@ def _run_branch_job(
 
     from content_factory.audit import branch as branch_mod
 
+    started_at = datetime.now(UTC).isoformat()
+
     def set_job(**changes: Any) -> None:
         with _UI_LOCK:
             job = _BRANCH_JOBS.get(branch_id)
@@ -744,6 +780,7 @@ def _run_branch_job(
         entries = branch_mod.enumerate_branch(branch_dir, extract_root)
         total = sum(1 for entry in entries if entry.is_project and entry.project_dir is not None)
         set_job(total=total)
+        _flush_job_file(branch_id, work_dir, archive_name, started_at)
         reports_by_outdir: dict[str, Any] = {}
 
         def run_project(project_dir: Path, out_dir: Path) -> dict[str, Any]:
@@ -768,6 +805,7 @@ def _run_branch_job(
                 job["current"] = name
                 if status == "failed":
                     job["failed"] = int(job.get("failed", 0)) + 1
+            _flush_job_file(branch_id, work_dir, archive_name, started_at)
 
         branch_report = branch_mod.run_branch_audit(entries, out_root, run_project, on_progress)
         index_map = {
@@ -790,6 +828,22 @@ def _run_branch_job(
     except Exception as exc:  # noqa: BLE001 - report the branch-level failure to the poller.
         shutil.rmtree(work_dir, ignore_errors=True)
         set_job(state="error", error=str(exc))
+
+
+def _render_branch_gone() -> str:
+    """Shown when a progress URL points at a run the server no longer knows (usually a restart)."""
+    return (
+        '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+        '<title>Ветка недоступна</title><link rel="stylesheet" href="/static/css/fonts.css">'
+        "<style>body{font-family:'Inter',system-ui,sans-serif;margin:0;background:#f6f8f7;color:#1c2b27;padding:32px;}"
+        ".wrap{max-width:640px;margin:0 auto;}h1{font-size:1.4rem;margin:0 0 8px;}"
+        ".card{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:24px;}"
+        "a.back{display:inline-block;margin-top:14px;color:#0e8f6f;text-decoration:none;font-weight:600;}</style>"
+        '</head><body><div class="wrap"><div class="card"><h1>Прогон не найден или прерван</h1>'
+        "<p>Скорее всего, сервер перезапускался во время проверки. Запустите проверку ветки заново.</p>"
+        '<a class="back" href="/app/auditor">← Вернуться к аудитору</a></div></div></body></html>'
+    )
 
 
 def _render_branch_processing(branch_id: str) -> str:
@@ -828,17 +882,20 @@ def _render_branch_processing(branch_id: str) -> str:
   var fill=document.getElementById('bar-fill');
   var label=document.getElementById('bar-label');
   var note=document.getElementById('bar-note');
+  function terminal(text, detail){{
+    label.className='bar-label err';
+    label.textContent=text;
+    note.textContent=detail||'';
+  }}
   function tick(){{
     fetch(statusUrl,{{headers:{{'X-Requested-With':'fetch'}}}}).then(function(r){{
+      if(r.status===404){{ terminal('Прогон не найден или прерван', 'Возможно, сервер перезапускался. Запустите проверку заново.'); return null; }}
       if(!r.ok) throw new Error('status '+r.status);
       return r.json();
     }}).then(function(j){{
-      if(j.state==='error'){{
-        label.className='bar-label err';
-        label.textContent='Ошибка обработки ветки';
-        note.textContent=j.error||'не удалось обработать ветку';
-        return;
-      }}
+      if(!j) return;  // stopped on 404
+      if(j.state==='error'){{ terminal('Ошибка обработки ветки', j.error||'не удалось обработать ветку'); return; }}
+      if(j.state==='interrupted'){{ terminal('Прогон прерван', 'Сервер перезапускался во время проверки. Запустите её заново.'); return; }}
       var total=j.total||0, done=j.completed||0, failed=j.failed||0;
       var pct=total?Math.round(done/total*100):0;
       fill.style.width=pct+'%';
@@ -953,10 +1010,11 @@ async def get_auditor_branch_progress(request: Request, branch_id: str) -> Respo
         job = _BRANCH_JOBS.get(branch_id)
         finished = branch_id in _BRANCH_RUNS or (job is not None and job.get("state") == "done")
         exists = job is not None or branch_id in _BRANCH_RUNS
-    if not exists:
-        raise HTTPException(status_code=404, detail="Задача ветки не найдена или устарела")
     if finished:
         return RedirectResponse(f"/app/auditor/branch/{branch_id}", status_code=303)
+    if not exists:
+        # Unknown/expired (usually the server was restarted mid-run): show a real page, not raw JSON.
+        return HTMLResponse(_render_branch_gone(), status_code=200, headers={"Cache-Control": "no-store"})
     return HTMLResponse(_render_branch_processing(branch_id), headers={"Cache-Control": "no-store"})
 
 
@@ -988,6 +1046,7 @@ async def get_auditor_branch_status(request: Request, branch_id: str) -> JSONRes
     """Live progress of a background branch job, polled by the processing page."""
 
     await validate_request_user(request)
+    _ensure_branches_loaded()
     with _UI_LOCK:
         job = _BRANCH_JOBS.get(branch_id)
         snapshot = dict(job) if job is not None else None

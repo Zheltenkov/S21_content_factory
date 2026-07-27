@@ -197,7 +197,43 @@ def test_progress_page_shows_the_bar_while_running(branch_client: TestClient, mo
     page = branch_client.get(f"/app/auditor/branch/{branch_id}/progress")
     assert page.status_code == 200
     assert "bar-fill" in page.text and "Обработка ветки" in page.text
-    assert branch_client.get("/app/auditor/branch/nope/progress").status_code == 404
+    # an unknown branch shows the "gone" page (HTML), not a raw 404
+    gone = branch_client.get("/app/auditor/branch/nope/progress")
+    assert gone.status_code == 200 and "Прогон не найден или прерван" in gone.text
+
+
+def test_progress_page_for_unknown_branch_renders_html_not_raw_json(branch_client: TestClient) -> None:
+    resp = branch_client.get("/app/auditor/branch/does-not-exist/progress")
+    assert resp.status_code == 200  # a real page, not a bare 404 JSON body
+    assert "Прогон не найден или прерван" in resp.text
+    assert "Вернуться к аудитору" in resp.text
+
+
+def test_reload_marks_a_cut_off_job_as_interrupted(
+    monkeypatch: pytest.MonkeyPatch, branch_client: TestClient, tmp_path
+) -> None:
+    monkeypatch.setattr(auditor, "AUDITOR_ROOT", tmp_path)
+    work_dir = tmp_path / "ui" / "u" / "branch_y"
+    work_dir.mkdir(parents=True)
+    (work_dir / "branch_job.json").write_text(
+        json.dumps(
+            {
+                "branch_id": "CUT",
+                "archive_name": "b.zip",
+                "created_at": "2026-07-27T10:00:00",
+                "job": {"state": "running", "total": 12, "completed": 3, "failed": 0, "current": "p4.zip"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    auditor._BRANCH_JOBS.pop("CUT", None)
+    auditor._BRANCHES_LOADED = False
+    try:
+        status = branch_client.get("/app/auditor/branch/CUT/status").json()
+        assert status["state"] == "interrupted"  # a restart-cut job is surfaced, not 404
+        assert status["total"] == 12 and status["completed"] == 3
+    finally:
+        auditor._BRANCH_JOBS.pop("CUT", None)
 
 
 def test_delete_branch_removes_the_run(branch_client: TestClient, sync_engine: None) -> None:
