@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tarfile
 import uuid
 import zipfile
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock, Thread
 from types import ModuleType
@@ -62,7 +64,11 @@ _BRANCH_REPORTS: dict[str, dict[int, Any]] = {}
 _BRANCH_WORK_DIRS: dict[str, Path] = {}
 # Live progress for in-flight (and finished) branch jobs: branch_id -> mutable status dict.
 _BRANCH_JOBS: dict[str, dict[str, Any]] = {}
+# Metadata for finished runs (created_at, archive name), for the "recent branches" list + reload.
+_BRANCH_CREATED: dict[str, dict[str, str]] = {}
 _MAX_BRANCH_RUNS = 10
+_BRANCH_META_FILE = "branch_meta.json"
+_BRANCHES_LOADED = False
 
 
 @page_router.get("")
@@ -71,10 +77,13 @@ async def render_auditor_page(request: Request) -> HTMLResponse:
     """Render the original auditor page inside the shared authenticated service."""
 
     user = await validate_request_user(request)
+    _ensure_branches_loaded()
     state_key, state = _auditor_page_state(user)
     web_app = _load_auditor_web_app()
     html = web_app.render_page(_UI_REPORTS.get(state_key), state)
-    return HTMLResponse(_rewrite_auditor_page_html(html), headers={"Cache-Control": "no-store"})
+    page = _rewrite_auditor_page_html(html)
+    page = page.replace("<!--RECENT_BRANCHES_SLOT-->", _render_recent_branches(), 1)
+    return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
 
 @page_router.post("/run")
@@ -433,9 +442,116 @@ def _evict_old_branch_runs() -> None:
         _BRANCH_RUNS.pop(oldest, None)
         _BRANCH_REPORTS.pop(oldest, None)
         _BRANCH_JOBS.pop(oldest, None)
+        _BRANCH_CREATED.pop(oldest, None)
         work_dir = _BRANCH_WORK_DIRS.pop(oldest, None)
         if work_dir is not None:
             shutil.rmtree(work_dir, ignore_errors=True)
+
+
+def _persist_branch(branch_id: str, report: Any, work_dir: Path, archive_name: str, created_at: str) -> None:
+    """Write a branch run's index to disk so its summary/drill-down survive a restart.
+
+    The per-project report artifacts already live under ``work_dir``; this only records the light
+    index (verdicts + report_dir per project) that the in-memory store would otherwise lose.
+    """
+    meta = {
+        "branch_id": branch_id,
+        "created_at": created_at,
+        "archive_name": archive_name,
+        "report": report.as_dict(),
+    }
+    try:
+        (work_dir / _BRANCH_META_FILE).write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass  # persistence is best-effort; the in-memory copy still serves this process.
+
+
+def _load_persisted_branches() -> None:
+    """Repopulate the in-memory branch stores from any branch_meta.json left on disk (startup).
+
+    Loads only the newest ``_MAX_BRANCH_RUNS`` and never deletes anything — reload must not evict
+    on-disk artifacts, only re-index what is already there.
+    """
+    from content_factory.audit.branch import BranchReport
+
+    root = AUDITOR_ROOT
+    if not root.exists():
+        return
+    loaded: list[tuple[str, str, BranchReport, Path, dict[str, str]]] = []
+    for meta_path in root.rglob(_BRANCH_META_FILE):
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            branch_id = str(meta["branch_id"])
+            report = BranchReport.from_dict(meta["report"])
+            created_at = str(meta.get("created_at", ""))
+            info = {"created_at": created_at, "archive_name": str(meta.get("archive_name", ""))}
+            loaded.append((branch_id, created_at, report, meta_path.parent, info))
+        except (OSError, ValueError, KeyError):
+            continue
+    for branch_id, _created, report, work_dir, info in sorted(loaded, key=lambda item: item[1], reverse=True)[
+        :_MAX_BRANCH_RUNS
+    ]:
+        with _UI_LOCK:
+            if branch_id in _BRANCH_RUNS:
+                continue
+            _BRANCH_RUNS[branch_id] = report
+            _BRANCH_WORK_DIRS[branch_id] = work_dir
+            _BRANCH_CREATED[branch_id] = info
+
+
+def _ensure_branches_loaded() -> None:
+    """Reload persisted branch runs once per process, on the first auditor request."""
+    global _BRANCHES_LOADED
+    if _BRANCHES_LOADED:
+        return
+    _BRANCHES_LOADED = True
+    _load_persisted_branches()
+
+
+def _render_recent_branches() -> str:
+    """A compact 'recent branches' panel for the main auditor page, so a finished branch run is
+    findable after a refresh/restart even without its URL. Empty string when there are none."""
+    from html import escape
+
+    with _UI_LOCK:
+        items = [
+            (branch_id, dict(_BRANCH_CREATED.get(branch_id, {})), report)
+            for branch_id, report in _BRANCH_RUNS.items()
+        ]
+    if not items:
+        return ""
+    items.sort(key=lambda item: item[1].get("created_at", ""), reverse=True)
+    rows = []
+    for branch_id, info, report in items[:_MAX_BRANCH_RUNS]:
+        name = escape(info.get("archive_name") or "Ветка")
+        created = escape((info.get("created_at") or "").replace("T", " ")[:16])
+        link = f"/app/auditor/branch/{branch_id}"
+        rows.append(
+            f'<li><a href="{link}" style="color:#0e8f6f;text-decoration:none;font-weight:600;">{name}</a>'
+            f'<span style="color:#8a9691;font-size:.85rem;"> · {report.completed_count} проверено · '
+            f"{report.failed_count} с ошибкой · {created}</span></li>"
+        )
+    return (
+        '<section class="filter-panel" style="margin-top:16px;">'
+        '<div style="font-weight:700;margin-bottom:8px;">Недавние ветки</div>'
+        f'<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;">{"".join(rows)}</ul>'
+        "</section>"
+    )
+
+
+def _load_project_report(project: Any) -> Any | None:
+    """Load a project's AuditReport back from its on-disk report.json (for reloaded runs)."""
+    if not project.report_dir:
+        return None
+    report_json = Path(project.report_dir) / "report.json"
+    if not report_json.exists():
+        return None
+    from content_factory.audit import domain
+
+    try:
+        return domain.AuditReport.model_validate_json(report_json.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
 
 
 def _project_verdict(summary: dict[str, Any] | None) -> tuple[str, int, str]:
@@ -516,6 +632,7 @@ def _run_branch_job(
     extract_root: Path,
     out_root: Path,
     work_dir: Path,
+    archive_name: str,
     *,
     use_model: bool,
     allow_network: bool,
@@ -571,14 +688,17 @@ def _run_branch_job(
             for index, project in enumerate(branch_report.projects)
             if project.report_dir and project.report_dir in reports_by_outdir
         }
+        created_at = datetime.now(UTC).isoformat()
         with _UI_LOCK:
             _BRANCH_RUNS[branch_id] = branch_report
             _BRANCH_REPORTS[branch_id] = index_map
             _BRANCH_WORK_DIRS[branch_id] = work_dir
+            _BRANCH_CREATED[branch_id] = {"created_at": created_at, "archive_name": archive_name}
             job = _BRANCH_JOBS.get(branch_id)
             if job is not None:
                 job["state"] = "done"
             _evict_old_branch_runs()
+        _persist_branch(branch_id, branch_report, work_dir, archive_name, created_at)
     except Exception as exc:  # noqa: BLE001 - report the branch-level failure to the poller.
         shutil.rmtree(work_dir, ignore_errors=True)
         set_job(state="error", error=str(exc))
@@ -698,7 +818,7 @@ async def run_auditor_branch(
         }
     Thread(
         target=_run_branch_job,
-        args=(branch_id, branch_dir, extract_root, out_root, work_dir),
+        args=(branch_id, branch_dir, extract_root, out_root, work_dir, archive_name),
         kwargs={"use_model": use_model, "allow_network": allow_network, "include_unknown": include_unknown},
         daemon=True,
     ).start()
@@ -710,6 +830,7 @@ async def get_auditor_branch_summary(request: Request, branch_id: str) -> HTMLRe
     """Re-render the summary of a completed branch run."""
 
     await validate_request_user(request)
+    _ensure_branches_loaded()
     with _UI_LOCK:
         report = _BRANCH_RUNS.get(branch_id)
     if report is None:
@@ -747,16 +868,23 @@ async def get_auditor_branch_project(request: Request, branch_id: str, index: in
     """Full single-project report for one project inside the branch (drill-down)."""
 
     user = await validate_request_user(request)
+    _ensure_branches_loaded()
     _state_key, state = _auditor_page_state(user)
     with _UI_LOCK:
-        report_obj = _BRANCH_REPORTS.get(branch_id, {}).get(index)
         branch_report = _BRANCH_RUNS.get(branch_id)
-        if report_obj is None or branch_report is None:
+        report_obj = _BRANCH_REPORTS.get(branch_id, {}).get(index)
+    if branch_report is None or index < 0 or index >= len(branch_report.projects):
+        raise HTTPException(status_code=404, detail="Отчёт проекта не найден")
+    project = branch_report.projects[index]
+    if report_obj is None:
+        # Reloaded run (after restart): the in-memory report is gone but its report.json remains.
+        report_obj = _load_project_report(project)
+        if report_obj is None:
             raise HTTPException(status_code=404, detail="Отчёт проекта не найден")
-        # Point the per-user state at this project's report dir so downloads resolve to it.
-        project = branch_report.projects[index]
-        if project.report_dir:
-            state.report_dir = Path(project.report_dir)
+        with _UI_LOCK:
+            _BRANCH_REPORTS.setdefault(branch_id, {})[index] = report_obj
+    if project.report_dir:
+        state.report_dir = Path(project.report_dir)
     web_app = _load_auditor_web_app()
     html = web_app.render_page(report_obj, state)
     # A "back to branch" pill placed in the report's top action bar next to Перезапустить/Изменить.

@@ -225,6 +225,25 @@ def test_run_branch_audit_reports_progress_after_each_project(tmp_path: Path) ->
     assert events[1][2] == "b.zip"
 
 
+def test_branch_report_round_trips_through_dict() -> None:
+    from content_factory.audit.branch import BranchProjectResult, BranchReport, BranchSkip
+
+    report = BranchReport(
+        projects=[
+            BranchProjectResult(name="a.zip", status="completed", summary={"findings_total": 2}, report_dir="/out/a"),
+            BranchProjectResult(name="b.zip", status="failed", error="boom"),
+        ],
+        skipped=[BranchSkip(name="c.txt", reason="loose_file", message="skip")],
+    )
+
+    restored = BranchReport.from_dict(report.as_dict())
+
+    assert restored.as_dict() == report.as_dict()
+    assert restored.completed_count == 1 and restored.failed_count == 1
+    assert restored.projects[0].report_dir == "/out/a"
+    assert restored.skipped[0].reason == "loose_file"
+
+
 def test_run_branch_audit_with_no_projects_is_empty_not_error(tmp_path: Path) -> None:
     from content_factory.audit.branch import BranchEntry, run_branch_audit
 

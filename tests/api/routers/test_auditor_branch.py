@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import zipfile
 
 import pytest
@@ -247,3 +248,69 @@ def test_summary_get_reloads_a_run(branch_client: TestClient, sync_engine: None)
     assert reloaded.status_code == 200
     assert "p1.zip" in reloaded.text
     assert branch_client.get("/app/auditor/branch/does-not-exist").status_code == 404
+
+
+def test_branch_summary_survives_a_simulated_restart(branch_client: TestClient, sync_engine: None) -> None:
+    branch_id = _post_branch(branch_client)
+    assert branch_client.get(f"/app/auditor/branch/{branch_id}").status_code == 200
+
+    # Simulate a process restart: drop the in-memory index and the one-shot load flag.
+    auditor._BRANCH_RUNS.pop(branch_id, None)
+    auditor._BRANCH_REPORTS.pop(branch_id, None)
+    auditor._BRANCH_CREATED.pop(branch_id, None)
+    auditor._BRANCHES_LOADED = False
+
+    reloaded = branch_client.get(f"/app/auditor/branch/{branch_id}")
+    assert reloaded.status_code == 200  # re-indexed from branch_meta.json on disk
+    assert "p1.zip" in reloaded.text
+
+
+def test_load_persisted_branches_reindexes_from_disk(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setattr(auditor, "AUDITOR_ROOT", tmp_path)
+    work_dir = tmp_path / "ui" / "u" / "branch_x"
+    work_dir.mkdir(parents=True)
+    report = BranchReport(
+        projects=[BranchProjectResult(name="p1.zip", status="completed", summary={"findings_total": 0}, report_dir=str(work_dir / "p1"))],
+        skipped=[],
+    )
+    (work_dir / "branch_meta.json").write_text(
+        json.dumps({"branch_id": "BR1", "created_at": "2026-07-27T10:00:00", "archive_name": "b.zip", "report": report.as_dict()}),
+        encoding="utf-8",
+    )
+    auditor._BRANCH_RUNS.pop("BR1", None)
+    try:
+        auditor._load_persisted_branches()
+        assert "BR1" in auditor._BRANCH_RUNS
+        assert auditor._BRANCH_RUNS["BR1"].projects[0].name == "p1.zip"
+        assert auditor._BRANCH_CREATED["BR1"]["archive_name"] == "b.zip"
+    finally:
+        auditor._BRANCH_RUNS.pop("BR1", None)
+        auditor._BRANCH_CREATED.pop("BR1", None)
+
+
+def test_render_recent_branches_lists_newest_first() -> None:
+    saved_runs = dict(auditor._BRANCH_RUNS)
+    saved_created = dict(auditor._BRANCH_CREATED)
+    auditor._BRANCH_RUNS.clear()
+    auditor._BRANCH_CREATED.clear()
+    try:
+        for bid, name, ts in [("a", "old.zip", "2026-01-01T00:00"), ("b", "new.zip", "2026-07-01T00:00")]:
+            auditor._BRANCH_RUNS[bid] = BranchReport(
+                projects=[BranchProjectResult(name="p", status="completed", summary={}, report_dir="/x")], skipped=[]
+            )
+            auditor._BRANCH_CREATED[bid] = {"created_at": ts, "archive_name": name}
+        html = auditor._render_recent_branches()
+        assert "Недавние ветки" in html
+        assert html.index("new.zip") < html.index("old.zip")  # newest first
+        assert "/app/auditor/branch/b" in html
+    finally:
+        auditor._BRANCH_RUNS.clear()
+        auditor._BRANCH_RUNS.update(saved_runs)
+        auditor._BRANCH_CREATED.clear()
+        auditor._BRANCH_CREATED.update(saved_created)
+
+
+def test_load_project_report_returns_none_without_artifact(tmp_path) -> None:
+    assert auditor._load_project_report(BranchProjectResult(name="x", status="failed")) is None
+    no_json = BranchProjectResult(name="x", status="completed", report_dir=str(tmp_path))
+    assert auditor._load_project_report(no_json) is None

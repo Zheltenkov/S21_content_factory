@@ -228,6 +228,7 @@ def _render_run_panel(
     </div>
   </details>
 </section>
+<!--RECENT_BRANCHES_SLOT-->
 """
 
 

@@ -216,6 +216,29 @@ class BranchReport:
     def failed_count(self) -> int:
         return sum(1 for project in self.projects if project.status == "failed")
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> BranchReport:
+        """Rebuild a report from ``as_dict`` output (used to reload persisted branch runs)."""
+        projects = [
+            BranchProjectResult(
+                name=str(item.get("name", "")),
+                status=str(item.get("status", "")),
+                summary=item.get("summary"),
+                error=item.get("error"),
+                report_dir=item.get("report_dir"),
+            )
+            for item in data.get("projects", [])
+        ]
+        skipped = [
+            BranchSkip(
+                name=str(item.get("name", "")),
+                reason=str(item.get("reason", "")),
+                message=str(item.get("message", "")),
+            )
+            for item in data.get("skipped", [])
+        ]
+        return cls(projects=projects, skipped=skipped)
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "project_count": self.project_count,
