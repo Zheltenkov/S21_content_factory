@@ -39,6 +39,9 @@ def test_auditor_branch_card_fills_the_intake_grid_slot_once():
     assert "branch-upload-fill" in out
     assert "upload.onprogress" in out
     assert "Загрузка архива" in out
+    # run buttons stay dimmed until their input is filled, then light up (readiness affordance)
+    assert ".is-ready" in out
+    assert "classList.toggle(\"is-ready\"" in out
     # audit is always full — no shallow-mode toggles on the branch card
     assert 'name="use_model"' not in out
     assert 'name="allow_network"' not in out

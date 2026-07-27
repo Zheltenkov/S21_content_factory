@@ -278,12 +278,13 @@ _INTAKE_GRID_STYLE = """
 .intake-card-title{font-weight:700;font-size:14px;color:#0f172a}
 .intake-card-hint{font-size:12px;color:#64748b}
 .intake-card .upload-zone{margin:0;flex:1 1 auto;display:flex;flex-direction:column;justify-content:center}
-.intake-card .button{align-self:flex-start;margin-top:auto}
+.intake-card .button{align-self:flex-start;margin-top:auto;opacity:.45;box-shadow:none;transition:opacity .15s ease,box-shadow .15s ease}
+.intake-card .button.is-ready{opacity:1;box-shadow:0 2px 10px rgba(16,185,129,.45)}
 .intake-card input[type=text]{width:100%}
 .branch-card{border-color:#34d399;background:#f0fdf9}
 .branch-progress{margin-top:10px}
-.branch-progress-label{font-size:12px;color:#0e8f6f;margin-bottom:6px}
-.branch-progress-track{height:6px;border-radius:999px;background:#d1fae5;overflow:hidden}
+.branch-progress-label{font-size:13px;font-weight:700;color:#0e8f6f;margin-bottom:6px}
+.branch-progress-track{height:10px;border-radius:999px;background:#d1fae5;overflow:hidden}
 .branch-progress-track>b{display:block;height:100%;width:0;border-radius:999px;background:#10b981;transition:width .2s ease}
 #run-progress{grid-column:1 / -1}
 @media (max-width:860px){.intake-grid{grid-template-columns:1fr}}
@@ -340,6 +341,35 @@ _BRANCH_FORM_HTML = """
             if (button) { button.disabled = false; button.textContent = "Проверить ветку"; }
           };
           xhr.send(new FormData(form));
+        });
+      })();
+    </script>
+    <script>
+      (function () {
+        // Each intake card's run button stays dimmed until its input is filled, then lights up —
+        // so the methodologist can see when a card is ready to run. File cards also show the
+        // chosen filename as confirmation the archive is attached.
+        document.querySelectorAll(".intake-card").forEach(function (card) {
+          if (card.dataset.readyBound) return;
+          card.dataset.readyBound = "1";
+          var button = card.querySelector("button[type=submit], .button");
+          var fileInput = card.querySelector("input[type=file]");
+          var textInput = card.querySelector("input[type=text]");
+          function setReady(ready) { if (button) button.classList.toggle("is-ready", !!ready); }
+          if (fileInput) {
+            var nameSpan = card.querySelector(".upload-name");
+            var defaultName = nameSpan ? nameSpan.textContent : "";
+            fileInput.addEventListener("change", function () {
+              var has = fileInput.files && fileInput.files.length;
+              if (nameSpan) nameSpan.textContent = has ? fileInput.files[0].name : defaultName;
+              setReady(has);
+            });
+          }
+          if (textInput) {
+            var sync = function () { setReady(textInput.value.trim().length > 0); };
+            textInput.addEventListener("input", sync);
+            sync();
+          }
         });
       })();
     </script>
