@@ -34,6 +34,8 @@ def test_auditor_branch_card_fills_the_intake_grid_slot_once():
     assert 'action="/app/auditor/branch"' in out  # branch card injected into the grid
     assert out.count('action="/app/auditor/branch"') == 1  # idempotent: exactly one branch form
     assert "intake-grid-style" in out  # grid styles injected alongside
+    assert "branch-progress" in out  # progress indicator shown while a branch is processed
+    assert "Обрабатываю ветку" in out  # submit handler swaps the button label
 
 
 def test_auditor_run_panel_emits_three_card_intake_grid():

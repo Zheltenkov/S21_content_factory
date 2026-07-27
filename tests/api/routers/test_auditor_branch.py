@@ -146,6 +146,33 @@ def test_drilldown_renders_stored_report_and_404s_out_of_range(
     assert branch_client.get("/app/auditor/branch/nope/project/0").status_code == 404
 
 
+def test_drilldown_back_link_sits_under_the_results_heading(
+    branch_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report = _fake_branch_report()
+    monkeypatch.setattr(
+        auditor, "_run_branch_from_dir", lambda *a, **k: (report, {"/out/0": object(), "/out/1": object()})
+    )
+
+    class _FakeWebApp:
+        @staticmethod
+        def render_page(report_obj, state, form_values=None):
+            return "<body><h1>Проект</h1><h2>Таблица результата</h2><table></table></body>"
+
+    monkeypatch.setattr(auditor, "_load_auditor_web_app", lambda: _FakeWebApp())
+
+    created = branch_client.post(
+        "/app/auditor/branch",
+        files={"branch_archive": ("branch.zip", _tiny_branch_zip(), "application/zip")},
+    )
+    branch_id = created.text.split("/app/auditor/branch/", 1)[1].split("/project/", 1)[0]
+
+    text = branch_client.get(f"/app/auditor/branch/{branch_id}/project/0").text
+    # the back link is injected right after the results heading, not floated above the page
+    assert text.index("Таблица результата") < text.index("← к ветке")
+    assert text.index("← к ветке") < text.index("<table>")
+
+
 def test_summary_get_reloads_a_run(branch_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     report = _fake_branch_report()
     monkeypatch.setattr(auditor, "_run_branch_from_dir", lambda *a, **k: (report, {"/out/0": object(), "/out/1": object()}))

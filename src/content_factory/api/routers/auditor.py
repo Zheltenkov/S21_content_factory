@@ -279,6 +279,11 @@ _INTAKE_GRID_STYLE = """
 .intake-card .button{align-self:flex-start;margin-top:auto}
 .intake-card input[type=text]{width:100%}
 .branch-card{border-color:#34d399;background:#f0fdf9}
+.branch-progress{margin-top:10px}
+.branch-progress-label{font-size:12px;color:#0e8f6f;margin-bottom:6px}
+.branch-progress-track{height:6px;border-radius:999px;background:#d1fae5;overflow:hidden}
+.branch-progress-track>i{display:block;height:100%;width:40%;border-radius:999px;background:#10b981;animation:branchslide 1.1s ease-in-out infinite}
+@keyframes branchslide{0%{margin-left:-42%}100%{margin-left:100%}}
 #run-progress{grid-column:1 / -1}
 @media (max-width:860px){.intake-grid{grid-template-columns:1fr}}
 </style>
@@ -293,7 +298,24 @@ _BRANCH_FORM_HTML = """
         <span class="upload-name">Архив архивов/папок проектов (в каждом — README)</span>
       </label>
       <button class="button" type="submit">Проверить ветку</button>
+      <div class="branch-progress" hidden aria-live="polite">
+        <div class="branch-progress-label">Обработка ветки… это может занять несколько минут</div>
+        <div class="branch-progress-track"><i></i></div>
+      </div>
     </form>
+    <script>
+      (function () {
+        var form = document.querySelector(".branch-run-form");
+        if (!form || form.dataset.progressBound) return;
+        form.dataset.progressBound = "1";
+        form.addEventListener("submit", function () {
+          var progress = form.querySelector(".branch-progress");
+          if (progress) progress.hidden = false;
+          var button = form.querySelector("button[type=submit]");
+          if (button) { button.disabled = true; button.textContent = "Обрабатываю ветку…"; }
+        });
+      })();
+    </script>
 """
 
 
@@ -548,11 +570,21 @@ async def get_auditor_branch_project(request: Request, branch_id: str, index: in
             state.report_dir = Path(project.report_dir)
     web_app = _load_auditor_web_app()
     html = web_app.render_page(report_obj, state)
+    # A visible "back to branch" pill placed inside the report body (under the results heading),
+    # not floated above the topbar where it is easy to miss. Fall back to the top for reports that
+    # have no results table (e.g. an empty project).
     back = (
-        f'<div style="max-width:1080px;margin:12px auto;padding:0 16px;">'
-        f'<a href="/app/auditor/branch/{branch_id}" style="color:#0e8f6f;text-decoration:none;">← к ветке</a></div>'
+        f'<a href="/app/auditor/branch/{branch_id}" style="display:inline-block;'
+        "margin:4px 0 14px;padding:8px 14px;background:#10b981;color:#fff;border-radius:999px;"
+        'text-decoration:none;font-weight:600;font-size:13px;">← к ветке</a>'
     )
-    return HTMLResponse(back + _rewrite_auditor_page_html(html), headers={"Cache-Control": "no-store"})
+    page = _rewrite_auditor_page_html(html)
+    results_heading = "<h2>Таблица результата</h2>"
+    if results_heading in page:
+        page = page.replace(results_heading, results_heading + back, 1)
+    else:
+        page = f'<div style="max-width:1080px;margin:12px auto;padding:0 16px;">{back}</div>' + page
+    return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/runs/{run_id}")
