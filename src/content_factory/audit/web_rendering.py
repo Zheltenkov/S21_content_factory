@@ -193,19 +193,23 @@ def _render_run_panel(
         <h1>Проверка локального проекта</h1>
       </div>
     </div>
-    <form id="run-form" method="post" action="/run" enctype="multipart/form-data">
-      <div class="form-grid">
-        <div>
-          <label for="input_path">Путь к проекту</label>
-          <input id="input_path" name="input_path" type="text" value="{_esc(input_value)}" spellcheck="false">
+    <div class="intake-grid">
+      <!--BRANCH_CARD_SLOT-->
+      <form id="run-form" method="post" action="/run" enctype="multipart/form-data" class="intake-run-form">
+        <div class="intake-card">
+          <div class="intake-card-title">Архив проекта</div>
+          <label class="upload-zone" for="{ARCHIVE_FIELD_NAME}">
+            <input id="{ARCHIVE_FIELD_NAME}" name="{ARCHIVE_FIELD_NAME}" type="file" accept=".zip,.rar,.tar,.gz,.tgz,.bz2,.xz">
+            <span class="upload-title">Выбрать архив</span>
+            <span class="upload-name" id="archive-file-name">ZIP / RAR / TAR</span>
+          </label>
         </div>
-        <button class="button" type="submit">Запустить</button>
-      </div>
-      <label class="upload-zone" for="{ARCHIVE_FIELD_NAME}">
-        <input id="{ARCHIVE_FIELD_NAME}" name="{ARCHIVE_FIELD_NAME}" type="file" accept=".zip,.rar,.tar,.gz,.tgz,.bz2,.xz">
-        <span class="upload-title">Архив проекта</span>
-        <span class="upload-name" id="archive-file-name">ZIP / RAR / TAR</span>
-      </label>
+        <div class="intake-card">
+          <div class="intake-card-title">Путь к проекту</div>
+          <label class="intake-card-hint" for="input_path">Локальная папка на сервере</label>
+          <input id="input_path" name="input_path" type="text" value="{_esc(input_value)}" spellcheck="false">
+          <button class="button" type="submit">Запустить</button>
+        </div>
       <div class="run-progress" id="run-progress" role="status" aria-live="polite" aria-busy="false" hidden>
         <div class="run-progress-head">
           <span>Готовность отчёта</span>
@@ -219,7 +223,8 @@ def _render_run_panel(
           <span id="run-progress-elapsed">0 с</span>
         </div>
       </div>
-    </form>
+      </form>
+    </div>
   </details>
 </section>
 """

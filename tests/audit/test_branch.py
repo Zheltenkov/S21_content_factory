@@ -123,6 +123,33 @@ def test_corrupt_archive_is_skipped_not_fatal(tmp_path: Path) -> None:
     assert entry.reason == SKIP_UNREADABLE_ARCHIVE
 
 
+def test_single_wrapper_folder_is_unwrapped_to_reach_projects(tmp_path: Path) -> None:
+    # DS_Bootcamp.zip shape: one top folder wraps the project archives; README lives INSIDE
+    # each inner zip, so the wrapper itself has no README and must be descended into.
+    branch = tmp_path / "branch"
+    (branch / "DS_Bootcamp").mkdir(parents=True)
+    _zip(branch / "DS_Bootcamp" / "p1.zip", {"p1/README.md": "# 1", "p1/main.py": "x=1"})
+    _zip(branch / "DS_Bootcamp" / "p2.zip", {"p2/README.md": "# 2", "p2/main.py": "y=1"})
+
+    entries = enumerate_branch(branch, tmp_path / "work")
+
+    assert {entry.name for entry in entries} == {"p1.zip", "p2.zip"}
+    assert all(entry.is_project for entry in entries)
+
+
+def test_single_top_folder_that_is_a_project_is_not_unwrapped(tmp_path: Path) -> None:
+    # A lone top folder that IS a project (README at its root) is a 1-project branch — keep it.
+    branch = tmp_path / "branch"
+    (branch / "solo").mkdir(parents=True)
+    (branch / "solo" / "README.md").write_text("# solo", encoding="utf-8")
+    (branch / "solo" / "app.py").write_text("x=1", encoding="utf-8")
+
+    entries = enumerate_branch(branch, tmp_path / "work")
+
+    assert [entry.name for entry in entries] == ["solo"]
+    assert entries[0].is_project is True
+
+
 def test_mixed_branch_reports_projects_and_skips_in_stable_order(tmp_path: Path) -> None:
     branch = tmp_path / "branch"
     branch.mkdir()

@@ -125,14 +125,49 @@ def _classify_folder_entry(entry: Path) -> BranchEntry:
     return BranchEntry(name=entry.name, is_project=True, project_dir=project_root)
 
 
+def _has_direct_readme(directory: Path) -> bool:
+    """README sitting directly in the folder — marks the folder itself as a project root."""
+    return any(item.is_file() and _README_RE.match(item.name) for item in directory.iterdir())
+
+
+def _holds_project_shaped_children(directory: Path) -> bool:
+    """The folder contains archives or subfolders (candidate projects), not just loose files."""
+    return any(item.is_dir() or (item.is_file() and _is_archive(item)) for item in directory.iterdir())
+
+
+def _effective_branch_dir(branch_dir: Path) -> Path:
+    """Descend through a single wrapping folder that merely holds the projects.
+
+    Branch archives are usually zipped with everything under one top folder
+    (``DS_Bootcamp/DSB1.zip``, ``DS_Bootcamp/DSB2.zip``, …). When the branch dir holds exactly
+    one entry — a directory that is NOT itself a project (no README directly inside it) but DOES
+    hold project-shaped children (inner archives or subfolders) — treat that folder as the branch
+    and look inside it. A lone folder that is a project, or that holds only loose files / nothing,
+    is left in place so it is reported as a project or skipped with a reason. Bounded loop guards
+    against pathological deep nesting.
+    """
+    current = branch_dir
+    for _ in range(8):
+        children = list(current.iterdir())
+        if len(children) != 1 or not children[0].is_dir():
+            return current
+        only = children[0]
+        if _has_direct_readme(only) or not _holds_project_shaped_children(only):
+            return current
+        current = only
+    return current
+
+
 def enumerate_branch(branch_dir: Path, extract_root: Path) -> list[BranchEntry]:
     """Classify each top-level entry of an already-extracted branch directory.
 
     ``branch_dir`` is the extracted outer archive; ``extract_root`` is a scratch dir where inner
-    archives are unpacked. Projects (archive OR folder containing a README) come back with a
+    archives are unpacked. A single wrapping top folder is unwrapped first (see
+    ``_effective_branch_dir``). Projects (archive OR folder containing a README) come back with a
     ``project_dir`` to audit; everything else is skipped with a reason. Order is stable (sorted).
     """
     extract_root.mkdir(parents=True, exist_ok=True)
+    branch_dir = _effective_branch_dir(branch_dir)
     entries: list[BranchEntry] = []
     for entry in sorted(branch_dir.iterdir(), key=lambda item: item.name.lower()):
         if entry.is_dir():

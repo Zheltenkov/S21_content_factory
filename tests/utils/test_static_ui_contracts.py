@@ -23,6 +23,31 @@ def test_auditor_original_ui_links_are_rewritten_to_shared_app_prefix():
     assert 'src="/static/assets/avatar-placeholder.jpg"' in rewritten
 
 
+def test_auditor_branch_card_fills_the_intake_grid_slot_once():
+    from content_factory.api.routers.auditor import _rewrite_auditor_page_html
+
+    html = '<div class="intake-grid"><!--BRANCH_CARD_SLOT--><form id="run-form" action="/run"></form></div>'
+
+    out = _rewrite_auditor_page_html(html)
+
+    assert "<!--BRANCH_CARD_SLOT-->" not in out  # slot consumed
+    assert 'action="/app/auditor/branch"' in out  # branch card injected into the grid
+    assert out.count('action="/app/auditor/branch"') == 1  # idempotent: exactly one branch form
+    assert "intake-grid-style" in out  # grid styles injected alongside
+
+
+def test_auditor_run_panel_emits_three_card_intake_grid():
+    from content_factory.audit import web_rendering
+
+    panel = web_rendering._render_run_panel(None, "")
+
+    assert 'class="intake-grid"' in panel
+    assert "<!--BRANCH_CARD_SLOT-->" in panel  # branch card slot present for the app layer to fill
+    assert 'class="intake-run-form"' in panel  # run-form is display:contents so its cards join grid
+    assert panel.count('class="intake-card"') == 2  # Архив + Путь cards (branch card added by app)
+    assert 'id="input_path"' in panel and 'id="archive-file-name"' in panel  # JS anchors preserved
+
+
 def test_dashboard_mode_cards_use_direct_links_instead_of_js_only_navigation():
     html = (ROOT / "static" / "app.html").read_text(encoding="utf-8")
 

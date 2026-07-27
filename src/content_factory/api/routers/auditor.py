@@ -263,10 +263,30 @@ def _new_ui_work_dir(state_key: str, prefix: str) -> Path:
     return work_dir
 
 
-# A "load branch" form injected next to the single-run form, reusing the page's own .upload-zone /
-# .button classes. Kept here (not in the legacy web_rendering module) so the single-run UI is untouched.
+# The branch "card" that fills the <!--BRANCH_CARD_SLOT--> the run panel leaves as the first cell
+# of its .intake-grid. The branch route (/app/auditor/branch) stays here rather than in the shared
+# web_rendering module, so the audit engine's own UI does not learn about the S21 app mount.
+# The grid styles are injected once alongside it; #run-form is display:contents so its own two
+# cards (Архив / Путь) become grid cells next to this one — three cards in one row.
+_INTAKE_GRID_STYLE = """
+<style id="intake-grid-style">
+.intake-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch;margin-top:12px}
+.intake-run-form{display:contents}
+.intake-card{display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#fff}
+.intake-card-title{font-weight:700;font-size:14px;color:#0f172a}
+.intake-card-hint{font-size:12px;color:#64748b}
+.intake-card .upload-zone{margin:0;flex:1 1 auto;display:flex;flex-direction:column;justify-content:center}
+.intake-card .button{align-self:flex-start}
+.intake-card input[type=text]{width:100%}
+.branch-card{border-color:#34d399;background:#f0fdf9}
+#run-progress{grid-column:1 / -1}
+@media (max-width:860px){.intake-grid{grid-template-columns:1fr}}
+</style>
+"""
+
 _BRANCH_FORM_HTML = """
-    <form method="post" action="/app/auditor/branch" enctype="multipart/form-data" class="branch-run-form">
+    <form method="post" action="/app/auditor/branch" enctype="multipart/form-data" class="intake-card branch-card branch-run-form">
+      <div class="intake-card-title">Ветка</div>
       <label class="upload-zone" for="branch_archive_input">
         <input id="branch_archive_input" name="branch_archive" type="file" accept=".zip,.tar,.gz,.tgz">
         <span class="upload-title">Загрузить ветку</span>
@@ -289,9 +309,10 @@ def _rewrite_auditor_page_html(html: str) -> str:
     rewritten = html
     for source, target in replacements:
         rewritten = rewritten.replace(source, target)
-    # Add the branch upload next to the single-project run form (idempotent: only once).
-    if "branch-run-form" not in rewritten:
-        rewritten = rewritten.replace('<form id="run-form"', _BRANCH_FORM_HTML + '<form id="run-form"', 1)
+    # Fill the branch-card slot the run panel leaves in its .intake-grid (idempotent: the marker
+    # exists once and is consumed). Inject the grid styles alongside it, once.
+    if "<!--BRANCH_CARD_SLOT-->" in rewritten:
+        rewritten = rewritten.replace("<!--BRANCH_CARD_SLOT-->", _INTAKE_GRID_STYLE + _BRANCH_FORM_HTML, 1)
     return rewritten
 
 
