@@ -35,7 +35,10 @@ def test_auditor_branch_card_fills_the_intake_grid_slot_once():
     assert out.count('action="/app/auditor/branch"') == 1  # idempotent: exactly one branch form
     assert "intake-grid-style" in out  # grid styles injected alongside
     assert "branch-progress" in out  # progress indicator shown while a branch is processed
-    assert "Обрабатываю ветку" in out  # submit handler swaps the button label
+    # the archive is uploaded via XHR so the bar can show real upload percent
+    assert "branch-upload-fill" in out
+    assert "upload.onprogress" in out
+    assert "Загрузка архива" in out
     # audit is always full — no shallow-mode toggles on the branch card
     assert 'name="use_model"' not in out
     assert 'name="allow_network"' not in out

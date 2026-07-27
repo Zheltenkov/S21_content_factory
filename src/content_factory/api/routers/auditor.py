@@ -284,8 +284,7 @@ _INTAKE_GRID_STYLE = """
 .branch-progress{margin-top:10px}
 .branch-progress-label{font-size:12px;color:#0e8f6f;margin-bottom:6px}
 .branch-progress-track{height:6px;border-radius:999px;background:#d1fae5;overflow:hidden}
-.branch-progress-track>i{display:block;height:100%;width:40%;border-radius:999px;background:#10b981;animation:branchslide 1.1s ease-in-out infinite}
-@keyframes branchslide{0%{margin-left:-42%}100%{margin-left:100%}}
+.branch-progress-track>b{display:block;height:100%;width:0;border-radius:999px;background:#10b981;transition:width .2s ease}
 #run-progress{grid-column:1 / -1}
 @media (max-width:860px){.intake-grid{grid-template-columns:1fr}}
 </style>
@@ -301,8 +300,8 @@ _BRANCH_FORM_HTML = """
       </label>
       <button class="button" type="submit">Проверить ветку</button>
       <div class="branch-progress" hidden aria-live="polite">
-        <div class="branch-progress-label">Обработка ветки… полный аудит ≈ 2 минуты на проект, не закрывайте вкладку</div>
-        <div class="branch-progress-track"><i></i></div>
+        <div class="branch-progress-label" id="branch-upload-label">Загрузка архива…</div>
+        <div class="branch-progress-track"><b id="branch-upload-fill"></b></div>
       </div>
     </form>
     <script>
@@ -310,11 +309,37 @@ _BRANCH_FORM_HTML = """
         var form = document.querySelector(".branch-run-form");
         if (!form || form.dataset.progressBound) return;
         form.dataset.progressBound = "1";
-        form.addEventListener("submit", function () {
+        form.addEventListener("submit", function (e) {
+          var input = form.querySelector("input[type=file]");
+          if (!input || !input.files || !input.files.length) return; // no file: let the server answer 400
+          e.preventDefault();
           var progress = form.querySelector(".branch-progress");
-          if (progress) progress.hidden = false;
+          var label = form.querySelector("#branch-upload-label");
+          var fill = form.querySelector("#branch-upload-fill");
           var button = form.querySelector("button[type=submit]");
-          if (button) { button.disabled = true; button.textContent = "Обрабатываю ветку…"; }
+          if (progress) progress.hidden = false;
+          if (button) { button.disabled = true; button.textContent = "Загрузка…"; }
+          var xhr = new XMLHttpRequest();
+          xhr.open("POST", form.getAttribute("action"), true);
+          xhr.upload.onprogress = function (ev) {
+            if (!ev.lengthComputable) return;
+            var pct = Math.round(ev.loaded / ev.total * 100);
+            if (fill) fill.style.width = pct + "%";
+            if (label) label.textContent = pct < 100 ? ("Загрузка архива: " + pct + "%") : "Архив загружен, запускаю аудит…";
+          };
+          xhr.onload = function () {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              document.open(); document.write(xhr.responseText); document.close();
+            } else {
+              if (label) label.textContent = "Ошибка загрузки (" + xhr.status + ")";
+              if (button) { button.disabled = false; button.textContent = "Проверить ветку"; }
+            }
+          };
+          xhr.onerror = function () {
+            if (label) label.textContent = "Ошибка сети при загрузке";
+            if (button) { button.disabled = false; button.textContent = "Проверить ветку"; }
+          };
+          xhr.send(new FormData(form));
         });
       })();
     </script>
