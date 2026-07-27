@@ -759,17 +759,21 @@ async def get_auditor_branch_project(request: Request, branch_id: str, index: in
             state.report_dir = Path(project.report_dir)
     web_app = _load_auditor_web_app()
     html = web_app.render_page(report_obj, state)
-    # A visible "back to branch" pill placed inside the report body (under the results heading),
-    # not floated above the topbar where it is easy to miss. Fall back to the top for reports that
-    # have no results table (e.g. an empty project).
+    # A "back to branch" pill placed in the report's top action bar next to Перезапустить/Изменить.
+    # stopPropagation keeps a click from toggling the <details> the bar lives in. Fall back to the
+    # results heading, then the page top, for reports without that bar.
     back = (
-        f'<a href="/app/auditor/branch/{branch_id}" style="display:inline-block;'
-        "margin:4px 0 14px;padding:8px 14px;background:#10b981;color:#fff;border-radius:999px;"
-        'text-decoration:none;font-weight:600;font-size:13px;">← к ветке</a>'
+        f'<a href="/app/auditor/branch/{branch_id}" onclick="event.stopPropagation()" '
+        'style="display:inline-flex;align-items:center;margin-right:10px;padding:8px 14px;'
+        "background:#10b981;color:#fff;border-radius:999px;text-decoration:none;font-weight:600;"
+        'font-size:13px;">← Вернуться к ветке</a>'
     )
     page = _rewrite_auditor_page_html(html)
+    actions_anchor = '<span class="run-bar-actions">'
     results_heading = "<h2>Таблица результата</h2>"
-    if results_heading in page:
+    if actions_anchor in page:
+        page = page.replace(actions_anchor, actions_anchor + back, 1)
+    elif results_heading in page:
         page = page.replace(results_heading, results_heading + back, 1)
     else:
         page = f'<div style="max-width:1080px;margin:12px auto;padding:0 16px;">{back}</div>' + page

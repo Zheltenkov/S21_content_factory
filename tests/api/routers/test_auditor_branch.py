@@ -198,13 +198,34 @@ def test_drilldown_renders_stored_report_and_404s_out_of_range(
     ok = branch_client.get(f"/app/auditor/branch/{branch_id}/project/0")
     assert ok.status_code == 200
     assert "FULL_PROJECT_REPORT" in ok.text
-    assert "← к ветке" in ok.text
+    assert "Вернуться к ветке" in ok.text
 
     assert branch_client.get(f"/app/auditor/branch/{branch_id}/project/99").status_code == 404
     assert branch_client.get("/app/auditor/branch/nope/project/0").status_code == 404
 
 
-def test_drilldown_back_link_sits_under_the_results_heading(
+def test_drilldown_back_link_sits_in_the_run_bar_actions(
+    branch_client: TestClient, sync_engine: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class _FakeWebApp:
+        @staticmethod
+        def render_page(report_obj, state, form_values=None):
+            return (
+                '<summary class="run-bar"><span class="run-bar-text">Проект</span>'
+                '<span class="run-bar-actions"><button>Перезапустить</button></span></summary>'
+                "<h2>Таблица результата</h2><table></table>"
+            )
+
+    monkeypatch.setattr(auditor, "_load_auditor_web_app", lambda: _FakeWebApp())
+
+    branch_id = _post_branch(branch_client)
+    text = branch_client.get(f"/app/auditor/branch/{branch_id}/project/0").text
+    # the back link sits in the top action bar, before Перезапустить (not down by the table)
+    assert "Вернуться к ветке" in text
+    assert text.index("run-bar-actions") < text.index("Вернуться к ветке") < text.index("Перезапустить")
+
+
+def test_drilldown_back_link_falls_back_to_results_heading_without_action_bar(
     branch_client: TestClient, sync_engine: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class _FakeWebApp:
@@ -216,9 +237,7 @@ def test_drilldown_back_link_sits_under_the_results_heading(
 
     branch_id = _post_branch(branch_client)
     text = branch_client.get(f"/app/auditor/branch/{branch_id}/project/0").text
-    # the back link is injected right after the results heading, not floated above the page
-    assert text.index("Таблица результата") < text.index("← к ветке")
-    assert text.index("← к ветке") < text.index("<table>")
+    assert text.index("Таблица результата") < text.index("Вернуться к ветке") < text.index("<table>")
 
 
 def test_summary_get_reloads_a_run(branch_client: TestClient, sync_engine: None) -> None:
