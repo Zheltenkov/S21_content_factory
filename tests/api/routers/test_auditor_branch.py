@@ -132,13 +132,21 @@ def sync_engine(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(auditor, "_run_single_project_audit", lambda project_dir, out_dir, **k: _FakeReport())
 
 
-def _post_branch(client: TestClient, names: tuple[str, ...] = ("p1", "p2")) -> str:
-    response = client.post(
-        "/app/auditor/branch",
+def _upload_branch(client: TestClient, names: tuple[str, ...] = ("p1", "p2")) -> str:
+    uploaded = client.post(
+        "/app/auditor/branch/upload",
         files={"branch_archive": ("branch.zip", _branch_zip(names), "application/zip")},
     )
+    assert uploaded.status_code == 200
+    return uploaded.json()["upload_id"]
+
+
+def _post_branch(client: TestClient, names: tuple[str, ...] = ("p1", "p2")) -> str:
+    # Two-step flow: the archive is uploaded on file-select, the run starts from its upload_id.
+    upload_id = _upload_branch(client, names)
+    response = client.post("/app/auditor/branch", data={"upload_id": upload_id})
     assert response.status_code == 200
-    progress_url = response.json()["progress_url"]  # POST returns the stable progress URL, not HTML
+    progress_url = response.json()["progress_url"]  # run returns the stable progress URL, not HTML
     return progress_url.split("/app/auditor/branch/", 1)[1].split("/progress", 1)[0]
 
 
@@ -154,7 +162,20 @@ def test_post_branch_starts_a_job_and_processes_to_summary(branch_client: TestCl
     assert "p1.zip" in summary.text and "p2.zip" in summary.text
 
 
-def test_post_branch_requires_a_file(branch_client: TestClient) -> None:
+def test_branch_upload_requires_a_file(branch_client: TestClient) -> None:
+    assert branch_client.post("/app/auditor/branch/upload").status_code == 400
+
+
+def test_branch_upload_returns_an_id_the_run_consumes(branch_client: TestClient, sync_engine: None) -> None:
+    upload_id = _upload_branch(branch_client)
+    assert upload_id
+    # the run starts from the upload_id; a second run with the same (now consumed) id fails
+    assert branch_client.post("/app/auditor/branch", data={"upload_id": upload_id}).status_code == 200
+    assert branch_client.post("/app/auditor/branch", data={"upload_id": upload_id}).status_code == 400
+
+
+def test_run_without_a_known_upload_id_is_rejected(branch_client: TestClient) -> None:
+    assert branch_client.post("/app/auditor/branch", data={"upload_id": "nope"}).status_code == 400
     assert branch_client.post("/app/auditor/branch").status_code == 400
 
 

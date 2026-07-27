@@ -35,10 +35,12 @@ def test_auditor_branch_card_fills_the_intake_grid_slot_once():
     assert out.count('action="/app/auditor/branch"') == 1  # idempotent: exactly one branch form
     assert "intake-grid-style" in out  # grid styles injected alongside
     assert "branch-progress" in out  # progress indicator shown while a branch is processed
-    # the archive is uploaded via XHR so the bar can show real upload percent
+    # the archive is uploaded to the server on file-select (not on click) with a live percent bar
+    assert "/app/auditor/branch/upload" in out
     assert "branch-upload-fill" in out
     assert "upload.onprogress" in out
     assert "Загрузка архива" in out
+    assert 'fileInput.addEventListener("change"' in out  # upload starts when the file is chosen
     # run buttons stay dimmed until their input is filled, then light up (readiness affordance)
     assert ".is-ready" in out
     assert "classList.toggle(\"is-ready\"" in out

@@ -66,7 +66,10 @@ _BRANCH_WORK_DIRS: dict[str, Path] = {}
 _BRANCH_JOBS: dict[str, dict[str, Any]] = {}
 # Metadata for finished runs (created_at, archive name), for the "recent branches" list + reload.
 _BRANCH_CREATED: dict[str, dict[str, str]] = {}
+# Archives uploaded on file-select but not yet audited: upload_id -> {work_dir, archive_path, archive_name}.
+_BRANCH_UPLOADS: dict[str, dict[str, Any]] = {}
 _MAX_BRANCH_RUNS = 10
+_MAX_PENDING_UPLOADS = 10
 _BRANCH_META_FILE = "branch_meta.json"
 _BRANCHES_LOADED = False
 
@@ -316,54 +319,85 @@ _BRANCH_FORM_HTML = """
     </form>
     <script>
       (function () {
+        // Branch flow: upload the archive to the server the moment it is chosen (live percent),
+        // light the button only once it is on the server, then start the audit on click.
         var form = document.querySelector(".branch-run-form");
-        if (!form || form.dataset.progressBound) return;
-        form.dataset.progressBound = "1";
-        form.addEventListener("submit", function (e) {
-          var input = form.querySelector("input[type=file]");
-          if (!input || !input.files || !input.files.length) return; // no file: let the server answer 400
-          e.preventDefault();
-          var progress = form.querySelector(".branch-progress");
-          var label = form.querySelector("#branch-upload-label");
-          var fill = form.querySelector("#branch-upload-fill");
-          var button = form.querySelector("button[type=submit]");
+        if (!form || form.dataset.uploadBound) return;
+        form.dataset.uploadBound = "1";
+        var fileInput = form.querySelector("input[type=file]");
+        var button = form.querySelector("button[type=submit]");
+        var progress = form.querySelector(".branch-progress");
+        var label = form.querySelector("#branch-upload-label");
+        var fill = form.querySelector("#branch-upload-fill");
+        var nameSpan = form.querySelector(".upload-name");
+        var defaultName = nameSpan ? nameSpan.textContent : "";
+        function setReady(r) { if (button) button.classList.toggle("is-ready", !!r); }
+        setReady(false);
+        if (fileInput) fileInput.addEventListener("change", function () {
+          form.dataset.uploadId = "";
+          setReady(false);
+          if (!fileInput.files || !fileInput.files.length) {
+            if (nameSpan) nameSpan.textContent = defaultName;
+            if (progress) progress.hidden = true;
+            return;
+          }
+          var file = fileInput.files[0];
+          if (nameSpan) nameSpan.textContent = file.name;
           if (progress) progress.hidden = false;
-          if (button) { button.disabled = true; button.textContent = "Загрузка…"; }
+          if (fill) fill.style.width = "0%";
+          if (label) label.textContent = "Загрузка архива: 0%";
+          var body = new FormData();
+          body.append("branch_archive", file);
           var xhr = new XMLHttpRequest();
-          xhr.open("POST", form.getAttribute("action"), true);
+          xhr.open("POST", "/app/auditor/branch/upload", true);
           xhr.upload.onprogress = function (ev) {
             if (!ev.lengthComputable) return;
             var pct = Math.round(ev.loaded / ev.total * 100);
             if (fill) fill.style.width = pct + "%";
-            if (label) label.textContent = pct < 100 ? ("Загрузка архива: " + pct + "%") : "Архив загружен, запускаю аудит…";
+            if (label) label.textContent = pct < 100 ? ("Загрузка архива: " + pct + "%") : "Обработка загрузки…";
           };
           xhr.onload = function () {
+            var uploadId = "";
             if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                var data = JSON.parse(xhr.responseText);
-                if (data && data.progress_url) { window.location.href = data.progress_url; return; }
-              } catch (e) {}
-              document.open(); document.write(xhr.responseText); document.close();
-            } else {
-              if (label) label.textContent = "Ошибка загрузки (" + xhr.status + ")";
-              if (button) { button.disabled = false; button.textContent = "Проверить ветку"; }
+              try { uploadId = (JSON.parse(xhr.responseText) || {}).upload_id || ""; } catch (e) {}
+            }
+            if (uploadId) {
+              form.dataset.uploadId = uploadId;
+              if (fill) fill.style.width = "100%";
+              if (label) label.textContent = "Архив на сервере ✓ — можно запускать";
+              setReady(true);
+            } else if (label) {
+              label.textContent = "Ошибка загрузки архива (" + xhr.status + ")";
             }
           };
-          xhr.onerror = function () {
-            if (label) label.textContent = "Ошибка сети при загрузке";
-            if (button) { button.disabled = false; button.textContent = "Проверить ветку"; }
-          };
-          xhr.send(new FormData(form));
+          xhr.onerror = function () { if (label) label.textContent = "Ошибка сети при загрузке"; };
+          xhr.send(body);
+        });
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var uploadId = form.dataset.uploadId;
+          if (!uploadId) { if (label) { if (progress) progress.hidden = false; label.textContent = "Сначала загрузите архив ветки"; } return; }
+          if (button) { button.disabled = true; button.textContent = "Запускаю аудит…"; }
+          var body = new URLSearchParams();
+          body.append("upload_id", uploadId);
+          fetch(form.getAttribute("action"), {
+            method: "POST", body: body,
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          }).then(function (r) { return r.json(); })
+            .then(function (d) { if (d && d.progress_url) { window.location.href = d.progress_url; } else { throw new Error("no url"); } })
+            .catch(function () {
+              if (label) label.textContent = "Не удалось запустить аудит";
+              if (button) { button.disabled = false; button.textContent = "Проверить ветку"; }
+            });
         });
       })();
     </script>
     <script>
       (function () {
-        // Each intake card's run button stays dimmed until its input is filled, then lights up —
-        // so the methodologist can see when a card is ready to run. File cards also show the
-        // chosen filename as confirmation the archive is attached.
+        // Each single-audit card's run button stays dimmed until its input is filled, then lights
+        // up. The branch card manages its own readiness (after the upload finishes), so skip it.
         document.querySelectorAll(".intake-card").forEach(function (card) {
-          if (card.dataset.readyBound) return;
+          if (card.dataset.readyBound || card.classList.contains("branch-card")) return;
           card.dataset.readyBound = "1";
           var button = card.querySelector("button[type=submit], .button");
           var fileInput = card.querySelector("input[type=file]");
@@ -450,6 +484,15 @@ def _evict_old_branch_runs() -> None:
         work_dir = _BRANCH_WORK_DIRS.pop(oldest, None)
         if work_dir is not None:
             shutil.rmtree(work_dir, ignore_errors=True)
+
+
+def _evict_old_branch_uploads() -> None:
+    """Cap pending (uploaded-but-not-audited) archives; reclaim evicted work dirs. Under _UI_LOCK."""
+    while len(_BRANCH_UPLOADS) > _MAX_PENDING_UPLOADS:
+        oldest = next(iter(_BRANCH_UPLOADS))
+        upload = _BRANCH_UPLOADS.pop(oldest, None)
+        if upload is not None:
+            shutil.rmtree(upload["work_dir"], ignore_errors=True)
 
 
 def _delete_branch(branch_id: str) -> bool:
@@ -790,20 +833,13 @@ def _render_branch_processing(branch_id: str) -> str:
 </body></html>"""
 
 
-@page_router.post("/branch")
-async def run_auditor_branch(
+@page_router.post("/branch/upload")
+async def upload_auditor_branch(
     request: Request,
     branch_archive: UploadFile | None = File(None),
-    use_model: bool = Form(True),
-    allow_network: bool = Form(True),
-    include_unknown: bool = Form(True),
 ) -> Response:
-    """Kick off a branch audit in the background and return the live-progress page.
-
-    Always a full audit — the model (LLM: facts, market, accuracy) and network link checks
-    match the single-project run. The heavy work runs off-request (one project ≈ 2 min), so a
-    large branch never blocks the response or trips the proxy timeout; the page polls for progress.
-    """
+    """Receive the branch archive the moment it is chosen (so the browser can show upload %),
+    stash it, and return an upload_id the run request references. The audit starts later."""
 
     user = await validate_request_user(request)
     state_key, _state = _auditor_page_state(user)
@@ -818,6 +854,41 @@ async def run_auditor_branch(
         shutil.rmtree(work_dir, ignore_errors=True)
         raise HTTPException(status_code=413, detail="Архив ветки слишком большой")
 
+    upload_id = uuid.uuid4().hex
+    with _UI_LOCK:
+        _BRANCH_UPLOADS[upload_id] = {
+            "work_dir": work_dir,
+            "archive_path": archive_path,
+            "archive_name": archive_name,
+        }
+        _evict_old_branch_uploads()
+    return JSONResponse({"upload_id": upload_id, "archive_name": archive_name})
+
+
+@page_router.post("/branch")
+async def run_auditor_branch(
+    request: Request,
+    upload_id: str = Form(""),
+    use_model: bool = Form(True),
+    allow_network: bool = Form(True),
+    include_unknown: bool = Form(True),
+) -> Response:
+    """Start a branch audit from a previously uploaded archive; return the live-progress URL.
+
+    Always a full audit — the model (LLM: facts, market, accuracy) and network link checks
+    match the single-project run. The heavy work runs off-request (one project ≈ 2 min), so a
+    large branch never blocks the response or trips the proxy timeout; the page polls for progress.
+    """
+
+    await validate_request_user(request)
+    with _UI_LOCK:
+        upload = _BRANCH_UPLOADS.pop(upload_id, None)
+    if upload is None:
+        raise HTTPException(status_code=400, detail="Архив ветки не найден — загрузите его заново")
+
+    work_dir = upload["work_dir"]
+    archive_path = upload["archive_path"]
+    archive_name = upload["archive_name"]
     branch_dir = work_dir / "branch"
     extract_root = work_dir / "extract"
     out_root = work_dir / "reports"
