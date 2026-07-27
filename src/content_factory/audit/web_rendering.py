@@ -203,6 +203,7 @@ def _render_run_panel(
             <span class="upload-title">Выбрать архив</span>
             <span class="upload-name" id="archive-file-name">ZIP / RAR / TAR</span>
           </label>
+          <button class="button" type="submit">Запустить</button>
         </div>
         <div class="intake-card">
           <div class="intake-card-title">Путь к проекту</div>

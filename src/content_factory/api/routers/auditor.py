@@ -276,7 +276,7 @@ _INTAKE_GRID_STYLE = """
 .intake-card-title{font-weight:700;font-size:14px;color:#0f172a}
 .intake-card-hint{font-size:12px;color:#64748b}
 .intake-card .upload-zone{margin:0;flex:1 1 auto;display:flex;flex-direction:column;justify-content:center}
-.intake-card .button{align-self:flex-start}
+.intake-card .button{align-self:flex-start;margin-top:auto}
 .intake-card input[type=text]{width:100%}
 .branch-card{border-color:#34d399;background:#f0fdf9}
 #run-progress{grid-column:1 / -1}
