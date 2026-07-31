@@ -112,6 +112,24 @@ def test_readme_variants_and_tar_are_recognised(tmp_path: Path) -> None:
     assert entry.is_project is True
 
 
+def test_rar_inner_archive_is_extracted_via_the_rar_tool(tmp_path: Path, monkeypatch) -> None:
+    import content_factory.audit.web_app as web_app
+
+    def fake_rar(archive_path: Path, target_dir: Path) -> None:
+        (target_dir / "proj").mkdir(parents=True, exist_ok=True)
+        (target_dir / "proj" / "README.md").write_text("# p", encoding="utf-8")
+
+    monkeypatch.setattr(web_app, "_extract_rar_archive", fake_rar)
+    branch = tmp_path / "branch"
+    branch.mkdir()
+    (branch / "p.rar").write_bytes(b"Rar!\x1a\x07\x00 fake")  # extractor is mocked; bytes don't matter
+
+    entry = _by_name(enumerate_branch(branch, tmp_path / "work"))["p.rar"]
+
+    assert entry.is_project is True  # .rar recognised as an archive and extracted to a project
+    assert entry.project_dir is not None and (entry.project_dir / "README.md").exists()
+
+
 def test_corrupt_archive_is_skipped_not_fatal(tmp_path: Path) -> None:
     branch = tmp_path / "branch"
     branch.mkdir()

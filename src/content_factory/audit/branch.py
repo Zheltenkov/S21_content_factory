@@ -27,7 +27,7 @@ DEFAULT_BRANCH_CONCURRENCY = 3
 
 # The auditor's own notion of a README (extra_checkers.README_RE): readme.md, readme_rus.md, ...
 _README_RE = re.compile(r"(?i)^readme(?:_[a-z]+)?\.md$")
-_ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz")
+_ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz", ".rar")
 
 # Reason codes for a skipped entry (kept stable for the UI; message is the human label).
 SKIP_LOOSE_FILE = "loose_file"
@@ -105,7 +105,13 @@ def safe_extract(archive_path: Path, target_dir: Path) -> None:
                 _ensure_safe_member(target_dir, tar_member.name)
             archive.extractall(target_dir)
         return
-    raise ValueError("Поддерживаются ZIP, TAR и TAR.GZ архивы")
+    if name.endswith(".rar"):
+        # RAR needs an external tool (unar); reuse the auditor's path-traversal-safe extractor.
+        from content_factory.audit.web_app import _extract_rar_archive
+
+        _extract_rar_archive(archive_path, target_dir)
+        return
+    raise ValueError("Поддерживаются ZIP, TAR, TAR.GZ и RAR архивы")
 
 
 def _classify_archive_entry(entry: Path, extract_root: Path) -> BranchEntry:

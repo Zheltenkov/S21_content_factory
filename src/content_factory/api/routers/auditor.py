@@ -328,9 +328,9 @@ _BRANCH_FORM_HTML = """
     <form method="post" action="/app/auditor/branch" enctype="multipart/form-data" class="intake-card branch-card branch-run-form">
       <div class="intake-card-title">Ветка</div>
       <label class="upload-zone" for="branch_archive_input">
-        <input id="branch_archive_input" name="branch_archive" type="file" accept=".zip,.tar,.gz,.tgz">
+        <input id="branch_archive_input" name="branch_archive" type="file" accept=".zip,.tar,.gz,.tgz,.rar">
         <span class="upload-title">Загрузить ветку</span>
-        <span class="upload-name">Архив архивов/папок проектов (в каждом — README)</span>
+        <span class="upload-name">Архив (ZIP/TAR/RAR) архивов/папок проектов — в каждом README</span>
       </label>
       <button class="button" type="submit">Проверить ветку</button>
       <div class="branch-progress" hidden aria-live="polite">
@@ -1259,7 +1259,16 @@ def _extract_archive(archive_path: Path, target_dir: Path) -> None:
                 _ensure_safe_member(target_dir, tar_member.name)
             archive.extractall(target_dir)
         return
-    raise HTTPException(status_code=400, detail="Поддерживаются ZIP, TAR и TAR.GZ архивы")
+    if suffixes.endswith(".rar"):
+        # RAR needs an external tool (unar); reuse the auditor's path-traversal-safe extractor.
+        from content_factory.audit.web_app import _extract_rar_archive
+
+        try:
+            _extract_rar_archive(archive_path, target_dir)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return
+    raise HTTPException(status_code=400, detail="Поддерживаются ZIP, TAR, TAR.GZ и RAR архивы")
 
 
 def _ensure_safe_member(root: Path, member_name: str) -> None:
