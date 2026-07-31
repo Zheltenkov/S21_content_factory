@@ -9,6 +9,13 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# System tools: `unar` (with `lsar`) is the free RAR/RAR5 extractor the auditor shells out to for
+# project uploads. NB Debian's dfsg `7zip` can list RAR but not decode it ("Unsupported Method"),
+# so unar is the one that actually works. Early cached layer — code/static edits don't rebuild it.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends unar \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install deps + editable package first (depends only on pyproject + src), so that
 # static/migrations/alembic edits below DON'T invalidate the slow pip layer — redeploys
 # that only touch UI/static rebuild in seconds instead of reinstalling every dependency.
