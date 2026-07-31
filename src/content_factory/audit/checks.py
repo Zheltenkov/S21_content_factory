@@ -35,6 +35,7 @@ from content_factory.audit.model_assisted_checks import (
     ModelRubricChecker,
     _finding_from_model_item,  # noqa: F401 - compatibility re-export
 )
+from content_factory.audit.profanity import ProfanityChecker
 from content_factory.audit.regional_checks import RegionalAvailabilityChecker
 from content_factory.audit.resource_checks import ChecklistChecker, ResourceAvailabilityChecker
 from content_factory.audit.rights import CodeMatch
@@ -68,6 +69,7 @@ def default_checkers(
         MarkdownStructureChecker(),
         LabelPunctuationChecker(),
         SpellingAndWordingChecker(),
+        ProfanityChecker(),
         LocalConsistencyChecker(),
         ChecklistChecker(),
         ResourceAvailabilityChecker(),

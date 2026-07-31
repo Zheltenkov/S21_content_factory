@@ -437,6 +437,7 @@ def _criterion_short_label(criterion: Criterion) -> str:
         Criterion.LANGUAGE: "Язык",
         Criterion.IMAGE_QUALITY: "Изображения",
         Criterion.TOPIC_RELEVANCE: "Тема",
+        Criterion.PROFANITY: "Лексика",
     }
     return labels.get(criterion, CRITERION_LABELS[criterion])
 

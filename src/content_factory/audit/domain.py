@@ -27,6 +27,7 @@ class Criterion(StrEnum):
     LANGUAGE = "language"
     IMAGE_QUALITY = "image_quality"
     TOPIC_RELEVANCE = "topic_relevance"
+    PROFANITY = "profanity"
 
 
 class Severity(StrEnum):
@@ -82,6 +83,7 @@ CRITERION_LABELS: dict[Criterion, str] = {
     Criterion.LANGUAGE: "Язык",
     Criterion.IMAGE_QUALITY: "Качество изображений",
     Criterion.TOPIC_RELEVANCE: "Соответствие теме",
+    Criterion.PROFANITY: "Недопустимая лексика",
 }
 
 SEVERITY_LABELS: dict[Severity, str] = {
