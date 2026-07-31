@@ -327,7 +327,9 @@ def _render_observability(report: AuditReport) -> str:
         "Свежие вызовы": usage.calls_total,
         "Ответы из кэша": usage.cache_hits,
         "Токены": usage.total_tokens,
-        "Стоимость, $": round(usage.cost_usd, 6),
+        # Provider (Polza) reports cost in RUB in the `cost` field; cost_usd carries that value,
+        # so label it in rubles rather than dollars (₽9.72 ≈ $0.10, not $9.72).
+        "Стоимость, ₽": round(usage.cost_usd, 4),
     }
     step_rows = {step.name: step.duration_ms for step in report.summary.steps}
     usage_markup = (
