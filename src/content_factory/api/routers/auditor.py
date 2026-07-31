@@ -74,6 +74,16 @@ _BRANCH_META_FILE = "branch_meta.json"
 _BRANCH_JOB_FILE = "branch_job.json"
 _BRANCHES_LOADED = False
 
+# Single-project runs (archive/path) persisted like branches, so a finished audit is findable after
+# a refresh / sleep / restart — not just the last one held in _UI_REPORTS. Per-user: keyed by the
+# same state_key as _UI_STATES. Each run gets its own report dir under ui/{state_key}/runs/{run_id}.
+_RECENT_RUNS: dict[str, list[dict[str, Any]]] = {}
+# The report dir backing the currently-shown (_UI_REPORTS) report per user, so the main page's
+# downloads keep targeting it even after a branch/old-run view mutated state.report_dir.
+_UI_REPORT_DIR: dict[str, Path] = {}
+_MAX_SINGLE_RUNS = 12
+_RUN_META_FILE = "run_meta.json"
+
 
 @page_router.get("")
 @page_router.get("/")
@@ -83,10 +93,17 @@ async def render_auditor_page(request: Request) -> HTMLResponse:
     user = await validate_request_user(request)
     _ensure_branches_loaded()
     state_key, state = _auditor_page_state(user)
+    # Point downloads at the shown report's own dir (a prior branch/old-run view may have moved it).
+    with _UI_LOCK:
+        current_dir = _UI_REPORT_DIR.get(state_key)
+    if current_dir is not None:
+        state.report_dir = current_dir
     web_app = _load_auditor_web_app()
     html = web_app.render_page(_UI_REPORTS.get(state_key), state)
     page = _rewrite_auditor_page_html(html)
-    page = page.replace("<!--RECENT_BRANCHES_SLOT-->", _render_recent_branches(), 1)
+    page = page.replace(
+        "<!--RECENT_BRANCHES_SLOT-->", _render_recent_branches() + _render_recent_runs(state_key), 1
+    )
     return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
 
@@ -99,10 +116,19 @@ async def run_auditor_page(
     """Run the original auditor workflow and return its full HTML report screen."""
 
     user = await validate_request_user(request)
+    _ensure_branches_loaded()
     state_key, state = _auditor_page_state(user)
     web_app = _load_auditor_web_app()
     form_values = {"input_path": input_path or ""}
     upload_dir: Path | None = None
+
+    # Each run writes into its OWN report dir (ui/{state_key}/runs/{run_id}) rather than the shared
+    # per-user reports dir — so finished runs persist side by side (recent list, survive restart)
+    # instead of overwriting each other, and a prior branch/old-run view can't leak its dir here.
+    run_id = uuid.uuid4().hex
+    run_dir = _single_run_dir(state_key, run_id)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    state.report_dir = run_dir
 
     try:
         if project_archive is not None and project_archive.filename:
@@ -118,11 +144,14 @@ async def run_auditor_page(
         state.last_error = None
         with _UI_LOCK:
             _UI_REPORTS[state_key] = report
+            _UI_REPORT_DIR[state_key] = run_dir
+        _persist_single_run(state_key, run_id, run_dir, report)
         html = web_app.render_page(report, state, form_values=form_values)
         return HTMLResponse(_rewrite_auditor_page_html(html), headers={"Cache-Control": "no-store"})
     except Exception as exc:  # noqa: BLE001 - original UI shows domain errors inline.
         if upload_dir is not None:
             shutil.rmtree(upload_dir, ignore_errors=True)
+        shutil.rmtree(run_dir, ignore_errors=True)  # failed run persisted nothing worth keeping
         state.last_error = str(exc)
         with _UI_LOCK:
             _UI_REPORTS.pop(state_key, None)
@@ -132,6 +161,63 @@ async def run_auditor_page(
             status_code=400,
             headers={"Cache-Control": "no-store"},
         )
+
+
+@page_router.get("/run/{run_id}")
+async def open_auditor_run(request: Request, run_id: str) -> HTMLResponse:
+    """Reopen a persisted single-project run (from the 'recent runs' list) after a refresh/restart."""
+
+    user = await validate_request_user(request)
+    _ensure_branches_loaded()
+    state_key, state = _auditor_page_state(user)
+    with _UI_LOCK:
+        meta = next((item for item in _RECENT_RUNS.get(state_key, []) if item.get("run_id") == run_id), None)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Проверка не найдена или устарела")
+    report_dir = Path(str(meta.get("report_dir") or ""))
+    report = _load_single_report(report_dir)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Отчёт проверки не найден")
+    # Point downloads at this run's own dir for as long as its page is shown; the main page restores
+    # the current report's dir on its next GET, so this does not stick.
+    state.report_dir = report_dir
+    web_app = _load_auditor_web_app()
+    html = web_app.render_page(report, state)
+    back = (
+        '<a href="/app/auditor" onclick="event.stopPropagation()" '
+        'style="display:inline-flex;align-items:center;margin-right:10px;padding:8px 14px;'
+        "background:#10b981;color:#fff;border-radius:999px;text-decoration:none;font-weight:600;"
+        'font-size:13px;">← К аудитору</a>'
+    )
+    page = _rewrite_auditor_page_html(html)
+    actions_anchor = '<span class="run-bar-actions">'
+    results_heading = "<h2>Таблица результата</h2>"
+    if actions_anchor in page:
+        page = page.replace(actions_anchor, actions_anchor + back, 1)
+    elif results_heading in page:
+        page = page.replace(results_heading, results_heading + back, 1)
+    else:
+        page = f'<div style="max-width:1080px;margin:12px auto;padding:0 16px;">{back}</div>' + page
+    return HTMLResponse(page, headers={"Cache-Control": "no-store"})
+
+
+@page_router.post("/run/{run_id}/delete")
+async def delete_auditor_run(request: Request, run_id: str) -> RedirectResponse:
+    """Remove one single-project run from the recent list and reclaim its report dir."""
+
+    user = await validate_request_user(request)
+    _ensure_branches_loaded()
+    state_key, _state = _auditor_page_state(user)
+    with _UI_LOCK:
+        runs = _RECENT_RUNS.get(state_key, [])
+        meta = next((item for item in runs if item.get("run_id") == run_id), None)
+        if meta is not None:
+            runs.remove(meta)
+            shutil.rmtree(Path(str(meta.get("report_dir") or "")), ignore_errors=True)
+            if _UI_REPORT_DIR.get(state_key) == Path(str(meta.get("report_dir") or "")):
+                _UI_REPORT_DIR.pop(state_key, None)
+                _UI_REPORTS.pop(state_key, None)
+    return RedirectResponse("/app/auditor", status_code=303)
 
 
 def _download_name(report_dir: Path, file_name: str) -> str:
@@ -641,6 +727,7 @@ def _ensure_branches_loaded() -> None:
         return
     _BRANCHES_LOADED = True
     _load_persisted_branches()
+    _load_persisted_runs()
 
 
 def _render_recent_branches() -> str:
@@ -678,6 +765,120 @@ def _render_recent_branches() -> str:
         f'<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;">{"".join(rows)}</ul>'
         "</section>"
     )
+
+
+def _single_run_dir(state_key: str, run_id: str) -> Path:
+    """Isolated report dir for one single-project run (holds report.json/csv/xlsx + run_meta.json)."""
+    return (AUDITOR_ROOT / "ui" / state_key / "runs" / run_id).resolve()
+
+
+def _persist_single_run(state_key: str, run_id: str, run_dir: Path, report: Any) -> None:
+    """Record a finished single-project run so it survives a restart and lists in 'recent runs'.
+
+    The report artifacts already live in ``run_dir`` (write_report wrote report.json/csv/xlsx);
+    this only drops a light index beside them and registers it in the per-user store.
+    """
+    summary = report.summary.model_dump(mode="json")
+    name = str(summary.get("input_path") or "").strip() or "Проверка"
+    meta = {
+        "run_id": run_id,
+        "state_key": state_key,
+        "created_at": datetime.now(UTC).isoformat(),
+        "name": name,
+        "report_dir": str(run_dir),
+        "summary": summary,
+    }
+    try:
+        (run_dir / _RUN_META_FILE).write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass  # persistence is best-effort; the in-memory copy still serves this process.
+    with _UI_LOCK:
+        runs = _RECENT_RUNS.setdefault(state_key, [])
+        runs[:] = [item for item in runs if item.get("run_id") != run_id]
+        runs.insert(0, meta)
+        _evict_old_single_runs(state_key)
+
+
+def _evict_old_single_runs(state_key: str) -> None:
+    """Cap a user's single runs; reclaim the report dir of anything evicted. Call under _UI_LOCK."""
+    runs = _RECENT_RUNS.get(state_key, [])
+    while len(runs) > _MAX_SINGLE_RUNS:
+        old = runs.pop()
+        shutil.rmtree(Path(str(old.get("report_dir", ""))), ignore_errors=True)
+
+
+def _load_persisted_runs() -> None:
+    """Repopulate the per-user single-run store from run_meta.json left on disk (startup).
+
+    Trusts each meta's on-disk location over its stored ``report_dir`` (the tree may have moved),
+    keeps only the newest ``_MAX_SINGLE_RUNS`` per user, and never deletes anything on reload.
+    """
+    root = AUDITOR_ROOT / "ui"
+    if not root.exists():
+        return
+    by_key: dict[str, list[dict[str, Any]]] = {}
+    for meta_path in root.rglob(_RUN_META_FILE):
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            state_key = str(meta["state_key"])
+        except (OSError, ValueError, KeyError):
+            continue
+        meta["report_dir"] = str(meta_path.parent)
+        by_key.setdefault(state_key, []).append(meta)
+    with _UI_LOCK:
+        for state_key, metas in by_key.items():
+            if state_key in _RECENT_RUNS:
+                continue
+            metas.sort(key=lambda item: str(item.get("created_at", "")), reverse=True)
+            _RECENT_RUNS[state_key] = metas[:_MAX_SINGLE_RUNS]
+
+
+def _render_recent_runs(state_key: str) -> str:
+    """A compact 'recent runs' panel for the main auditor page, so a finished single audit is
+    findable after a refresh/restart even without its URL. Empty string when there are none."""
+    from html import escape
+
+    with _UI_LOCK:
+        runs = list(_RECENT_RUNS.get(state_key, []))
+    if not runs:
+        return ""
+    rows = []
+    for meta in runs[:_MAX_SINGLE_RUNS]:
+        run_id = escape(str(meta.get("run_id", "")))
+        name = escape(str(meta.get("name") or "Проверка"))
+        created = escape(str(meta.get("created_at") or "").replace("T", " ")[:16])
+        verdict, _findings, severity = _project_verdict(meta.get("summary"))
+        detail = escape(verdict) + (f" · {escape(severity)}" if severity else "")
+        link = f"/app/auditor/run/{run_id}"
+        delete_action = f"/app/auditor/run/{run_id}/delete"
+        rows.append(
+            '<li style="display:flex;align-items:center;justify-content:space-between;gap:12px;">'
+            f'<span><a href="{link}" style="color:#0e8f6f;text-decoration:none;font-weight:600;">{name}</a>'
+            f'<span style="color:#8a9691;font-size:.85rem;"> · {detail} · {created}</span></span>'
+            f'<form method="post" action="{delete_action}" style="margin:0;" '
+            "onsubmit=\"return confirm('Удалить эту проверку из списка?');\">"
+            '<button type="submit" title="Удалить" style="border:none;background:none;color:#b02a2a;'
+            'cursor:pointer;font-size:1.15rem;line-height:1;">&times;</button></form></li>'
+        )
+    return (
+        '<section class="filter-panel" style="margin-top:16px;">'
+        '<div style="font-weight:700;margin-bottom:8px;">Недавние проверки</div>'
+        f'<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;">{"".join(rows)}</ul>'
+        "</section>"
+    )
+
+
+def _load_single_report(report_dir: Path) -> Any | None:
+    """Load a single run's AuditReport back from its on-disk report.json (for a reopened run)."""
+    report_json = report_dir / "report.json"
+    if not report_json.exists():
+        return None
+    from content_factory.audit import domain
+
+    try:
+        return domain.AuditReport.model_validate_json(report_json.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
 
 
 def _load_project_report(project: Any) -> Any | None:
