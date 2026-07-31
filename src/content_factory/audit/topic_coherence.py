@@ -126,10 +126,11 @@ class TopicCoherenceChecker(BaseChecker):
             return None
 
         kind = _model_text(item, ("kind", "issue_type", "type"), "off_topic").strip().lower()
+        # Both off-topic and contradicting sentences are major (methodologist decision).
         if kind == "contradiction":
             severity, verdict = Severity.MAJOR, Verdict.FAIL
         else:
-            kind, severity, verdict = "off_topic", Severity.MINOR, Verdict.WARNING
+            kind, severity, verdict = "off_topic", Severity.MAJOR, Verdict.WARNING
 
         line = _parse_optional_int(item.get("line") if item.get("line") is not None else item.get("line_start"))
         location: TextLocation | None = None

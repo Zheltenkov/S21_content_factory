@@ -66,7 +66,7 @@ def test_off_topic_sentence_becomes_a_topic_relevance_finding(workspace_tmp_path
     assert len(findings) == 1
     finding = findings[0]
     assert finding.criterion == Criterion.TOPIC_RELEVANCE
-    assert finding.severity == Severity.MINOR and finding.verdict == Verdict.WARNING
+    assert finding.severity == Severity.MAJOR and finding.verdict == Verdict.WARNING
     assert finding.extra["issue_type"] == "off_topic"
     assert "Черепахи" in (finding.quote or "")
     assert finding.location is not None and finding.location.line_start == 4
