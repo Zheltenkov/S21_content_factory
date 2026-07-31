@@ -47,6 +47,7 @@ from content_factory.audit.tech_freshness import (
     TechFreshnessChecker,
     TechnologyFreshnessChecker,  # noqa: F401 - compatibility re-export
 )
+from content_factory.audit.topic_coherence import TopicCoherenceChecker
 
 
 def default_checkers(
@@ -88,8 +89,9 @@ def default_checkers(
         checkers.append(ReadmeFactActualityChecker())
         checkers.append(FactCheckerPerplexity())
         checkers.append(ModelRubricChecker())
+        checkers.append(TopicCoherenceChecker())
     if lean:
         # Убираем дорогие/нулевые по точности правила: фактчек Perplexity, readme-факты, tech-freshness.
-        _drop = {"fact_checker_perplexity", "readme_fact_actuality_checker", "tech_freshness_checker"}
+        _drop = {"fact_checker_perplexity", "readme_fact_actuality_checker", "tech_freshness_checker", "topic_coherence_checker"}
         checkers = [c for c in checkers if c.name not in _drop]
     return checkers

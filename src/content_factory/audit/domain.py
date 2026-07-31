@@ -26,6 +26,7 @@ class Criterion(StrEnum):
     EXAM = "exam"
     LANGUAGE = "language"
     IMAGE_QUALITY = "image_quality"
+    TOPIC_RELEVANCE = "topic_relevance"
 
 
 class Severity(StrEnum):
@@ -80,6 +81,7 @@ CRITERION_LABELS: dict[Criterion, str] = {
     Criterion.EXAM: "Экзамен",
     Criterion.LANGUAGE: "Язык",
     Criterion.IMAGE_QUALITY: "Качество изображений",
+    Criterion.TOPIC_RELEVANCE: "Соответствие теме",
 }
 
 SEVERITY_LABELS: dict[Severity, str] = {
