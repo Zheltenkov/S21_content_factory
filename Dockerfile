@@ -9,11 +9,14 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# System tools: `unar` (with `lsar`) is the free RAR/RAR5 extractor the auditor shells out to for
-# project uploads. NB Debian's dfsg `7zip` can list RAR but not decode it ("Unsupported Method"),
-# so unar is the one that actually works. Early cached layer — code/static edits don't rebuild it.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends unar \
+# System tools: the official `unrar` (non-free) is the reliable RAR/RAR5 extractor the auditor
+# shells out to for project + branch archives; `unar` is a free fallback. NB Debian's dfsg `7zip`
+# only LISTS RAR ("Unsupported Method" on decode) and the older `unar` chokes on some RAR5
+# ("read more data than was available"), so `unrar` (tried first) is what actually extracts them.
+# Early cached layer — code/static edits don't rebuild it.
+RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends unrar unar \
     && rm -rf /var/lib/apt/lists/*
 
 # Install deps + editable package first (depends only on pyproject + src), so that
