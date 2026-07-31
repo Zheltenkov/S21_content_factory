@@ -37,9 +37,10 @@ def test_render_page_contains_project_input(workspace_tmp_path: Path) -> None:
     assert "Проверка локального проекта" in html
     assert "Путь к проекту" in html
     assert str(workspace_tmp_path) in html
-    assert html.count("<input") == 2
+    assert html.count("<input") == 3  # archive file, local path, hidden upload_id
     assert 'name="input_path"' in html
     assert 'name="project_archive"' in html
+    assert 'name="upload_id"' in html  # archive pre-uploads on select, run consumes the id
     assert 'accept=".zip,.rar,.tar,.gz,.tgz,.bz2,.xz"' in html
     assert "Архив проекта" in html
     assert 'id="run-progress"' in html

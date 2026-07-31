@@ -196,14 +196,19 @@ def _render_run_panel(
     <div class="intake-grid">
       <!--BRANCH_CARD_SLOT-->
       <form id="run-form" method="post" action="/run" enctype="multipart/form-data" class="intake-run-form">
-        <div class="intake-card">
+        <div class="intake-card archive-card">
           <div class="intake-card-title">Архив проекта</div>
           <label class="upload-zone" for="{ARCHIVE_FIELD_NAME}">
             <input id="{ARCHIVE_FIELD_NAME}" name="{ARCHIVE_FIELD_NAME}" type="file" accept=".zip,.rar,.tar,.gz,.tgz,.bz2,.xz">
             <span class="upload-title">Выбрать архив</span>
             <span class="upload-name" id="archive-file-name">ZIP / RAR / TAR</span>
           </label>
+          <input type="hidden" name="upload_id" id="archive-upload-id" value="">
           <button class="button" type="submit">Запустить</button>
+          <div class="branch-progress" id="archive-upload-progress" hidden aria-live="polite">
+            <div class="branch-progress-label" id="archive-upload-label">Загрузка архива…</div>
+            <div class="branch-progress-track"><b id="archive-upload-fill"></b></div>
+          </div>
         </div>
         <div class="intake-card">
           <div class="intake-card-title">Путь к проекту</div>

@@ -68,6 +68,9 @@ _BRANCH_JOBS: dict[str, dict[str, Any]] = {}
 _BRANCH_CREATED: dict[str, dict[str, str]] = {}
 # Archives uploaded on file-select but not yet audited: upload_id -> {work_dir, archive_path, archive_name}.
 _BRANCH_UPLOADS: dict[str, dict[str, Any]] = {}
+# Same, for single-project runs — the "Архив проекта" card uploads on file-select (live %) like the
+# branch card, then the run consumes the upload_id instead of re-posting the file on submit.
+_RUN_UPLOADS: dict[str, dict[str, Any]] = {}
 _MAX_BRANCH_RUNS = 10
 _MAX_PENDING_UPLOADS = 10
 _BRANCH_META_FILE = "branch_meta.json"
@@ -107,13 +110,50 @@ async def render_auditor_page(request: Request) -> HTMLResponse:
     return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
 
+@page_router.post("/run/upload")
+async def upload_auditor_run(
+    request: Request,
+    project_archive: UploadFile | None = File(None),
+) -> Response:
+    """Receive the single-project archive the moment it is chosen (so the browser can show upload %),
+    stash it, and return an upload_id the run request references. Mirrors the branch upload flow."""
+
+    user = await validate_request_user(request)
+    state_key, _state = _auditor_page_state(user)
+    if project_archive is None or not project_archive.filename:
+        raise HTTPException(status_code=400, detail="Не выбран архив проекта")
+
+    work_dir = _new_ui_work_dir(state_key, "upload")
+    archive_name = Path(project_archive.filename).name or "project_archive"
+    archive_path = work_dir / _safe_upload_name(archive_name)
+    await _store_upload(project_archive, archive_path)
+    if archive_path.stat().st_size > MAX_ARCHIVE_BYTES:
+        shutil.rmtree(work_dir, ignore_errors=True)
+        raise HTTPException(status_code=413, detail="Архив слишком большой")
+
+    upload_id = uuid.uuid4().hex
+    with _UI_LOCK:
+        _RUN_UPLOADS[upload_id] = {
+            "work_dir": work_dir,
+            "archive_path": archive_path,
+            "archive_name": archive_name,
+        }
+        _evict_old_run_uploads()
+    return JSONResponse({"upload_id": upload_id, "archive_name": archive_name})
+
+
 @page_router.post("/run")
 async def run_auditor_page(
     request: Request,
     project_archive: UploadFile | None = File(None),
     input_path: str = Form(""),
+    upload_id: str = Form(""),
 ) -> HTMLResponse:
-    """Run the original auditor workflow and return its full HTML report screen."""
+    """Run the original auditor workflow and return its full HTML report screen.
+
+    The archive can arrive two ways: pre-uploaded on file-select (``upload_id``, the card's default
+    path — no re-post on submit) or inline as ``project_archive`` (fallback). ``upload_id`` wins.
+    """
 
     user = await validate_request_user(request)
     _ensure_branches_loaded()
@@ -130,8 +170,19 @@ async def run_auditor_page(
     run_dir.mkdir(parents=True, exist_ok=True)
     state.report_dir = run_dir
 
+    pending = None
+    if upload_id:
+        with _UI_LOCK:
+            pending = _RUN_UPLOADS.pop(upload_id, None)
+
     try:
-        if project_archive is not None and project_archive.filename:
+        if pending is not None:
+            # Archive already on the server (uploaded on file-select) — audit it in place.
+            upload_dir = pending["work_dir"]
+            form_values[web_app.INTERNAL_ARCHIVE_PATH_FIELD] = str(pending["archive_path"])
+            form_values[web_app.INTERNAL_ARCHIVE_NAME_FIELD] = pending["archive_name"]
+            form_values[web_app.INTERNAL_UPLOAD_DIR_FIELD] = str(upload_dir)
+        elif project_archive is not None and project_archive.filename:
             upload_dir = _new_ui_work_dir(state_key, "upload")
             archive_name = Path(project_archive.filename).name or "project_archive"
             archive_path = upload_dir / _safe_upload_name(archive_name)
@@ -502,9 +553,10 @@ _BRANCH_FORM_HTML = """
     <script>
       (function () {
         // Each single-audit card's run button stays dimmed until its input is filled, then lights
-        // up. The branch card manages its own readiness (after the upload finishes), so skip it.
+        // up. The branch and archive cards manage their own readiness (after their upload finishes),
+        // so skip them here.
         document.querySelectorAll(".intake-card").forEach(function (card) {
-          if (card.dataset.readyBound || card.classList.contains("branch-card")) return;
+          if (card.dataset.readyBound || card.classList.contains("branch-card") || card.classList.contains("archive-card")) return;
           card.dataset.readyBound = "1";
           var button = card.querySelector("button[type=submit], .button");
           var fileInput = card.querySelector("input[type=file]");
@@ -525,6 +577,81 @@ _BRANCH_FORM_HTML = """
             sync();
           }
         });
+      })();
+    </script>
+    <script>
+      (function () {
+        // "Архив проекта" mirrors the branch card: upload the file to the server the moment it is
+        // chosen (live percent), light the run button only once it is on the server, and carry an
+        // upload_id on submit so the file is not re-posted. Falls back to a plain multipart submit
+        // if scripting is off (the file input still posts normally).
+        function initArchiveUpload() {
+          var card = document.querySelector(".archive-card");
+          if (!card || card.dataset.uploadBound) return;
+          var fileInput = card.querySelector("input[type=file]");
+          var button = card.querySelector("button[type=submit]");
+          var hidden = document.getElementById("archive-upload-id");
+          var progress = document.getElementById("archive-upload-progress");
+          var label = document.getElementById("archive-upload-label");
+          var fill = document.getElementById("archive-upload-fill");
+          var nameSpan = card.querySelector(".upload-name");
+          var defaultName = nameSpan ? nameSpan.textContent : "";
+          if (!fileInput || !hidden) return;
+          card.dataset.uploadBound = "1";
+          function setReady(r) { if (button) button.classList.toggle("is-ready", !!r); }
+          function reset() {
+            hidden.value = "";
+            setReady(false);
+            if (progress) progress.hidden = true;
+            if (nameSpan) nameSpan.textContent = defaultName;
+          }
+          setReady(false);
+          fileInput.addEventListener("change", function () {
+            hidden.value = "";
+            setReady(false);
+            if (!fileInput.files || !fileInput.files.length) { reset(); return; }
+            var file = fileInput.files[0];
+            if (nameSpan) nameSpan.textContent = file.name;
+            if (progress) progress.hidden = false;
+            if (fill) fill.style.width = "0%";
+            if (label) label.textContent = "Загрузка архива: 0%";
+            var body = new FormData();
+            body.append("project_archive", file);
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/app/auditor/run/upload", true);
+            xhr.upload.onprogress = function (ev) {
+              if (!ev.lengthComputable) return;
+              var pct = Math.round(ev.loaded / ev.total * 100);
+              if (fill) fill.style.width = pct + "%";
+              if (label) label.textContent = pct < 100 ? ("Загрузка архива: " + pct + "%") : "Обработка загрузки…";
+            };
+            xhr.onload = function () {
+              var uploadId = "";
+              if (xhr.status >= 200 && xhr.status < 300) {
+                try { uploadId = (JSON.parse(xhr.responseText) || {}).upload_id || ""; } catch (e) {}
+              }
+              if (uploadId) {
+                hidden.value = uploadId;
+                fileInput.value = "";  // don't re-post the file on submit; upload_id carries it
+                if (fill) fill.style.width = "100%";
+                if (label) label.textContent = "Архив на сервере ✓ — можно запускать";
+                if (nameSpan) nameSpan.textContent = file.name;
+                setReady(true);
+              } else if (label) {
+                label.textContent = "Ошибка загрузки архива (" + xhr.status + ")";
+              }
+            };
+            xhr.onerror = function () { if (label) label.textContent = "Ошибка сети при загрузке"; };
+            xhr.send(body);
+          });
+          // Typing a local path clears a stale archive upload so the path wins on submit.
+          var pathInput = document.getElementById("input_path");
+          if (pathInput) pathInput.addEventListener("input", function () {
+            if (pathInput.value.trim().length && hidden.value) { reset(); fileInput.value = ""; }
+          });
+        }
+        if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initArchiveUpload);
+        else initArchiveUpload();
       })();
     </script>
 """
@@ -618,6 +745,15 @@ def _evict_old_branch_uploads() -> None:
     while len(_BRANCH_UPLOADS) > _MAX_PENDING_UPLOADS:
         oldest = next(iter(_BRANCH_UPLOADS))
         upload = _BRANCH_UPLOADS.pop(oldest, None)
+        if upload is not None:
+            shutil.rmtree(upload["work_dir"], ignore_errors=True)
+
+
+def _evict_old_run_uploads() -> None:
+    """Cap pending single-run archives; reclaim evicted work dirs. Call under _UI_LOCK."""
+    while len(_RUN_UPLOADS) > _MAX_PENDING_UPLOADS:
+        oldest = next(iter(_RUN_UPLOADS))
+        upload = _RUN_UPLOADS.pop(oldest, None)
         if upload is not None:
             shutil.rmtree(upload["work_dir"], ignore_errors=True)
 

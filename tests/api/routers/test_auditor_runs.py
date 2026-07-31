@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import io
 import json
+import zipfile
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from content_factory.api.routers import auditor
 
@@ -145,3 +149,73 @@ def test_load_persisted_runs_keeps_newest_per_user() -> None:
 
 def test_load_single_report_returns_none_without_artifact(tmp_path) -> None:
     assert auditor._load_single_report(tmp_path) is None  # no report.json
+
+
+def _project_zip() -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("proj/README.md", "# proj")
+        archive.writestr("proj/main.py", "x = 1")
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def run_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setenv("DISABLE_AUTH", "true")  # validate_request_user -> dev admin
+    app = FastAPI()
+    app.include_router(auditor.page_router)
+    return TestClient(app)
+
+
+def test_run_upload_returns_an_id_and_stashes_the_archive(run_client: TestClient) -> None:
+    before = set(auditor._RUN_UPLOADS)
+    resp = run_client.post(
+        "/app/auditor/run/upload",
+        files={"project_archive": ("proj.zip", _project_zip(), "application/zip")},
+    )
+    assert resp.status_code == 200
+    upload_id = resp.json()["upload_id"]
+    assert upload_id and upload_id in auditor._RUN_UPLOADS
+    assert upload_id not in before
+    # the stashed archive is on disk, ready for the run to consume by id
+    assert Path(auditor._RUN_UPLOADS[upload_id]["archive_path"]).exists()
+    auditor._RUN_UPLOADS.pop(upload_id, None)
+
+
+def test_run_upload_requires_a_file(run_client: TestClient) -> None:
+    assert run_client.post("/app/auditor/run/upload").status_code == 400
+
+
+def test_run_consumes_the_upload_id(run_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict = {}
+
+    class _FakeWebApp:
+        INTERNAL_ARCHIVE_PATH_FIELD = "__ap"
+        INTERNAL_ARCHIVE_NAME_FIELD = "__an"
+        INTERNAL_UPLOAD_DIR_FIELD = "__ud"
+
+        @staticmethod
+        def run_from_form(form, state):
+            captured.update(form)
+            (state.report_dir).mkdir(parents=True, exist_ok=True)
+            (state.report_dir / "report.json").write_text("{}", encoding="utf-8")
+            return _FakeReport({"input_path": "Архив: proj.zip", "findings_total": 0, "by_severity": {}})
+
+        @staticmethod
+        def render_page(report, state, form_values=None):
+            return "<html><h2>Таблица результата</h2>OK</html>"
+
+    upload_id = run_client.post(
+        "/app/auditor/run/upload",
+        files={"project_archive": ("proj.zip", _project_zip(), "application/zip")},
+    ).json()["upload_id"]
+
+    # patch only the run's engine/render; _auditor_page_state already built real state on upload
+    monkeypatch.setattr(auditor, "_load_auditor_web_app", lambda: _FakeWebApp())
+
+    resp = run_client.post("/app/auditor/run", data={"upload_id": upload_id})
+    assert resp.status_code == 200
+    assert "Таблица результата" in resp.text
+    # the pre-uploaded archive fed the run, and the id was consumed (single-use)
+    assert captured["__an"] == "proj.zip"
+    assert upload_id not in auditor._RUN_UPLOADS
