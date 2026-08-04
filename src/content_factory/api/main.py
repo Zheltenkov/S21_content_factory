@@ -37,6 +37,7 @@ from content_factory.api.routers import (
     readme_improvement,
     readme_translate,
     regeneration,
+    rpd,
     thematic_blocks,
 )
 from content_factory.api.utils.logger import setup_logging
@@ -254,6 +255,7 @@ app.include_router(curriculum_builder.router)
 # Роутеры
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(auditor.page_router)
+app.include_router(rpd.page_router)
 app.include_router(auditor.router, prefix="/api/v1", tags=["auditor"])
 app.include_router(generation.router, prefix="/api/v1", tags=["generation"])
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
