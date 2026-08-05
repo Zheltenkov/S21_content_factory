@@ -66,11 +66,35 @@ def test_upload_requires_a_csv(client: TestClient) -> None:
     assert bad.status_code == 400
 
 
-def test_generate_builds_a_run_and_view_shows_stats(client: TestClient) -> None:
+def test_generate_builds_a_run_and_view_shows_editor(client: TestClient) -> None:
     run_id = _generate(client)
     view = client.get(f"/app/rpd/{run_id}")
     assert view.status_code == 200
-    assert "Модулей" in view.text and "Скачать РПД" in view.text
+    assert "Сохранить раздел" in view.text  # редактор по разделам
+    assert "Учебный план" in view.text  # навигатор разделов
+    assert "Экспорт РПД" in view.text
+
+
+def _paragraphs_section_index() -> int:
+    from content_factory.rpd import RpdBuild
+
+    build_path = next(iter(rpd.RPD_ROOT.rglob("build.json")))
+    build = RpdBuild.model_validate_json(build_path.read_text(encoding="utf-8"))
+    return next(i for i, s in enumerate(build.sections) if s.kind == "paragraphs")
+
+
+def test_edit_prose_section_persists_and_exports(client: TestClient) -> None:
+    run_id = _generate(client)
+    index = _paragraphs_section_index()
+    saved = client.post(f"/app/rpd/{run_id}/section/{index}", data={"text": "УникальныйТекстПравкиМетодиста"}, follow_redirects=False)
+    assert saved.status_code == 303
+    view = client.get(f"/app/rpd/{run_id}?s={index}")
+    assert "УникальныйТекстПравкиМетодиста" in view.text  # правка видна в редакторе
+    dl = client.get(f"/app/rpd/{run_id}/download")
+    assert dl.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(dl.content)) as archive:
+        xml = archive.read("word/document.xml").decode("utf-8", errors="ignore")
+    assert "УникальныйТекстПравкиМетодиста" in xml  # и в экспортированном DOCX
 
 
 def test_generate_with_bad_upload_id_is_rejected(client: TestClient) -> None:

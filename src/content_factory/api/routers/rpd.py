@@ -17,14 +17,15 @@ from html import escape
 from pathlib import Path
 from threading import Lock
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 from content_factory.api.integrations.auth_cookie import validate_request_user
 from content_factory.api.integrations.project_paths import GENERATOR_ROOT
-from content_factory.rpd import UpPlan, build_rpd_sections, parse_up_csv, render_build
+from content_factory.rpd import RpdBuild, UpPlan, build_rpd_sections, parse_up_csv, render_build
 from content_factory.rpd.translate import russify_up
 
 page_router = APIRouter(prefix="/app/rpd", include_in_schema=False, tags=["rpd-ui"])
@@ -227,31 +228,93 @@ def _llm_client() -> Any:
         return None
 
 
+def _load_build(meta: dict[str, Any]) -> RpdBuild | None:
+    path = Path(str(meta.get("run_dir", ""))) / BUILD_FILE
+    if not path.exists():
+        return None
+    try:
+        return RpdBuild.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _save_build(meta: dict[str, Any], build: RpdBuild) -> None:
+    (Path(str(meta["run_dir"])) / BUILD_FILE).write_text(build.model_dump_json(), encoding="utf-8")
+
+
 @page_router.get("/{run_id}")
-async def rpd_view(request: Request, run_id: str) -> HTMLResponse:
+async def rpd_view(request: Request, run_id: str, s: int = 0) -> HTMLResponse:
     user = await validate_request_user(request)
     _ensure_loaded()
     state_key = _user_key(user)
     meta = _find_run(state_key, run_id)
     if meta is None:
         raise HTTPException(status_code=404, detail="Прогон РПД не найден")
-    return HTMLResponse(_render_screen(state_key, active=meta), headers={"Cache-Control": "no-store"})
+    build = _load_build(meta)
+    if build is None or not build.sections:  # старый прогон без черновика — итог + скачать
+        return HTMLResponse(_render_screen(state_key, active=meta), headers={"Cache-Control": "no-store"})
+    return HTMLResponse(_render_editor(run_id, build, meta, s), headers={"Cache-Control": "no-store"})
+
+
+@page_router.post("/{run_id}/section/{index}")
+async def rpd_save_section(request: Request, run_id: str, index: int) -> RedirectResponse:
+    user = await validate_request_user(request)
+    _ensure_loaded()
+    state_key = _user_key(user)
+    meta = _find_run(state_key, run_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Прогон РПД не найден")
+    build = _load_build(meta)
+    if build is not None and 0 <= index < len(build.sections):
+        section = build.sections[index]
+        form = await request.form()
+        if section.kind == "table":
+            rows = _rows_from_form(form)
+            if rows:  # пустая форма (не та секция) не должна стирать таблицу
+                section.table_rows = rows
+        else:
+            text = str(form.get("text", ""))
+            section.paragraphs = [line.strip() for line in text.splitlines() if line.strip()] or [""]
+        _save_build(meta, build)
+    return RedirectResponse(f"/app/rpd/{run_id}?s={index}", status_code=303)
+
+
+def _rows_from_form(form: Any) -> list[list[str]]:
+    rows: list[list[str]] = []
+    row_index = 0
+    while f"cell_{row_index}_0" in form:
+        row: list[str] = []
+        col_index = 0
+        while f"cell_{row_index}_{col_index}" in form:
+            row.append(str(form.get(f"cell_{row_index}_{col_index}", "")))
+            col_index += 1
+        rows.append(row)
+        row_index += 1
+    return rows
 
 
 @page_router.get("/{run_id}/download")
-async def rpd_download(request: Request, run_id: str) -> FileResponse:
+async def rpd_download(request: Request, run_id: str) -> Response:
     user = await validate_request_user(request)
     _ensure_loaded()
     state_key = _user_key(user)
     meta = _find_run(state_key, run_id)
     if meta is None:
         raise HTTPException(status_code=404, detail="Прогон РПД не найден")
-    path = (Path(str(meta.get("run_dir", ""))) / OUTPUT_FILENAME).resolve()
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="Файл РПД не найден")
+    build = _load_build(meta)
+    if build is not None:  # рендерим из (отредактированного) черновика — свежий DOCX с правками
+        data = await run_in_threadpool(render_build, build)
+    else:
+        path = (Path(str(meta.get("run_dir", ""))) / OUTPUT_FILENAME).resolve()
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="Файл РПД не найден")
+        data = path.read_bytes()
     download = f"{Path(str(meta.get('name', 'РПД'))).stem}_РПД.docx"
-    return FileResponse(str(path), filename=download,
-                        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(download)}"},
+    )
 
 
 @page_router.post("/{run_id}/delete")
@@ -269,6 +332,77 @@ async def rpd_delete(request: Request, run_id: str) -> RedirectResponse:
 
 
 # --------------------------------------------------------------------------- rendering
+
+
+_LABEL_CLASS = {"из УП": "up", "сгенерировано": "gen", "с платформы": "gap", "методист": "gap"}
+
+
+def _label_chip(label: str) -> str:
+    if not label:
+        return ""
+    return f'<span class="cs {_LABEL_CLASS.get(label, "form")}">{escape(label)}</span>'
+
+
+def _render_table_editor(section: Any) -> str:
+    ths = "".join(f"<th>{escape(str(h))}</th>" for h in section.table_header)
+    body = []
+    for row_index, row in enumerate(section.table_rows):
+        cells = "".join(
+            f'<td><input name="cell_{row_index}_{col_index}" value="{escape(str(cell))}"></td>'
+            for col_index, cell in enumerate(row)
+        )
+        body.append(f"<tr>{cells}</tr>")
+    return (f'<div class="tblwrap"><table class="edit"><thead><tr>{ths}</tr></thead>'
+            f'<tbody>{"".join(body)}</tbody></table></div>')
+
+
+def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: int) -> str:
+    sections = build.sections
+    total = len(sections)
+    active = max(0, min(active, total - 1))
+    section = sections[active]
+
+    nav = "".join(
+        '<a class="navitem{on}" href="/app/rpd/{rid}?s={i}">'
+        '<span class="nnum">{num}</span><span class="ntitle">{title}</span>{chip}</a>'.format(
+            on=" on" if i == active else "",
+            rid=run_id,
+            i=i,
+            num=escape(sec.number),
+            title=escape(sec.title),
+            chip=_label_chip(sec.label),
+        )
+        for i, sec in enumerate(sections)
+    )
+
+    if section.kind == "table":
+        editor = _render_table_editor(section)
+        hint = "Правьте ячейки таблицы. Пустые оставляйте для методиста."
+    else:
+        editor = f'<textarea name="text" class="prosein" rows="14">{escape(chr(10).join(section.paragraphs))}</textarea>'
+        hint = "Один абзац — одна строка. Пустые строки игнорируются."
+
+    prev_btn = (f'<a class="navbtn" href="/app/rpd/{run_id}?s={active - 1}">← Назад</a>'
+                if active > 0 else '<span class="navbtn off">← Назад</span>')
+    next_btn = (f'<a class="navbtn" href="/app/rpd/{run_id}?s={active + 1}">Далее →</a>'
+                if active < total - 1 else '<span class="navbtn off">Далее →</span>')
+    name = escape(str(meta.get("name") or "РПД"))
+
+    return _EDITOR_TEMPLATE.format(
+        run_id=run_id,
+        name=name,
+        nav=nav,
+        pos=active + 1,
+        total=total,
+        number=escape(section.number),
+        title=escape(section.title),
+        chip=_label_chip(section.label),
+        hint=escape(hint),
+        index=active,
+        editor=editor,
+        prev_btn=prev_btn,
+        next_btn=next_btn,
+    )
 
 
 def _render_screen(state_key: str, active: dict[str, Any] | None) -> str:
@@ -445,3 +579,66 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
 }})();
 </script>
 </body></html>"""
+
+
+_EDITOR_TEMPLATE = """<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>РПД — редактор</title>
+<style>
+ :root{{--accent:#0e8f6f;--ink:#15221d;--muted:#5c6b64;--line:#dde5e1;--soft:#e4f5ee;--gap:#a86616;--gapsoft:#f9efd9}}
+ *{{box-sizing:border-box}}
+ body{{font-family:system-ui,'Segoe UI',sans-serif;margin:0;background:#f4f7f5;color:var(--ink);padding:24px}}
+ .wrap{{max-width:1120px;margin:0 auto}}
+ a.back{{color:var(--accent);text-decoration:none;font-size:.9rem}}
+ h1{{font-size:1.35rem;margin:.4rem 0 .1rem}} .sub{{color:var(--muted);margin:0 0 18px;font-size:.9rem}}
+ .grid{{display:grid;grid-template-columns:300px 1fr;gap:18px;align-items:start}}
+ @media (max-width:820px){{.grid{{grid-template-columns:1fr}}}}
+ .nav{{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:74vh;overflow-y:auto}}
+ .navitem{{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line);text-decoration:none;color:var(--ink)}}
+ .navitem:first-child{{border-top:none}} .navitem.on{{background:var(--soft)}}
+ .navitem .nnum{{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted);min-width:30px}}
+ .navitem .ntitle{{font-size:13px;flex:1}}
+ .card{{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}}
+ .sechead{{display:flex;align-items:center;gap:10px;margin-bottom:6px}} .sechead h2{{font-size:1.05rem;margin:0}}
+ .sechead .snum{{font-family:ui-monospace,Consolas,monospace;color:var(--muted);font-size:.85rem}}
+ .hint{{color:var(--muted);font-size:12.5px;margin:0 0 14px}}
+ .prosein{{width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:14px;line-height:1.5;resize:vertical}}
+ .tblwrap{{overflow-x:auto;border:1px solid var(--line);border-radius:9px}}
+ table.edit{{border-collapse:collapse;width:100%;min-width:640px}}
+ table.edit th{{background:var(--soft);color:var(--accent);font-size:11.5px;text-align:left;padding:8px 10px;position:sticky;top:0}}
+ table.edit td{{border-top:1px solid var(--line);padding:3px}}
+ table.edit input{{width:100%;min-width:90px;border:none;padding:7px 8px;font:inherit;font-size:13px;background:transparent}}
+ table.edit input:focus{{outline:2px solid var(--soft);border-radius:6px}}
+ .cs{{font-size:11px;font-weight:650;padding:3px 9px;border-radius:999px;white-space:nowrap}}
+ .cs.up{{background:var(--soft);color:var(--accent)}} .cs.gen{{background:#eef2ff;color:#4f46e5}}
+ .cs.form{{background:#eef1f4;color:#5f6f7d}} .cs.gap{{background:var(--gapsoft);color:var(--gap)}}
+ .btn{{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:none;border-radius:9px;
+   padding:10px 18px;font:inherit;font-weight:650;font-size:14px;cursor:pointer;text-decoration:none}}
+ .btn.ghost{{background:#fff;color:var(--accent);border:1px solid var(--accent)}}
+ .rowbar{{display:flex;align-items:center;gap:10px;margin-top:16px;flex-wrap:wrap}}
+ .navbtn{{color:var(--accent);text-decoration:none;font-weight:600;font-size:14px}} .navbtn.off{{color:#b9c2bd}}
+ .spacer{{flex:1}}
+ .exportbar{{margin-top:14px;display:flex;justify-content:flex-end}}
+</style></head><body><div class="wrap">
+ <a class="back" href="/app/rpd">← к списку РПД</a>
+ <h1>РПД: {name}</h1>
+ <p class="sub">Раздел {pos} из {total} · правьте по разделам, затем экспорт</p>
+ <div class="grid">
+   <nav class="nav">{nav}</nav>
+   <div>
+     <div class="card">
+       <div class="sechead"><span class="snum">{number}</span><h2>{title}</h2>{chip}</div>
+       <p class="hint">{hint}</p>
+       <form method="post" action="/app/rpd/{run_id}/section/{index}">
+         {editor}
+         <div class="rowbar">
+           <button class="btn" type="submit">Сохранить раздел</button>
+           <span class="spacer"></span>
+           {prev_btn}{next_btn}
+         </div>
+       </form>
+     </div>
+     <div class="exportbar"><a class="btn ghost" href="/app/rpd/{run_id}/download">Экспорт РПД (DOCX)</a></div>
+   </div>
+ </div>
+</div></body></html>"""
