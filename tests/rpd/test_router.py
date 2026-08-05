@@ -97,6 +97,31 @@ def test_edit_prose_section_persists_and_exports(client: TestClient) -> None:
     assert "УникальныйТекстПравкиМетодиста" in xml  # и в экспортированном DOCX
 
 
+def _table_section_index() -> int:
+    from content_factory.rpd import RpdBuild
+
+    build_path = next(iter(rpd.RPD_ROOT.rglob("build.json")))
+    build = RpdBuild.model_validate_json(build_path.read_text(encoding="utf-8"))
+    return next(i for i, s in enumerate(build.sections) if s.kind == "table")
+
+
+def test_edit_table_rows_and_done_flag(client: TestClient) -> None:
+    import json
+
+    run_id = _generate(client)
+    index = _table_section_index()
+    payload = json.dumps([["1", "НовыйМодульИзРедактора", "36", "", "36", "", "Проект"]])
+    saved = client.post(f"/app/rpd/{run_id}/section/{index}", data={"table_json": payload, "done": "on"}, follow_redirects=False)
+    assert saved.status_code == 303
+    view = client.get(f"/app/rpd/{run_id}?s={index}")
+    assert "НовыйМодульИзРедактора" in view.text
+    assert "checked" in view.text and "✓" in view.text  # раздел отмечен готовым
+    dl = client.get(f"/app/rpd/{run_id}/download")
+    with zipfile.ZipFile(io.BytesIO(dl.content)) as archive:
+        xml = archive.read("word/document.xml").decode("utf-8", errors="ignore")
+    assert "НовыйМодульИзРедактора" in xml  # правка таблицы в экспортном DOCX
+
+
 def test_generate_with_bad_upload_id_is_rejected(client: TestClient) -> None:
     assert client.post("/app/rpd/generate", data={"upload_id": "nope"}).status_code == 400
 

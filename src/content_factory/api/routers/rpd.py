@@ -19,13 +19,15 @@ from threading import Lock
 from typing import Any
 from urllib.parse import quote
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 from content_factory.api.integrations.auth_cookie import validate_request_user
 from content_factory.api.integrations.project_paths import GENERATOR_ROOT
-from content_factory.rpd import RpdBuild, UpPlan, build_rpd_sections, parse_up_csv, render_build
+from content_factory.catalog.viewer.curriculum_ops import get_curriculum_plan, list_curriculum_plans
+from content_factory.catalog.web.deps import get_conn
+from content_factory.rpd import RpdBuild, UpPlan, build_rpd_sections, from_registry_plan, parse_up_csv, render_build
 from content_factory.rpd.translate import russify_up
 
 page_router = APIRouter(prefix="/app/rpd", include_in_schema=False, tags=["rpd-ui"])
@@ -208,8 +210,12 @@ async def rpd_generate(request: Request, upload_id: str = Form(""), title: str =
 
 
 def _build_run(csv_path: Path, run_dir: Path, program_title: str) -> dict[str, Any]:
-    """Тяжёлая часть (вне event loop): разбор УП-CSV → генерация прозы (LLM) → рендер РПД на диск."""
-    up = parse_up_csv(csv_path, title=program_title)
+    """CSV-источник: разбор УП-CSV → общая сборка."""
+    return _build_from_up(parse_up_csv(csv_path, title=program_title), run_dir)
+
+
+def _build_from_up(up: UpPlan, run_dir: Path) -> dict[str, Any]:
+    """Тяжёлая часть (вне event loop): русификация + генерация прозы (LLM) → черновик + рендер на диск."""
     client = _llm_client()
     up = russify_up(up, client)  # англоязычные названия тем/модулей → русский (термины оставляем)
     build = build_rpd_sections(up, None, client)
@@ -242,6 +248,48 @@ def _save_build(meta: dict[str, Any], build: RpdBuild) -> None:
     (Path(str(meta["run_dir"])) / BUILD_FILE).write_text(build.model_dump_json(), encoding="utf-8")
 
 
+@page_router.get("/registry")
+async def rpd_registry_list(request: Request, conn: Any = Depends(get_conn)) -> Response:
+    """Список УП из Реестра для выбора источника (id + название + часы)."""
+    await validate_request_user(request)
+    try:
+        plans = list_curriculum_plans(conn, limit=50)
+    except Exception:  # noqa: BLE001 - Реестр недоступен → пустой список, останется загрузка CSV
+        plans = []
+    items = [
+        {
+            "id": plan.get("plan_id") or plan.get("id"),
+            "title": str(plan.get("title") or "Без названия"),
+            "hours": (plan.get("meta") or {}).get("total_hours"),
+        }
+        for plan in plans
+        if plan.get("plan_id") or plan.get("id")
+    ]
+    return JSONResponse({"plans": items})
+
+
+@page_router.post("/registry/{plan_id}")
+async def rpd_from_registry(request: Request, plan_id: int, conn: Any = Depends(get_conn)) -> Response:
+    """Собрать РПД из выбранного в Реестре УП (без загрузки CSV)."""
+    user = await validate_request_user(request)
+    _ensure_loaded()
+    state_key = _user_key(user)
+    plan = get_curriculum_plan(conn, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="УП не найден в Реестре")
+    title = str(plan.get("title") or f"УП {plan_id}")
+    up = from_registry_plan(plan)
+
+    run_id = uuid.uuid4().hex
+    run_dir = _run_dir(state_key, run_id)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    meta = await run_in_threadpool(_build_from_up, up, run_dir)
+    meta.update({"run_id": run_id, "state_key": state_key, "run_dir": str(run_dir),
+                 "created_at": datetime.now(UTC).isoformat(), "name": title})
+    _persist_run(state_key, meta, run_dir)
+    return JSONResponse({"run_id": run_id, "redirect": f"/app/rpd/{run_id}"})
+
+
 @page_router.get("/{run_id}")
 async def rpd_view(request: Request, run_id: str, s: int = 0) -> HTMLResponse:
     user = await validate_request_user(request)
@@ -269,27 +317,31 @@ async def rpd_save_section(request: Request, run_id: str, index: int) -> Redirec
         section = build.sections[index]
         form = await request.form()
         if section.kind == "table":
-            rows = _rows_from_form(form)
+            rows = _table_from_json(str(form.get("table_json", "")))
             if rows:  # пустая форма (не та секция) не должна стирать таблицу
                 section.table_rows = rows
         else:
             text = str(form.get("text", ""))
             section.paragraphs = [line.strip() for line in text.splitlines() if line.strip()] or [""]
+        section.done = bool(form.get("done"))
         _save_build(meta, build)
     return RedirectResponse(f"/app/rpd/{run_id}?s={index}", status_code=303)
 
 
-def _rows_from_form(form: Any) -> list[list[str]]:
+def _table_from_json(raw: str) -> list[list[str]]:
+    """Разбирает сериализованную редактором таблицу (JSON-массив строк-массивов) в строки."""
+    if not raw.strip():
+        return []
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return []
+    if not isinstance(data, list):
+        return []
     rows: list[list[str]] = []
-    row_index = 0
-    while f"cell_{row_index}_0" in form:
-        row: list[str] = []
-        col_index = 0
-        while f"cell_{row_index}_{col_index}" in form:
-            row.append(str(form.get(f"cell_{row_index}_{col_index}", "")))
-            col_index += 1
-        rows.append(row)
-        row_index += 1
+    for row in data:
+        if isinstance(row, list):
+            rows.append([str(cell) for cell in row])
     return rows
 
 
@@ -344,16 +396,21 @@ def _label_chip(label: str) -> str:
 
 
 def _render_table_editor(section: Any) -> str:
-    ths = "".join(f"<th>{escape(str(h))}</th>" for h in section.table_header)
+    row_widths = [len(row) for row in section.table_rows]
+    ncols = max([len(section.table_header), *row_widths], default=1)
+    ths = "".join(f"<th>{escape(str(h))}</th>" for h in section.table_header) + "<th></th>"
     body = []
-    for row_index, row in enumerate(section.table_rows):
-        cells = "".join(
-            f'<td><input name="cell_{row_index}_{col_index}" value="{escape(str(cell))}"></td>'
-            for col_index, cell in enumerate(row)
-        )
-        body.append(f"<tr>{cells}</tr>")
-    return (f'<div class="tblwrap"><table class="edit"><thead><tr>{ths}</tr></thead>'
-            f'<tbody>{"".join(body)}</tbody></table></div>')
+    for row in section.table_rows:
+        padded = [str(cell) for cell in row] + [""] * (ncols - len(row))
+        cells = "".join(f'<td><input value="{escape(cell)}"></td>' for cell in padded)
+        body.append(f'<tr>{cells}<td class="delc"><button type="button" class="delrow" title="Удалить строку">×</button></td></tr>')
+    return (
+        f'<div class="tblwrap"><table class="edit" id="edit-table"><thead><tr>{ths}</tr></thead>'
+        f'<tbody>{"".join(body)}</tbody></table></div>'
+        '<button type="button" class="addrow" id="add-row">+ строка</button>'
+        '<input type="hidden" name="table_json" id="table-json">'
+        f'<input type="hidden" id="ncols" value="{ncols}">'
+    )
 
 
 def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: int) -> str:
@@ -364,20 +421,23 @@ def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: i
 
     nav = "".join(
         '<a class="navitem{on}" href="/app/rpd/{rid}?s={i}">'
-        '<span class="nnum">{num}</span><span class="ntitle">{title}</span>{chip}</a>'.format(
+        '<span class="ndone">{done}</span><span class="nnum">{num}</span>'
+        '<span class="ntitle">{title}</span>{chip}</a>'.format(
             on=" on" if i == active else "",
             rid=run_id,
             i=i,
+            done="✓" if sec.done else "",
             num=escape(sec.number),
             title=escape(sec.title),
             chip=_label_chip(sec.label),
         )
         for i, sec in enumerate(sections)
     )
+    done_count = sum(1 for sec in sections if sec.done)
 
     if section.kind == "table":
         editor = _render_table_editor(section)
-        hint = "Правьте ячейки таблицы. Пустые оставляйте для методиста."
+        hint = "Правьте ячейки; «+ строка» добавляет, «×» удаляет строку."
     else:
         editor = f'<textarea name="text" class="prosein" rows="14">{escape(chr(10).join(section.paragraphs))}</textarea>'
         hint = "Один абзац — одна строка. Пустые строки игнорируются."
@@ -394,12 +454,14 @@ def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: i
         nav=nav,
         pos=active + 1,
         total=total,
+        done_count=done_count,
         number=escape(section.number),
         title=escape(section.title),
         chip=_label_chip(section.label),
         hint=escape(hint),
         index=active,
         editor=editor,
+        done_checked="checked" if section.done else "",
         prev_btn=prev_btn,
         next_btn=next_btn,
     )
@@ -543,6 +605,10 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
      <button class="btn" id="rpd-go" type="submit">Сформировать РПД →</button>
    </form>
  </div>
+ <div class="card">
+   <div style="font-weight:700;margin-bottom:8px;">…или выбрать УП из Реестра</div>
+   <div id="reglist" style="display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:.9rem;">Загружаю список…</div>
+ </div>
  {result}
  {recent}
 </div>
@@ -576,6 +642,26 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
       .then(function(r){{return r.json();}}).then(function(d){{if(d&&d.redirect){{window.location.href=d.redirect;}}else{{throw 0;}}}})
       .catch(function(){{go.disabled=false;go.textContent='Сформировать РПД →';lbl.textContent='Не удалось собрать РПД';}});
   }});
+}})();
+(function(){{
+  var box=document.getElementById('reglist'); if(!box) return;
+  fetch('/app/rpd/registry').then(function(r){{return r.json();}}).then(function(d){{
+    var plans=(d&&d.plans)||[];
+    if(!plans.length){{box.textContent='В Реестре нет доступных УП.';return;}}
+    box.innerHTML='';
+    plans.forEach(function(p){{
+      var b=document.createElement('button'); b.type='button';
+      b.style.cssText='text-align:left;padding:10px 12px;border:1px solid #dde5e1;border-radius:9px;background:#fff;cursor:pointer;font:inherit;font-size:14px;color:#15221d';
+      b.textContent=p.title+(p.hours?(' · '+p.hours+' ч'):'');
+      b.onclick=function(){{
+        b.disabled=true; b.textContent='Собираю РПД…';
+        fetch('/app/rpd/registry/'+p.id,{{method:'POST'}}).then(function(r){{return r.json();}})
+          .then(function(x){{if(x&&x.redirect){{window.location.href=x.redirect;}}else{{throw 0;}}}})
+          .catch(function(){{b.disabled=false; b.textContent='Ошибка — повторить';}});
+      }};
+      box.appendChild(b);
+    }});
+  }}).catch(function(){{box.textContent='Не удалось загрузить список Реестра.';}});
 }})();
 </script>
 </body></html>"""
@@ -619,10 +705,14 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
  .navbtn{{color:var(--accent);text-decoration:none;font-weight:600;font-size:14px}} .navbtn.off{{color:#b9c2bd}}
  .spacer{{flex:1}}
  .exportbar{{margin-top:14px;display:flex;justify-content:flex-end}}
+ .navitem .ndone{{color:var(--accent);font-weight:800;min-width:12px;font-size:12px}}
+ .addrow{{margin-top:8px;background:#fff;border:1px dashed var(--accent);color:var(--accent);border-radius:8px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}}
+ table.edit td.delc{{width:34px;text-align:center;padding:0}} .delrow{{border:none;background:none;color:#b02a2a;cursor:pointer;font-size:1.1rem;line-height:1}}
+ .donebox{{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}}
 </style></head><body><div class="wrap">
  <a class="back" href="/app/rpd">← к списку РПД</a>
  <h1>РПД: {name}</h1>
- <p class="sub">Раздел {pos} из {total} · правьте по разделам, затем экспорт</p>
+ <p class="sub">Раздел {pos} из {total} · готово {done_count} · правьте по разделам, затем экспорт</p>
  <div class="grid">
    <nav class="nav">{nav}</nav>
    <div>
@@ -633,6 +723,7 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
          {editor}
          <div class="rowbar">
            <button class="btn" type="submit">Сохранить раздел</button>
+           <label class="donebox"><input type="checkbox" name="done" {done_checked}> Готово</label>
            <span class="spacer"></span>
            {prev_btn}{next_btn}
          </div>
@@ -641,4 +732,27 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
      <div class="exportbar"><a class="btn ghost" href="/app/rpd/{run_id}/download">Экспорт РПД (DOCX)</a></div>
    </div>
  </div>
-</div></body></html>"""
+</div>
+<script>
+(function(){{
+  var table=document.getElementById('edit-table');
+  if(!table) return;
+  var form=table.closest('form'), addBtn=document.getElementById('add-row');
+  var ncols=parseInt((document.getElementById('ncols')||{{}}).value||'1',10);
+  function bindDeletes(){{ table.querySelectorAll('.delrow').forEach(function(b){{ b.onclick=function(){{ b.closest('tr').remove(); }}; }}); }}
+  bindDeletes();
+  if(addBtn) addBtn.onclick=function(){{
+    var tb=table.querySelector('tbody'), tr=document.createElement('tr'), html='';
+    for(var c=0;c<ncols;c++) html+='<td><input value=""></td>';
+    html+='<td class="delc"><button type="button" class="delrow" title="Удалить строку">&times;</button></td>';
+    tr.innerHTML=html; tb.appendChild(tr); bindDeletes();
+  }};
+  if(form) form.addEventListener('submit',function(){{
+    var rows=[]; table.querySelectorAll('tbody tr').forEach(function(tr){{
+      var row=[]; tr.querySelectorAll('input').forEach(function(inp){{ row.push(inp.value); }}); rows.push(row);
+    }});
+    var hid=document.getElementById('table-json'); if(hid) hid.value=JSON.stringify(rows);
+  }});
+}})();
+</script>
+</body></html>"""

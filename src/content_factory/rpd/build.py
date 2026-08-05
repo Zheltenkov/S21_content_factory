@@ -45,6 +45,7 @@ class RpdSection(BaseModel):
     paragraphs: list[str] = Field(default_factory=list)
     table_header: list[str] = Field(default_factory=list)
     table_rows: list[list[str]] = Field(default_factory=list)
+    done: bool = False  # методист отметил раздел готовым
 
 
 class RpdBuild(BaseModel):
