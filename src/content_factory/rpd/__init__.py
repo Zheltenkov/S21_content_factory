@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
+from .build import RpdBuild, RpdSection, build_rpd_sections
 from .ingest import parse_dpo_program
 from .models import Competency, DpoProgram, ProgramSection, ProgramTable
 from .render_docx import render_rpd_docx
-from .render_selective import render_rpd_pk
+from .render_selective import render_build, render_rpd_pk
 from .template import (
     RpdTemplate,
     TargetSection,
@@ -29,7 +30,9 @@ __all__ = [
     "GapQuestion",
     "ProgramSection",
     "ProgramTable",
+    "RpdBuild",
     "RpdDraft",
+    "RpdSection",
     "RpdTemplate",
     "TargetSection",
     "UpModule",
@@ -37,12 +40,14 @@ __all__ = [
     "UpRow",
     "build_rpd",
     "build_rpd_from_up",
+    "build_rpd_sections",
     "default_pk_skeleton_path",
     "default_skeleton_path",
     "from_registry_plan",
     "load_rpd_template",
     "parse_dpo_program",
     "parse_up_csv",
+    "render_build",
     "render_rpd_docx",
     "render_rpd_pk",
 ]

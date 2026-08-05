@@ -18,22 +18,23 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
 
-from .dpo_spec import Cat, category_for
+from .build import RpdBuild, RpdSection, build_rpd_sections
 from .ingest import _is_heading, _split_heading
-from .prose import generate_prose
 from .template import default_pk_skeleton_path
-from .transfer import GAP_MARKER
 from .up_models import UpPlan
-
-_GENERATE_PLACEHOLDER = "[Будет сгенерировано]"
-_PLATFORM_PLACEHOLDER = "[Вставьте скрин задания с платформы/LMS]"
 
 _Content = tuple[list[str], list[tuple[list[str], list[list[str]]]]]
 
 
 def render_rpd_pk(up: UpPlan, template_path: str | Path | None = None, llm_client: Any = None) -> bytes:
-    """Собирает РПД на ДПО-шаблоне ПК: УП-разделы заполняет, прозу генерирует (если дан ``llm_client``),
-    boilerplate держит, прочее помечает."""
+    """Удобная обёртка: собрать черновик РПД из УП (+ проза LLM) и сразу отрендерить в DOCX."""
+    build = build_rpd_sections(up, template_path, llm_client)
+    return render_build(build, template_path)
+
+
+def render_build(build: RpdBuild, template_path: str | Path | None = None) -> bytes:
+    """Кладёт (возможно отредактированный) черновик РПД в DOCX по шаблону: editable-разделы заменяет,
+    boilerplate (форму ДПО) держит как в шаблоне. Комментарии вырезаются."""
     path = Path(template_path) if template_path else default_pk_skeleton_path()
     document = docx.Document(str(path))
     body = document.element.body
@@ -44,19 +45,22 @@ def render_rpd_pk(up: UpPlan, template_path: str | Path | None = None, llm_clien
     spans = _section_spans(document, elements, para_tag)
 
     for heading, number, title, body_els in spans:
-        category = category_for(number, title)
-        # BOILERPLATE (в т.ч. заголовки-контейнеры разделов по умолчанию) держим как в шаблоне.
-        # Fill-категории вставляем даже в контейнер (напр. «3.3 Рабочие программы» перед подразделом 3.3.1).
-        if category is Cat.BOILERPLATE:
-            continue
-        content = _content_for(category, up, title, llm_client)
+        section = build.section(number, title)
+        if section is None:
+            continue  # boilerplate / заголовок-контейнер — держим шаблон
         for element in body_els:
             body.remove(element)
-        _insert_after(document, heading, content)
+        _insert_after(document, heading, _content_of(section))
 
     buffer = BytesIO()
     document.save(buffer)
     return _drop_comments(buffer.getvalue())
+
+
+def _content_of(section: RpdSection) -> _Content:
+    if section.kind == "table" and section.table_rows:
+        return ([], [(section.table_header, section.table_rows)])
+    return (list(section.paragraphs), [])
 
 
 # Части-комментарии и их разметка, которые нельзя оставлять в готовом РПД (в шаблоне это заметки методиста).
@@ -111,74 +115,6 @@ def _section_spans(document: Any, elements: list[Any], para_tag: str) -> list[tu
             body_els.append(element)
     flush()
     return spans
-
-
-def _content_for(category: Cat, up: UpPlan, title: str, llm_client: Any) -> _Content:
-    if category is Cat.GENERATE:
-        if llm_client is not None:
-            paragraphs = generate_prose(title, up, llm_client)
-            if paragraphs:
-                return (paragraphs, [])
-        return ([_GENERATE_PLACEHOLDER], [])
-    if category is Cat.PLATFORM:
-        return ([_PLATFORM_PLACEHOLDER], [])
-    if category is Cat.UP_PLAN:
-        return _up_or_gap(_uchebnyi_plan(up))
-    if category is Cat.UP_GRAFIK:
-        return _up_or_gap(_grafik(up))
-    if category is Cat.UP_MODULES:
-        return _up_or_gap(_modules(up))
-    if category is Cat.UP_COMP:
-        return _up_or_gap(_competencies(up))
-    return ([GAP_MARKER], [])  # Cat.GAP
-
-
-def _up_or_gap(table: tuple[list[str], list[list[str]]] | None) -> _Content:
-    return ([], [table]) if table is not None else ([GAP_MARKER], [])
-
-
-def _uchebnyi_plan(up: UpPlan) -> tuple[list[str], list[list[str]]] | None:
-    """Учебный план (внутренние школы — всё практическое: часы в «Практические»)."""
-    if not up.modules:
-        return None
-    header = ["№", "Наименование модуля", "Всего, ч", "Лекции", "Практические", "Самостоятельная", "Контроль"]
-    rows = [[str(i), m.title, m.hours, "", m.hours, "", m.control()] for i, m in enumerate(up.modules, start=1)]
-    return (header, rows)
-
-
-def _grafik(up: UpPlan) -> tuple[list[str], list[list[str]]] | None:
-    if not up.modules:
-        return None
-    header = ["Компонент", "Период", "Часы", "Форма организации", "Контроль"]
-    rows = [[m.title, "", m.hours, m.fmt(), m.control()] for m in up.modules]
-    return (header, rows)
-
-
-def _modules(up: UpPlan) -> tuple[list[str], list[list[str]]] | None:
-    """Рабочие программы модулей — построчно по проектам (тема+содержание, вид работы, часы, контроль)."""
-    if not up.modules:
-        return None
-    header = ["№", "Тема и краткое содержание", "Вид работы", "Часы", "Методы", "Контроль"]
-    rows: list[list[str]] = []
-    index = 1
-    for module in up.modules:
-        for row in module.rows:
-            theme = f"[{module.title}] {row.name}".strip()
-            if row.description:
-                theme = f"{theme}: {row.description}"
-            rows.append([str(index), theme, row.fmt, row.hours, "", row.control()])
-            index += 1
-    return (header, rows) if rows else None
-
-
-def _competencies(up: UpPlan) -> tuple[list[str], list[list[str]]] | None:
-    """Полная 6-колоночная таблица; «после обучения» = умеет+навык из УП, основание/уровень — методисту."""
-    comp_rows = up.competency_rows()
-    if not comp_rows:
-        return None
-    header = ["Код", "Профессиональная компетенция", "Исходный уровень", "Качественное изменение", "После обучения", "Основание"]
-    rows = [[code, name, "", "", after, ""] for code, name, after in comp_rows]
-    return (header, rows)
 
 
 def _insert_after(document: Any, anchor: Any, content: _Content) -> None:

@@ -24,7 +24,7 @@ from starlette.concurrency import run_in_threadpool
 
 from content_factory.api.integrations.auth_cookie import validate_request_user
 from content_factory.api.integrations.project_paths import GENERATOR_ROOT
-from content_factory.rpd import UpPlan, parse_up_csv, render_rpd_pk
+from content_factory.rpd import UpPlan, build_rpd_sections, parse_up_csv, render_build
 from content_factory.rpd.translate import russify_up
 
 page_router = APIRouter(prefix="/app/rpd", include_in_schema=False, tags=["rpd-ui"])
@@ -32,6 +32,7 @@ page_router = APIRouter(prefix="/app/rpd", include_in_schema=False, tags=["rpd-u
 RPD_ROOT = (GENERATOR_ROOT / ".tmp" / "rpd").resolve()
 MAX_DOCX_BYTES = int(os.getenv("RPD_MAX_DOCX_BYTES", "50000000"))
 OUTPUT_FILENAME = "РПД.docx"
+BUILD_FILE = "build.json"
 _META_FILE = "rpd_meta.json"
 _MAX_RUNS = 12
 _MAX_UPLOADS = 10
@@ -210,8 +211,9 @@ def _build_run(csv_path: Path, run_dir: Path, program_title: str) -> dict[str, A
     up = parse_up_csv(csv_path, title=program_title)
     client = _llm_client()
     up = russify_up(up, client)  # англоязычные названия тем/модулей → русский (термины оставляем)
-    data = render_rpd_pk(up, llm_client=client)
-    (run_dir / OUTPUT_FILENAME).write_bytes(data)
+    build = build_rpd_sections(up, None, client)
+    (run_dir / BUILD_FILE).write_text(build.model_dump_json(), encoding="utf-8")  # для редактора (HITL)
+    (run_dir / OUTPUT_FILENAME).write_bytes(render_build(build))
     return _up_meta(up, prose_generated=client is not None)
 
 
