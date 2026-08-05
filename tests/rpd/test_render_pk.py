@@ -68,6 +68,17 @@ def test_prose_and_platform_and_gaps_are_marked(tmp_path: Path) -> None:
     assert GAP_MARKER in paragraphs  # оценочные/разработчики — пробел методисту
 
 
+def test_no_comments_leak_into_output(tmp_path: Path) -> None:
+    import io
+    import zipfile
+
+    data = render_rpd_pk(from_registry_plan(_PLAN))
+    archive = zipfile.ZipFile(io.BytesIO(data))
+    assert "word/comments.xml" not in archive.namelist()  # заметки методиста вырезаны
+    xml = archive.read("word/document.xml").decode("utf-8", errors="ignore")
+    assert "commentReference" not in xml and "commentRangeStart" not in xml
+
+
 def test_empty_up_keeps_boilerplate_and_gaps_up_sections(tmp_path: Path) -> None:
     from content_factory.rpd.up_models import UpPlan
 

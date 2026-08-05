@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import re
+import zipfile
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -53,7 +55,39 @@ def render_rpd_pk(up: UpPlan, template_path: str | Path | None = None, llm_clien
 
     buffer = BytesIO()
     document.save(buffer)
-    return buffer.getvalue()
+    return _drop_comments(buffer.getvalue())
+
+
+# Части-комментарии и их разметка, которые нельзя оставлять в готовом РПД (в шаблоне это заметки методиста).
+_COMMENT_PARTS = {
+    "word/comments.xml",
+    "word/commentsExtended.xml",
+    "word/commentsIds.xml",
+    "word/commentsExtensible.xml",
+    "word/people.xml",
+}
+_COMMENT_ELEMENT_RE = re.compile(r"<w:comment(?:RangeStart|RangeEnd|Reference)\b[^>]*/>")
+_COMMENT_OVERRIDE_RE = re.compile(r"<Override\b[^>]*comments[^>]*/>")
+_COMMENT_REL_RE = re.compile(r"<Relationship\b[^>]*comments[^>]*/>")
+
+
+def _drop_comments(data: bytes) -> bytes:
+    """Убирает все комментарии из DOCX: части comments*.xml, их привязки в тексте, rels и content-types."""
+    source = zipfile.ZipFile(BytesIO(data))
+    out = BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+        for item in source.infolist():
+            if item.filename in _COMMENT_PARTS:
+                continue
+            payload = source.read(item.filename)
+            if item.filename == "word/document.xml":
+                payload = _COMMENT_ELEMENT_RE.sub("", payload.decode("utf-8")).encode("utf-8")
+            elif item.filename == "[Content_Types].xml":
+                payload = _COMMENT_OVERRIDE_RE.sub("", payload.decode("utf-8")).encode("utf-8")
+            elif item.filename.endswith("document.xml.rels"):
+                payload = _COMMENT_REL_RE.sub("", payload.decode("utf-8")).encode("utf-8")
+            target.writestr(item, payload)
+    return out.getvalue()
 
 
 def _section_spans(document: Any, elements: list[Any], para_tag: str) -> list[tuple[Any, str, str, list[Any]]]:
