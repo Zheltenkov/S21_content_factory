@@ -24,15 +24,7 @@ from starlette.concurrency import run_in_threadpool
 
 from content_factory.api.integrations.auth_cookie import validate_request_user
 from content_factory.api.integrations.project_paths import GENERATOR_ROOT
-from content_factory.rpd import (
-    RpdDraft,
-    build_rpd,
-    default_skeleton_path,
-    load_rpd_template,
-    parse_dpo_program,
-    render_rpd_docx,
-)
-from content_factory.rpd.template import RpdTemplate
+from content_factory.rpd import UpPlan, parse_up_csv, render_rpd_pk
 
 page_router = APIRouter(prefix="/app/rpd", include_in_schema=False, tags=["rpd-ui"])
 
@@ -49,17 +41,9 @@ _UPLOADS: dict[str, dict[str, Any]] = {}
 # Готовые прогоны на пользователя: state_key -> [meta, ...] (новые первыми).
 _RUNS: dict[str, list[dict[str, Any]]] = {}
 _LOADED = False
-_TEMPLATE: RpdTemplate | None = None
 
 
 # --------------------------------------------------------------------------- helpers
-
-
-def _template() -> RpdTemplate:
-    global _TEMPLATE
-    if _TEMPLATE is None:
-        _TEMPLATE = load_rpd_template(default_skeleton_path())
-    return _TEMPLATE
 
 
 def _user_key(user: dict[str, Any]) -> str:
@@ -105,14 +89,16 @@ def _evict_runs(state_key: str) -> None:
         shutil.rmtree(Path(str(old.get("run_dir", ""))), ignore_errors=True)
 
 
-def _draft_meta(draft: RpdDraft) -> dict[str, Any]:
-    """Лёгкий индекс прогона для панели результата и списка недавних (без тел разделов)."""
-    sections = [
-        {"number": s.number, "title": s.title, "filled": s.filled, "is_container": s.is_container}
-        for s in draft.sections
-    ]
-    gaps = [{"number": g.section_number, "title": g.section_title, "question": g.question} for g in draft.gaps]
-    return {"coverage": draft.coverage, "sections": sections, "gaps": gaps}
+def _up_meta(up: UpPlan, prose_generated: bool) -> dict[str, Any]:
+    """Лёгкий индекс прогона для панели результата и списка недавних."""
+    return {
+        "up_title": up.title,
+        "modules": len(up.modules),
+        "projects": sum(len(m.rows) for m in up.modules),
+        "total_hours": up.total_hours,
+        "competencies": len(up.competencies()),
+        "prose": prose_generated,
+    }
 
 
 def _persist_run(state_key: str, meta: dict[str, Any], run_dir: Path) -> None:
@@ -176,9 +162,9 @@ async def rpd_home(request: Request) -> HTMLResponse:
 async def rpd_upload(request: Request, program: UploadFile | None = File(None)) -> Response:
     user = await validate_request_user(request)
     if program is None or not program.filename:
-        raise HTTPException(status_code=400, detail="Не выбран файл программы")
-    if not program.filename.lower().endswith(".docx"):
-        raise HTTPException(status_code=400, detail="Нужен файл .docx")
+        raise HTTPException(status_code=400, detail="Не выбран файл УП")
+    if not program.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Нужен файл УП в формате .csv")
     state_key = _user_key(user)
     work_dir = (RPD_ROOT / state_key / "uploads" / uuid.uuid4().hex).resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -193,38 +179,48 @@ async def rpd_upload(request: Request, program: UploadFile | None = File(None)) 
 
 
 @page_router.post("/generate")
-async def rpd_generate(request: Request, upload_id: str = Form("")) -> Response:
+async def rpd_generate(request: Request, upload_id: str = Form(""), title: str = Form("")) -> Response:
     user = await validate_request_user(request)
     _ensure_loaded()
     state_key = _user_key(user)
     with _LOCK:
         pending = _UPLOADS.pop(upload_id, None)
     if pending is None:
-        raise HTTPException(status_code=400, detail="Программа не найдена — загрузите файл заново")
+        raise HTTPException(status_code=400, detail="УП не найден — загрузите файл заново")
 
     run_id = uuid.uuid4().hex
     run_dir = _run_dir(state_key, run_id)
     run_dir.mkdir(parents=True, exist_ok=True)
     program_name = str(pending["name"])
+    program_title = title.strip() or Path(program_name).stem
     try:
-        meta = await run_in_threadpool(_build_run, pending["path"], run_dir, program_name)
+        meta = await run_in_threadpool(_build_run, pending["path"], run_dir, program_title)
     finally:
         shutil.rmtree(pending["work_dir"], ignore_errors=True)
 
     meta.update({"run_id": run_id, "state_key": state_key, "run_dir": str(run_dir),
-                 "created_at": datetime.now(UTC).isoformat(), "name": program_name})
+                 "created_at": datetime.now(UTC).isoformat(), "name": program_title})
     _persist_run(state_key, meta, run_dir)
     return JSONResponse({"run_id": run_id, "redirect": f"/app/rpd/{run_id}"})
 
 
-def _build_run(program_path: Path, run_dir: Path, program_name: str) -> dict[str, Any]:
-    """Тяжёлая часть (вне event loop): разбор программы → перенос → рендер DOCX на диск."""
-    program = parse_dpo_program(program_path)
-    draft = build_rpd(program, _template())
-    title = program.title or Path(program_name).stem
-    data = render_rpd_docx(default_skeleton_path(), draft, program_title=title)
+def _build_run(csv_path: Path, run_dir: Path, program_title: str) -> dict[str, Any]:
+    """Тяжёлая часть (вне event loop): разбор УП-CSV → генерация прозы (LLM) → рендер РПД на диск."""
+    up = parse_up_csv(csv_path, title=program_title)
+    client = _llm_client()
+    data = render_rpd_pk(up, llm_client=client)
     (run_dir / OUTPUT_FILENAME).write_bytes(data)
-    return _draft_meta(draft)
+    return _up_meta(up, prose_generated=client is not None)
+
+
+def _llm_client() -> Any:
+    """Клиент LLM для генерации прозы; None при недоступности → рендер подставит плейсхолдеры."""
+    try:
+        from content_factory.platform.llm.factory import create_llm_client
+
+        return create_llm_client(default_role="default", enable_cache=True)
+    except Exception:  # noqa: BLE001 - без LLM просто рендерим с плейсхолдерами
+        return None
 
 
 @page_router.get("/{run_id}")
@@ -284,29 +280,23 @@ def _render_result(meta: dict[str, Any] | None) -> str:
     if meta is None:
         return ""
     run_id = escape(str(meta.get("run_id", "")))
-    coverage = float(meta.get("coverage", 0.0) or 0.0)
-    pct = round(coverage * 100)
-    rows = []
-    for section in meta.get("sections", []):
-        if section.get("is_container"):
-            continue
-        num = escape(str(section.get("number", "")))
-        title = escape(str(section.get("title", "")))
-        if section.get("filled"):
-            state = '<span class="st ok">✓ перенесено</span>'
-        else:
-            state = '<span class="st gap">? заполнить</span>'
-        rows.append(f'<li><span class="code">{num}</span><span class="nm">{title}</span>{state}</li>')
-    gaps = meta.get("gaps", [])
-    gap_note = (f'<p class="gapnote">{len(gaps)} раздел(ов) не найдены в программе — помечены пробелом в'
-                " документе, заполните перед использованием.</p>") if gaps else ""
+    modules = int(meta.get("modules", 0) or 0)
+    projects = int(meta.get("projects", 0) or 0)
+    hours = escape(str(meta.get("total_hours") or "—"))
+    comps = int(meta.get("competencies", 0) or 0)
+    prose = bool(meta.get("prose"))
+    prose_line = ("Проза (актуальность/цели/паспорт) сгенерирована."
+                  if prose else "LLM недоступен — проза помечена как «будет сгенерировано».")
+    stats = [("Модулей", modules), ("Проектов", projects), ("Часов", hours), ("Компетенций", comps)]
+    tiles = "".join(
+        f'<div class="stat"><div class="statv">{escape(str(v))}</div><div class="statl">{escape(k)}</div></div>'
+        for k, v in stats
+    )
     return f"""
     <section class="result">
-      <div class="barwrap"><span class="barval">{pct}%</span>
-        <div class="bar"><i style="width:{pct}%"></i></div>
-        <span class="muted">готовность переноса</span></div>
-      <ul class="slots">{"".join(rows)}</ul>
-      {gap_note}
+      <div class="stats">{tiles}</div>
+      <p class="gapnote">{escape(prose_line)} Разделы-скрины (примеры заданий) и оценочные материалы
+        помечены — заполните перед использованием.</p>
       <div class="actions">
         <a class="btn" href="/app/rpd/{run_id}/download">Скачать РПД (DOCX)</a>
       </div>
@@ -322,12 +312,12 @@ def _render_recent(recent: list[dict[str, Any]], active: dict[str, Any] | None) 
         run_id = escape(str(meta.get("run_id", "")))
         name = escape(str(meta.get("name") or "Программа"))
         created = escape(str(meta.get("created_at") or "").replace("T", " ")[:16])
-        pct = round(float(meta.get("coverage", 0.0) or 0.0) * 100)
+        hours = escape(str(meta.get("total_hours") or "—"))
         is_active = ' style="font-weight:700"' if meta.get("run_id") == active_id else ""
         rows.append(
             '<li style="display:flex;align-items:center;justify-content:space-between;gap:12px;">'
             f'<span><a href="/app/rpd/{run_id}"{is_active}>{name}</a>'
-            f'<span class="muted"> · {pct}% · {created}</span></span>'
+            f'<span class="muted"> · {hours} ч · {created}</span></span>'
             f'<form method="post" action="/app/rpd/{run_id}/delete" style="margin:0" '
             "onsubmit=\"return confirm('Удалить этот РПД?');\">"
             '<button type="submit" title="Удалить" class="del">&times;</button></form></li>'
@@ -363,21 +353,27 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
  .slots .code{{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:#8798901;width:34px;color:var(--muted)}} .slots .nm{{font-size:14px}}
  .st{{margin-left:auto;font-size:12px;font-weight:650;padding:4px 10px;border-radius:999px}} .st.ok{{background:var(--soft);color:var(--accent)}} .st.gap{{background:var(--gapsoft);color:var(--gap)}}
  .gapnote{{color:var(--gap);font-size:13px;margin:12px 0 0}}
+ .stats{{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px}}
+ .stat{{flex:1;min-width:90px;background:var(--soft);border-radius:10px;padding:10px 12px;text-align:center}}
+ .statv{{font-weight:800;font-size:1.2rem;color:var(--accent)}} .statl{{font-size:.8rem;color:var(--muted)}}
+ .titlein{{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;margin-bottom:12px}}
  .actions{{margin-top:16px}}
  .recent{{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px}}
  .recent .rt{{font-weight:700;margin-bottom:8px}} .recent ul{{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}}
  .recent a{{color:var(--accent);text-decoration:none;font-weight:600}} .del{{border:none;background:none;color:#b02a2a;cursor:pointer;font-size:1.15rem;line-height:1}}
 </style></head><body><div class="wrap">
  <a class="back" href="/app">← к режимам</a>
- <h1>РПД из программы</h1>
- <p class="sub">Перенос утверждённого содержания программы в рабочую программу дисциплины (DOCX)</p>
+ <h1>РПД из учебного плана</h1>
+ <p class="sub">Сборка рабочей программы дисциплины (DOCX) из УП: учебный план, модули и компетенции —
+   из УП; актуальность/цели — генерируются; форма ДПО — по шаблону.</p>
  <div class="card">
    <form id="rpd-form">
+     <input class="titlein" id="rpd-title" name="title" type="text" placeholder="Название программы (напр. «ИИ для предпринимателя»)">
      <label class="drop" for="rpd-file">
        <span>📄</span>
-       <span class="name" id="rpd-name">Выбрать ДПО-программу (.docx)</span>
+       <span class="name" id="rpd-name">Загрузить УП (CSV-экспорт из Реестра)</span>
        <span class="ok" id="rpd-ok" hidden>на сервере ✓</span>
-       <input id="rpd-file" name="program" type="file" accept=".docx">
+       <input id="rpd-file" name="program" type="file" accept=".csv">
      </label>
      <input type="hidden" name="upload_id" id="rpd-upload-id">
      <div class="progress" id="rpd-progress" hidden aria-live="polite">
@@ -412,9 +408,10 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
     xhr.onerror=function(){{lbl.textContent='Ошибка сети';}};xhr.send(body);
   }});
   form.addEventListener('submit',function(e){{
-    e.preventDefault();if(!hid.value){{lbl.textContent='Сначала загрузите файл программы';prog.hidden=false;return;}}
-    go.disabled=true;go.textContent='Собираю РПД…';
-    var body=new URLSearchParams();body.append('upload_id',hid.value);
+    e.preventDefault();if(!hid.value){{lbl.textContent='Сначала загрузите УП (.csv)';prog.hidden=false;return;}}
+    go.disabled=true;go.textContent='Собираю РПД (генерю прозу)…';
+    var titleEl=document.getElementById('rpd-title');
+    var body=new URLSearchParams();body.append('upload_id',hid.value);body.append('title',titleEl?titleEl.value:'');
     fetch('/app/rpd/generate',{{method:'POST',body:body,headers:{{'Content-Type':'application/x-www-form-urlencoded'}}}})
       .then(function(r){{return r.json();}}).then(function(d){{if(d&&d.redirect){{window.location.href=d.redirect;}}else{{throw 0;}}}})
       .catch(function(){{go.disabled=false;go.textContent='Сформировать РПД →';lbl.textContent='Не удалось собрать РПД';}});

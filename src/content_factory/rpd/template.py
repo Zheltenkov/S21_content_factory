@@ -37,6 +37,11 @@ def default_skeleton_path() -> Path:
     return Path(__file__).parent / "templates" / "dpo_skeleton.docx"
 
 
+def default_pk_skeleton_path() -> Path:
+    """Реальный ДПО-шаблон «повышение квалификации» (с комментариями-правилами методиста)."""
+    return Path(__file__).parent / "templates" / "dpo_pk_skeleton.docx"
+
+
 def load_rpd_template(skeleton_path: str | Path) -> RpdTemplate:
     """Загружает каркас-шаблон из DOCX: список целевых разделов (без контента образца)."""
     skeleton = parse_dpo_program(skeleton_path)
