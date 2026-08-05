@@ -285,20 +285,36 @@ def _render_result(meta: dict[str, Any] | None) -> str:
     hours = escape(str(meta.get("total_hours") or "—"))
     comps = int(meta.get("competencies", 0) or 0)
     prose = bool(meta.get("prose"))
-    prose_line = ("Проза (актуальность/цели/паспорт) сгенерирована."
-                  if prose else "LLM недоступен — проза помечена как «будет сгенерировано».")
+    up_ok = modules > 0
+
     stats = [("Модулей", modules), ("Проектов", projects), ("Часов", hours), ("Компетенций", comps)]
     tiles = "".join(
         f'<div class="stat"><div class="statv">{escape(str(v))}</div><div class="statl">{escape(k)}</div></div>'
         for k, v in stats
     )
+
+    prose_chip = ('<span class="cs gen">✦ сгенерировано</span>' if prose
+                  else '<span class="cs wait">⋯ плейсхолдер</span>')
+    up_chip = '<span class="cs up">✓ из УП</span>' if up_ok else '<span class="cs gap">? нет данных УП</span>'
+    catalog = [
+        ("Учебный план · график · модули", up_chip),
+        ("Профессиональные компетенции", up_chip),
+        ("Актуальность · цели · паспорт", prose_chip),
+        ("Нормативка · форма · условия", '<span class="cs form">форма ДПО</span>'),
+        ("Оценочные материалы · разработчики", '<span class="cs gap">? методист</span>'),
+        ("Примеры и скрины заданий", '<span class="cs gap">? с платформы</span>'),
+    ]
+    rows = "".join(f'<li><span class="nm">{escape(name)}</span>{chip}</li>' for name, chip in catalog)
+
     return f"""
     <section class="result">
       <div class="stats">{tiles}</div>
-      <p class="gapnote">{escape(prose_line)} Разделы-скрины (примеры заданий) и оценочные материалы
-        помечены — заполните перед использованием.</p>
+      <div class="cattitle">Что вошло в РПД</div>
+      <ul class="cats">{rows}</ul>
+      <p class="gapnote">Разделы «? методист» и «? с платформы» (примеры заданий, оценочные материалы)
+        заполните вручную — авто их не закрывает.</p>
       <div class="actions">
-        <a class="btn" href="/app/rpd/{run_id}/download">Скачать РПД (DOCX)</a>
+        <a class="btn is-ready" href="/app/rpd/{run_id}/download">Скачать РПД (DOCX)</a>
       </div>
     </section>"""
 
@@ -357,6 +373,12 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
  .stat{{flex:1;min-width:90px;background:var(--soft);border-radius:10px;padding:10px 12px;text-align:center}}
  .statv{{font-weight:800;font-size:1.2rem;color:var(--accent)}} .statl{{font-size:.8rem;color:var(--muted)}}
  .titlein{{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;margin-bottom:12px}}
+ .cattitle{{font-weight:700;margin:16px 0 8px}}
+ .cats{{list-style:none;padding:0;margin:0;border:1px solid var(--line);border-radius:11px;overflow:hidden}}
+ .cats li{{display:flex;align-items:center;gap:12px;padding:11px 14px;border-top:1px solid var(--line)}} .cats li:first-child{{border-top:none}}
+ .cats .nm{{font-size:14px}} .cs{{margin-left:auto;font-size:12px;font-weight:650;padding:4px 10px;border-radius:999px;white-space:nowrap}}
+ .cs.up{{background:var(--soft);color:var(--accent)}} .cs.gen{{background:#eef2ff;color:#4f46e5}}
+ .cs.form{{background:#eef1f4;color:#5f6f7d}} .cs.gap{{background:var(--gapsoft);color:var(--gap)}} .cs.wait{{background:var(--gapsoft);color:var(--gap)}}
  .actions{{margin-top:16px}}
  .recent{{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px}}
  .recent .rt{{font-weight:700;margin-bottom:8px}} .recent ul{{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}}

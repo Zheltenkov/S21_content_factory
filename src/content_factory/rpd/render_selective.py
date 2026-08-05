@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import docx
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
 
@@ -198,10 +199,25 @@ def _build_table(document: Any, header: list[str], rows: list[list[str]]) -> Any
     try:
         grid.style = "Table Grid"
     except (KeyError, ValueError):
-        pass
+        pass  # стиля может не быть в каркасе — границы всё равно ставим явно
+    _set_grid_borders(grid)
     for col in range(ncols):
         grid.rows[0].cells[col].text = header[col] if col < len(header) else ""
     for row_index, row in enumerate(rows, start=1):
         for col in range(ncols):
             grid.rows[row_index].cells[col].text = row[col] if col < len(row) else ""
     return grid
+
+
+def _set_grid_borders(grid: Any) -> None:
+    """Явные одинарные границы: шаблонного стиля «Table Grid» может не быть → иначе таблица без рамок."""
+    tbl_pr = grid._tbl.tblPr
+    borders = OxmlElement("w:tblBorders")
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        element = OxmlElement(f"w:{edge}")
+        element.set(qn("w:val"), "single")
+        element.set(qn("w:sz"), "4")
+        element.set(qn("w:space"), "0")
+        element.set(qn("w:color"), "000000")
+        borders.append(element)
+    tbl_pr.append(borders)
