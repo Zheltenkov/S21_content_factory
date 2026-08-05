@@ -34,7 +34,7 @@ from content_factory.rpd import (
 )
 from content_factory.rpd.template import RpdTemplate
 
-page_router = APIRouter(prefix="/app/auditor/rpd", include_in_schema=False, tags=["rpd-ui"])
+page_router = APIRouter(prefix="/app/rpd", include_in_schema=False, tags=["rpd-ui"])
 
 RPD_ROOT = (GENERATOR_ROOT / ".tmp" / "rpd").resolve()
 MAX_DOCX_BYTES = int(os.getenv("RPD_MAX_DOCX_BYTES", "50000000"))
@@ -214,7 +214,7 @@ async def rpd_generate(request: Request, upload_id: str = Form("")) -> Response:
     meta.update({"run_id": run_id, "state_key": state_key, "run_dir": str(run_dir),
                  "created_at": datetime.now(UTC).isoformat(), "name": program_name})
     _persist_run(state_key, meta, run_dir)
-    return JSONResponse({"run_id": run_id, "redirect": f"/app/auditor/rpd/{run_id}"})
+    return JSONResponse({"run_id": run_id, "redirect": f"/app/rpd/{run_id}"})
 
 
 def _build_run(program_path: Path, run_dir: Path, program_name: str) -> dict[str, Any]:
@@ -265,7 +265,7 @@ async def rpd_delete(request: Request, run_id: str) -> RedirectResponse:
         if meta is not None:
             runs.remove(meta)
             shutil.rmtree(Path(str(meta.get("run_dir", ""))), ignore_errors=True)
-    return RedirectResponse("/app/auditor/rpd", status_code=303)
+    return RedirectResponse("/app/rpd", status_code=303)
 
 
 # --------------------------------------------------------------------------- rendering
@@ -308,7 +308,7 @@ def _render_result(meta: dict[str, Any] | None) -> str:
       <ul class="slots">{"".join(rows)}</ul>
       {gap_note}
       <div class="actions">
-        <a class="btn" href="/app/auditor/rpd/{run_id}/download">Скачать РПД (DOCX)</a>
+        <a class="btn" href="/app/rpd/{run_id}/download">Скачать РПД (DOCX)</a>
       </div>
     </section>"""
 
@@ -326,9 +326,9 @@ def _render_recent(recent: list[dict[str, Any]], active: dict[str, Any] | None) 
         is_active = ' style="font-weight:700"' if meta.get("run_id") == active_id else ""
         rows.append(
             '<li style="display:flex;align-items:center;justify-content:space-between;gap:12px;">'
-            f'<span><a href="/app/auditor/rpd/{run_id}"{is_active}>{name}</a>'
+            f'<span><a href="/app/rpd/{run_id}"{is_active}>{name}</a>'
             f'<span class="muted"> · {pct}% · {created}</span></span>'
-            f'<form method="post" action="/app/auditor/rpd/{run_id}/delete" style="margin:0" '
+            f'<form method="post" action="/app/rpd/{run_id}/delete" style="margin:0" '
             "onsubmit=\"return confirm('Удалить этот РПД?');\">"
             '<button type="submit" title="Удалить" class="del">&times;</button></form></li>'
         )
@@ -368,7 +368,7 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
  .recent .rt{{font-weight:700;margin-bottom:8px}} .recent ul{{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}}
  .recent a{{color:var(--accent);text-decoration:none;font-weight:600}} .del{{border:none;background:none;color:#b02a2a;cursor:pointer;font-size:1.15rem;line-height:1}}
 </style></head><body><div class="wrap">
- <a class="back" href="/app/auditor">← к аудитору</a>
+ <a class="back" href="/app">← к режимам</a>
  <h1>РПД из программы</h1>
  <p class="sub">Перенос утверждённого содержания программы в рабочую программу дисциплины (DOCX)</p>
  <div class="card">
@@ -403,7 +403,7 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
     if(!file.files||!file.files.length){{nameEl.textContent=defName;prog.hidden=true;return;}}
     var f=file.files[0];nameEl.textContent=f.name;prog.hidden=false;fill.style.width='0%';lbl.textContent='Загрузка: 0%';
     var body=new FormData();body.append('program',f);
-    var xhr=new XMLHttpRequest();xhr.open('POST','/app/auditor/rpd/upload',true);
+    var xhr=new XMLHttpRequest();xhr.open('POST','/app/rpd/upload',true);
     xhr.upload.onprogress=function(e){{if(!e.lengthComputable)return;var p=Math.round(e.loaded/e.total*100);
       fill.style.width=p+'%';lbl.textContent=p<100?('Загрузка: '+p+'%'):'Обработка…';}};
     xhr.onload=function(){{var id='';if(xhr.status>=200&&xhr.status<300){{try{{id=(JSON.parse(xhr.responseText)||{{}}).upload_id||'';}}catch(e){{}}}}
@@ -415,7 +415,7 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
     e.preventDefault();if(!hid.value){{lbl.textContent='Сначала загрузите файл программы';prog.hidden=false;return;}}
     go.disabled=true;go.textContent='Собираю РПД…';
     var body=new URLSearchParams();body.append('upload_id',hid.value);
-    fetch('/app/auditor/rpd/generate',{{method:'POST',body:body,headers:{{'Content-Type':'application/x-www-form-urlencoded'}}}})
+    fetch('/app/rpd/generate',{{method:'POST',body:body,headers:{{'Content-Type':'application/x-www-form-urlencoded'}}}})
       .then(function(r){{return r.json();}}).then(function(d){{if(d&&d.redirect){{window.location.href=d.redirect;}}else{{throw 0;}}}})
       .catch(function(){{go.disabled=false;go.textContent='Сформировать РПД →';lbl.textContent='Не удалось собрать РПД';}});
   }});

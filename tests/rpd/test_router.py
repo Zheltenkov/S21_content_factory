@@ -43,7 +43,7 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
 
 
 def _upload(client: TestClient) -> str:
-    resp = client.post("/app/auditor/rpd/upload", files={"program": ("prog.docx", _program_docx(),
+    resp = client.post("/app/rpd/upload", files={"program": ("prog.docx", _program_docx(),
                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document")})
     assert resp.status_code == 200
     return resp.json()["upload_id"]
@@ -51,38 +51,38 @@ def _upload(client: TestClient) -> str:
 
 def _generate(client: TestClient) -> str:
     upload_id = _upload(client)
-    resp = client.post("/app/auditor/rpd/generate", data={"upload_id": upload_id})
+    resp = client.post("/app/rpd/generate", data={"upload_id": upload_id})
     assert resp.status_code == 200
     return resp.json()["run_id"]
 
 
 def test_home_renders(client: TestClient) -> None:
-    resp = client.get("/app/auditor/rpd")
+    resp = client.get("/app/rpd")
     assert resp.status_code == 200
     assert "РПД из программы" in resp.text
 
 
 def test_upload_requires_a_docx(client: TestClient) -> None:
-    assert client.post("/app/auditor/rpd/upload").status_code == 400
-    bad = client.post("/app/auditor/rpd/upload", files={"program": ("x.txt", b"hi", "text/plain")})
+    assert client.post("/app/rpd/upload").status_code == 400
+    bad = client.post("/app/rpd/upload", files={"program": ("x.txt", b"hi", "text/plain")})
     assert bad.status_code == 400
 
 
 def test_generate_builds_a_run_and_view_shows_coverage(client: TestClient) -> None:
     run_id = _generate(client)
-    view = client.get(f"/app/auditor/rpd/{run_id}")
+    view = client.get(f"/app/rpd/{run_id}")
     assert view.status_code == 200
     assert "готовность переноса" in view.text
     assert "Скачать РПД" in view.text
 
 
 def test_generate_with_bad_upload_id_is_rejected(client: TestClient) -> None:
-    assert client.post("/app/auditor/rpd/generate", data={"upload_id": "nope"}).status_code == 400
+    assert client.post("/app/rpd/generate", data={"upload_id": "nope"}).status_code == 400
 
 
 def test_download_returns_a_valid_docx(client: TestClient) -> None:
     run_id = _generate(client)
-    resp = client.get(f"/app/auditor/rpd/{run_id}/download")
+    resp = client.get(f"/app/rpd/{run_id}/download")
     assert resp.status_code == 200
     assert zipfile.is_zipfile(io.BytesIO(resp.content))  # docx = zip
     # содержимое программы дошло, пример каркаса — нет
@@ -94,10 +94,10 @@ def test_download_returns_a_valid_docx(client: TestClient) -> None:
 
 def test_delete_removes_the_run(client: TestClient) -> None:
     run_id = _generate(client)
-    assert client.get(f"/app/auditor/rpd/{run_id}").status_code == 200
-    deleted = client.post(f"/app/auditor/rpd/{run_id}/delete", follow_redirects=False)
+    assert client.get(f"/app/rpd/{run_id}").status_code == 200
+    deleted = client.post(f"/app/rpd/{run_id}/delete", follow_redirects=False)
     assert deleted.status_code == 303
-    assert client.get(f"/app/auditor/rpd/{run_id}").status_code == 404
+    assert client.get(f"/app/rpd/{run_id}").status_code == 404
 
 
 def test_runs_survive_reload_and_list_in_recent(client: TestClient) -> None:
@@ -105,8 +105,8 @@ def test_runs_survive_reload_and_list_in_recent(client: TestClient) -> None:
     # имитируем рестарт: сбрасываем in-memory индекс и флаг загрузки
     rpd._RUNS.clear()
     rpd._LOADED = False
-    home = client.get("/app/auditor/rpd")
+    home = client.get("/app/rpd")
     assert home.status_code == 200
     assert "Недавние РПД" in home.text
     # переоткрытие после reload работает
-    assert client.get(f"/app/auditor/rpd/{run_id}").status_code == 200
+    assert client.get(f"/app/rpd/{run_id}").status_code == 200

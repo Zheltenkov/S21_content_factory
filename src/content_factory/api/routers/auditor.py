@@ -105,25 +105,9 @@ async def render_auditor_page(request: Request) -> HTMLResponse:
     html = web_app.render_page(_UI_REPORTS.get(state_key), state)
     page = _rewrite_auditor_page_html(html)
     page = page.replace(
-        "<!--RECENT_BRANCHES_SLOT-->",
-        _render_rpd_entry() + _render_recent_branches() + _render_recent_runs(state_key),
-        1,
+        "<!--RECENT_BRANCHES_SLOT-->", _render_recent_branches() + _render_recent_runs(state_key), 1
     )
     return HTMLResponse(page, headers={"Cache-Control": "no-store"})
-
-
-def _render_rpd_entry() -> str:
-    """Entry card linking to the standalone «РПД из программы» mode (separate temporary module)."""
-    return (
-        '<section class="filter-panel" style="margin-top:16px;display:flex;align-items:center;'
-        'justify-content:space-between;gap:16px;flex-wrap:wrap;border-left:3px solid #10b981;">'
-        '<div><div style="font-weight:700;margin-bottom:2px;">РПД из программы</div>'
-        '<div style="color:#5b6b66;font-size:.9rem;">Загрузите утверждённую ДПО-программу — '
-        'получите рабочую программу дисциплины (DOCX).</div></div>'
-        '<a href="/app/auditor/rpd" style="background:#10b981;color:#fff;text-decoration:none;'
-        'font-weight:650;padding:10px 18px;border-radius:9px;white-space:nowrap;">Открыть →</a>'
-        "</section>"
-    )
 
 
 @page_router.post("/run/upload")
