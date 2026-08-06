@@ -323,7 +323,7 @@ async def rpd_from_registry(request: Request, plan_id: int, conn: Any = Depends(
 
 
 @page_router.get("/{run_id}")
-async def rpd_view(request: Request, run_id: str, s: int = 0) -> HTMLResponse:
+async def rpd_view(request: Request, run_id: str, s: int = 0, check: bool = False) -> HTMLResponse:
     user = await validate_request_user(request)
     _ensure_loaded()
     state_key = _user_key(user)
@@ -333,7 +333,10 @@ async def rpd_view(request: Request, run_id: str, s: int = 0) -> HTMLResponse:
     build = _load_build(meta)
     if build is None or not build.sections:  # старый прогон без черновика — итог + скачать
         return HTMLResponse(_render_screen(state_key, active=meta), headers={"Cache-Control": "no-store"})
-    return HTMLResponse(_render_editor(run_id, build, meta, s), headers={"Cache-Control": "no-store"})
+    if check:  # валидация — по явной кнопке, а не на каждом сохранении
+        build.quality = evaluate_build_quality(build)
+        _save_build(meta, build)
+    return HTMLResponse(_render_editor(run_id, build, meta, s, checked=check), headers={"Cache-Control": "no-store"})
 
 
 @page_router.post("/{run_id}/section/{index}")
@@ -597,7 +600,18 @@ def _render_export_actions(run_id: str, build: RpdBuild) -> str:
     return evaluation + draft + final
 
 
-def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: int) -> str:
+def _render_check_prompt(run_id: str, active: int, done: int, total: int) -> str:
+    """Компактная плашка вместо стены замечаний: валидация — по явной кнопке."""
+    return (
+        '<section class="quality neutral"><div class="quality-title">'
+        f"Готово {done} из {total} разделов</div>"
+        '<div class="quality-metrics">Пройдите разделы и отметьте «готово». '
+        "Когда закончите — проверьте готовность к финальному экспорту.</div>"
+        f'<a class="btn" href="/app/rpd/{run_id}?check=1&s={active}">Проверить готовность</a></section>'
+    )
+
+
+def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: int, checked: bool = False) -> str:
     sections = build.sections
     total = len(sections)
     active = max(0, min(active, total - 1))
@@ -633,6 +647,10 @@ def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: i
     next_btn = (f'<a class="navbtn" href="/app/rpd/{run_id}?s={active + 1}">Далее →</a>'
                 if active < total - 1 else '<span class="navbtn off">Далее →</span>')
     name = escape(str(meta.get("name") or "РПД"))
+    quality_block = (
+        _render_quality_summary(build) if checked
+        else _render_check_prompt(run_id, active, done_count, total)
+    )
 
     return _EDITOR_TEMPLATE.format(
         run_id=run_id,
@@ -641,7 +659,7 @@ def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: i
         pos=active + 1,
         total=total,
         done_count=done_count,
-        quality_summary=_render_quality_summary(build),
+        quality_summary=quality_block,
         metadata_form=_render_metadata_form(run_id, build),
         number=escape(section.number),
         title=escape(section.title),
@@ -905,8 +923,9 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
  .flagnote{{background:var(--gapsoft);color:var(--gap);border:1px solid var(--gap);border-radius:8px;padding:8px 12px;font-size:13px;margin:0 0 12px}}
  .quality{{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;background:#fff}}
  .quality.ready{{border-color:var(--accent);background:var(--soft)}} .quality.blocked{{border-color:var(--gap);background:var(--gapsoft)}}
+ .quality.neutral{{border-color:var(--line);background:#fff}}
  .quality-title{{font-weight:750}} .quality ul{{margin:8px 0 0;padding-left:20px;font-size:12.5px}}
- .quality-metrics{{margin-top:6px;color:var(--muted);font-size:12px}}
+ .quality-metrics{{margin-top:6px;color:var(--muted);font-size:12px}} .quality .btn{{margin-top:10px}}
  .meta{{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:16px}}
  .meta summary{{font-weight:700;cursor:pointer}} .meta-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:12px 0}}
  .meta-field{{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}}

@@ -73,7 +73,10 @@ def test_generate_builds_a_run_and_view_shows_editor(client: TestClient) -> None
     assert "Сохранить раздел" in view.text  # редактор по разделам
     assert "Учебный план" in view.text  # навигатор разделов
     assert "Скачать черновик DOCX" in view.text
-    assert "Финальный экспорт заблокирован" in view.text
+    assert "Проверить готовность" in view.text  # по умолчанию — плашка, не стена замечаний
+    assert "Финальный экспорт заблокирован" not in view.text
+    checked = client.get(f"/app/rpd/{run_id}?check=1")  # валидация — по явной кнопке
+    assert "Финальный экспорт заблокирован" in checked.text
 
 
 def _paragraphs_section_index() -> int:
