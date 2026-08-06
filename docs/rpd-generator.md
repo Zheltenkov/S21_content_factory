@@ -215,3 +215,82 @@ best-effort (сбой не ломает сборку); разработчико�
 (генерация, русификация), `test_consilium` (4 агента, кэш, флаги, fallback), `test_router` (web:
 загрузка/генерация/редактор/правки/экспорт/персист). Гейты: `ruff`, `mypy src/content_factory/rpd`,
 `pytest tests/rpd`.
+
+---
+
+## 11. Где менять код без поломок (blast radius)
+
+Весь модуль: `src/content_factory/rpd/*` + `api/routers/rpd.py` + одна строка
+`app.include_router(rpd.page_router)` в `main.py` + плитка в `static/app.html`. Отключить режим =
+закомментировать include.
+
+**Центральные связи (что от чего зависит — трогай осознанно):**
+- **`RpdSection` (`build.py`) — главный контракт.** Его поля читают: `render_selective.render_build`,
+  редактор `_render_editor`, сохранение `rpd_save_section`, файл `build.json`. Меняешь поля → правь все
+  четыре + тесты. Добавить поле с дефолтом — безопасно (pydantic доберёт); переименовать/удалить —
+  ломает старые `build.json`.
+- **Роли ↔ категории.** Значения `dpo_spec.Cat` и ключи `consilium._ROLES` **должны совпадать** (роль от
+  агента → `Cat(role)`). Добавляешь роль — правь ОБА + `build._CATEGORY_LABEL` (ярлык в UI) +
+  `build._section_content` (как наполнять).
+- **Ключ раздела** `f"{number} {title}"` (`consilium.section_key`) — единый ID между консилиумом, `build`
+  и роутером. Не меняй формат в одном месте.
+- **`PROMPT_VERSION` (`consilium.py`) — бампай при ЛЮБОЙ правке промптов консилиума**, иначе кэш вернёт
+  старое.
+- **Смена шаблона-ресурса** — консилиум (агент 1) классифицирует новый сам; но `category_for` (fallback)
+  заточен под ПК-шаблон → при работе без LLM обнови ключевые слова в `dpo_spec`.
+
+**«Хочу изменить → где править → что прогнать»:**
+
+| Изменение | Правь | Прогнать |
+|---|---|---|
+| Колонки/данные УП-таблицы | `build._uchebnyi_plan/_grafik/_modules/_competencies` | `test_build`, `test_render_pk` |
+| Формат/колонки CSV УП | `up_models.parse_up_csv` (`_find` по заголовкам) | `test_up_csv` |
+| Правила классификации разделов | `consilium._ROLES` + `dpo_spec.category_for` + `PROMPT_VERSION`↑ | `test_consilium`, `test_render_pk` |
+| Промпты ТЗ/сборки/валидатора | `consilium._interpret_up/_compose_prose/_validate_prose` + `PROMPT_VERSION`↑ | `test_consilium` |
+| Проза-fallback (без консилиума) | `prose._PROMPTS`/`_up_context` | `test_prose` |
+| Вёрстка DOCX / границы / комменты | `render_selective` (`render_build`,`_build_table`,`_drop_comments`) | `test_render_pk`, `test_build` |
+| Экран редактора / навигатор / флаги | `rpd._render_editor`/`_EDITOR_TEMPLATE`/`_render_table_editor` | `test_router` |
+| Сохранение раздела | `rpd_save_section` + `_table_from_json` | `test_router` |
+| Роуты/источники (CSV/Реестр) | `rpd_generate`/`rpd_from_registry`/`_build_from_up` | `test_router` |
+| Модель/провайдер/роль LLM | `_llm_client` (роутер) + `.env` (POLZA_*) | проверить на сервере |
+
+---
+
+## 12. Агенты и модели — детально
+
+**Единая модель на все LLM-вызовы** (пока не разведено по ролям):
+
+| Параметр | Значение | Источник |
+|---|---|---|
+| Провайдер | Polza (`LLM_PROVIDER=polza`, base `https://polza.ai/api/v1`) | `.env` / `model_registry` |
+| Модель | `openai/gpt-5.4-mini` | `.env POLZA_AI_MODEL` |
+| Роль | `default` | `_llm_client()` |
+| Temperature | 0.4 | `.env POLZA_AI_TEMPERATURE` |
+| Timeout | 90 c | `.env POLZA_AI_TIMEOUT_SECONDS` |
+| Кэш клиента | вкл (`enable_cache=True`) | `_llm_client()` |
+
+Клиент создаётся один раз на сборку — `create_llm_client(default_role="default", enable_cache=True)` в
+`_llm_client()` (`api/routers/rpd.py`) — и передаётся во все стадии; при недоступности → `None` → фолбэк.
+Каждый вызов = один батч-запрос `client.complete(system, user)` → текст → ленивый JSON-парсинг.
+
+| Вызов | Файл · функция | Вход → Выход | Когда |
+|---|---|---|---|
+| Русификация | `translate.russify_up` | англ. значения УП → `{ориг: перевод}` | всегда, перед консилиумом |
+| **Агент 1** — аналитик шаблона | `consilium._classify_sections` | разделы шаблона → `{раздел: роль}` | консилиум |
+| **Агент 2** — интерпретатор УП | `consilium._interpret_up` | прозаические разделы + УП → `{раздел: ТЗ}` | если есть прозаические разделы |
+| **Агент 3** — сборщик | `consilium._compose_prose` | ТЗ + УП → `{раздел: текст}` | -//- |
+| **Агент 4** — критик | `consilium._validate_prose` | тексты + УП → `{раздел: замечание}` (только проблемные) | -//- |
+| Проза-fallback | `prose.generate_prose` | заголовок + УП → абзацы | только если консилиум пуст/сбой |
+
+**Итого на первую сборку:** 1 (русификация) + до 4 (консилиум) = ~5 батч-вызовов. Повтор того же
+УП+шаблона — из кэша консилиума (`temp/rpd_consilium_cache`, ключ `sha256(PROMPT_VERSION + разделы +
+УП)`) → 0 вызовов консилиума.
+
+**Заземление (почему без домыслов):** значения УП-таблиц идут мимо LLM (детерминированный код); агенты
+получают ТОЛЬКО данные УП (`consilium`/`prose._up_context`: тема, объём, модули, компетенции, результаты)
+и промпт-запрет на выдуманные факты и лишний английский; агент-критик это отдельно проверяет.
+
+**Как сменить модель/роль:**
+- Быстро (вся проза): `.env POLZA_AI_MODEL=<другая>` / `POLZA_AI_TEMPERATURE`.
+- Правильно (развести роли): в `_llm_client()` дать роль `rpd_prose`, прописать её в `model_registry` на
+  дешёвую быструю модель (проза простая; классификация/перевод — точнее). Пока не сделано — см. «Расширения».
