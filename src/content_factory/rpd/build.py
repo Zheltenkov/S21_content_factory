@@ -13,6 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from .consilium import run_consilium, section_key
 from .dpo_spec import Cat, category_for
 from .prose import generate_prose
 from .template import default_pk_skeleton_path, load_rpd_template
@@ -63,27 +64,48 @@ class RpdBuild(BaseModel):
 
 
 def build_rpd_sections(up: UpPlan, template_path: str | Path | None = None, llm_client: Any = None) -> RpdBuild:
-    """Собирает редактируемый черновик РПД из УП (+ проза через LLM, если дан клиент)."""
+    """Собирает редактируемый черновик РПД из УП.
+
+    С LLM-клиентом запускает консилиум (осмысление шаблона + УП + проза, template-agnostic); при сбое
+    или без клиента откатывается на детерминированную классификацию ``category_for``. Значения УП-таблиц
+    всегда переносятся кодом — консилиум их не трогает (без домыслов).
+    """
     template = load_rpd_template(Path(template_path) if template_path else default_pk_skeleton_path())
+    specs = [{"number": section.number, "title": section.title} for section in template.sections]
+    roles, prose_texts = run_consilium(specs, up, llm_client)
+
     sections: list[RpdSection] = []
     for target in template.sections:
-        category = category_for(target.number, target.title)
+        key = section_key(target.number, target.title)
+        category = _resolve_category(roles.get(key), target.number, target.title)
         if category is Cat.BOILERPLATE:
             continue  # форма ДПО — держит шаблон, не редактируем
-        sections.append(_section_content(target.number, target.title, category, up, llm_client))
+        sections.append(_section_content(target.number, target.title, category, up, llm_client, prose_texts.get(key)))
     return RpdBuild(program_title=up.title, sections=sections)
 
 
-def _section_content(number: str, title: str, category: Cat, up: UpPlan, client: Any) -> RpdSection:
+def _resolve_category(role: str | None, number: str, title: str) -> Cat:
+    """Роль из консилиума → категория; при отсутствии/невалидной — детерминированный fallback."""
+    if role:
+        try:
+            return Cat(role)
+        except ValueError:
+            pass
+    return category_for(number, title)
+
+
+def _section_content(
+    number: str, title: str, category: Cat, up: UpPlan, client: Any, prose_override: list[str] | None = None
+) -> RpdSection:
     base = RpdSection(number=number, title=title, category=category.value, label=_CATEGORY_LABEL.get(category, ""))
     if category is Cat.GENERATE:
-        paragraphs = generate_prose(title, up, client) if client is not None else []
         base.kind = "paragraphs"
+        paragraphs = prose_override or (generate_prose(title, up, client) if client is not None else [])
         base.paragraphs = paragraphs or [_GENERATE_PLACEHOLDER]
         return base
     if category is Cat.PLATFORM:
         base.kind = "paragraphs"
-        draft = generate_prose(title, up, client) if client is not None else []
+        draft = prose_override or (generate_prose(title, up, client) if client is not None else [])
         base.paragraphs = [*draft, _PLATFORM_NOTE]
         return base
     if category in {Cat.UP_PLAN, Cat.UP_GRAFIK, Cat.UP_MODULES, Cat.UP_COMP}:
@@ -94,9 +116,9 @@ def _section_content(number: str, title: str, category: Cat, up: UpPlan, client:
             return base
         base.paragraphs = [GAP_MARKER]  # нет данных УП
         return base
-    # Cat.GAP — раздел для методиста: даём общий черновик (если есть LLM) + явную пометку.
+    # Cat.GAP — раздел для методиста: общий черновик (консилиум/LLM) + явная пометка.
     base.kind = "paragraphs"
-    draft = generate_prose(title, up, client) if client is not None else []
+    draft = prose_override or (generate_prose(title, up, client) if client is not None else [])
     base.paragraphs = [*draft, _GAP_NOTE]
     return base
 
