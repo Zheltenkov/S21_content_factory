@@ -291,8 +291,8 @@ async def rpd_registry_list(request: Request, conn: Any = Depends(get_conn)) -> 
     items = [
         {
             "id": plan.get("plan_id") or plan.get("id"),
-            "title": str(plan.get("title") or "Без названия"),
-            "hours": (plan.get("meta") or {}).get("total_hours"),
+            "title": _registry_plan_title(plan),
+            "hours": plan.get("total_hours") or (plan.get("meta") or {}).get("total_hours"),
         }
         for plan in plans
         if plan.get("plan_id") or plan.get("id")
@@ -309,8 +309,9 @@ async def rpd_from_registry(request: Request, plan_id: int, conn: Any = Depends(
     plan = get_curriculum_plan(conn, plan_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="УП не найден в Реестре")
-    title = str(plan.get("title") or f"УП {plan_id}")
-    up = from_registry_plan(plan)
+    title = _registry_plan_title(plan)
+    # Служебное имя старого черновика не должно попадать на обложку новой РПД.
+    up = from_registry_plan({**plan, "title": title})
 
     run_id = uuid.uuid4().hex
     run_dir = _run_dir(state_key, run_id)
@@ -320,6 +321,22 @@ async def rpd_from_registry(request: Request, plan_id: int, conn: Any = Depends(
                  "created_at": datetime.now(UTC).isoformat(), "name": title})
     _persist_run(state_key, meta, run_dir)
     return JSONResponse({"run_id": run_id, "redirect": f"/app/rpd/{run_id}"})
+
+
+def _registry_plan_title(plan: dict[str, Any]) -> str:
+    """Возвращает содержательное имя УП, включая старые записи с шаблонным title."""
+    plan_id = plan.get("plan_id") or plan.get("id")
+    stored_title = str(plan.get("title") or "").strip()
+    if stored_title and stored_title.casefold() != "черновик учебного плана":
+        return stored_title
+
+    # Старые планы сохранялись с одним служебным названием; роль и домен делают их различимыми.
+    role = str(plan.get("brief_role") or "").strip()
+    domain = str(plan.get("brief_domain") or "").strip()
+    meaningful_parts = list(dict.fromkeys(part for part in (role, domain) if part))
+    if meaningful_parts:
+        return " · ".join(meaningful_parts)
+    return f"Учебный план #{plan_id}" if plan_id else "Учебный план без названия"
 
 
 @page_router.get("/{run_id}")
@@ -782,6 +799,14 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
  .stat{{flex:1;min-width:90px;background:var(--soft);border-radius:10px;padding:10px 12px;text-align:center}}
  .statv{{font-weight:800;font-size:1.2rem;color:var(--accent)}} .statl{{font-size:.8rem;color:var(--muted)}}
  .titlein{{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;margin-bottom:12px}}
+ .registry-label{{display:block;font-weight:700;margin-bottom:8px}}
+ .registry-row{{display:flex;align-items:stretch;gap:10px}}
+ .registry-select{{flex:1;min-width:0;padding:11px 38px 11px 12px;border:1px solid var(--line);border-radius:9px;
+   background:#fff;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}}
+ .registry-select:disabled{{color:var(--muted);cursor:wait}}
+ .registry-row .btn{{margin-top:0;white-space:nowrap}}
+ .registry-state{{min-height:18px;margin-top:8px;color:var(--muted);font-size:.85rem}}
+ @media (max-width:620px){{.registry-row{{flex-direction:column}} .registry-row .btn{{justify-content:center}}}}
  .cattitle{{font-weight:700;margin:16px 0 8px}}
  .cats{{list-style:none;padding:0;margin:0;border:1px solid var(--line);border-radius:11px;overflow:hidden}}
  .cats li{{display:flex;align-items:center;gap:12px;padding:11px 14px;border-top:1px solid var(--line)}} .cats li:first-child{{border-top:none}}
@@ -815,8 +840,14 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
    </form>
  </div>
  <div class="card">
-   <div style="font-weight:700;margin-bottom:8px;">…или выбрать УП из Реестра</div>
-   <div id="reglist" style="display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:.9rem;">Загружаю список…</div>
+   <label class="registry-label" for="rpd-registry-select">…или выбрать УП из Реестра</label>
+   <div class="registry-row">
+     <select class="registry-select" id="rpd-registry-select" disabled>
+       <option value="">Загружаю список…</option>
+     </select>
+     <button class="btn" id="rpd-registry-go" type="button" disabled>Сформировать РПД →</button>
+   </div>
+   <div class="registry-state" id="rpd-registry-state" aria-live="polite"></div>
  </div>
  {result}
  {recent}
@@ -853,24 +884,34 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
   }});
 }})();
 (function(){{
-  var box=document.getElementById('reglist'); if(!box) return;
+  var select=document.getElementById('rpd-registry-select'),go=document.getElementById('rpd-registry-go'),
+      state=document.getElementById('rpd-registry-state');
+  if(!select||!go||!state) return;
+  function ready(value){{go.disabled=!value;go.classList.toggle('is-ready',!!value);}}
   fetch('/app/rpd/registry').then(function(r){{return r.json();}}).then(function(d){{
     var plans=(d&&d.plans)||[];
-    if(!plans.length){{box.textContent='В Реестре нет доступных УП.';return;}}
-    box.innerHTML='';
+    select.innerHTML='';
+    var placeholder=document.createElement('option');placeholder.value='';
+    placeholder.textContent=plans.length?'Выберите учебный план':'В Реестре нет доступных УП';
+    select.appendChild(placeholder);
+    if(!plans.length){{state.textContent='Можно загрузить УП в формате CSV.';return;}}
     plans.forEach(function(p){{
-      var b=document.createElement('button'); b.type='button';
-      b.style.cssText='text-align:left;padding:10px 12px;border:1px solid #dde5e1;border-radius:9px;background:#fff;cursor:pointer;font:inherit;font-size:14px;color:#15221d';
-      b.textContent=p.title+(p.hours?(' · '+p.hours+' ч'):'');
-      b.onclick=function(){{
-        b.disabled=true; b.textContent='Собираю РПД…';
-        fetch('/app/rpd/registry/'+p.id,{{method:'POST'}}).then(function(r){{return r.json();}})
-          .then(function(x){{if(x&&x.redirect){{window.location.href=x.redirect;}}else{{throw 0;}}}})
-          .catch(function(){{b.disabled=false; b.textContent='Ошибка — повторить';}});
-      }};
-      box.appendChild(b);
+      var option=document.createElement('option');option.value=String(p.id);
+      option.textContent=p.title+(p.hours?(' · '+p.hours+' ч'):'');
+      select.appendChild(option);
     }});
-  }}).catch(function(){{box.textContent='Не удалось загрузить список Реестра.';}});
+    select.disabled=false;state.textContent='Доступно УП: '+plans.length;
+  }}).catch(function(){{select.innerHTML='<option value="">Не удалось загрузить список</option>';
+    state.textContent='Проверьте доступность Реестра.';}});
+  select.addEventListener('change',function(){{ready(select.value);state.textContent=select.value?'УП выбран. Можно формировать РПД.':'';}});
+  go.addEventListener('click',function(){{
+    var planId=select.value;if(!planId)return;
+    select.disabled=true;go.disabled=true;go.textContent='Собираю РПД…';state.textContent='Формируется документ из выбранного УП.';
+    fetch('/app/rpd/registry/'+encodeURIComponent(planId),{{method:'POST'}}).then(function(r){{return r.json();}})
+      .then(function(x){{if(x&&x.redirect){{window.location.href=x.redirect;}}else{{throw 0;}}}})
+      .catch(function(){{select.disabled=false;go.textContent='Повторить →';ready(select.value);
+        state.textContent='Не удалось собрать РПД. Попробуйте ещё раз.';}});
+  }});
 }})();
 </script>
 </body></html>"""

@@ -17,6 +17,7 @@ from enum import StrEnum
 
 
 class Cat(StrEnum):
+    CONTAINER = "container"
     UP_PLAN = "up_plan"
     UP_GRAFIK = "up_grafik"
     UP_MODULES = "up_modules"

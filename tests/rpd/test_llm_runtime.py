@@ -87,7 +87,18 @@ def test_model_registry_maps_rpd_nodes_to_independent_quality_cost_roles() -> No
     assert registry.canonical_role("rpd_interpret") == "planner"
     assert registry.canonical_role("rpd_prose") == "theory"
     assert registry.canonical_role("rpd_validate") == "critic"
+    assert registry.canonical_role("rpd_repair") == "critic"
     assert registry.canonical_role("rpd_semantic_preflight") == "critic"
+
+
+def test_router_supports_repetition_repair_as_a_critic_role() -> None:
+    repair = _Client("repair")
+    router = RpdLlmRouter({"rpd_repair": repair})  # type: ignore[arg-type]
+
+    result = router.complete("system", "user", llm_role="rpd_repair", prompt_version="repair-v1")
+
+    assert result == "repair"
+    assert router.events[0].role == "rpd_repair"
 
 
 def test_factory_applies_role_specific_model_timeout_retry_and_cache(

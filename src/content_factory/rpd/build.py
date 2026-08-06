@@ -177,8 +177,8 @@ def build_rpd_sections(
     for target in template.sections:
         key = section_key(target.number, target.title)
         category = _resolve_category(roles.get(key), target.number, target.title, profile)
-        if category is Cat.BOILERPLATE:
-            continue  # форма ДПО — держит шаблон, не редактируем
+        if category in {Cat.BOILERPLATE, Cat.CONTAINER}:
+            continue  # форма ДПО и структурные заголовки остаются в шаблоне без отдельного текста
         section = _section_content(
             target.number,
             target.title,

@@ -28,6 +28,13 @@ aliases:
   enhancement_plan: planner
   practice_critic: critic
   methodology_review_matrix: critic
+  rpd_translate: translator
+  rpd_classify: planner
+  rpd_interpret: planner
+  rpd_prose: theory
+  rpd_validate: critic
+  rpd_repair: critic
+  rpd_semantic_preflight: critic
 
 roles:
   planner:

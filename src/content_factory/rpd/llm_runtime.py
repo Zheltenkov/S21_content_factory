@@ -17,6 +17,7 @@ RpdLlmRole = Literal[
     "rpd_interpret",
     "rpd_prose",
     "rpd_validate",
+    "rpd_repair",
     "rpd_semantic_preflight",
 ]
 T = TypeVar("T", bound=BaseModel)
@@ -56,6 +57,7 @@ _POLICIES = (
     _RolePolicy("rpd_interpret", "RPD_LLM_INTERPRET", 60.0, 2, True),
     _RolePolicy("rpd_prose", "RPD_LLM_PROSE", 120.0, 2, True),
     _RolePolicy("rpd_validate", "RPD_LLM_VALIDATE", 60.0, 1, False),
+    _RolePolicy("rpd_repair", "RPD_LLM_REPAIR", 90.0, 1, False),
     _RolePolicy("rpd_semantic_preflight", "RPD_LLM_SEMANTIC_PREFLIGHT", 60.0, 1, True),
 )
 

@@ -60,6 +60,46 @@ def test_home_renders(client: TestClient) -> None:
     assert "РПД из учебного плана" in resp.text
 
 
+def test_home_registry_picker_is_a_dropdown(client: TestClient) -> None:
+    response = client.get("/app/rpd")
+
+    assert 'id="rpd-registry-select"' in response.text
+    assert '<select class="registry-select"' in response.text
+    assert 'id="rpd-registry-go"' in response.text
+    assert "plans.forEach" in response.text
+    assert "document.createElement('option')" in response.text
+
+
+def test_registry_list_exposes_meaningful_plan_names(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client.app.dependency_overrides[rpd.get_conn] = lambda: object()
+    monkeypatch.setattr(
+        rpd,
+        "list_curriculum_plans",
+        lambda _conn, limit=50: [
+            {
+                "id": 7,
+                "title": "Черновик учебного плана",
+                "brief_role": "Предприниматель",
+                "brief_domain": "Искусственный интеллект",
+                "total_hours": 72,
+            },
+            {"id": 8, "title": "Управление продуктом", "total_hours": 36},
+        ],
+    )
+
+    response = client.get("/app/rpd/registry")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "plans": [
+            {"id": 7, "title": "Предприниматель · Искусственный интеллект", "hours": 72},
+            {"id": 8, "title": "Управление продуктом", "hours": 36},
+        ]
+    }
+
+
 def test_upload_requires_a_csv(client: TestClient) -> None:
     assert client.post("/app/rpd/upload").status_code == 400
     bad = client.post("/app/rpd/upload", files={"program": ("x.docx", b"hi", "application/octet-stream")})

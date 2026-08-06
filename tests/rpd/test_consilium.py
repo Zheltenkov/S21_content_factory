@@ -33,6 +33,17 @@ class _StageClient:
         return response
 
 
+class _RecordingClient:
+    def __init__(self, responses: list[str]) -> None:
+        self.responses = responses
+        self.users: list[str] = []
+
+    def complete(self, system: str, user: str, **kwargs: object) -> str:
+        del system, kwargs
+        self.users.append(user)
+        return self.responses[len(self.users) - 1]
+
+
 @pytest.fixture(autouse=True)
 def _isolate_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(consilium_mod, "_CACHE_DIR", tmp_path / "consilium_cache")
@@ -76,6 +87,197 @@ def test_run_consilium_is_cached() -> None:
 def test_run_consilium_without_client_is_empty() -> None:
     roles, texts, flags = run_consilium([{"number": "1.1", "title": "Паспорт"}], from_registry_plan(_PLAN), None)
     assert roles == {} and texts == {} and flags == {}
+
+
+def test_validate_prose_sends_every_section_in_full(monkeypatch: pytest.MonkeyPatch) -> None:
+    first = "Начало первого раздела. " + ("Подробное содержание. " * 30) + "Уникальный конец первого."
+    second = "Начало второго раздела. " + ("Дополнительное содержание. " * 30) + "Уникальный конец второго."
+    texts = {"1 Первый раздел": [first], "2 Второй раздел": [second]}
+    client = _RecordingClient(["{}", "{}"])
+    monkeypatch.setattr(consilium_mod, "_VALIDATION_BATCH_CHAR_LIMIT", 500)
+
+    flags = consilium_mod._validate_prose(texts, from_registry_plan(_PLAN), client)
+
+    assert flags == {}
+    assert len(client.users) == 2
+    prompts = "\n".join(client.users)
+    assert first in prompts
+    assert second in prompts
+    assert prompts.count("Уникальный конец первого.") == 1
+    assert prompts.count("Уникальный конец второго.") == 1
+
+
+def test_validate_prose_ignores_unknown_section_keys() -> None:
+    key = "1.3 Актуальность программы"
+    response = json.dumps({key: "Проверьте факт.", "99 Несуществующий раздел": "Ошибка."}, ensure_ascii=False)
+    client = _RecordingClient([response])
+
+    flags = consilium_mod._validate_prose({key: ["Полный текст."]}, from_registry_plan(_PLAN), client)
+
+    assert flags == {key: "Проверьте факт."}
+
+
+def test_classification_forces_parent_sections_to_container() -> None:
+    sections = [
+        {"number": "1", "title": "Общая характеристика программы"},
+        {"number": "1.1", "title": "Паспорт программы"},
+        {"number": "1.3", "title": "Актуальность программы"},
+    ]
+    response = json.dumps(
+        {
+            "1 Общая характеристика программы": "generate",
+            "1.1 Паспорт программы": "generate",
+            "1.3 Актуальность программы": "generate",
+        },
+        ensure_ascii=False,
+    )
+
+    roles = consilium_mod._classify_sections(sections, _RecordingClient([response]))
+
+    assert roles["1 Общая характеристика программы"] == "container"
+    assert roles["1.1 Паспорт программы"] == "generate"
+
+
+def test_interpreter_returns_structured_content_ownership_briefs() -> None:
+    prose = [
+        {"key": "1.3 Актуальность программы", "role": "generate"},
+        {"key": "1.4 Цель и задачи программы", "role": "generate"},
+    ]
+    response = json.dumps(
+        {
+            prose[0]["key"]: {
+                "purpose": "Обосновать потребность",
+                "must_cover": ["изменение рынка"],
+                "exclusive_focus": "почему программа нужна сейчас",
+                "must_not_repeat": ["перечень целей обучения"],
+            },
+            prose[1]["key"]: {
+                "purpose": "Зафиксировать цель",
+                "must_cover": ["целевой результат"],
+                "exclusive_focus": "что должна обеспечить программа",
+                "must_not_repeat": ["обоснование актуальности"],
+            },
+        },
+        ensure_ascii=False,
+    )
+    client = _RecordingClient([response])
+
+    briefs = consilium_mod._interpret_up(prose, from_registry_plan(_PLAN), client)
+
+    assert briefs[prose[0]["key"]].exclusive_focus == "почему программа нужна сейчас"
+    assert briefs[prose[1]["key"]].must_not_repeat == ["обоснование актуальности"]
+    assert all(item["key"] in client.users[0] for item in prose)
+
+
+def test_composer_receives_the_whole_structured_content_plan() -> None:
+    prose = [
+        {"key": "1.3 Актуальность программы", "role": "generate"},
+        {"key": "1.4 Цель и задачи программы", "role": "generate"},
+    ]
+    briefs = {
+        item["key"]: consilium_mod.SectionBrief(
+            purpose=f"Назначение {index}",
+            exclusive_focus=f"Уникальный фокус {index}",
+            must_not_repeat=[f"Тезис соседнего раздела {index}"],
+        )
+        for index, item in enumerate(prose, start=1)
+    }
+    response = json.dumps({item["key"]: f"Уникальный текст {index}." for index, item in enumerate(prose, start=1)}, ensure_ascii=False)
+    client = _RecordingClient([response])
+
+    texts = consilium_mod._compose_prose(prose, briefs, from_registry_plan(_PLAN), client)
+
+    assert set(texts) == {item["key"] for item in prose}
+    assert all(item["key"] in client.users[0] for item in prose)
+    assert "must_not_repeat" in client.users[0]
+
+
+def test_validate_prose_discards_false_truncation_for_completed_text() -> None:
+    key = "1 Общая характеристика программы"
+    client = _RecordingClient([json.dumps({key: "Текст обрывается и не завершается."}, ensure_ascii=False)])
+
+    flags = consilium_mod._validate_prose({key: ["Полный текст заканчивается завершённым предложением."]}, from_registry_plan(_PLAN), client)
+
+    assert flags == {}
+
+
+def test_validate_prose_keeps_truncation_for_incomplete_text() -> None:
+    key = "1.3 Актуальность программы"
+    warning = "Текст обрывается на незавершённой формулировке."
+    client = _RecordingClient([json.dumps({key: warning}, ensure_ascii=False)])
+
+    flags = consilium_mod._validate_prose({key: ["Программа необходима для развития и"]}, from_registry_plan(_PLAN), client)
+
+    assert flags == {key: warning}
+
+
+def test_validate_prose_detects_exact_cross_section_repetition() -> None:
+    repeated = (
+        "Программа формирует способность исследовать продукт, проверять гипотезы и принимать решения "
+        "на основании измеримых результатов экспериментов."
+    )
+    texts = {"1.3 Актуальность": [repeated], "1.4 Цель и задачи": [repeated]}
+
+    flags = consilium_mod._validate_prose(texts, from_registry_plan(_PLAN), _RecordingClient(["{}"] ))
+
+    assert "1.4 Цель и задачи" in flags
+    assert "Повторяет длинное предложение" in flags["1.4 Цель и задачи"]
+
+
+def test_validate_prose_allows_shared_domain_terms_with_distinct_meaning() -> None:
+    texts = {
+        "1.3 Актуальность": ["Искусственный интеллект востребован предпринимателями для ускорения анализа рынка."],
+        "1.4 Цель и задачи": ["Цель программы — научить предпринимателей проверять продуктовые гипотезы с применением искусственного интеллекта."],
+    }
+
+    flags = consilium_mod._validate_prose(texts, from_registry_plan(_PLAN), _RecordingClient(["{}"] ))
+
+    assert flags == {}
+
+
+def test_run_consilium_repairs_repeated_section_once() -> None:
+    sections = [
+        {"number": "1.3", "title": "Актуальность программы"},
+        {"number": "1.4", "title": "Цель и задачи программы"},
+    ]
+    keys = [section_key(item["number"], item["title"]) for item in sections]
+    repeated = (
+        "Программа формирует способность исследовать продукт, проверять гипотезы и принимать решения "
+        "на основании измеримых результатов экспериментов."
+    )
+    responses = [
+        json.dumps(dict.fromkeys(keys, "generate"), ensure_ascii=False),
+        json.dumps({key: {"purpose": key, "exclusive_focus": key} for key in keys}, ensure_ascii=False),
+        json.dumps(dict.fromkeys(keys, repeated), ensure_ascii=False),
+        "{}",
+        json.dumps({keys[1]: "Цель программы — освоить проверку продуктовых гипотез."}, ensure_ascii=False),
+        "{}",
+    ]
+    client = _StageClient(responses)
+
+    _roles, texts, flags = run_consilium(sections, from_registry_plan(_PLAN), client)
+
+    assert texts[keys[0]] == [repeated]
+    assert texts[keys[1]] == ["Цель программы — освоить проверку продуктовых гипотез."]
+    assert flags == {}
+    assert client.roles == ["rpd_classify", "rpd_interpret", "rpd_prose", "rpd_validate", "rpd_repair", "rpd_validate"]
+
+
+def test_build_excludes_structural_container_sections(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_containers: set[str] = set()
+
+    def fake_consilium(specs: list[dict[str, str]], up: object, client: object) -> tuple[dict, dict, dict]:
+        del up, client
+        captured_containers.update(consilium_mod._container_section_keys(specs))
+        return (dict.fromkeys(captured_containers, "container"), {}, {})
+
+    monkeypatch.setattr(build_mod, "run_consilium", fake_consilium)
+
+    build = build_mod.build_rpd_sections(from_registry_plan(_PLAN), llm_client=object())
+    built_keys = {section_key(section.number, section.title) for section in build.sections}
+
+    assert captured_containers
+    assert captured_containers.isdisjoint(built_keys)
 
 
 def test_build_uses_consilium_texts_and_flags(monkeypatch: pytest.MonkeyPatch) -> None:
