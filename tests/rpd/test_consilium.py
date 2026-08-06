@@ -24,6 +24,7 @@ class _StageClient:
         self.responses = responses
         self.calls = 0
         self.roles: list[str] = []
+        self.cache_hits: list[tuple[str, str]] = []
 
     def complete(self, system: str, user: str, **kwargs: object) -> str:
         del system, user
@@ -31,6 +32,9 @@ class _StageClient:
         response = self.responses[min(self.calls, len(self.responses) - 1)]
         self.calls += 1
         return response
+
+    def record_cache_hit(self, *, role: str, prompt_version: str) -> None:
+        self.cache_hits.append((role, prompt_version))
 
 
 class _RecordingClient:
@@ -56,15 +60,15 @@ def test_run_consilium_four_agents_and_flags() -> None:
     interpret = json.dumps({"1.3 Актуальность программы": "написать про актуальность"}, ensure_ascii=False)
     compose = json.dumps({"1.3 Актуальность программы": "Актуальность высока.\nВторой абзац."}, ensure_ascii=False)
     validate = json.dumps({"1.3 Актуальность программы": "Слишком общо."}, ensure_ascii=False)
-    client = _StageClient([classify, interpret, compose, validate])
+    client = _StageClient([classify, interpret, compose, validate, "{}"])
 
     roles, texts, flags = run_consilium(sections, up, client)
 
     assert roles[section_key("3.1", "Учебный план")] == "up_plan"
     assert texts[section_key("1.3", "Актуальность программы")] == ["Актуальность высока.", "Второй абзац."]
     assert flags[section_key("1.3", "Актуальность программы")] == "Слишком общо."
-    assert client.calls == 4  # классификатор + интерпретатор + сборщик + критик
-    assert client.roles == ["rpd_classify", "rpd_interpret", "rpd_prose", "rpd_validate"]
+    assert client.calls == 5  # классификатор + интерпретатор + сборщик + критик + best-effort repair
+    assert client.roles == ["rpd_classify", "rpd_interpret", "rpd_prose", "rpd_validate", "rpd_repair"]
 
 
 def test_run_consilium_is_cached() -> None:
@@ -82,6 +86,13 @@ def test_run_consilium_is_cached() -> None:
     roles, texts, _flags = run_consilium(sections, up, second)  # тот же вход → из кэша
     assert second.calls == 0  # LLM не звали
     assert texts[section_key("1.3", "Актуальность программы")] == ["Текст."]
+    assert [role for role, _version in second.cache_hits] == [
+        "rpd_classify",
+        "rpd_interpret",
+        "rpd_prose",
+        "rpd_validate",
+    ]
+    assert all(version.startswith("rpd-consilium-v4:") for _role, version in second.cache_hits)
 
 
 def test_run_consilium_without_client_is_empty() -> None:
@@ -261,6 +272,48 @@ def test_run_consilium_repairs_repeated_section_once() -> None:
     assert texts[keys[1]] == ["Цель программы — освоить проверку продуктовых гипотез."]
     assert flags == {}
     assert client.roles == ["rpd_classify", "rpd_interpret", "rpd_prose", "rpd_validate", "rpd_repair", "rpd_validate"]
+
+
+def test_run_consilium_repairs_non_repetition_validator_issue_once() -> None:
+    sections = [{"number": "1.4", "title": "Цель и задачи программы"}]
+    key = section_key("1.4", "Цель и задачи программы")
+    responses = [
+        json.dumps({key: "generate"}, ensure_ascii=False),
+        json.dumps({key: {"purpose": "Зафиксировать цель", "exclusive_focus": "цель и задачи"}}, ensure_ascii=False),
+        json.dumps({key: "Цель программы — освоить продуктовые навыки."}, ensure_ascii=False),
+        json.dumps({key: "Цель не согласована с перечисленными задачами."}, ensure_ascii=False),
+        json.dumps(
+            {key: "Цель программы — освоить продуктовые навыки; задачи раскрывают этапы их применения."},
+            ensure_ascii=False,
+        ),
+        "{}",
+    ]
+    client = _StageClient(responses)
+
+    _roles, texts, flags = run_consilium(sections, from_registry_plan(_PLAN), client)
+
+    assert texts[key] == ["Цель программы — освоить продуктовые навыки; задачи раскрывают этапы их применения."]
+    assert flags == {}
+    assert client.roles == ["rpd_classify", "rpd_interpret", "rpd_prose", "rpd_validate", "rpd_repair", "rpd_validate"]
+
+
+def test_run_consilium_does_not_persist_redundant_flag_for_manual_section() -> None:
+    sections = [{"number": "4.4", "title": "Пример оценки"}]
+    key = section_key("4.4", "Пример оценки")
+    issue = "Нужны фактические материалы с платформы."
+    responses = [
+        json.dumps({key: "platform"}, ensure_ascii=False),
+        json.dumps({key: {"purpose": "Дать пример оценки", "exclusive_focus": "артефакт LMS"}}, ensure_ascii=False),
+        json.dumps({key: "Черновое описание примера оценки."}, ensure_ascii=False),
+        json.dumps({key: issue}, ensure_ascii=False),
+        "{}",
+    ]
+    client = _StageClient(responses)
+
+    _roles, texts, flags = run_consilium(sections, from_registry_plan(_PLAN), client)
+
+    assert texts[key] == ["Черновое описание примера оценки."]
+    assert flags == {}
 
 
 def test_build_excludes_structural_container_sections(monkeypatch: pytest.MonkeyPatch) -> None:

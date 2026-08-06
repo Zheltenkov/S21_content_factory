@@ -119,6 +119,26 @@ class RpdLlmRouter:
         self._record(client, role, prompt_version, started_at, started, True)
         return output_model.model_validate(response)
 
+    def record_cache_hit(self, *, role: str, prompt_version: str) -> None:
+        """Record a logical stage served by the outer consilium cache without invoking a provider."""
+        validated_role = _validate_role(role)
+        client = self._clients.get(validated_role)
+        if client is None:
+            raise RuntimeError(f"RPD LLM role is unavailable: {validated_role}")
+        self._events.append(
+            RpdLlmEvent(
+                sequence=len(self._events) + 1,
+                role=validated_role,
+                prompt_version=prompt_version,
+                started_at=datetime.now(UTC).isoformat(),
+                elapsed_ms=0,
+                success=True,
+                provider=str(getattr(client, "provider", "") or getattr(client, "_last_provider", "") or ""),
+                model=str(getattr(client, "model", "") or ""),
+                cache_hit=True,
+            )
+        )
+
     def _resolve_call(self, kwargs: dict[str, Any]) -> tuple[RpdLlmRole, str, Any]:
         raw_role = str(kwargs.pop("llm_role", "rpd_prose"))
         role = _validate_role(raw_role)

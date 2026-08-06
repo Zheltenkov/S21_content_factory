@@ -22,6 +22,7 @@ from .dpo_spec import Cat
 from .llm_runtime import RpdLlmEvent, collect_llm_events
 from .prose import generate_prose
 from .quality import QualityIssue, RpdQualityReport, evaluate_build_quality, preflight_up_plan
+from .source_fidelity import CanonicalProgramSpec, canonicalize_up_plan
 from .template import load_rpd_template
 from .template_profiles import (
     BUILTIN_PK_PROFILE_ID,
@@ -41,7 +42,7 @@ _GAP_NOTE = "[Методист: проверьте и дополните раз�
 _CATEGORY_LABEL = {
     Cat.UP_PLAN: "из УП",
     Cat.UP_GRAFIK: "из УП",
-    Cat.UP_MODULES: "из УП",
+    Cat.UP_MODULES: "из УП + платформа",
     Cat.UP_COMP: "из УП",
     Cat.GENERATE: "сгенерировано",
     Cat.PLATFORM: "с платформы",
@@ -129,12 +130,13 @@ class RpdDocumentFields(BaseModel):
 class RpdBuild(BaseModel):
     """Черновик РПД: название программы + редактируемые разделы (без boilerplate — тот в шаблоне)."""
 
-    schema_version: int = 3
+    schema_version: int = 4
     revision: int = 0
     template_profile_id: str = BUILTIN_PK_PROFILE_ID
     template_report: TemplateCapabilityReport | None = None
     program_title: str = ""
     total_hours: str = ""
+    source_spec: CanonicalProgramSpec = Field(default_factory=CanonicalProgramSpec)
     document_fields: RpdDocumentFields = Field(default_factory=RpdDocumentFields)
     sections: list[RpdSection] = Field(default_factory=list)
     preflight_issues: list[QualityIssue] = Field(default_factory=list)
@@ -169,14 +171,24 @@ def build_rpd_sections(
         resolved_template_path = profile.template_path(template_path)
         template_report = profile.inspect(resolved_template_path)
     template = load_rpd_template(resolved_template_path)
+    source_spec = canonicalize_up_plan(up)
     preflight_issues = preflight_up_plan(up, llm_client)
-    specs = [{"number": section.number, "title": section.title} for section in template.sections]
+    specs = [
+        {"number": section.number, "title": section.title, "is_container": section.is_container}
+        for section in template.sections
+    ]
     roles, prose_texts, flags = run_consilium(specs, up, llm_client)
 
     sections: list[RpdSection] = []
     for target in template.sections:
         key = section_key(target.number, target.title)
-        category = _resolve_category(roles.get(key), target.number, target.title, profile)
+        category = _resolve_category(
+            roles.get(key),
+            target.number,
+            target.title,
+            profile,
+            is_container=target.is_container,
+        )
         if category in {Cat.BOILERPLATE, Cat.CONTAINER}:
             continue  # форма ДПО и структурные заголовки остаются в шаблоне без отдельного текста
         section = _section_content(
@@ -197,6 +209,7 @@ def build_rpd_sections(
         template_report=template_report,
         program_title=up.title,
         total_hours=up.total_hours,
+        source_spec=source_spec,
         sections=sections,
         preflight_issues=preflight_issues,
         generation_trace=RpdGenerationTrace(
@@ -211,14 +224,29 @@ def build_rpd_sections(
     return build
 
 
-def _resolve_category(role: str | None, number: str, title: str, profile: TemplateProfile) -> Cat:
+def _resolve_category(
+    role: str | None,
+    number: str,
+    title: str,
+    profile: TemplateProfile,
+    *,
+    is_container: bool = False,
+) -> Cat:
     """Роль из консилиума → категория; при отсутствии/невалидной — детерминированный fallback."""
+    if is_container:
+        return Cat.CONTAINER
+    fallback = profile.category_for(number, title)
+    # Таблицы УП и нормативный boilerplate определяются контрактом профиля. LLM не должна
+    # превращать их в свободную прозу либо человеческий gap.
+    if fallback in {Cat.UP_PLAN, Cat.UP_GRAFIK, Cat.UP_MODULES, Cat.UP_COMP, Cat.BOILERPLATE}:
+        return fallback
     if role:
         try:
-            return Cat(role)
+            resolved = Cat(role)
+            return fallback if resolved is Cat.CONTAINER else resolved
         except ValueError:
             pass
-    return profile.category_for(number, title)
+    return fallback
 
 
 def _section_content(

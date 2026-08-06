@@ -164,6 +164,10 @@ def test_final_readiness_requires_completed_content_and_real_competency_codes() 
         elif section.category == "up_comp":
             for index, row in enumerate(section.table_rows, start=1):
                 row[0] = f"ПК-{index}"
+        for row in section.table_rows:
+            for index, cell in enumerate(row):
+                if cell.startswith("[Методист:"):
+                    row[index] = "Доказательство из LMS приложено и проверено."
 
     rendered = render_build(build)
     report = evaluate_build_quality(build, rendered)
@@ -181,3 +185,37 @@ def test_unreviewed_build_is_not_ready_even_when_docx_is_renderable() -> None:
     codes = {issue.code for issue in report.issues if issue.blocking}
     assert "methodologist_review_incomplete" in codes
     assert "competency_codes_missing" in codes
+
+
+def test_generic_registry_module_with_multiple_projects_is_blocking() -> None:
+    raw = _plan()
+    raw["rows"] = [
+        {"block_title": "", "project_name": "Проект 1", "effort_hours": 36},
+        {"block_title": "", "project_name": "Проект 2", "effort_hours": 36},
+    ]
+
+    issues = preflight_up_plan(from_registry_plan(raw))
+
+    issue = next(item for item in issues if item.code == "source_module_titles_generic")
+    assert issue.blocking
+
+
+def test_table_placeholder_is_visible_to_quality_gate() -> None:
+    build = build_rpd_sections(from_registry_plan(_plan()))
+
+    report = evaluate_build_quality(build)
+
+    placeholders = [issue for issue in report.issues if issue.code == "section_placeholder_present"]
+    assert any("3.3.1" in issue.section_key for issue in placeholders)
+
+
+def test_source_module_hour_drift_is_blocking() -> None:
+    build = build_rpd_sections(from_registry_plan(_plan()))
+    plan = next(section for section in build.sections if section.category == "up_plan")
+    plan.table_rows[0][2] = "18"
+
+    report = evaluate_build_quality(build)
+
+    mismatch = next(issue for issue in report.issues if issue.code == "source_module_mapping_mismatch")
+    assert mismatch.blocking
+    assert mismatch.section_key.startswith("3.1")

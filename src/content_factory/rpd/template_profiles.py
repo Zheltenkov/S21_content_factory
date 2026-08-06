@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import docx
+from docx.enum.section import WD_ORIENT
 from pydantic import BaseModel, Field
 
 from .dpo_spec import Cat, category_for
@@ -42,6 +43,10 @@ class TemplateCapabilityReport(BaseModel):
     section_count: int = 0
     missing_bindings: list[str] = Field(default_factory=list)
     missing_table_labels: list[str] = Field(default_factory=list)
+    missing_section_keys: list[str] = Field(default_factory=list)
+    missing_table_schemas: list[str] = Field(default_factory=list)
+    duplicate_section_numbers: list[str] = Field(default_factory=list)
+    section_orientations: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -94,6 +99,36 @@ class BuiltinPkProfile(TemplateProfile):
         "Итоговая аттестация",
         "Выдаваемый документ",
     }
+    _required_section_keys = {
+        "2.2 Профессиональные компетенции и их качественное изменение",
+        "3.1 Учебный план",
+        "3.2 Календарный учебный график",
+        "3.3.1 Пример оформления учебного модуля",
+        "4.3 Паспорт оценочных материалов",
+        "5.5 Условия для инвалидов и лиц с ограниченными возможностями здоровья",
+    }
+    _required_table_schemas = {
+        "компетенции": (
+            "Код",
+            "Профессиональная компетенция",
+            "Исходный уровень",
+            "Качественное изменение",
+            "После обучения слушатель способен",
+            "Основание",
+            "Оценка",
+        ),
+        "учебный план": (
+            "№",
+            "Наименование модуля",
+            "Всего",
+            "Лекции",
+            "Практические занятия",
+            "Самостоятельная работа",
+            "Контроль",
+        ),
+        "календарный график": ("Компонент", "Период", "Часы", "Форма организации", "Контроль"),
+        "рабочая программа модуля": ("№", "Тема и краткое содержание", "Вид работы", "Часы", "Методы", "Контроль"),
+    }
 
     def template_path(self, override: str | Path | None = None) -> Path:
         return Path(override) if override is not None else default_pk_skeleton_path()
@@ -111,10 +146,40 @@ class BuiltinPkProfile(TemplateProfile):
         }
         missing_table_labels = sorted(self._required_table_labels - table_labels)
         template = load_rpd_template(path)
+        section_keys = {f"{section.number} {section.title}".strip() for section in template.sections}
+        missing_section_keys = sorted(self._required_section_keys - section_keys)
+        table_schemas = {
+            tuple(cell.text.strip() for cell in table.rows[0].cells)
+            for table in document.tables
+            if table.rows
+        }
+        missing_table_schemas = [
+            name for name, schema in self._required_table_schemas.items() if schema not in table_schemas
+        ]
+        number_counts: dict[str, int] = {}
+        for section in template.sections:
+            if section.number:
+                number_counts[section.number] = number_counts.get(section.number, 0) + 1
+        duplicate_section_numbers = sorted(number for number, count in number_counts.items() if count > 1)
+        section_orientations = [
+            "landscape" if section.orientation == WD_ORIENT.LANDSCAPE else "portrait"
+            for section in document.sections
+        ]
         warnings: list[str] = []
         if not any(self.category_for(section.number, section.title) is Cat.UP_PLAN for section in template.sections):
             warnings.append("Не найден раздел учебного плана.")
-        supported = not missing_bindings and not missing_table_labels and not warnings
+        if len(document.sections) != 4 or "landscape" not in section_orientations:
+            warnings.append("Нарушен контракт секций DOCX: ожидаются 4 секции, включая альбомную.")
+        supported = not any(
+            (
+                missing_bindings,
+                missing_table_labels,
+                missing_section_keys,
+                missing_table_schemas,
+                duplicate_section_numbers,
+                warnings,
+            )
+        )
         return TemplateCapabilityReport(
             profile_id=self.profile_id,
             program_type=self.program_type,
@@ -123,6 +188,10 @@ class BuiltinPkProfile(TemplateProfile):
             section_count=len(template.sections),
             missing_bindings=missing_bindings,
             missing_table_labels=missing_table_labels,
+            missing_section_keys=missing_section_keys,
+            missing_table_schemas=missing_table_schemas,
+            duplicate_section_numbers=duplicate_section_numbers,
+            section_orientations=section_orientations,
             warnings=warnings,
         )
 
@@ -177,7 +246,15 @@ class BuiltinPkProfile(TemplateProfile):
     def _curriculum_table(up: UpPlan) -> TableContent | None:
         if not up.modules:
             return None
-        header = ["№", "Наименование модуля", "Всего, ч", "Лекции", "Практические", "Самостоятельная", "Контроль"]
+        header = [
+            "№",
+            "Наименование модуля",
+            "Всего",
+            "Лекции",
+            "Практические занятия",
+            "Самостоятельная работа",
+            "Контроль",
+        ]
         rows = [[str(index), module.title, module.hours, "", module.hours, "", module.control()] for index, module in enumerate(up.modules, start=1)]
         return header, rows
 
@@ -202,6 +279,18 @@ class BuiltinPkProfile(TemplateProfile):
                     theme = f"{theme}: {row.description}"
                 rows.append([str(index), theme, row.fmt, row.hours, "", row.control()])
                 index += 1
+            # Комментарии методиста к шаблону требуют подтверждение из LMS для каждого модуля.
+            # Маркер живёт в редактируемой таблице и блокирует финальный экспорт до замены.
+            rows.append(
+                [
+                    "",
+                    f"[Методист: вставьте скрин заданий и контролей модуля «{module.title}» с платформы/LMS]",
+                    "",
+                    "",
+                    "",
+                    "",
+                ]
+            )
         return (header, rows) if rows else None
 
     @staticmethod
@@ -214,10 +303,11 @@ class BuiltinPkProfile(TemplateProfile):
             "Профессиональная компетенция",
             "Исходный уровень",
             "Качественное изменение",
-            "После обучения",
+            "После обучения слушатель способен",
             "Основание",
+            "Оценка",
         ]
-        return header, [[code, name, "", "", after, ""] for code, name, after in competency_rows]
+        return header, [[code, name, "", "", after, "", ""] for code, name, after in competency_rows]
 
     @staticmethod
     def _fill_program_parameters(document: Any, total_hours: str, fields: Any) -> None:

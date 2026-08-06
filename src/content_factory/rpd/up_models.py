@@ -138,8 +138,14 @@ def from_registry_plan(plan: dict[str, Any]) -> UpPlan:
 
     modules: list[UpModule] = []
     by_title: dict[str, UpModule] = {}
+    current_block = ""
     for raw in plan.get("rows") or []:
-        block_title = str(raw.get("block_title") or "").strip() or "Модуль"
+        # Реестр, как и CSV-экспорт, может указывать тематический блок только в первой строке
+        # группы. Пустая ячейка продолжает предыдущий блок, а не создаёт общий «Модуль».
+        explicit_block = str(raw.get("block_title") or "").strip()
+        if explicit_block:
+            current_block = explicit_block
+        block_title = current_block or "Модуль"
         row = UpRow(
             block_title=block_title,
             name=str(raw.get("project_name") or ""),

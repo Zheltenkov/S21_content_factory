@@ -5,12 +5,14 @@
 
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 
 import docx
 
 from content_factory.rpd.dpo_spec import Cat, category_for
 from content_factory.rpd.render_selective import render_rpd_pk
+from content_factory.rpd.template import default_pk_skeleton_path
 from content_factory.rpd.transfer import GAP_MARKER
 from content_factory.rpd.up_models import from_registry_plan
 
@@ -39,7 +41,7 @@ def test_category_for_key_sections() -> None:
     assert category_for("2.1", "Профессиональные компетенции") is Cat.UP_COMP
     assert category_for("1.3", "Актуальность программы") is Cat.GENERATE
     assert category_for("1.2", "Нормативно-правовые основания") is Cat.BOILERPLATE
-    assert category_for("3.3.1", "Пример оформления учебного модуля") is Cat.PLATFORM
+    assert category_for("3.3.1", "Пример оформления учебного модуля") is Cat.UP_MODULES
     assert category_for("4.3", "Паспорт оценочных материалов") is Cat.GAP
 
 
@@ -77,6 +79,29 @@ def test_no_comments_leak_into_output(tmp_path: Path) -> None:
     assert "word/comments.xml" not in archive.namelist()  # заметки методиста вырезаны
     xml = archive.read("word/document.xml").decode("utf-8", errors="ignore")
     assert "commentReference" not in xml and "commentRangeStart" not in xml
+
+
+def test_render_preserves_template_sections_and_orientation() -> None:
+    template = docx.Document(str(default_pk_skeleton_path()))
+    rendered = docx.Document(BytesIO(render_rpd_pk(from_registry_plan(_PLAN))))
+
+    assert len(rendered.sections) == len(template.sections) == 4
+    assert [section.orientation for section in rendered.sections] == [
+        section.orientation for section in template.sections
+    ]
+
+
+def test_module_program_combines_up_rows_with_platform_evidence_gate() -> None:
+    rendered = docx.Document(BytesIO(render_rpd_pk(from_registry_plan(_PLAN))))
+    module_table = next(
+        table
+        for table in rendered.tables
+        if table.rows and "Тема и краткое содержание" in [cell.text.strip() for cell in table.rows[0].cells]
+    )
+    text = "\n".join(cell.text for row in module_table.rows for cell in row.cells)
+
+    assert "Модуль 1" in text and "Модуль 2" in text
+    assert text.count("вставьте скрин заданий и контролей модуля") == 2
 
 
 def test_empty_up_keeps_boilerplate_and_gaps_up_sections(tmp_path: Path) -> None:

@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from content_factory.rpd.up_models import parse_up_csv
+from content_factory.rpd.source_fidelity import canonicalize_up_plan
+from content_factory.rpd.up_models import from_registry_plan, parse_up_csv
 
 _HEADER = [
     "Тематический блок", "Цели блока", "№", "Название контентной единицы (проекта)", "Краткое описание",
@@ -64,12 +65,51 @@ def test_render_from_csv_has_full_columns(tmp_path: Path) -> None:
         return [c.text.strip() for c in table.rows[0].cells]  # type: ignore[attr-defined]
 
     plan = next(t for t in doc.tables if "Наименование модуля" in headers(t))
-    assert "Практические" in headers(plan) and "Контроль" in headers(plan)
+    assert "Практические занятия" in headers(plan) and "Контроль" in headers(plan)
     comp = next(t for t in doc.tables if headers(t)[0] == "Код")
-    assert "Основание" in headers(comp) and "После обучения" in headers(comp)  # полная 6-колоночная
+    assert headers(comp) == [
+        "Код",
+        "Профессиональная компетенция",
+        "Исходный уровень",
+        "Качественное изменение",
+        "После обучения слушатель способен",
+        "Основание",
+        "Оценка",
+    ]
     modules = next(t for t in doc.tables if "Тема и краткое содержание" in headers(t))
     cells = "\n".join(c.text for r in modules.rows for c in r.cells)
     assert "Проект 1" in cells  # разложено по проектам (имя из УП)
+
+
+def test_registry_adapter_carries_forward_blank_block_title() -> None:
+    up = from_registry_plan(
+        {
+            "title": "Тест",
+            "meta": {"total_hours": 35},
+            "rows": [
+                {"block_title": "Модуль А", "project_name": "Проект 1", "effort_hours": 10},
+                {"block_title": "", "project_name": "Проект 2", "effort_hours": 20},
+                {"block_title": "Модуль Б", "project_name": "Проект 3", "effort_hours": 5},
+            ],
+        }
+    )
+
+    assert [module.title for module in up.modules] == ["Модуль А", "Модуль Б"]
+    assert [module.hours for module in up.modules] == ["30", "5"]
+    assert [len(module.rows) for module in up.modules] == [2, 1]
+
+
+def test_curriculum_plan_14_golden_source_fidelity() -> None:
+    fixture = Path(__file__).parent / "fixtures" / "curriculum_plan_14_golden.csv"
+    spec = canonicalize_up_plan(parse_up_csv(fixture, title="curriculum_plan_14"))
+
+    assert spec.module_count == 9
+    assert spec.project_count == 24
+    assert spec.competency_count == 23
+    assert spec.declared_total_hours == "478"
+    assert spec.calculated_total_hours == "478"
+    assert [module.hours for module in spec.modules] == ["62", "64", "78", "38", "84", "40", "42", "44", "26"]
+    assert len(spec.fingerprint) == 64
 
 
 _REAL = Path(__file__).resolve().parents[2] / "УП_ИИ_предприниматель.csv"

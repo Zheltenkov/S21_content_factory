@@ -18,6 +18,7 @@ from xml.etree import ElementTree
 
 from pydantic import BaseModel, Field
 
+from .source_fidelity import canonicalize_up_plan
 from .up_models import UpPlan
 
 if TYPE_CHECKING:
@@ -89,6 +90,7 @@ def preflight_up_plan(up: UpPlan, client: Any = None) -> list[QualityIssue]:
     """Validate source integrity and optionally compare its title with its content using an LLM."""
     issues: list[QualityIssue] = []
     rows = [row for module in up.modules for row in module.rows]
+    source_spec = canonicalize_up_plan(up)
 
     if not up.title.strip():
         issues.append(_issue("source_title_missing", "Не указано название программы.", blocking=True))
@@ -108,6 +110,74 @@ def preflight_up_plan(up: UpPlan, client: Any = None) -> list[QualityIssue]:
                 f"({_format_decimal(calculated)} ч).",
                 blocking=True,
                 evidence=[f"declared={declared}", f"calculated={calculated}"],
+            )
+        )
+
+    if rows and declared is None:
+        issues.append(
+            _issue(
+                "source_total_hours_missing",
+                "В УП не указан общий объём программы.",
+                blocking=True,
+            )
+        )
+
+    missing_hours = [
+        f"{module_index}.{row_index} {row.name}".strip()
+        for module_index, module in enumerate(up.modules, start=1)
+        for row_index, row in enumerate(module.rows, start=1)
+        if _decimal(row.hours) is None
+    ]
+    if missing_hours:
+        issues.append(
+            _issue(
+                "source_project_hours_missing",
+                f"У {len(missing_hours)} контентных единиц не указана трудоёмкость.",
+                blocking=True,
+                evidence=missing_hours[:20],
+            )
+        )
+
+    empty_modules = [module.title or f"Модуль {index}" for index, module in enumerate(up.modules, start=1) if not module.rows]
+    if empty_modules:
+        issues.append(
+            _issue(
+                "source_modules_empty",
+                "В УП есть тематические блоки без контентных единиц.",
+                blocking=True,
+                evidence=empty_modules[:20],
+            )
+        )
+
+    generic_modules = [
+        module.title
+        for module in up.modules
+        if module.title.casefold().strip(" .:-") in {"модуль", "module", "тематический блок"}
+    ]
+    if generic_modules:
+        generic_rows = sum(len(module.rows) for module in up.modules if module.title in generic_modules)
+        issues.append(
+            _issue(
+                "source_module_titles_generic",
+                "В УП остались технические названия тематических блоков вместо методических названий.",
+                blocking=generic_rows > 1 or source_spec.module_count > 1,
+                evidence=generic_modules[:20],
+            )
+        )
+
+    normalized_titles: dict[str, list[str]] = {}
+    for module in up.modules:
+        normalized = " ".join(module.title.casefold().split())
+        if normalized:
+            normalized_titles.setdefault(normalized, []).append(module.title)
+    duplicates = [titles[0] for titles in normalized_titles.values() if len(titles) > 1]
+    if duplicates:
+        issues.append(
+            _issue(
+                "source_module_titles_duplicate",
+                "В УП обнаружены дублирующиеся тематические блоки.",
+                blocking=True,
+                evidence=duplicates[:20],
             )
         )
 
@@ -176,6 +246,9 @@ def evaluate_build_quality(build: RpdBuild, rendered_docx: bytes | None = None) 
         evidence = [
             *(f"binding:{name}" for name in build.template_report.missing_bindings),
             *(f"table_label:{name}" for name in build.template_report.missing_table_labels),
+            *(f"section:{name}" for name in build.template_report.missing_section_keys),
+            *(f"table_schema:{name}" for name in build.template_report.missing_table_schemas),
+            *(f"duplicate_section:{name}" for name in build.template_report.duplicate_section_numbers),
             *build.template_report.warnings,
         ]
         issues.append(
@@ -213,6 +286,8 @@ def evaluate_build_quality(build: RpdBuild, rendered_docx: bytes | None = None) 
             )
         )
 
+    issues.extend(_source_fidelity_issues(build))
+
     for section in build.sections:
         key = f"{section.number} {section.title}".strip()
         if section.kind == "table" and not section.table_rows:
@@ -229,7 +304,8 @@ def evaluate_build_quality(build: RpdBuild, rendered_docx: bytes | None = None) 
                         evidence=missing_codes[:20],
                     )
                 )
-        text = "\n".join(section.paragraphs)
+        table_text = "\n".join(cell for row in section.table_rows for cell in row)
+        text = "\n".join([*section.paragraphs, table_text])
         tokens = sorted(set(_PLACEHOLDER_RE.findall(text)))
         if tokens:
             issues.append(
@@ -282,7 +358,109 @@ def evaluate_build_quality(build: RpdBuild, rendered_docx: bytes | None = None) 
                     evidence=[build.program_title],
                 )
             )
+        expected_orientations = build.template_report.section_orientations if build.template_report else []
+        if expected_orientations:
+            actual_orientations = _docx_section_orientations(rendered_docx)
+            if actual_orientations != expected_orientations:
+                issues.append(
+                    _issue(
+                        "rendered_section_layout_mismatch",
+                        "В экспортированном DOCX нарушены секции или ориентация страниц шаблона.",
+                        blocking=True,
+                        evidence=[
+                            f"expected={','.join(expected_orientations)}",
+                            f"actual={','.join(actual_orientations)}",
+                        ],
+                    )
+                )
     return RpdQualityReport(issues=_deduplicate(issues))
+
+
+def _source_fidelity_issues(build: RpdBuild) -> list[QualityIssue]:
+    """Compare editable deterministic sections with the canonical source snapshot."""
+    spec = build.source_spec
+    if not spec.fingerprint:
+        return []  # compatibility with persisted schema_version <= 3 builds
+
+    issues: list[QualityIssue] = []
+    expected_modules = [(module.title, module.hours) for module in spec.modules]
+    table_contracts = {
+        "up_plan": (1, 2),
+        "up_grafik": (0, 2),
+    }
+    for category, (title_column, hours_column) in table_contracts.items():
+        section = next((item for item in build.sections if item.category == category), None)
+        if section is None:
+            continue
+        actual_modules = [
+            (
+                row[title_column].strip() if len(row) > title_column else "",
+                row[hours_column].strip() if len(row) > hours_column else "",
+            )
+            for row in section.table_rows
+        ]
+        if actual_modules != expected_modules:
+            issues.append(
+                _issue(
+                    "source_module_mapping_mismatch",
+                    "Распределение модулей и часов в разделе не совпадает с каноническим снимком УП.",
+                    blocking=True,
+                    section_key=f"{section.number} {section.title}".strip(),
+                    evidence=[
+                        f"expected={expected_modules!r}",
+                        f"actual={actual_modules!r}",
+                    ],
+                )
+            )
+
+    module_section = next((item for item in build.sections if item.category == "up_modules"), None)
+    if module_section is not None:
+        table_text = "\n".join(cell for row in module_section.table_rows for cell in row)
+        missing_projects = [
+            project.name
+            for module in spec.modules
+            for project in module.projects
+            if project.name and project.name not in table_text
+        ]
+        if missing_projects:
+            issues.append(
+                _issue(
+                    "source_projects_mapping_mismatch",
+                    "Не все контентные единицы УП перенесены в рабочие программы модулей.",
+                    blocking=True,
+                    section_key=f"{module_section.number} {module_section.title}".strip(),
+                    evidence=missing_projects[:20],
+                )
+            )
+
+    competency_section = next((item for item in build.sections if item.category == "up_comp"), None)
+    if competency_section is not None and len(competency_section.table_rows) != spec.competency_count:
+        issues.append(
+            _issue(
+                "source_competency_mapping_mismatch",
+                "Количество компетенций в РПД не совпадает с каноническим снимком УП.",
+                blocking=True,
+                section_key=f"{competency_section.number} {competency_section.title}".strip(),
+                evidence=[
+                    f"expected={spec.competency_count}",
+                    f"actual={len(competency_section.table_rows)}",
+                ],
+            )
+        )
+    return issues
+
+
+def _docx_section_orientations(data: bytes) -> list[str]:
+    """Read section layout directly from WordprocessingML, including the final body sectPr."""
+    namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    with zipfile.ZipFile(BytesIO(data)) as archive:
+        root = ElementTree.fromstring(archive.read("word/document.xml"))
+    result: list[str] = []
+    for section_properties in root.iter(f"{{{namespace}}}sectPr"):
+        page_size = section_properties.find(f"{{{namespace}}}pgSz")
+        orientation = page_size.get(f"{{{namespace}}}orient") if page_size is not None else None
+        result.append("landscape" if orientation == "landscape" else "portrait")
+    return result
 
 
 def extract_docx_text(data: bytes) -> str:

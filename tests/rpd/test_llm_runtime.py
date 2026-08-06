@@ -101,6 +101,19 @@ def test_router_supports_repetition_repair_as_a_critic_role() -> None:
     assert router.events[0].role == "rpd_repair"
 
 
+def test_router_records_outer_consilium_cache_hit_without_provider_call() -> None:
+    prose = _Client("prose")
+    router = RpdLlmRouter({"rpd_prose": prose})  # type: ignore[arg-type]
+
+    router.record_cache_hit(role="rpd_prose", prompt_version="rpd-consilium-v4:compose")
+
+    assert prose.calls == []
+    assert len(router.events) == 1
+    assert router.events[0].role == "rpd_prose"
+    assert router.events[0].cache_hit is True
+    assert router.events[0].elapsed_ms == 0
+
+
 def test_factory_applies_role_specific_model_timeout_retry_and_cache(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -33,7 +33,9 @@ def category_for(number: str, title: str) -> Cat:
     del number
     t = title.lower()
 
-    if "пример" in t or "скрин" in t:  # 3.3.1, 4.4 — скрины с платформы
+    if "оформления учебного модуля" in t:  # 3.3.1 — данные УП + обязательный скрин по каждому модулю
+        return Cat.UP_MODULES
+    if "пример" in t or "скрин" in t:  # 4.4 — скрин с платформы
         return Cat.PLATFORM
     if "актуальн" in t:  # 1.3 — генерим длинно (#8)
         return Cat.GENERATE

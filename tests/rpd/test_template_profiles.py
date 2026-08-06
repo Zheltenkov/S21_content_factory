@@ -44,6 +44,10 @@ def test_builtin_pk_profile_satisfies_its_capability_contract() -> None:
     assert len(report.template_sha256) == 64
     assert not report.missing_bindings
     assert not report.missing_table_labels
+    assert not report.missing_section_keys
+    assert not report.missing_table_schemas
+    assert not report.duplicate_section_numbers
+    assert report.section_orientations == ["portrait", "landscape", "portrait", "portrait"]
     detected, detected_report = detect_template_profile(profile.template_path())
     assert detected.profile_id == BUILTIN_PK_PROFILE_ID
     assert detected_report.template_sha256 == report.template_sha256
@@ -56,6 +60,9 @@ def test_build_persists_profile_and_template_fingerprints() -> None:
     assert build.template_report is not None and build.template_report.supported
     assert build.generation_trace.template_sha256 == build.template_report.template_sha256
     assert len(build.generation_trace.source_sha256) == 64
+    assert build.source_spec.module_count == 1
+    assert build.source_spec.calculated_total_hours == "16"
+    assert len(build.source_spec.fingerprint) == 64
 
 
 def test_profile_rejects_docx_without_required_bindings(tmp_path: Path) -> None:
