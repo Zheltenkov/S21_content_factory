@@ -422,18 +422,20 @@ def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: i
     nav = "".join(
         '<a class="navitem{on}" href="/app/rpd/{rid}?s={i}">'
         '<span class="ndone">{done}</span><span class="nnum">{num}</span>'
-        '<span class="ntitle">{title}</span>{chip}</a>'.format(
+        '<span class="ntitle">{title}</span>{flag}{chip}</a>'.format(
             on=" on" if i == active else "",
             rid=run_id,
             i=i,
             done="✓" if sec.done else "",
             num=escape(sec.number),
             title=escape(sec.title),
+            flag=('<span class="nflag" title="Замечание валидатора">⚠</span>' if sec.flag else ""),
             chip=_label_chip(sec.label),
         )
         for i, sec in enumerate(sections)
     )
     done_count = sum(1 for sec in sections if sec.done)
+    flag_note = (f'<p class="flagnote">⚠ Валидатор: {escape(section.flag)}</p>' if section.flag else "")
 
     if section.kind == "table":
         editor = _render_table_editor(section)
@@ -459,6 +461,7 @@ def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: i
         title=escape(section.title),
         chip=_label_chip(section.label),
         hint=escape(hint),
+        flag_note=flag_note,
         index=active,
         editor=editor,
         done_checked="checked" if section.done else "",
@@ -709,6 +712,8 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
  .addrow{{margin-top:8px;background:#fff;border:1px dashed var(--accent);color:var(--accent);border-radius:8px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}}
  table.edit td.delc{{width:34px;text-align:center;padding:0}} .delrow{{border:none;background:none;color:#b02a2a;cursor:pointer;font-size:1.1rem;line-height:1}}
  .donebox{{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}}
+ .nflag{{color:var(--gap);font-weight:800;margin-left:4px}}
+ .flagnote{{background:var(--gapsoft);color:var(--gap);border:1px solid var(--gap);border-radius:8px;padding:8px 12px;font-size:13px;margin:0 0 12px}}
 </style></head><body><div class="wrap">
  <a class="back" href="/app/rpd">← к списку РПД</a>
  <h1>РПД: {name}</h1>
@@ -719,6 +724,7 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
      <div class="card">
        <div class="sechead"><span class="snum">{number}</span><h2>{title}</h2>{chip}</div>
        <p class="hint">{hint}</p>
+       {flag_note}
        <form method="post" action="/app/rpd/{run_id}/section/{index}">
          {editor}
          <div class="rowbar">

@@ -15,13 +15,19 @@ Best-effort: при сбое любой стадии сборка откатыв
 
 from __future__ import annotations
 
+import hashlib
 import json
+import tempfile
+from pathlib import Path
 from typing import Any
 
 from .prose import _up_context
 from .up_models import UpPlan
 
 PROMPT_VERSION = "rpd-consilium-v1"
+
+#: Дисковый кэш результата консилиума: повторная сборка того же УП+шаблона — бесплатно.
+_CACHE_DIR = Path(tempfile.gettempdir()) / "rpd_consilium_cache"
 
 #: Роли = категории раздела (совпадают со значениями dpo_spec.Cat, чтобы сборка их поняла).
 _ROLES: dict[str, str] = {
@@ -43,23 +49,35 @@ def section_key(number: str, title: str) -> str:
 
 def run_consilium(
     sections: list[dict[str, str]], up: UpPlan, client: Any
-) -> tuple[dict[str, str], dict[str, list[str]]]:
-    """Возвращает (роли по разделам, тексты прозы по разделам). Пустое → откат на category_for."""
+) -> tuple[dict[str, str], dict[str, list[str]], dict[str, str]]:
+    """Возвращает (роли, тексты прозы, флаги валидатора). Пустое → откат на category_for.
+
+    Кэшируется на диске по хешу (prompt_version + разделы + УП): повторная сборка бесплатна.
+    """
     if client is None:
-        return {}, {}
-    roles = _classify_sections(sections, client)
+        return {}, {}, {}
+    key = _cache_key(sections, up)
+    cached = _cache_read(key)
+    if cached is not None:
+        return cached
+
+    roles = _classify_sections(sections, client)  # Агент 1
     if not roles:
-        return {}, {}
+        return {}, {}, {}
     prose = [
         {"key": section_key(s["number"], s["title"]), "role": roles.get(section_key(s["number"], s["title"]), "")}
         for s in sections
         if roles.get(section_key(s["number"], s["title"]), "") in _PROSE_ROLES
     ]
-    if not prose:
-        return roles, {}
-    briefs = _interpret_up(prose, up, client)
-    texts = _compose_prose(prose, briefs, up, client)
-    return roles, texts
+    texts: dict[str, list[str]] = {}
+    flags: dict[str, str] = {}
+    if prose:
+        briefs = _interpret_up(prose, up, client)  # Агент 2
+        texts = _compose_prose(prose, briefs, up, client)  # Агент 3
+        flags = _validate_prose(texts, up, client)  # Агент 4 (критик)
+    result = (roles, texts, flags)
+    _cache_write(key, result)
+    return result
 
 
 def _classify_sections(sections: list[dict[str, str]], client: Any) -> dict[str, str]:
@@ -99,6 +117,54 @@ def _compose_prose(prose: list[dict[str, str]], briefs: dict[str, str], up: UpPl
         str(key): [line.strip() for line in str(value).split("\n") if line.strip()]
         for key, value in data.items()
     }
+
+
+def _validate_prose(texts: dict[str, list[str]], up: UpPlan, client: Any) -> dict[str, str]:
+    """Агент 4 (критик): проверяет прозу на русский / привязку к УП / отсутствие выдумок.
+
+    Возвращает замечания ТОЛЬКО по проблемным разделам (корректные не включает)."""
+    if not texts:
+        return {}
+    items = "\n".join(f"- {key}: {' '.join(paras)[:400]}" for key, paras in texts.items())
+    system = (
+        "Ты редактор-контролёр ДПО. Проверь тексты разделов по критериям: (а) грамотный русский без "
+        "лишнего английского, (б) привязка к данным программы, (в) отсутствие выдуманных фактов. Для "
+        "ПРОБЛЕМНЫХ разделов верни короткое замечание. Строго JSON {\"<раздел>\": \"<замечание>\"} — "
+        "только проблемные; корректные не включай."
+    )
+    user = f"{_up_context(up)}\n\nТексты разделов:\n{items}\n\nВерни JSON с замечаниями только по проблемным разделам."
+    return {str(key): str(value) for key, value in _json_call(system, user, client).items() if str(value).strip()}
+
+
+def _cache_key(sections: list[dict[str, str]], up: UpPlan) -> str:
+    payload = json.dumps(
+        {"v": PROMPT_VERSION, "sections": sections, "up": up.model_dump()},
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _cache_read(key: str) -> tuple[dict[str, str], dict[str, list[str]], dict[str, str]] | None:
+    path = _CACHE_DIR / f"{key}.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return (dict(data["roles"]), dict(data["texts"]), dict(data["flags"]))
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def _cache_write(key: str, result: tuple[dict[str, str], dict[str, list[str]], dict[str, str]]) -> None:
+    try:
+        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        roles, texts, flags = result
+        (_CACHE_DIR / f"{key}.json").write_text(
+            json.dumps({"roles": roles, "texts": texts, "flags": flags}, ensure_ascii=False), encoding="utf-8"
+        )
+    except OSError:
+        pass  # кэш best-effort
 
 
 def _json_call(system: str, user: str, client: Any) -> dict[str, Any]:

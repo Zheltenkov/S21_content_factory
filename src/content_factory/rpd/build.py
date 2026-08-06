@@ -48,6 +48,7 @@ class RpdSection(BaseModel):
     table_header: list[str] = Field(default_factory=list)
     table_rows: list[list[str]] = Field(default_factory=list)
     done: bool = False  # методист отметил раздел готовым
+    flag: str = ""  # замечание валидатора-критика (если есть)
 
 
 class RpdBuild(BaseModel):
@@ -72,7 +73,7 @@ def build_rpd_sections(up: UpPlan, template_path: str | Path | None = None, llm_
     """
     template = load_rpd_template(Path(template_path) if template_path else default_pk_skeleton_path())
     specs = [{"number": section.number, "title": section.title} for section in template.sections]
-    roles, prose_texts = run_consilium(specs, up, llm_client)
+    roles, prose_texts, flags = run_consilium(specs, up, llm_client)
 
     sections: list[RpdSection] = []
     for target in template.sections:
@@ -80,7 +81,9 @@ def build_rpd_sections(up: UpPlan, template_path: str | Path | None = None, llm_
         category = _resolve_category(roles.get(key), target.number, target.title)
         if category is Cat.BOILERPLATE:
             continue  # форма ДПО — держит шаблон, не редактируем
-        sections.append(_section_content(target.number, target.title, category, up, llm_client, prose_texts.get(key)))
+        section = _section_content(target.number, target.title, category, up, llm_client, prose_texts.get(key))
+        section.flag = flags.get(key, "")
+        sections.append(section)
     return RpdBuild(program_title=up.title, sections=sections)
 
 
