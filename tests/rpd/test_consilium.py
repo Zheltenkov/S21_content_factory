@@ -23,9 +23,11 @@ class _StageClient:
     def __init__(self, responses: list[str]) -> None:
         self.responses = responses
         self.calls = 0
+        self.roles: list[str] = []
 
     def complete(self, system: str, user: str, **kwargs: object) -> str:
-        del system, user, kwargs
+        del system, user
+        self.roles.append(str(kwargs["llm_role"]))
         response = self.responses[min(self.calls, len(self.responses) - 1)]
         self.calls += 1
         return response
@@ -51,6 +53,7 @@ def test_run_consilium_four_agents_and_flags() -> None:
     assert texts[section_key("1.3", "Актуальность программы")] == ["Актуальность высока.", "Второй абзац."]
     assert flags[section_key("1.3", "Актуальность программы")] == "Слишком общо."
     assert client.calls == 4  # классификатор + интерпретатор + сборщик + критик
+    assert client.roles == ["rpd_classify", "rpd_interpret", "rpd_prose", "rpd_validate"]
 
 
 def test_run_consilium_is_cached() -> None:

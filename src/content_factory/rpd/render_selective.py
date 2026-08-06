@@ -20,7 +20,7 @@ from docx.text.paragraph import Paragraph
 
 from .build import RpdBuild, RpdSection, build_rpd_sections
 from .ingest import _is_heading, _split_heading
-from .template import default_pk_skeleton_path
+from .template_profiles import get_template_profile
 from .up_models import UpPlan
 
 _Content = tuple[list[str], list[tuple[list[str], list[list[str]]]]]
@@ -35,7 +35,8 @@ def render_rpd_pk(up: UpPlan, template_path: str | Path | None = None, llm_clien
 def render_build(build: RpdBuild, template_path: str | Path | None = None) -> bytes:
     """Кладёт (возможно отредактированный) черновик РПД в DOCX по шаблону: editable-разделы заменяет,
     boilerplate (форму ДПО) держит как в шаблоне. Комментарии вырезаются."""
-    path = Path(template_path) if template_path else default_pk_skeleton_path()
+    profile = get_template_profile(build.template_profile_id)
+    path = profile.template_path(template_path)
     document = docx.Document(str(path))
     body = document.element.body
     sectpr = qn("w:sectPr")
@@ -51,6 +52,9 @@ def render_build(build: RpdBuild, template_path: str | Path | None = None) -> by
         for element in body_els:
             body.remove(element)
         _insert_after(document, heading, _content_of(section))
+
+    # Обложка и паспорт находятся вне секций с заголовками, поэтому заполняются отдельным контрактом.
+    profile.bind_document(document, build)
 
     buffer = BytesIO()
     document.save(buffer)

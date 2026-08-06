@@ -16,6 +16,7 @@ _SYSTEM = (
     "Опирайся ТОЛЬКО на данные программы, которые тебе дают (тема, модули, компетенции). Без воды, по делу, "
     "без выдуманных фактов и без английских слов, кроме терминов и имён собственных."
 )
+PROMPT_VERSION = "rpd-prose-v1"
 
 # (matcher-substring, инструкция). Порядок важен: более узкие проверки — выше.
 _PROMPTS: list[tuple[str, str]] = [
@@ -43,7 +44,14 @@ def generate_prose(section_title: str, up: UpPlan, client: Any) -> list[str]:
         return []
     user = f"{instruction}\n\n{_up_context(up)}"
     try:
-        text = str(client.complete(_SYSTEM, user))
+        text = str(
+            client.complete(
+                _SYSTEM,
+                user,
+                llm_role="rpd_prose",
+                prompt_version=PROMPT_VERSION,
+            )
+        )
     except Exception:  # noqa: BLE001 - генерация best-effort; при сбое падаем в плейсхолдер
         return []
     return [_strip_markdown(line) for line in text.splitlines() if line.strip()]

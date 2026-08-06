@@ -28,6 +28,10 @@ from content_factory.api.integrations.project_paths import GENERATOR_ROOT
 from content_factory.catalog.viewer.curriculum_ops import get_curriculum_plan, list_curriculum_plans
 from content_factory.catalog.web.deps import get_conn
 from content_factory.rpd import RpdBuild, UpPlan, build_rpd_sections, from_registry_plan, parse_up_csv, render_build
+from content_factory.rpd.build import RpdDocumentFields
+from content_factory.rpd.evaluation import evaluate_rpd_build
+from content_factory.rpd.llm_runtime import create_rpd_llm_router
+from content_factory.rpd.quality import evaluate_build_quality
 from content_factory.rpd.translate import russify_up
 
 page_router = APIRouter(prefix="/app/rpd", include_in_schema=False, tags=["rpd-ui"])
@@ -36,6 +40,7 @@ RPD_ROOT = (GENERATOR_ROOT / ".tmp" / "rpd").resolve()
 MAX_DOCX_BYTES = int(os.getenv("RPD_MAX_DOCX_BYTES", "50000000"))
 OUTPUT_FILENAME = "РПД.docx"
 BUILD_FILE = "build.json"
+EVALUATION_FILE = "evaluation.json"
 _META_FILE = "rpd_meta.json"
 _MAX_RUNS = 12
 _MAX_UPLOADS = 10
@@ -219,19 +224,20 @@ def _build_from_up(up: UpPlan, run_dir: Path) -> dict[str, Any]:
     client = _llm_client()
     up = russify_up(up, client)  # англоязычные названия тем/модулей → русский (термины оставляем)
     build = build_rpd_sections(up, None, client)
-    (run_dir / BUILD_FILE).write_text(build.model_dump_json(), encoding="utf-8")  # для редактора (HITL)
-    (run_dir / OUTPUT_FILENAME).write_bytes(render_build(build))
-    return _up_meta(up, prose_generated=client is not None)
+    rendered = render_build(build)
+    build.quality = evaluate_build_quality(build, rendered)
+    _save_run_artifacts(run_dir, build)
+    _atomic_write_bytes(run_dir / OUTPUT_FILENAME, rendered)
+    prose_generated = any(
+        section.category == "generate" and "[Будет сгенерировано]" not in section.paragraphs
+        for section in build.sections
+    )
+    return _up_meta(up, prose_generated=prose_generated)
 
 
 def _llm_client() -> Any:
-    """Клиент LLM для генерации прозы; None при недоступности → рендер подставит плейсхолдеры."""
-    try:
-        from content_factory.platform.llm.factory import create_llm_client
-
-        return create_llm_client(default_role="default", enable_cache=True)
-    except Exception:  # noqa: BLE001 - без LLM просто рендерим с плейсхолдерами
-        return None
+    """Role-aware RPD runtime; None keeps the deterministic draft fallback."""
+    return create_rpd_llm_router()
 
 
 def _load_build(meta: dict[str, Any]) -> RpdBuild | None:
@@ -245,7 +251,33 @@ def _load_build(meta: dict[str, Any]) -> RpdBuild | None:
 
 
 def _save_build(meta: dict[str, Any], build: RpdBuild) -> None:
-    (Path(str(meta["run_dir"])) / BUILD_FILE).write_text(build.model_dump_json(), encoding="utf-8")
+    _save_run_artifacts(Path(str(meta["run_dir"])), build)
+
+
+def _save_run_artifacts(run_dir: Path, build: RpdBuild) -> None:
+    """Persist the source draft and its derivable pilot metrics as atomic files."""
+    _atomic_write_text(run_dir / BUILD_FILE, build.model_dump_json())
+    _atomic_write_text(run_dir / EVALUATION_FILE, evaluate_rpd_build(build).model_dump_json(indent=2))
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Persist JSON atomically so a concurrent reader never observes a partial build."""
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temporary.write_text(content, encoding="utf-8")
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _atomic_write_bytes(path: Path, content: bytes) -> None:
+    """Persist generated DOCX atomically for the same reason as build.json."""
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temporary.write_bytes(content)
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 @page_router.get("/registry")
@@ -305,7 +337,7 @@ async def rpd_view(request: Request, run_id: str, s: int = 0) -> HTMLResponse:
 
 
 @page_router.post("/{run_id}/section/{index}")
-async def rpd_save_section(request: Request, run_id: str, index: int) -> RedirectResponse:
+async def rpd_save_section(request: Request, run_id: str, index: int) -> Response:
     user = await validate_request_user(request)
     _ensure_loaded()
     state_key = _user_key(user)
@@ -314,8 +346,14 @@ async def rpd_save_section(request: Request, run_id: str, index: int) -> Redirec
         raise HTTPException(status_code=404, detail="Прогон РПД не найден")
     build = _load_build(meta)
     if build is not None and 0 <= index < len(build.sections):
-        section = build.sections[index]
         form = await request.form()
+        try:
+            _require_current_revision(form.get("revision"), build)
+        except HTTPException as exc:
+            if exc.status_code == 409:
+                return _render_revision_conflict(run_id, build)
+            raise
+        section = build.sections[index]
         if section.kind == "table":
             rows = _table_from_json(str(form.get("table_json", "")))
             if rows:  # пустая форма (не та секция) не должна стирать таблицу
@@ -324,8 +362,70 @@ async def rpd_save_section(request: Request, run_id: str, index: int) -> Redirec
             text = str(form.get("text", ""))
             section.paragraphs = [line.strip() for line in text.splitlines() if line.strip()] or [""]
         section.done = bool(form.get("done"))
+        section.flag = ""  # явная правка методиста закрывает прежнее замечание LLM-критика
+        build.revision += 1
+        build.quality = evaluate_build_quality(build)
         _save_build(meta, build)
     return RedirectResponse(f"/app/rpd/{run_id}?s={index}", status_code=303)
+
+
+@page_router.post("/{run_id}/metadata")
+async def rpd_save_metadata(request: Request, run_id: str) -> Response:
+    """Save cover/passport bindings that cannot be sourced from the curriculum plan."""
+    user = await validate_request_user(request)
+    _ensure_loaded()
+    state_key = _user_key(user)
+    meta = _find_run(state_key, run_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Прогон РПД не найден")
+    build = _load_build(meta)
+    if build is None:
+        raise HTTPException(status_code=404, detail="Черновик РПД не найден")
+
+    form = await request.form()
+    try:
+        _require_current_revision(form.get("revision"), build)
+    except HTTPException as exc:
+        if exc.status_code == 409:
+            return _render_revision_conflict(run_id, build)
+        raise
+    allowed = {name for name, _label in RpdDocumentFields.required_fields()}
+    updates = {name: str(form.get(name, "")).strip() for name in allowed}
+    build.document_fields = build.document_fields.model_copy(update=updates)
+    build.revision += 1
+    build.quality = evaluate_build_quality(build)
+    _save_build(meta, build)
+    return RedirectResponse(f"/app/rpd/{run_id}", status_code=303)
+
+
+def _require_current_revision(raw_revision: Any, build: RpdBuild) -> None:
+    """Reject stale editor submissions instead of overwriting a newer revision."""
+    try:
+        submitted = int(str(raw_revision))
+    except (TypeError, ValueError):
+        submitted = -1
+    if submitted != build.revision:
+        raise HTTPException(
+            status_code=409,
+            detail="Черновик уже изменён в другой вкладке. Обновите страницу и повторите правку.",
+        )
+
+
+def _render_revision_conflict(run_id: str, build: RpdBuild) -> HTMLResponse:
+    """Render an actionable conflict instead of exposing FastAPI's JSON error page."""
+    safe_run_id = escape(run_id)
+    html = f"""<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Черновик изменён</title>
+<style>body{{font-family:system-ui,sans-serif;background:#f4f7f5;color:#15221d;padding:40px}}
+.card{{max-width:650px;margin:auto;background:#fff;border:1px solid #dde5e1;border-radius:14px;padding:28px}}
+.actions{{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap}}a{{padding:10px 16px;border-radius:9px;
+text-decoration:none;background:#0e8f6f;color:#fff}}a.secondary{{background:#fff;color:#0e8f6f;border:1px solid #0e8f6f}}
+</style></head><body><main class="card"><h1>Черновик уже изменён</h1>
+<p>Другая вкладка или пользователь сохранили более новую редакцию № {build.revision}.</p>
+<p>Обновите редактор, проверьте актуальные данные и повторите правку. Ваше устаревшее сохранение не применено.</p>
+<div class="actions"><a href="/app/rpd/{safe_run_id}">Открыть актуальную редакцию</a>
+<a class="secondary" href="javascript:history.back()">Вернуться назад</a></div></main></body></html>"""
+    return HTMLResponse(html, status_code=409, headers={"Cache-Control": "no-store"})
 
 
 def _table_from_json(raw: str) -> list[list[str]]:
@@ -346,7 +446,7 @@ def _table_from_json(raw: str) -> list[list[str]]:
 
 
 @page_router.get("/{run_id}/download")
-async def rpd_download(request: Request, run_id: str) -> Response:
+async def rpd_download(request: Request, run_id: str, draft: bool = False) -> Response:
     user = await validate_request_user(request)
     _ensure_loaded()
     state_key = _user_key(user)
@@ -356,17 +456,46 @@ async def rpd_download(request: Request, run_id: str) -> Response:
     build = _load_build(meta)
     if build is not None:  # рендерим из (отредактированного) черновика — свежий DOCX с правками
         data = await run_in_threadpool(render_build, build)
+        build.quality = evaluate_build_quality(build, data)
+        _save_build(meta, build)
+        if not draft and not build.quality.ready:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "detail": "РПД не прошла quality gate; скачайте черновик или устраните замечания.",
+                    "blocking_count": build.quality.blocking_count,
+                    "issues": [issue.model_dump() for issue in build.quality.issues if issue.blocking],
+                    "draft_url": f"/app/rpd/{run_id}/download?draft=true",
+                },
+            )
     else:
         path = (Path(str(meta.get("run_dir", ""))) / OUTPUT_FILENAME).resolve()
         if not path.exists():
             raise HTTPException(status_code=404, detail="Файл РПД не найден")
         data = path.read_bytes()
-    download = f"{Path(str(meta.get('name', 'РПД'))).stem}_РПД.docx"
+    suffix = "_РПД_черновик.docx" if draft else "_РПД.docx"
+    download = f"{Path(str(meta.get('name', 'РПД'))).stem}{suffix}"
     return Response(
         content=data,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(download)}"},
     )
+
+
+@page_router.get("/{run_id}/evaluation")
+async def rpd_evaluation(request: Request, run_id: str) -> JSONResponse:
+    """Return the latest reproducible metrics artifact for pilot aggregation."""
+    user = await validate_request_user(request)
+    _ensure_loaded()
+    meta = _find_run(_user_key(user), run_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Прогон РПД не найден")
+    build = _load_build(meta)
+    if build is None:
+        raise HTTPException(status_code=404, detail="Черновик РПД не найден")
+    artifact = evaluate_rpd_build(build)
+    _atomic_write_text(Path(str(meta["run_dir"])) / EVALUATION_FILE, artifact.model_dump_json(indent=2))
+    return JSONResponse(artifact.model_dump(mode="json"))
 
 
 @page_router.post("/{run_id}/delete")
@@ -413,6 +542,61 @@ def _render_table_editor(section: Any) -> str:
     )
 
 
+def _render_metadata_form(run_id: str, build: RpdBuild) -> str:
+    fields = build.document_fields
+    inputs = []
+    for name, label in RpdDocumentFields.required_fields():
+        value = escape(str(getattr(fields, name)))
+        inputs.append(
+            f'<label class="meta-field"><span>{escape(label)}</span>'
+            f'<input name="{name}" value="{value}"></label>'
+        )
+    return (
+        '<details class="meta"><summary>Реквизиты обложки и паспорта</summary>'
+        f'<form method="post" action="/app/rpd/{run_id}/metadata">'
+        f'<input type="hidden" name="revision" value="{build.revision}">'
+        f'<div class="meta-grid">{"".join(inputs)}</div>'
+        '<button class="btn" type="submit">Сохранить реквизиты</button></form></details>'
+    )
+
+
+def _render_quality_summary(build: RpdBuild) -> str:
+    report = build.quality
+    evaluation = evaluate_rpd_build(build)
+    state = "ready" if report.ready else "blocked"
+    title = "РПД готова к финальному экспорту" if report.ready else f"Финальный экспорт заблокирован: {report.blocking_count}"
+    items = "".join(
+        f'<li><b>{escape(issue.code)}</b> — {escape(issue.message)}'
+        f'{" · " + escape(issue.section_key) if issue.section_key else ""}</li>'
+        for issue in report.issues[:20]
+    )
+    details = f'<ul>{items}</ul>' if items else ""
+    acceptance = (
+        f"{evaluation.accepted_without_edits_rate:.0%}"
+        if evaluation.accepted_without_edits_rate is not None
+        else "нет подтверждённых LLM-разделов"
+    )
+    metrics = (
+        f'<div class="quality-metrics">Профиль: {escape(build.template_profile_id)} · '
+        f'LLM-вызовов: {evaluation.llm_calls} · ошибок: {evaluation.llm_failed_calls} · '
+        f'принято без правок: {escape(acceptance)}</div>'
+    )
+    return (
+        f'<section class="quality {state}"><div class="quality-title">{escape(title)}</div>'
+        f"{metrics}{details}</section>"
+    )
+
+
+def _render_export_actions(run_id: str, build: RpdBuild) -> str:
+    draft = f'<a class="btn ghost" href="/app/rpd/{run_id}/download?draft=true">Скачать черновик DOCX</a>'
+    evaluation = f'<a class="btn ghost" href="/app/rpd/{run_id}/evaluation">Метрики JSON</a>'
+    if build.quality.ready:
+        final = f'<a class="btn" href="/app/rpd/{run_id}/download">Скачать финальную РПД</a>'
+    else:
+        final = '<span class="btn disabled" title="Закройте блокирующие замечания">Финальный экспорт недоступен</span>'
+    return evaluation + draft + final
+
+
 def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: int) -> str:
     sections = build.sections
     total = len(sections)
@@ -457,16 +641,20 @@ def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: i
         pos=active + 1,
         total=total,
         done_count=done_count,
+        quality_summary=_render_quality_summary(build),
+        metadata_form=_render_metadata_form(run_id, build),
         number=escape(section.number),
         title=escape(section.title),
         chip=_label_chip(section.label),
         hint=escape(hint),
         flag_note=flag_note,
         index=active,
+        revision=build.revision,
         editor=editor,
         done_checked="checked" if section.done else "",
         prev_btn=prev_btn,
         next_btn=next_btn,
+        export_actions=_render_export_actions(run_id, build),
     )
 
 
@@ -704,20 +892,31 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
  .btn{{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:none;border-radius:9px;
    padding:10px 18px;font:inherit;font-weight:650;font-size:14px;cursor:pointer;text-decoration:none}}
  .btn.ghost{{background:#fff;color:var(--accent);border:1px solid var(--accent)}}
+ .btn.disabled{{background:#9aa8a1;box-shadow:none;cursor:not-allowed}}
  .rowbar{{display:flex;align-items:center;gap:10px;margin-top:16px;flex-wrap:wrap}}
  .navbtn{{color:var(--accent);text-decoration:none;font-weight:600;font-size:14px}} .navbtn.off{{color:#b9c2bd}}
  .spacer{{flex:1}}
- .exportbar{{margin-top:14px;display:flex;justify-content:flex-end}}
+ .exportbar{{margin-top:14px;display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}}
  .navitem .ndone{{color:var(--accent);font-weight:800;min-width:12px;font-size:12px}}
  .addrow{{margin-top:8px;background:#fff;border:1px dashed var(--accent);color:var(--accent);border-radius:8px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}}
  table.edit td.delc{{width:34px;text-align:center;padding:0}} .delrow{{border:none;background:none;color:#b02a2a;cursor:pointer;font-size:1.1rem;line-height:1}}
  .donebox{{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}}
  .nflag{{color:var(--gap);font-weight:800;margin-left:4px}}
  .flagnote{{background:var(--gapsoft);color:var(--gap);border:1px solid var(--gap);border-radius:8px;padding:8px 12px;font-size:13px;margin:0 0 12px}}
+ .quality{{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;background:#fff}}
+ .quality.ready{{border-color:var(--accent);background:var(--soft)}} .quality.blocked{{border-color:var(--gap);background:var(--gapsoft)}}
+ .quality-title{{font-weight:750}} .quality ul{{margin:8px 0 0;padding-left:20px;font-size:12.5px}}
+ .quality-metrics{{margin-top:6px;color:var(--muted);font-size:12px}}
+ .meta{{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:16px}}
+ .meta summary{{font-weight:700;cursor:pointer}} .meta-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:12px 0}}
+ .meta-field{{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}}
+ .meta-field input{{padding:8px 9px;border:1px solid var(--line);border-radius:7px;font:inherit;color:var(--ink)}}
 </style></head><body><div class="wrap">
  <a class="back" href="/app/rpd">← к списку РПД</a>
  <h1>РПД: {name}</h1>
  <p class="sub">Раздел {pos} из {total} · готово {done_count} · правьте по разделам, затем экспорт</p>
+ {quality_summary}
+ {metadata_form}
  <div class="grid">
    <nav class="nav">{nav}</nav>
    <div>
@@ -726,6 +925,7 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
        <p class="hint">{hint}</p>
        {flag_note}
        <form method="post" action="/app/rpd/{run_id}/section/{index}">
+         <input type="hidden" name="revision" value="{revision}">
          {editor}
          <div class="rowbar">
            <button class="btn" type="submit">Сохранить раздел</button>
@@ -735,7 +935,7 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
          </div>
        </form>
      </div>
-     <div class="exportbar"><a class="btn ghost" href="/app/rpd/{run_id}/download">Экспорт РПД (DOCX)</a></div>
+     <div class="exportbar">{export_actions}</div>
    </div>
  </div>
 </div>

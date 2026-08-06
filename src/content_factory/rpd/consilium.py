@@ -89,7 +89,7 @@ def _classify_sections(sections: list[dict[str, str]], client: Any) -> dict[str,
         f"Возможные роли:\n{roles_desc}\n\nРазделы шаблона:\n{listing}\n\n"
         'Верни JSON вида {"<раздел>": "<роль>"} — по одной роли на каждый раздел из списка.'
     )
-    data = _json_call(system, user, client)
+    data = _json_call(system, user, client, role="rpd_classify", stage="classify")
     return {str(key): str(value) for key, value in data.items() if value in _ROLES}
 
 
@@ -98,7 +98,10 @@ def _interpret_up(prose: list[dict[str, str]], up: UpPlan, client: Any) -> dict[
     items = "\n".join(f"- [{s['role']}] {s['key']}" for s in prose)
     system = "Ты методист ДПО. Для каждого раздела напиши краткое ТЗ (одно предложение): что в нём написать ПО СМЫСЛУ этой программы. Опирайся только на данные программы, без выдумок. Строго JSON."
     user = f"{_up_context(up)}\n\nРазделы (роль | раздел):\n{items}\n\nВерни JSON {{\"<раздел>\": \"<краткое ТЗ>\"}}."
-    return {str(key): str(value) for key, value in _json_call(system, user, client).items()}
+    return {
+        str(key): str(value)
+        for key, value in _json_call(system, user, client, role="rpd_interpret", stage="interpret").items()
+    }
 
 
 def _compose_prose(prose: list[dict[str, str]], briefs: dict[str, str], up: UpPlan, client: Any) -> dict[str, list[str]]:
@@ -112,7 +115,7 @@ def _compose_prose(prose: list[dict[str, str]], briefs: dict[str, str], up: UpPl
         f"{_up_context(up)}\n\nРазделы и ТЗ:\n{items}\n\n"
         'Верни JSON {"<раздел>": "<текст 1–3 абзаца, абзацы разделяй \\n>"}.'
     )
-    data = _json_call(system, user, client)
+    data = _json_call(system, user, client, role="rpd_prose", stage="compose")
     return {
         str(key): [line.strip() for line in str(value).split("\n") if line.strip()]
         for key, value in data.items()
@@ -133,7 +136,11 @@ def _validate_prose(texts: dict[str, list[str]], up: UpPlan, client: Any) -> dic
         "только проблемные; корректные не включай."
     )
     user = f"{_up_context(up)}\n\nТексты разделов:\n{items}\n\nВерни JSON с замечаниями только по проблемным разделам."
-    return {str(key): str(value) for key, value in _json_call(system, user, client).items() if str(value).strip()}
+    return {
+        str(key): str(value)
+        for key, value in _json_call(system, user, client, role="rpd_validate", stage="validate").items()
+        if str(value).strip()
+    }
 
 
 def _cache_key(sections: list[dict[str, str]], up: UpPlan) -> str:
@@ -167,9 +174,16 @@ def _cache_write(key: str, result: tuple[dict[str, str], dict[str, list[str]], d
         pass  # кэш best-effort
 
 
-def _json_call(system: str, user: str, client: Any) -> dict[str, Any]:
+def _json_call(system: str, user: str, client: Any, *, role: str, stage: str) -> dict[str, Any]:
     try:
-        raw = str(client.complete(system, user))
+        raw = str(
+            client.complete(
+                system,
+                user,
+                llm_role=role,
+                prompt_version=f"{PROMPT_VERSION}:{stage}",
+            )
+        )
         parsed = json.loads(_extract_json(raw))
     except Exception:  # noqa: BLE001 - консилиум best-effort; при сбое сборка откатится
         return {}

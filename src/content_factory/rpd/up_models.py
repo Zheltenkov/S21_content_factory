@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import csv
 import io
+import json
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -49,14 +51,14 @@ class UpModule(BaseModel):
 
     @property
     def hours(self) -> str:
-        total = 0
+        total = Decimal("0")
         seen = False
         for row in self.rows:
-            parsed = _to_int(row.hours)
+            parsed = _to_decimal(row.hours)
             if parsed is not None:
                 total += parsed
                 seen = True
-        return str(total) if seen else ""
+        return _decimal_str(total) if seen else ""
 
     def fmt(self) -> str:
         for row in self.rows:
@@ -124,13 +126,14 @@ class UpPlan(BaseModel):
                     for gain in gains:
                         if gain not in after[name]:
                             after[name].append(gain)
-        return [(f"ПК-{index}", name, "; ".join(after[name])) for index, name in enumerate(order, start=1)]
+        # Код профессиональной компетенции является нормативным значением и не должен синтезироваться.
+        return [("", name, "; ".join(after[name])) for name in order]
 
 
 def from_registry_plan(plan: dict[str, Any]) -> UpPlan:
     """Адаптирует каталожный план (``get_curriculum_plan``) в :class:`UpPlan`."""
     title = str(plan.get("title") or "").strip()
-    meta = plan.get("meta") or {}
+    meta = plan.get("meta") or plan.get("summary") or {}
     total_hours = _hours_str(meta.get("total_hours"))
 
     modules: list[UpModule] = []
@@ -139,17 +142,24 @@ def from_registry_plan(plan: dict[str, Any]) -> UpPlan:
         block_title = str(raw.get("block_title") or "").strip() or "Модуль"
         row = UpRow(
             block_title=block_title,
+            name=str(raw.get("project_name") or ""),
+            description=str(raw.get("project_summary") or ""),
             outcomes_know=str(raw.get("outcomes_know") or ""),
             outcomes_can=str(raw.get("outcomes_can") or ""),
             outcomes_skills=str(raw.get("outcomes_skills") or raw.get("learning_outcomes") or ""),
             hours=_hours_str(raw.get("effort_hours")),
-            skills=_skill_names(raw.get("skills")),
+            fmt=str(raw.get("delivery_format") or ""),
+            software=str(raw.get("required_tools") or ""),
+            p2p=str(raw.get("p2p_checks") or ""),
+            skills=_skill_names(raw.get("skills") or raw.get("skills_list") or raw.get("weighted_skills")),
         )
         module = by_title.get(block_title)
         if module is None:
-            module = UpModule(title=block_title)
+            module = UpModule(title=block_title, goals=str(raw.get("block_goal") or ""))
             by_title[block_title] = module
             modules.append(module)
+        elif not module.goals:
+            module.goals = str(raw.get("block_goal") or "")
         module.rows.append(row)
     return UpPlan(title=title, total_hours=total_hours, modules=modules)
 
@@ -210,8 +220,10 @@ def parse_up_csv(path: str | Path, title: str = "") -> UpPlan:
             module.goals = _cell(raw_row, col_goals)
         module.rows.append(row)
 
-    total = sum(int(float(r.hours)) for m in modules for r in m.rows if _to_int(r.hours) is not None)
-    return UpPlan(title=title, total_hours=str(total) if total else "", modules=modules)
+    values = [_to_decimal(row.hours) for module in modules for row in module.rows]
+    valid_values = [value for value in values if value is not None]
+    total = sum(valid_values, Decimal("0"))
+    return UpPlan(title=title, total_hours=_decimal_str(total) if valid_values else "", modules=modules)
 
 
 def _cell(row: list[str], index: int | None) -> str:
@@ -253,13 +265,35 @@ def _to_int(value: Any) -> int | None:
 
 
 def _hours_str(value: Any) -> str:
-    parsed = _to_int(value)
-    return str(parsed) if parsed else ""
+    parsed = _to_decimal(value)
+    return _decimal_str(parsed) if parsed is not None else ""
 
 
 def _skill_names(value: Any) -> list[str]:
     if isinstance(value, list):
         return [str(item).strip() for item in value if str(item).strip()]
     if isinstance(value, str) and value.strip():
-        return [value.strip()]
+        text = value.strip()
+        if text.startswith("["):
+            try:
+                parsed = json.loads(text)
+            except ValueError:
+                parsed = None
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        return _split_skills(text)
     return []
+
+
+def _to_decimal(value: Any) -> Decimal | None:
+    text = str(value or "").strip().replace(" ", "").replace(",", ".")
+    if not text:
+        return None
+    try:
+        return Decimal(text)
+    except InvalidOperation:
+        return None
+
+
+def _decimal_str(value: Decimal) -> str:
+    return format(value.normalize(), "f")

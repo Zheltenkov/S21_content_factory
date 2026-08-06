@@ -20,6 +20,7 @@ _SYSTEM = (
     "общепринятые термины оставляй как есть. Верни СТРОГО JSON-объект вида {\"оригинал\": \"перевод\"} "
     "без пояснений и без markdown."
 )
+PROMPT_VERSION = "rpd-translate-v1"
 
 
 def russify_up(up: UpPlan, client: Any) -> UpPlan:
@@ -50,7 +51,14 @@ def _translatable_values(up: UpPlan) -> set[str]:
 
 def _translate(values: list[str], client: Any) -> dict[str, str]:
     try:
-        raw = str(client.complete(_SYSTEM, json.dumps(values, ensure_ascii=False)))
+        raw = str(
+            client.complete(
+                _SYSTEM,
+                json.dumps(values, ensure_ascii=False),
+                llm_role="rpd_translate",
+                prompt_version=PROMPT_VERSION,
+            )
+        )
         data = json.loads(_extract_json(raw))
     except Exception:  # noqa: BLE001 - перевод best-effort; при сбое оставляем оригинал
         return {}

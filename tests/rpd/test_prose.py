@@ -21,10 +21,11 @@ class _FakeClient:
     def __init__(self, text: str) -> None:
         self.text = text
         self.calls: list[tuple[str, str]] = []
+        self.call_kwargs: list[dict[str, object]] = []
 
     def complete(self, system: str, user: str, **kwargs: object) -> str:
-        del kwargs
         self.calls.append((system, user))
+        self.call_kwargs.append(kwargs)
         return self.text
 
 
@@ -34,6 +35,7 @@ def test_generate_prose_returns_paragraphs_for_prose_section() -> None:
     paragraphs = generate_prose("Актуальность программы", up, client)
     assert paragraphs == ["Актуальность высока.", "Второй абзац актуальности."]
     assert client.calls and "Тестовая программа" in client.calls[0][1]  # УП-контекст в промпте
+    assert client.call_kwargs[0]["llm_role"] == "rpd_prose"
 
 
 def test_generate_prose_skips_non_prose_and_missing_client() -> None:

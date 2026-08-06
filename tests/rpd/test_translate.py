@@ -24,10 +24,12 @@ class _FakeClient:
     def __init__(self, mapping: dict[str, str]) -> None:
         self.mapping = mapping
         self.calls = 0
+        self.roles: list[str] = []
 
     def complete(self, system: str, user: str, **kwargs: object) -> str:
-        del system, user, kwargs
+        del system, user
         self.calls += 1
+        self.roles.append(str(kwargs["llm_role"]))
         return json.dumps(self.mapping, ensure_ascii=False)
 
 
@@ -37,6 +39,7 @@ def test_russify_translates_english_titles() -> None:
     assert out.modules[0].title == "Самопрезентация и профессиональная роль"
     assert out.modules[0].rows[0].block_title == "Самопрезентация и профессиональная роль"
     assert client.calls == 1
+    assert client.roles == ["rpd_translate"]
 
 
 def test_russify_noop_without_client_or_latin() -> None:
