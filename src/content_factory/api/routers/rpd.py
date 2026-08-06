@@ -534,7 +534,7 @@ def _render_table_editor(section: Any) -> str:
     body = []
     for row in section.table_rows:
         padded = [str(cell) for cell in row] + [""] * (ncols - len(row))
-        cells = "".join(f'<td><input value="{escape(cell)}"></td>' for cell in padded)
+        cells = "".join(f'<td><textarea rows="1">{escape(cell)}</textarea></td>' for cell in padded)
         body.append(f'<tr>{cells}<td class="delc"><button type="button" class="delrow" title="Удалить строку">×</button></td></tr>')
     return (
         f'<div class="tblwrap"><table class="edit" id="edit-table"><thead><tr>{ths}</tr></thead>'
@@ -886,13 +886,14 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
  .wrap{{max-width:1600px;margin:0 auto}}
  a.back{{color:var(--accent);text-decoration:none;font-size:.9rem}}
  h1{{font-size:1.35rem;margin:.4rem 0 .1rem}} .sub{{color:var(--muted);margin:0 0 18px;font-size:.9rem}}
- .grid{{display:grid;grid-template-columns:270px minmax(0,1fr);gap:18px;align-items:start}}
+ .grid{{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;align-items:start}}
  @media (max-width:820px){{.grid{{grid-template-columns:1fr}}}}
  .nav{{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:74vh;overflow-y:auto}}
- .navitem{{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line);text-decoration:none;color:var(--ink)}}
+ .navitem{{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:10px 12px;border-top:1px solid var(--line);text-decoration:none;color:var(--ink)}}
  .navitem:first-child{{border-top:none}} .navitem.on{{background:var(--soft)}}
  .navitem .nnum{{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted);min-width:30px}}
- .navitem .ntitle{{font-size:13px;flex:1}}
+ .navitem .ntitle{{font-size:13px;flex:1 1 55%;min-width:0;word-break:break-word}}
+ .navitem .cs{{margin-left:auto}}
  .card{{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}}
  .sechead{{display:flex;align-items:center;gap:10px;margin-bottom:6px}} .sechead h2{{font-size:1.05rem;margin:0}}
  .sechead .snum{{font-family:ui-monospace,Consolas,monospace;color:var(--muted);font-size:.85rem}}
@@ -901,9 +902,10 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
  .tblwrap{{overflow-x:auto;border:1px solid var(--line);border-radius:9px}}
  table.edit{{border-collapse:collapse;width:100%;min-width:640px}}
  table.edit th{{background:var(--soft);color:var(--accent);font-size:11.5px;text-align:left;padding:8px 10px;position:sticky;top:0}}
- table.edit td{{border-top:1px solid var(--line);padding:3px}}
- table.edit input{{width:100%;min-width:90px;border:none;padding:7px 8px;font:inherit;font-size:13px;background:transparent}}
- table.edit input:focus{{outline:2px solid var(--soft);border-radius:6px}}
+ table.edit td{{border-top:1px solid var(--line);padding:3px;vertical-align:top}}
+ table.edit textarea{{width:100%;min-width:120px;border:none;padding:7px 8px;font:inherit;font-size:13px;background:transparent;
+   resize:vertical;overflow:hidden;white-space:pre-wrap;word-break:break-word;line-height:1.35;box-sizing:border-box}}
+ table.edit textarea:focus{{outline:2px solid var(--soft);border-radius:6px}}
  .cs{{font-size:11px;font-weight:650;padding:3px 9px;border-radius:999px;white-space:nowrap}}
  .cs.up{{background:var(--soft);color:var(--accent)}} .cs.gen{{background:#eef2ff;color:#4f46e5}}
  .cs.form{{background:#eef1f4;color:#5f6f7d}} .cs.gap{{background:var(--gapsoft);color:var(--gap)}}
@@ -964,17 +966,20 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
   if(!table) return;
   var form=table.closest('form'), addBtn=document.getElementById('add-row');
   var ncols=parseInt((document.getElementById('ncols')||{{}}).value||'1',10);
+  function fit(el){{ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }}
+  function autosize(scope){{ (scope||table).querySelectorAll('textarea').forEach(fit); }}
   function bindDeletes(){{ table.querySelectorAll('.delrow').forEach(function(b){{ b.onclick=function(){{ b.closest('tr').remove(); }}; }}); }}
-  bindDeletes();
+  bindDeletes(); autosize();
+  table.addEventListener('input',function(e){{ if(e.target.tagName==='TEXTAREA') fit(e.target); }});
   if(addBtn) addBtn.onclick=function(){{
     var tb=table.querySelector('tbody'), tr=document.createElement('tr'), html='';
-    for(var c=0;c<ncols;c++) html+='<td><input value=""></td>';
+    for(var c=0;c<ncols;c++) html+='<td><textarea rows="1"></textarea></td>';
     html+='<td class="delc"><button type="button" class="delrow" title="Удалить строку">&times;</button></td>';
-    tr.innerHTML=html; tb.appendChild(tr); bindDeletes();
+    tr.innerHTML=html; tb.appendChild(tr); bindDeletes(); autosize(tr);
   }};
   if(form) form.addEventListener('submit',function(){{
     var rows=[]; table.querySelectorAll('tbody tr').forEach(function(tr){{
-      var row=[]; tr.querySelectorAll('input').forEach(function(inp){{ row.push(inp.value); }}); rows.push(row);
+      var row=[]; tr.querySelectorAll('textarea').forEach(function(inp){{ row.push(inp.value); }}); rows.push(row);
     }});
     var hid=document.getElementById('table-json'); if(hid) hid.value=JSON.stringify(rows);
   }});
