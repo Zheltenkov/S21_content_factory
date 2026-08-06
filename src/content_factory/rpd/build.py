@@ -20,7 +20,8 @@ from .transfer import GAP_MARKER
 from .up_models import UpPlan
 
 _GENERATE_PLACEHOLDER = "[Будет сгенерировано]"
-_PLATFORM_PLACEHOLDER = "[Вставьте скрин задания с платформы/LMS]"
+_PLATFORM_NOTE = "[Методист: вставьте скрин задания с платформы/LMS]"
+_GAP_NOTE = "[Методист: проверьте и дополните раздел под программу]"
 
 #: Понятные методисту ярлыки источника раздела для навигатора редактора.
 _CATEGORY_LABEL = {
@@ -82,7 +83,8 @@ def _section_content(number: str, title: str, category: Cat, up: UpPlan, client:
         return base
     if category is Cat.PLATFORM:
         base.kind = "paragraphs"
-        base.paragraphs = [_PLATFORM_PLACEHOLDER]
+        draft = generate_prose(title, up, client) if client is not None else []
+        base.paragraphs = [*draft, _PLATFORM_NOTE]
         return base
     if category in {Cat.UP_PLAN, Cat.UP_GRAFIK, Cat.UP_MODULES, Cat.UP_COMP}:
         table = _table_for(category, up)
@@ -92,8 +94,10 @@ def _section_content(number: str, title: str, category: Cat, up: UpPlan, client:
             return base
         base.paragraphs = [GAP_MARKER]  # нет данных УП
         return base
+    # Cat.GAP — раздел для методиста: даём общий черновик (если есть LLM) + явную пометку.
     base.kind = "paragraphs"
-    base.paragraphs = [GAP_MARKER]  # Cat.GAP
+    draft = generate_prose(title, up, client) if client is not None else []
+    base.paragraphs = [*draft, _GAP_NOTE]
     return base
 
 

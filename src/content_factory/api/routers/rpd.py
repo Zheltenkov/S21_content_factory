@@ -673,11 +673,11 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
 <style>
  :root{{--accent:#0e8f6f;--ink:#15221d;--muted:#5c6b64;--line:#dde5e1;--soft:#e4f5ee;--gap:#a86616;--gapsoft:#f9efd9}}
  *{{box-sizing:border-box}}
- body{{font-family:system-ui,'Segoe UI',sans-serif;margin:0;background:#f4f7f5;color:var(--ink);padding:24px}}
- .wrap{{max-width:1120px;margin:0 auto}}
+ body{{font-family:system-ui,'Segoe UI',sans-serif;margin:0;background:#f4f7f5;color:var(--ink);padding:20px 28px}}
+ .wrap{{max-width:1600px;margin:0 auto}}
  a.back{{color:var(--accent);text-decoration:none;font-size:.9rem}}
  h1{{font-size:1.35rem;margin:.4rem 0 .1rem}} .sub{{color:var(--muted);margin:0 0 18px;font-size:.9rem}}
- .grid{{display:grid;grid-template-columns:300px 1fr;gap:18px;align-items:start}}
+ .grid{{display:grid;grid-template-columns:270px minmax(0,1fr);gap:18px;align-items:start}}
  @media (max-width:820px){{.grid{{grid-template-columns:1fr}}}}
  .nav{{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:74vh;overflow-y:auto}}
  .navitem{{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line);text-decoration:none;color:var(--ink)}}

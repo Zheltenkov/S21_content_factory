@@ -63,9 +63,9 @@ def test_boilerplate_is_kept(tmp_path: Path) -> None:
 
 def test_prose_and_platform_and_gaps_are_marked(tmp_path: Path) -> None:
     paragraphs, _cells = _render(tmp_path)
-    assert "[Будет сгенерировано]" in paragraphs  # актуальность/цели — под генерацию
-    assert "Вставьте скрин" in paragraphs  # примеры/оценка — скрин с платформы
-    assert GAP_MARKER in paragraphs  # оценочные/разработчики — пробел методисту
+    assert "[Будет сгенерировано]" in paragraphs  # актуальность/цели — под генерацию (без LLM)
+    assert "скрин" in paragraphs.lower()  # примеры/оценка — скрин с платформы
+    assert "Методист" in paragraphs  # оценочные/разработчики — пометка методисту
 
 
 def test_no_comments_leak_into_output(tmp_path: Path) -> None:
