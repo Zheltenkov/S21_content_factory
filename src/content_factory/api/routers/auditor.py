@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -1696,7 +1697,8 @@ def _extract_archive(archive_path: Path, target_dir: Path) -> None:
         with zipfile.ZipFile(archive_path) as archive:
             for member in archive.infolist():
                 _ensure_safe_member(target_dir, member.filename)
-            archive.extractall(target_dir)
+            for member in archive.infolist():
+                _extract_zip_member(archive, member, target_dir)
         return
     if suffixes.endswith((".tar", ".tar.gz", ".tgz")):
         with tarfile.open(archive_path) as archive:
@@ -1717,6 +1719,46 @@ def _extract_archive(archive_path: Path, target_dir: Path) -> None:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return
     raise HTTPException(status_code=400, detail="Поддерживаются ZIP, TAR, TAR.GZ и RAR архивы")
+
+
+_MAX_PATH_COMPONENT_BYTES = 255  # ext4/most filesystems cap a single name at 255 bytes
+
+
+def _truncate_component(component: str) -> str:
+    """Shorten one path component to the filesystem byte limit, keeping any extension and a short
+    content hash so two distinct long names never collide after truncation."""
+    if len(component.encode("utf-8")) <= _MAX_PATH_COMPONENT_BYTES:
+        return component
+    stem, dot, ext = component.rpartition(".")
+    if not dot:
+        stem, ext = component, ""
+    else:
+        ext = "." + ext.encode("utf-8")[:32].decode("utf-8", "ignore")
+    digest = hashlib.sha1(component.encode("utf-8")).hexdigest()[:8]
+    budget = _MAX_PATH_COMPONENT_BYTES - len(ext.encode("utf-8")) - 9  # "_" + 8 hex chars
+    stem = stem.encode("utf-8")[: max(1, budget)].decode("utf-8", "ignore")
+    return f"{stem}_{digest}{ext}"
+
+
+def _sanitize_member_path(member_name: str) -> str:
+    """Map an archive member path to a relative path whose components fit the filesystem limit."""
+    parts = [part for part in member_name.replace("\\", "/").split("/") if part not in ("", ".")]
+    return "/".join(_truncate_component(part) for part in parts)
+
+
+def _extract_zip_member(archive: zipfile.ZipFile, member: zipfile.ZipInfo, target_dir: Path) -> None:
+    """Extract one zip member, truncating any over-long component so a single unreadable-name file
+    (e.g. a long Cyrillic materials doc) cannot abort the whole branch with ENAMETOOLONG."""
+    rel = _sanitize_member_path(member.filename)
+    if not rel:
+        return
+    dest = target_dir / rel
+    if member.is_dir():
+        dest.mkdir(parents=True, exist_ok=True)
+        return
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with archive.open(member) as source, dest.open("wb") as out:
+        shutil.copyfileobj(source, out)
 
 
 def _ensure_safe_member(root: Path, member_name: str) -> None:
