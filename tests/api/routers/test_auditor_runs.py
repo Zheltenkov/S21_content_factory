@@ -66,7 +66,7 @@ def test_render_recent_runs_lists_newest_first_with_links_and_delete() -> None:
     html = auditor._render_recent_runs()
 
     assert "Недавние проверки" in html
-    assert html.index("new") < html.index("old")  # newest first
+    assert html.index("/app/auditor/run/NEW") < html.index("/app/auditor/run/OLD")  # newest first
     assert "/app/auditor/run/NEW" in html
     assert "/app/auditor/run/NEW/delete" in html  # per-row delete control
     assert "⚠ 3" in html and "major: 2" in html  # verdict + severity for the run with findings
@@ -93,6 +93,21 @@ def test_render_recent_runs_escapes_names() -> None:
     html = auditor._render_recent_runs()
     assert "<script>x</script>" not in html
     assert "&lt;script&gt;" in html
+
+
+def test_recent_runs_panel_has_search_and_sort_controls() -> None:
+    _persist("u", "R1", {"input_path": "alpha", "findings_total": 3, "by_severity": {"major": 1, "minor": 2}})
+
+    html = auditor._render_recent_runs()
+
+    assert 'class="filter-panel recent-panel"' in html and 'data-recent="runs"' in html
+    assert "recent-search" in html  # filter by name
+    assert 'data-sort="name"' in html and 'data-sort="date"' in html and 'data-sort="errors"' in html
+    # each row carries the sortable/filterable keys
+    assert 'class="recent-row"' in html
+    assert 'data-name="alpha"' in html  # lowercased for search
+    assert 'data-errors="3"' in html  # findings count drives the "errors" sort
+    assert "data-ts=" in html
 
 
 def test_find_single_run_is_global() -> None:

@@ -67,6 +67,22 @@ def test_summary_renders_rows_drilldown_links_and_skips() -> None:
     assert "notes.docx" in html and "не архив" in html
 
 
+def test_recent_branches_panel_has_controls_and_row_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(auditor._BRANCH_RUNS, "BR", _fake_branch_report())  # 2 completed, 1 failed
+    monkeypatch.setitem(
+        auditor._BRANCH_CREATED, "BR", {"archive_name": "DSB1.zip", "created_at": "2026-08-18T10:00:00"}
+    )
+
+    html = auditor._render_recent_branches()
+
+    assert 'data-recent="branches"' in html
+    assert "recent-search" in html
+    assert 'data-sort="name"' in html and 'data-sort="date"' in html and 'data-sort="errors"' in html
+    assert 'data-name="dsb1.zip"' in html  # lowercased for search
+    assert 'data-errors="1"' in html  # failed-project count drives the "errors" sort
+    assert 'data-ts="2026-08-18T10:00:00"' in html
+
+
 def test_summary_escapes_project_names() -> None:
     report = BranchReport(
         projects=[BranchProjectResult(name="<script>x</script>.zip", status="failed", error="e")],

@@ -108,9 +108,10 @@ async def render_auditor_page(request: Request) -> HTMLResponse:
     web_app = _load_auditor_web_app()
     html = web_app.render_page(_UI_REPORTS.get(state_key), state)
     page = _rewrite_auditor_page_html(html)
-    page = page.replace(
-        "<!--RECENT_BRANCHES_SLOT-->", _render_recent_branches() + _render_recent_runs(), 1
-    )
+    recent_html = _render_recent_branches() + _render_recent_runs()
+    if recent_html:
+        recent_html += _RECENT_PANEL_SCRIPT  # client-side search/sort for both panels
+    page = page.replace("<!--RECENT_BRANCHES_SLOT-->", recent_html, 1)
     return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
 
@@ -871,6 +872,77 @@ def _ensure_branches_loaded() -> None:
     _load_persisted_runs()
 
 
+_RECENT_SORT_BTN_STYLE = (
+    "border:1px solid #cfe0da;background:#fff;color:#2a3b36;border-radius:999px;"
+    "padding:4px 10px;font:12px system-ui;cursor:pointer;"
+)
+_RECENT_SEARCH_STYLE = (
+    "height:30px;border:1px solid #cfe0da;border-radius:999px;padding:0 12px;"
+    "font:13px system-ui;outline:none;min-width:150px;"
+)
+_RECENT_LIST_STYLE = "list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;"
+
+
+def _recent_panel_head(title: str) -> str:
+    """Toolbar (search by name + sort by name/date/errors) shared by both recent panels."""
+    from html import escape
+
+    return (
+        '<div class="recent-head" style="display:flex;justify-content:space-between;align-items:center;'
+        'gap:12px;margin-bottom:8px;flex-wrap:wrap;">'
+        f'<div style="font-weight:700;">{escape(title)}</div>'
+        '<div class="recent-controls" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
+        f'<input type="search" class="recent-search" placeholder="Поиск по названию…" style="{_RECENT_SEARCH_STYLE}">'
+        f'<button type="button" class="recent-sort" data-sort="name" style="{_RECENT_SORT_BTN_STYLE}">Название</button>'
+        f'<button type="button" class="recent-sort" data-sort="date" style="{_RECENT_SORT_BTN_STYLE}">Дата</button>'
+        f'<button type="button" class="recent-sort" data-sort="errors" style="{_RECENT_SORT_BTN_STYLE}">Ошибки</button>'
+        "</div></div>"
+    )
+
+
+# Client-side filter/sort for both recent panels: search by name, sort by name/date/errors (toggling
+# direction on re-click). Reorders the existing <li> rows in place — no server round-trip.
+_RECENT_PANEL_SCRIPT = """
+<script>
+(function () {
+  function initPanel(panel) {
+    var list = panel.querySelector('.recent-list');
+    if (!list) return;
+    var rows = Array.prototype.slice.call(list.querySelectorAll('.recent-row'));
+    var search = panel.querySelector('.recent-search');
+    var state = { key: null, dir: 1 };
+    function applyFilter() {
+      var q = (search && search.value || '').trim().toLowerCase();
+      rows.forEach(function (r) {
+        var name = r.getAttribute('data-name') || '';
+        r.style.display = (!q || name.indexOf(q) !== -1) ? '' : 'none';
+      });
+    }
+    function sortBy(key) {
+      state.dir = (state.key === key) ? -state.dir : 1;
+      state.key = key;
+      rows.slice().sort(function (a, b) {
+        if (key === 'errors') return ((+a.getAttribute('data-errors') || 0) - (+b.getAttribute('data-errors') || 0)) * state.dir;
+        if (key === 'date') { var da = a.getAttribute('data-ts') || '', db = b.getAttribute('data-ts') || ''; return (da < db ? -1 : da > db ? 1 : 0) * state.dir; }
+        return (a.getAttribute('data-name') || '').localeCompare(b.getAttribute('data-name') || '') * state.dir;
+      }).forEach(function (r) { list.appendChild(r); });
+      panel.querySelectorAll('.recent-sort').forEach(function (btn) {
+        var active = btn.getAttribute('data-sort') === key;
+        btn.style.fontWeight = active ? '700' : '400';
+        btn.textContent = btn.textContent.replace(/ [\\u25B2\\u25BC]$/, '') + (active ? (state.dir > 0 ? ' \\u25B2' : ' \\u25BC') : '');
+      });
+    }
+    if (search) search.addEventListener('input', applyFilter);
+    panel.querySelectorAll('.recent-sort').forEach(function (btn) {
+      btn.addEventListener('click', function () { sortBy(btn.getAttribute('data-sort')); });
+    });
+  }
+  document.querySelectorAll('.recent-panel').forEach(initPanel);
+})();
+</script>
+"""
+
+
 def _render_recent_branches() -> str:
     """A compact 'recent branches' panel for the main auditor page, so a finished branch run is
     findable after a refresh/restart even without its URL. Empty string when there are none."""
@@ -886,12 +958,16 @@ def _render_recent_branches() -> str:
     items.sort(key=lambda item: item[1].get("created_at", ""), reverse=True)
     rows = []
     for branch_id, info, report in items[:_MAX_BRANCH_RUNS]:
-        name = escape(info.get("archive_name") or "Ветка")
-        created = escape((info.get("created_at") or "").replace("T", " ")[:16])
+        raw_name = info.get("archive_name") or "Ветка"
+        name = escape(raw_name)
+        created_raw = info.get("created_at") or ""
+        created = escape(created_raw.replace("T", " ")[:16])
         link = f"/app/auditor/branch/{branch_id}"
         delete_action = f"/app/auditor/branch/{branch_id}/delete"
         rows.append(
-            '<li style="display:flex;align-items:center;justify-content:space-between;gap:12px;">'
+            f'<li class="recent-row" data-name="{escape(raw_name.lower(), quote=True)}" '
+            f'data-ts="{escape(created_raw, quote=True)}" data-errors="{report.failed_count}" '
+            'style="display:flex;align-items:center;justify-content:space-between;gap:12px;">'
             f'<span><a href="{link}" style="color:#0e8f6f;text-decoration:none;font-weight:600;">{name}</a>'
             f'<span style="color:#8a9691;font-size:.85rem;"> · {report.completed_count} проверено · '
             f"{report.failed_count} с ошибкой · {created}</span></span>"
@@ -901,9 +977,9 @@ def _render_recent_branches() -> str:
             'cursor:pointer;font-size:1.15rem;line-height:1;">&times;</button></form></li>'
         )
     return (
-        '<section class="filter-panel" style="margin-top:16px;">'
-        '<div style="font-weight:700;margin-bottom:8px;">Недавние ветки</div>'
-        f'<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;">{"".join(rows)}</ul>'
+        '<section class="filter-panel recent-panel" data-recent="branches" style="margin-top:16px;">'
+        f"{_recent_panel_head('Недавние ветки')}"
+        f'<ul class="recent-list" style="{_RECENT_LIST_STYLE}">{"".join(rows)}</ul>'
         "</section>"
     )
 
@@ -1007,14 +1083,18 @@ def _render_recent_runs() -> str:
     rows = []
     for meta in runs[:_MAX_RECENT_RUNS_PANEL]:
         run_id = escape(str(meta.get("run_id", "")))
-        name = escape(str(meta.get("name") or "Проверка"))
-        created = escape(str(meta.get("created_at") or "").replace("T", " ")[:16])
-        verdict, _findings, severity = _project_verdict(meta.get("summary"))
+        raw_name = str(meta.get("name") or "Проверка")
+        name = escape(raw_name)
+        created_raw = str(meta.get("created_at") or "")
+        created = escape(created_raw.replace("T", " ")[:16])
+        verdict, findings, severity = _project_verdict(meta.get("summary"))
         detail = escape(verdict) + (f" · {escape(severity)}" if severity else "")
         link = f"/app/auditor/run/{run_id}"
         delete_action = f"/app/auditor/run/{run_id}/delete"
         rows.append(
-            '<li style="display:flex;align-items:center;justify-content:space-between;gap:12px;">'
+            f'<li class="recent-row" data-name="{escape(raw_name.lower(), quote=True)}" '
+            f'data-ts="{escape(created_raw, quote=True)}" data-errors="{findings}" '
+            'style="display:flex;align-items:center;justify-content:space-between;gap:12px;">'
             f'<span><a href="{link}" style="color:#0e8f6f;text-decoration:none;font-weight:600;">{name}</a>'
             f'<span style="color:#8a9691;font-size:.85rem;"> · {detail} · {created}</span></span>'
             f'<form method="post" action="{delete_action}" style="margin:0;" '
@@ -1023,9 +1103,9 @@ def _render_recent_runs() -> str:
             'cursor:pointer;font-size:1.15rem;line-height:1;">&times;</button></form></li>'
         )
     return (
-        '<section class="filter-panel" style="margin-top:16px;">'
-        '<div style="font-weight:700;margin-bottom:8px;">Недавние проверки</div>'
-        f'<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;">{"".join(rows)}</ul>'
+        '<section class="filter-panel recent-panel" data-recent="runs" style="margin-top:16px;">'
+        f"{_recent_panel_head('Недавние проверки')}"
+        f'<ul class="recent-list" style="{_RECENT_LIST_STYLE}">{"".join(rows)}</ul>'
         "</section>"
     )
 
