@@ -63,7 +63,7 @@ def test_render_recent_runs_lists_newest_first_with_links_and_delete() -> None:
     _persist("u", "NEW", {"input_path": "new", "findings_total": 3, "by_severity": {"major": 2, "minor": 1}})
     # persist inserts newest at the front, so NEW is already ahead of OLD
 
-    html = auditor._render_recent_runs("u")
+    html = auditor._render_recent_runs()
 
     assert "Недавние проверки" in html
     assert html.index("new") < html.index("old")  # newest first
@@ -73,15 +73,33 @@ def test_render_recent_runs_lists_newest_first_with_links_and_delete() -> None:
     assert "✓ чисто" in html  # the clean run
 
 
-def test_render_recent_runs_empty_for_unknown_user() -> None:
-    assert auditor._render_recent_runs("nobody") == ""
+def test_render_recent_runs_is_global_across_users() -> None:
+    # runs are shared like branches: the panel merges every user's recent runs, newest first
+    _persist("u1", "ALPHA", {"input_path": "alpha", "created_at": "a", "findings_total": 0, "by_severity": {}})
+    _persist("u2", "BETA", {"input_path": "beta", "findings_total": 0, "by_severity": {}})
+
+    html = auditor._render_recent_runs()
+
+    assert "alpha" in html and "beta" in html
+    assert "/app/auditor/run/ALPHA" in html and "/app/auditor/run/BETA" in html
+
+
+def test_render_recent_runs_empty_when_no_runs() -> None:
+    assert auditor._render_recent_runs() == ""
 
 
 def test_render_recent_runs_escapes_names() -> None:
     _persist("u", "R", {"input_path": "<script>x</script>", "findings_total": 0, "by_severity": {}})
-    html = auditor._render_recent_runs("u")
+    html = auditor._render_recent_runs()
     assert "<script>x</script>" not in html
     assert "&lt;script&gt;" in html
+
+
+def test_find_single_run_is_global() -> None:
+    _persist("owner", "Gid", {"input_path": "x", "findings_total": 0, "by_severity": {}})
+    found = auditor._find_single_run("Gid")
+    assert found is not None and found["run_id"] == "Gid"
+    assert auditor._find_single_run("missing") is None
 
 
 def test_evict_old_single_runs_caps_and_reclaims_dirs() -> None:
@@ -165,6 +183,37 @@ def run_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     app = FastAPI()
     app.include_router(auditor.page_router)
     return TestClient(app)
+
+
+def _write_real_report(run_dir: Path) -> None:
+    from datetime import UTC, datetime
+
+    from content_factory.audit.domain import AuditReport, RunSummary
+
+    report = AuditReport(
+        summary=RunSummary(started_at=datetime.now(UTC), input_path="proj", findings_total=0),
+        units=[], entities=[], findings=[],
+    )
+    (run_dir / "report.json").write_text(report.model_dump_json(), encoding="utf-8")
+
+
+def test_open_run_is_global_across_users(run_client: TestClient) -> None:
+    # a run created under a DIFFERENT user is openable by anyone (shared like branches)
+    run_dir = _persist("other_user", "X1", {"input_path": "proj", "findings_total": 0, "by_severity": {}})
+    _write_real_report(run_dir)
+
+    resp = run_client.get("/app/auditor/run/X1")
+    assert resp.status_code == 200  # not 404 — the run belongs to another user but is still visible
+    assert run_dir.exists()
+
+
+def test_delete_run_is_global_across_users(run_client: TestClient) -> None:
+    run_dir = _persist("other_user", "D1", {"input_path": "proj", "findings_total": 0, "by_severity": {}})
+
+    resp = run_client.post("/app/auditor/run/D1/delete", follow_redirects=False)
+    assert resp.status_code == 303
+    assert auditor._find_single_run("D1") is None  # removed from another user's bucket
+    assert not run_dir.exists()  # its report dir reclaimed
 
 
 def test_run_upload_returns_an_id_and_stashes_the_archive(run_client: TestClient) -> None:

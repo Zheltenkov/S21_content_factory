@@ -87,7 +87,8 @@ _RECENT_RUNS: dict[str, list[dict[str, Any]]] = {}
 # The report dir backing the currently-shown (_UI_REPORTS) report per user, so the main page's
 # downloads keep targeting it even after a branch/old-run view mutated state.report_dir.
 _UI_REPORT_DIR: dict[str, Path] = {}
-_MAX_SINGLE_RUNS = 12
+_MAX_SINGLE_RUNS = 12  # per-user disk retention cap
+_MAX_RECENT_RUNS_PANEL = 60  # runs shown in the shared 'recent runs' panel (across all users)
 _RUN_META_FILE = "run_meta.json"
 
 
@@ -108,7 +109,7 @@ async def render_auditor_page(request: Request) -> HTMLResponse:
     html = web_app.render_page(_UI_REPORTS.get(state_key), state)
     page = _rewrite_auditor_page_html(html)
     page = page.replace(
-        "<!--RECENT_BRANCHES_SLOT-->", _render_recent_branches() + _render_recent_runs(state_key), 1
+        "<!--RECENT_BRANCHES_SLOT-->", _render_recent_branches() + _render_recent_runs(), 1
     )
     return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
@@ -223,9 +224,8 @@ async def open_auditor_run(request: Request, run_id: str) -> HTMLResponse:
 
     user = await validate_request_user(request)
     _ensure_branches_loaded()
-    state_key, state = _auditor_page_state(user)
-    with _UI_LOCK:
-        meta = next((item for item in _RECENT_RUNS.get(state_key, []) if item.get("run_id") == run_id), None)
+    _state_key, state = _auditor_page_state(user)
+    meta = _find_single_run(run_id)  # shared across users, like branch runs
     if meta is None:
         raise HTTPException(status_code=404, detail="Проверка не найдена или устарела")
     report_dir = Path(str(meta.get("report_dir") or ""))
@@ -259,18 +259,20 @@ async def open_auditor_run(request: Request, run_id: str) -> HTMLResponse:
 async def delete_auditor_run(request: Request, run_id: str) -> RedirectResponse:
     """Remove one single-project run from the recent list and reclaim its report dir."""
 
-    user = await validate_request_user(request)
+    await validate_request_user(request)
     _ensure_branches_loaded()
-    state_key, _state = _auditor_page_state(user)
     with _UI_LOCK:
-        runs = _RECENT_RUNS.get(state_key, [])
-        meta = next((item for item in runs if item.get("run_id") == run_id), None)
-        if meta is not None:
-            runs.remove(meta)
-            shutil.rmtree(Path(str(meta.get("report_dir") or "")), ignore_errors=True)
-            if _UI_REPORT_DIR.get(state_key) == Path(str(meta.get("report_dir") or "")):
-                _UI_REPORT_DIR.pop(state_key, None)
-                _UI_REPORTS.pop(state_key, None)
+        for owner_key, runs in _RECENT_RUNS.items():
+            meta = next((item for item in runs if item.get("run_id") == run_id), None)
+            if meta is None:
+                continue
+            runs.remove(meta)  # shared: delete any user's run, like a branch run
+            report_dir = Path(str(meta.get("report_dir") or ""))
+            shutil.rmtree(report_dir, ignore_errors=True)
+            if _UI_REPORT_DIR.get(owner_key) == report_dir:
+                _UI_REPORT_DIR.pop(owner_key, None)
+                _UI_REPORTS.pop(owner_key, None)
+            break
     return RedirectResponse("/app/auditor", status_code=303)
 
 
@@ -972,17 +974,38 @@ def _load_persisted_runs() -> None:
             _RECENT_RUNS[state_key] = metas[:_MAX_SINGLE_RUNS]
 
 
-def _render_recent_runs(state_key: str) -> str:
+def _find_single_run(run_id: str) -> dict[str, Any] | None:
+    """Locate a persisted single-project run by id across every user's store.
+
+    Single runs are shared like branch runs: any authenticated user can reopen or delete any run,
+    so lookups scan all per-user buckets rather than just the requester's."""
+    with _UI_LOCK:
+        for runs in _RECENT_RUNS.values():
+            for meta in runs:
+                if meta.get("run_id") == run_id:
+                    return meta
+    return None
+
+
+def _all_recent_runs_newest_first() -> list[dict[str, Any]]:
+    """Every user's recent runs merged into one list, newest first (shared 'recent runs' view)."""
+    with _UI_LOCK:
+        merged = [meta for runs in _RECENT_RUNS.values() for meta in runs]
+    merged.sort(key=lambda item: str(item.get("created_at", "")), reverse=True)
+    return merged
+
+
+def _render_recent_runs() -> str:
     """A compact 'recent runs' panel for the main auditor page, so a finished single audit is
-    findable after a refresh/restart even without its URL. Empty string when there are none."""
+    findable after a refresh/restart even without its URL. Shared across all users (like branch
+    runs); empty string when there are none."""
     from html import escape
 
-    with _UI_LOCK:
-        runs = list(_RECENT_RUNS.get(state_key, []))
+    runs = _all_recent_runs_newest_first()
     if not runs:
         return ""
     rows = []
-    for meta in runs[:_MAX_SINGLE_RUNS]:
+    for meta in runs[:_MAX_RECENT_RUNS_PANEL]:
         run_id = escape(str(meta.get("run_id", "")))
         name = escape(str(meta.get("name") or "Проверка"))
         created = escape(str(meta.get("created_at") or "").replace("T", " ")[:16])
