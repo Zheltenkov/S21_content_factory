@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import tarfile
+import tempfile
 import uuid
 import zipfile
 from dataclasses import dataclass, field
@@ -71,7 +73,7 @@ _BRANCH_UPLOADS: dict[str, dict[str, Any]] = {}
 # Same, for single-project runs — the "Архив проекта" card uploads on file-select (live %) like the
 # branch card, then the run consumes the upload_id instead of re-posting the file on submit.
 _RUN_UPLOADS: dict[str, dict[str, Any]] = {}
-_MAX_BRANCH_RUNS = 10
+_MAX_BRANCH_RUNS = 300
 _MAX_PENDING_UPLOADS = 10
 _BRANCH_META_FILE = "branch_meta.json"
 _BRANCH_JOB_FILE = "branch_job.json"
@@ -1104,6 +1106,55 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
 </div></body></html>"""
 
 
+def _render_branch_view(branch_id: str, report: Any) -> str:
+    """Branch-run final result: the consolidated findings dashboard when the full per-project
+    reports are still in memory; otherwise the degraded per-project verdict summary (e.g. after a
+    restart that persisted only the summary index)."""
+
+    with _UI_LOCK:
+        index_map = dict(_BRANCH_REPORTS.get(branch_id) or {})
+    projects = [
+        (project.name, index_map[index])
+        for index, project in enumerate(report.projects)
+        if project.status == "completed" and index in index_map
+    ]
+    if projects:
+        from content_factory.audit import web_rendering
+
+        # Reuse the single-view link rewrite so the shared /app prefix serves the logo asset and
+        # logout route (the consolidated page emits the same absolute /assets and /logout links).
+        return _rewrite_auditor_page_html(web_rendering.render_branch_dashboard(branch_id, projects, report.skipped))
+    return _render_branch_summary(branch_id, report)
+
+
+def _merged_branch_audit_report(branch_id: str, report: Any, only_branch: str | None = None) -> Any:
+    """One AuditReport spanning every completed project of the branch, each finding tagged with its
+    project name, for a consolidated CSV/XLSX export (reuses the single-report exporters).
+
+    ``only_branch`` scopes the export to a single project (the table's active project filter);
+    ``None`` keeps the whole branch."""
+
+    from datetime import UTC, datetime
+
+    from content_factory.audit.domain import AuditReport, RunSummary
+
+    with _UI_LOCK:
+        index_map = dict(_BRANCH_REPORTS.get(branch_id) or {})
+    findings: list[Any] = []
+    units: list[Any] = []
+    for index, project in enumerate(report.projects):
+        project_report = index_map.get(index)
+        if project.status != "completed" or project_report is None:
+            continue
+        if only_branch is not None and project.name != only_branch:
+            continue
+        for finding in getattr(project_report, "findings", []) or []:
+            findings.append(finding.model_copy(update={"branch": project.name}))
+        units.extend(getattr(project_report, "units", []) or [])
+    summary = RunSummary(started_at=datetime.now(UTC), input_path=branch_id, findings_total=len(findings))
+    return AuditReport(summary=summary, units=units, entities=[], findings=findings)
+
+
 def _run_branch_job(
     branch_id: str,
     branch_dir: Path,
@@ -1385,7 +1436,67 @@ async def get_auditor_branch_summary(request: Request, branch_id: str) -> HTMLRe
         report = _BRANCH_RUNS.get(branch_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Ветка не найдена или устарела")
-    return HTMLResponse(_render_branch_summary(branch_id, report), headers={"Cache-Control": "no-store"})
+    return HTMLResponse(_render_branch_view(branch_id, report), headers={"Cache-Control": "no-store"})
+
+
+_BRANCH_DOWNLOADS: dict[str, str] = {
+    "report.csv": "text/csv; charset=utf-8",
+    "report.xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+
+@page_router.get("/branch/{branch_id}/download")
+async def download_auditor_branch_report(
+    request: Request,
+    branch_id: str,
+    file_name: str = Query(alias="file"),
+    branch: str | None = Query(None),
+) -> Response:
+    """Consolidated CSV/XLSX across the branch, or scoped to one project via the ``branch`` filter.
+
+    ``branch`` mirrors the table's active project chip: absent → whole branch (all projects),
+    a project name → only that project's findings. Always carries the 'Ветка' column."""
+
+    await validate_request_user(request)
+    _ensure_branches_loaded()
+    media_type = _BRANCH_DOWNLOADS.get(file_name)
+    if media_type is None:
+        raise HTTPException(status_code=400, detail="Недопустимый файл отчёта")
+    with _UI_LOCK:
+        report = _BRANCH_RUNS.get(branch_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Ветка не найдена или устарела")
+    only_branch = branch if branch and branch != "all" else None
+
+    from content_factory.audit import exporters
+
+    merged = exporters._without_pass_findings(_merged_branch_audit_report(branch_id, report, only_branch))
+    scope = _branch_download_scope(only_branch)
+    with tempfile.TemporaryDirectory(prefix="branch_report_") as tmp_dir:
+        path = Path(tmp_dir) / file_name
+        if file_name == "report.csv":
+            exporters._write_csv(merged, path)
+        else:
+            exporters._write_xlsx(merged, path)
+        payload = path.read_bytes()
+    return Response(
+        content=payload,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{scope}_{file_name}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+def _branch_download_scope(only_branch: str | None) -> str:
+    """A short filesystem-safe stem for the download filename reflecting the export scope."""
+
+    if only_branch is None:
+        return "branch_all"
+    stem = os.path.splitext(only_branch)[0]
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", stem).strip("._-")
+    return safe[:48] or "project"
 
 
 @page_router.post("/branch/{branch_id}/delete")

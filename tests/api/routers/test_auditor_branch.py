@@ -123,6 +123,9 @@ class _FakeSummary:
 
 class _FakeReport:
     summary = _FakeSummary()
+    findings: list = []  # consolidated branch dashboard iterates report.findings
+    units: list = []
+    entities: list = []
 
 
 @pytest.fixture
@@ -436,3 +439,147 @@ def test_load_project_report_returns_none_without_artifact(tmp_path) -> None:
     assert auditor._load_project_report(BranchProjectResult(name="x", status="failed")) is None
     no_json = BranchProjectResult(name="x", status="completed", report_dir=str(tmp_path))
     assert auditor._load_project_report(no_json) is None
+
+
+def _audit_report_with_one_finding() -> object:
+    from datetime import UTC, datetime
+
+    from content_factory.audit.domain import (
+        AuditReport,
+        Criterion,
+        Finding,
+        RunSummary,
+        Severity,
+        Verdict,
+    )
+
+    finding = Finding(
+        finding_id="f",
+        unit_id="u",
+        branch=None,
+        criterion=Criterion.LINKS,
+        severity=Severity.MAJOR,
+        verdict=Verdict.FAIL,
+        confidence=0.9,
+        quote="url",
+        recommendation="fix",
+        checker_name="link_checker",
+    )
+    summary = RunSummary(started_at=datetime.now(UTC), input_path="in", findings_total=1)
+    return AuditReport(summary=summary, units=[], entities=[], findings=[finding])
+
+
+def test_branch_view_renders_consolidated_dashboard_when_reports_in_memory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    report = BranchReport(
+        projects=[BranchProjectResult(name="DSB1.zip", status="completed", report_dir="/out/0")],
+        skipped=[],
+    )
+    monkeypatch.setitem(auditor._BRANCH_REPORTS, "BR", {0: _audit_report_with_one_finding()})
+    html = auditor._render_branch_view("BR", report)
+
+    assert 'id="branch-chips"' in html  # consolidated dashboard, not the plain verdict table
+    assert 'data-branch-filter="DSB1.zip"' in html
+    assert "К исправлению" in html  # link_checker fail -> fix tier level
+    assert "Случаи по проектам" in html
+
+
+def test_branch_view_falls_back_to_summary_without_in_memory_reports() -> None:
+    report = BranchReport(
+        projects=[BranchProjectResult(name="DSB9.zip", status="completed", summary={"findings_total": 2, "by_severity": {"minor": 2}}, report_dir="/out/0")],
+        skipped=[],
+    )
+    auditor._BRANCH_REPORTS.pop("BR_FALLBACK", None)
+    html = auditor._render_branch_view("BR_FALLBACK", report)
+
+    assert 'id="branch-chips"' not in html  # no full findings -> degraded summary
+    assert "Аудит ветки" in html and "DSB9.zip" in html
+
+
+def test_consolidated_view_rewrites_logo_and_logout_for_app_prefix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    report = BranchReport(
+        projects=[BranchProjectResult(name="DSB1.zip", status="completed", report_dir="/out/0")],
+        skipped=[],
+    )
+    monkeypatch.setitem(auditor._BRANCH_REPORTS, "BR", {0: _audit_report_with_one_finding()})
+    html = auditor._render_branch_view("BR", report)
+
+    # topbar logo + logout are served under the shared /app/auditor mount, not the raw absolute paths
+    assert 'src="/static/assets/avatar-placeholder.jpg"' in html
+    assert 'src="/assets/avatar-placeholder.jpg"' not in html
+    assert 'href="/app/auditor/logout"' in html
+    assert 'href="/logout"' not in html
+    # the download links live under the branch mount and are left intact by the rewrite
+    assert "/app/auditor/branch/BR/download?file=report.csv" in html
+    assert "/app/auditor/branch/BR/download?file=report.xlsx" in html
+
+
+def test_branch_download_csv_is_consolidated_with_a_project_column(
+    monkeypatch: pytest.MonkeyPatch, branch_client: TestClient
+) -> None:
+    report = BranchReport(
+        projects=[BranchProjectResult(name="DSB1_UNIX.zip", status="completed", report_dir="/out/0")],
+        skipped=[],
+    )
+    monkeypatch.setitem(auditor._BRANCH_RUNS, "DLBR", report)
+    monkeypatch.setitem(auditor._BRANCH_REPORTS, "DLBR", {0: _audit_report_with_one_finding()})
+
+    resp = branch_client.get("/app/auditor/branch/DLBR/download?file=report.csv")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/csv")
+    assert "branch_all_report.csv" in resp.headers["content-disposition"]
+    body = resp.content.decode("utf-8-sig")
+    assert "Ветка" in body  # consolidated project column
+    assert "DSB1_UNIX.zip" in body  # finding tagged with its project name
+    assert "link_checker" in body
+
+
+def test_branch_download_scopes_to_a_single_project_via_filter(
+    monkeypatch: pytest.MonkeyPatch, branch_client: TestClient
+) -> None:
+    report = BranchReport(
+        projects=[
+            BranchProjectResult(name="DSB1_UNIX.zip", status="completed", report_dir="/out/0"),
+            BranchProjectResult(name="DSB2_Syntax.zip", status="completed", report_dir="/out/1"),
+        ],
+        skipped=[],
+    )
+    monkeypatch.setitem(auditor._BRANCH_RUNS, "DLBR3", report)
+    monkeypatch.setitem(
+        auditor._BRANCH_REPORTS,
+        "DLBR3",
+        {0: _audit_report_with_one_finding(), 1: _audit_report_with_one_finding()},
+    )
+
+    # active project chip -> export scoped to that one project
+    scoped = branch_client.get("/app/auditor/branch/DLBR3/download?file=report.csv&branch=DSB1_UNIX.zip")
+    assert scoped.status_code == 200
+    assert "DSB1_UNIX_report.csv" in scoped.headers["content-disposition"]
+    body = scoped.content.decode("utf-8-sig")
+    assert "DSB1_UNIX.zip" in body
+    assert "DSB2_Syntax.zip" not in body  # the other project is filtered out
+
+    # branch=all is the whole canvas (both projects present)
+    whole = branch_client.get("/app/auditor/branch/DLBR3/download?file=report.csv&branch=all")
+    whole_body = whole.content.decode("utf-8-sig")
+    assert "DSB1_UNIX.zip" in whole_body and "DSB2_Syntax.zip" in whole_body
+
+
+def test_branch_download_xlsx_and_bad_file_and_unknown_branch(
+    monkeypatch: pytest.MonkeyPatch, branch_client: TestClient
+) -> None:
+    report = BranchReport(
+        projects=[BranchProjectResult(name="DSB1.zip", status="completed", report_dir="/out/0")],
+        skipped=[],
+    )
+    monkeypatch.setitem(auditor._BRANCH_RUNS, "DLBR2", report)
+    monkeypatch.setitem(auditor._BRANCH_REPORTS, "DLBR2", {0: _audit_report_with_one_finding()})
+
+    ok = branch_client.get("/app/auditor/branch/DLBR2/download?file=report.xlsx")
+    assert ok.status_code == 200
+    assert ok.content[:2] == b"PK"  # a real zip-based xlsx
+    assert branch_client.get("/app/auditor/branch/DLBR2/download?file=evil.exe").status_code == 400
+    assert branch_client.get("/app/auditor/branch/nope/download?file=report.csv").status_code == 404
