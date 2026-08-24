@@ -1185,6 +1185,11 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
         if rows
         else '<p class="muted">В ветке не найдено ни одного проекта с README.</p>'
     )
+    all_button = (
+        f'<a class="all-branch" href="/app/auditor/branch/{branch_id}/all">▦ Аудит всей ветки</a>'
+        if report.completed_count
+        else ""
+    )
     return f"""<!DOCTYPE html>
 <html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Аудит ветки</title><link rel="stylesheet" href="/static/css/fonts.css">
@@ -1193,6 +1198,10 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
  .wrap{{max-width:1080px;margin:0 auto;}}
  h1{{font-size:1.5rem;margin:0 0 4px;}} .sub{{color:#5b6b66;margin:0 0 24px;}}
  a.back{{color:#0e8f6f;text-decoration:none;font-size:.9rem;}}
+ .head-row{{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:6px;}}
+ a.all-branch{{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:#10b981;color:#fff;
+   border-radius:999px;text-decoration:none;font-weight:600;font-size:.9rem;white-space:nowrap;}}
+ a.all-branch:hover{{background:#0e8f6f;}}
  table{{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);}}
  th,td{{text-align:left;padding:12px 16px;border-bottom:1px solid #eef2f0;font-size:.92rem;}}
  th{{background:#f0f4f2;font-weight:600;color:#3a4a45;}}
@@ -1202,7 +1211,10 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
  .skips h2{{font-size:1rem;margin:.2rem 0 .5rem;}} .skips li{{margin:.25rem 0;color:#5b5138;}}
 </style></head><body><div class="wrap">
 <a class="back" href="/app/auditor">← к аудитору</a>
-<h1>Аудит ветки</h1>
+<div class="head-row">
+  <h1>Аудит ветки</h1>
+  {all_button}
+</div>
 <p class="sub">Проверено проектов: <strong>{report.completed_count}</strong> ·
  с ошибкой: <strong>{report.failed_count}</strong> · пропущено: <strong>{len(report.skipped)}</strong></p>
 {table}
@@ -1210,25 +1222,52 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
 </div></body></html>"""
 
 
-def _render_branch_view(branch_id: str, report: Any) -> str:
-    """Branch-run final result: the consolidated findings dashboard when the full per-project
-    reports are still in memory; otherwise the degraded per-project verdict summary (e.g. after a
-    restart that persisted only the summary index)."""
-
+def _load_branch_projects(branch_id: str, report: Any) -> list[tuple[str, Any]]:
+    """(project_name, AuditReport) for every completed project — from the in-memory store when a
+    fresh run still holds it, else re-read from each project's report.json on disk (persisted runs
+    after a restart keep only the summary index in memory)."""
     with _UI_LOCK:
         index_map = dict(_BRANCH_REPORTS.get(branch_id) or {})
-    projects = [
-        (project.name, index_map[index])
-        for index, project in enumerate(report.projects)
-        if project.status == "completed" and index in index_map
-    ]
-    if projects:
-        from content_factory.audit import web_rendering
+    projects: list[tuple[str, Any]] = []
+    for index, project in enumerate(report.projects):
+        if project.status != "completed":
+            continue
+        project_report = index_map.get(index) or _load_project_report(project)
+        if project_report is not None:
+            projects.append((project.name, project_report))
+    return projects
 
-        # Reuse the single-view link rewrite so the shared /app prefix serves the logo asset and
-        # logout route (the consolidated page emits the same absolute /assets and /logout links).
-        return _rewrite_auditor_page_html(web_rendering.render_branch_dashboard(branch_id, projects, report.skipped))
+
+def _render_branch_view(branch_id: str, report: Any) -> str:
+    """Default branch view: the per-project verdict summary (with a link to the consolidated view)."""
     return _render_branch_summary(branch_id, report)
+
+
+def _render_branch_all(branch_id: str, report: Any) -> str:
+    """Consolidated 'whole branch' dashboard: one findings table across every project, with the
+    project filter plaque, criterion/severity filters, search and downloads. Loads per-project
+    reports from memory or disk; falls back to the summary when none can be read."""
+    projects = _load_branch_projects(branch_id, report)
+    if not projects:
+        return _render_branch_summary(branch_id, report)
+    from content_factory.audit import web_rendering
+
+    # Reuse the single-view link rewrite so the shared /app prefix serves the logo asset and logout
+    # route (the consolidated page emits the same absolute /assets and /logout links).
+    page = _rewrite_auditor_page_html(web_rendering.render_branch_dashboard(branch_id, projects, report.skipped))
+    return _inject_branch_all_back_link(page, branch_id)
+
+
+def _inject_branch_all_back_link(page: str, branch_id: str) -> str:
+    """Add a '← к списку проектов' control to the consolidated page's top action bar."""
+    back = (
+        f'<a class="link-button" href="/app/auditor/branch/{branch_id}" '
+        'style="background:#10b981;color:#fff;font-weight:600;">← к списку проектов</a>'
+    )
+    anchor = '<a class="link-button" href="#summary">Сводка</a>'
+    if anchor in page:
+        return page.replace(anchor, back + anchor, 1)
+    return page.replace('<main class="shell">', f'<main class="shell"><div style="margin:10px 0;">{back}</div>', 1)
 
 
 def _merged_branch_audit_report(branch_id: str, report: Any, only_branch: str | None = None) -> Any:
@@ -1236,24 +1275,19 @@ def _merged_branch_audit_report(branch_id: str, report: Any, only_branch: str | 
     project name, for a consolidated CSV/XLSX export (reuses the single-report exporters).
 
     ``only_branch`` scopes the export to a single project (the table's active project filter);
-    ``None`` keeps the whole branch."""
+    ``None`` keeps the whole branch. Reads per-project reports from memory or disk."""
 
     from datetime import UTC, datetime
 
     from content_factory.audit.domain import AuditReport, RunSummary
 
-    with _UI_LOCK:
-        index_map = dict(_BRANCH_REPORTS.get(branch_id) or {})
     findings: list[Any] = []
     units: list[Any] = []
-    for index, project in enumerate(report.projects):
-        project_report = index_map.get(index)
-        if project.status != "completed" or project_report is None:
-            continue
-        if only_branch is not None and project.name != only_branch:
+    for name, project_report in _load_branch_projects(branch_id, report):
+        if only_branch is not None and name != only_branch:
             continue
         for finding in getattr(project_report, "findings", []) or []:
-            findings.append(finding.model_copy(update={"branch": project.name}))
+            findings.append(finding.model_copy(update={"branch": name}))
         units.extend(getattr(project_report, "units", []) or [])
     summary = RunSummary(started_at=datetime.now(UTC), input_path=branch_id, findings_total=len(findings))
     return AuditReport(summary=summary, units=units, entities=[], findings=findings)
@@ -1541,6 +1575,20 @@ async def get_auditor_branch_summary(request: Request, branch_id: str) -> HTMLRe
     if report is None:
         raise HTTPException(status_code=404, detail="Ветка не найдена или устарела")
     return HTMLResponse(_render_branch_view(branch_id, report), headers={"Cache-Control": "no-store"})
+
+
+@page_router.get("/branch/{branch_id}/all")
+async def get_auditor_branch_all(request: Request, branch_id: str) -> HTMLResponse:
+    """Consolidated 'whole branch' dashboard — one findings table across every project of the branch
+    with the per-project filter plaque (reads reports from memory or disk)."""
+
+    await validate_request_user(request)
+    _ensure_branches_loaded()
+    with _UI_LOCK:
+        report = _BRANCH_RUNS.get(branch_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Ветка не найдена или устарела")
+    return HTMLResponse(_render_branch_all(branch_id, report), headers={"Cache-Control": "no-store"})
 
 
 _BRANCH_DOWNLOADS: dict[str, str] = {

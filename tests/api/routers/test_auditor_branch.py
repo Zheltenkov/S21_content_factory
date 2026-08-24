@@ -485,7 +485,7 @@ def _audit_report_with_one_finding() -> object:
     return AuditReport(summary=summary, units=[], entities=[], findings=[finding])
 
 
-def test_branch_view_renders_consolidated_dashboard_when_reports_in_memory(
+def test_branch_all_renders_consolidated_dashboard_from_memory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     report = BranchReport(
@@ -493,27 +493,50 @@ def test_branch_view_renders_consolidated_dashboard_when_reports_in_memory(
         skipped=[],
     )
     monkeypatch.setitem(auditor._BRANCH_REPORTS, "BR", {0: _audit_report_with_one_finding()})
-    html = auditor._render_branch_view("BR", report)
+    html = auditor._render_branch_all("BR", report)
 
-    assert 'id="branch-chips"' in html  # consolidated dashboard, not the plain verdict table
+    assert 'id="branch-chips"' in html  # consolidated dashboard with the project filter plaque
     assert 'data-branch-filter="DSB1.zip"' in html
     assert "К исправлению" in html  # link_checker fail -> fix tier level
     assert "Случаи по проектам" in html
+    assert "/app/auditor/branch/BR" in html  # back link to the per-project summary
 
 
-def test_branch_view_falls_back_to_summary_without_in_memory_reports() -> None:
+def test_branch_all_loads_reports_from_disk_when_not_in_memory(tmp_path) -> None:
+    report_dir = tmp_path / "proj0"
+    report_dir.mkdir()
+    (report_dir / "report.json").write_text(
+        _audit_report_with_one_finding().model_dump_json(),  # type: ignore[attr-defined]
+        encoding="utf-8",
+    )
+    report = BranchReport(
+        projects=[BranchProjectResult(name="DSKB.zip", status="completed", report_dir=str(report_dir))],
+        skipped=[],
+    )
+    auditor._BRANCH_REPORTS.pop("BR_DISK", None)  # nothing in memory -> must read report.json
+
+    html = auditor._render_branch_all("BR_DISK", report)
+    assert 'id="branch-chips"' in html
+    assert 'data-branch-filter="DSKB.zip"' in html
+    assert "К исправлению" in html
+
+
+def test_branch_view_is_the_summary_with_a_green_all_branch_button() -> None:
     report = BranchReport(
         projects=[BranchProjectResult(name="DSB9.zip", status="completed", summary={"findings_total": 2, "by_severity": {"minor": 2}}, report_dir="/out/0")],
         skipped=[],
     )
-    auditor._BRANCH_REPORTS.pop("BR_FALLBACK", None)
-    html = auditor._render_branch_view("BR_FALLBACK", report)
+    auditor._BRANCH_REPORTS.pop("BR_SUM", None)
+    html = auditor._render_branch_view("BR_SUM", report)
 
-    assert 'id="branch-chips"' not in html  # no full findings -> degraded summary
+    assert 'id="branch-chips"' not in html  # default view is the per-project summary
     assert "Аудит ветки" in html and "DSB9.zip" in html
+    # the green button links to the consolidated all-branch view
+    assert "/app/auditor/branch/BR_SUM/all" in html
+    assert "Аудит всей ветки" in html
 
 
-def test_consolidated_view_rewrites_logo_and_logout_for_app_prefix(
+def test_consolidated_all_view_rewrites_logo_and_logout_for_app_prefix(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     report = BranchReport(
@@ -521,7 +544,7 @@ def test_consolidated_view_rewrites_logo_and_logout_for_app_prefix(
         skipped=[],
     )
     monkeypatch.setitem(auditor._BRANCH_REPORTS, "BR", {0: _audit_report_with_one_finding()})
-    html = auditor._render_branch_view("BR", report)
+    html = auditor._render_branch_all("BR", report)
 
     # topbar logo + logout are served under the shared /app/auditor mount, not the raw absolute paths
     assert 'src="/static/assets/avatar-placeholder.jpg"' in html
@@ -582,6 +605,30 @@ def test_branch_download_scopes_to_a_single_project_via_filter(
     whole = branch_client.get("/app/auditor/branch/DLBR3/download?file=report.csv&branch=all")
     whole_body = whole.content.decode("utf-8-sig")
     assert "DSB1_UNIX.zip" in whole_body and "DSB2_Syntax.zip" in whole_body
+
+
+def test_branch_all_route_renders_consolidated_and_summary_links_to_it(
+    monkeypatch: pytest.MonkeyPatch, branch_client: TestClient
+) -> None:
+    report = BranchReport(
+        projects=[BranchProjectResult(name="DSB1.zip", status="completed", report_dir="/out/0")],
+        skipped=[],
+    )
+    monkeypatch.setitem(auditor._BRANCH_RUNS, "ALLBR", report)
+    monkeypatch.setitem(auditor._BRANCH_REPORTS, "ALLBR", {0: _audit_report_with_one_finding()})
+
+    # the default branch view is the summary and points at the consolidated view
+    summary = branch_client.get("/app/auditor/branch/ALLBR")
+    assert summary.status_code == 200
+    assert "/app/auditor/branch/ALLBR/all" in summary.text
+    assert 'id="branch-chips"' not in summary.text
+
+    # the /all route serves the consolidated dashboard with the project filter plaque
+    consolidated = branch_client.get("/app/auditor/branch/ALLBR/all")
+    assert consolidated.status_code == 200
+    assert 'id="branch-chips"' in consolidated.text
+    assert 'data-branch-filter="DSB1.zip"' in consolidated.text
+    assert branch_client.get("/app/auditor/branch/nope/all").status_code == 404
 
 
 def test_branch_download_xlsx_and_bad_file_and_unknown_branch(
