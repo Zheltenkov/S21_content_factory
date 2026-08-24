@@ -135,14 +135,17 @@ const table = document.getElementById("findings-table");
 const hideUnknown = document.getElementById("flt-hide-unknown");
 const criterionButtons = document.querySelectorAll("[data-criterion-filter]");
 const severityButtons = document.querySelectorAll("[data-severity-filter]");
+const branchButtons = document.querySelectorAll("[data-branch-filter]");
 const activeCriterionLabel = document.getElementById("active-criterion-label");
 const activeSeverityLabel = document.getElementById("active-severity-label");
+const activeBranchLabel = document.getElementById("active-branch-label");
 const activeColumnFilterLabel = document.getElementById("active-column-filter-label");
 const resultCount = document.getElementById("filter-result-count");
 const columnFilterButtons = table ? Array.from(table.querySelectorAll("[data-column-filter]")) : [];
 const columnFilterState = new Map();
 let activeCriterion = "all";
 let activeSeverity = "all";
+let activeBranch = "all";
 let activeColumnMenu = null;
 
 function rowValue(row, columnIndex) {
@@ -270,8 +273,9 @@ function applyFilters() {
   rows.forEach((row) => {
     const byCriterion = activeCriterion === "all" || row.dataset.criterion === activeCriterion;
     const bySeverity = activeSeverity === "all" || row.dataset.severity === activeSeverity;
+    const byBranch = activeBranch === "all" || row.dataset.branch === activeBranch;
     const byColumns = Array.from(columnFilterState.entries()).every(([columnIndex, selected]) => selected.has(rowValue(row, columnIndex)));
-    row.style.display = byCriterion && bySeverity && byColumns ? "" : "none";
+    row.style.display = byCriterion && bySeverity && byBranch && byColumns ? "" : "none";
   });
   updateEmptyState();
 }
@@ -283,6 +287,20 @@ criterionButtons.forEach((button) => {
     if (activeCriterionLabel) {
       const label = button.dataset.criterionLabel || "все";
       activeCriterionLabel.textContent = `Критерий: ${label}`;
+    }
+    applyFilters();
+    const findings = document.getElementById("findings");
+    if (findings) findings.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+branchButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    activeBranch = button.dataset.branchFilter || "all";
+    branchButtons.forEach((item) => item.classList.toggle("is-active", item === button));
+    if (activeBranchLabel) {
+      const label = activeBranch === "all" ? "все" : (button.dataset.branchLabel || activeBranch);
+      activeBranchLabel.textContent = `Проект: ${label}`;
     }
     applyFilters();
     const findings = document.getElementById("findings");

@@ -495,10 +495,10 @@ def test_branch_all_renders_consolidated_dashboard_from_memory(
     monkeypatch.setitem(auditor._BRANCH_REPORTS, "BR", {0: _audit_report_with_one_finding()})
     html = auditor._render_branch_all("BR", report)
 
-    assert 'id="branch-chips"' in html  # consolidated dashboard with the project filter plaque
+    assert "Проект — фильтр таблицы" in html  # standard dashboard + project filter plaque
     assert 'data-branch-filter="DSB1.zip"' in html
-    assert "К исправлению" in html  # link_checker fail -> fix tier level
-    assert "Случаи по проектам" in html
+    assert '<section id="summary" class="summary-strip">' in html  # exact single-project layout
+    assert ">Обоснование<" in html  # standard results table
     assert "/app/auditor/branch/BR" in html  # back link to the per-project summary
 
 
@@ -516,9 +516,9 @@ def test_branch_all_loads_reports_from_disk_when_not_in_memory(tmp_path) -> None
     auditor._BRANCH_REPORTS.pop("BR_DISK", None)  # nothing in memory -> must read report.json
 
     html = auditor._render_branch_all("BR_DISK", report)
-    assert 'id="branch-chips"' in html
+    assert "Проект — фильтр таблицы" in html
     assert 'data-branch-filter="DSKB.zip"' in html
-    assert "К исправлению" in html
+    assert '<section id="summary" class="summary-strip">' in html
 
 
 def test_branch_view_is_the_summary_with_a_green_all_branch_button() -> None:
@@ -623,10 +623,10 @@ def test_branch_all_route_renders_consolidated_and_summary_links_to_it(
     assert "/app/auditor/branch/ALLBR/all" in summary.text
     assert 'id="branch-chips"' not in summary.text
 
-    # the /all route serves the consolidated dashboard with the project filter plaque
+    # the /all route serves the standard dashboard with the project filter plaque
     consolidated = branch_client.get("/app/auditor/branch/ALLBR/all")
     assert consolidated.status_code == 200
-    assert 'id="branch-chips"' in consolidated.text
+    assert "Проект — фильтр таблицы" in consolidated.text
     assert 'data-branch-filter="DSB1.zip"' in consolidated.text
     assert branch_client.get("/app/auditor/branch/nope/all").status_code == 404
 

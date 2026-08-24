@@ -26,7 +26,6 @@ from content_factory.audit.report_formatting import (
     format_finding_explanation_html,
     format_finding_fragment,
 )
-from content_factory.audit.triage import is_fix_tier
 
 AUTH_COOKIE_NAME = "audit_auth"
 AVATAR_ROUTE = "/assets/avatar-placeholder.jpg"
@@ -536,7 +535,7 @@ def _render_finding_row(finding: Finding) -> str:
     explanation = format_finding_explanation_html(finding, _esc)
     fragment = format_finding_fragment(finding)
     return f"""
-<tr class="frow" data-criterion="{finding.criterion.value}" data-kind="{finding.issue_kind.value}" data-verdict="{finding.verdict.value}" data-severity="{finding.severity.value}">
+<tr class="frow" data-branch="{_esc(finding.branch or "")}" data-criterion="{finding.criterion.value}" data-kind="{finding.issue_kind.value}" data-verdict="{finding.verdict.value}" data-severity="{finding.severity.value}">
   <td>{_esc(CRITERION_LABELS[finding.criterion])}</td>
   <td>{_esc(ISSUE_KIND_LABELS[finding.issue_kind])}</td>
   <td>{_pill(VERDICT_LABELS[finding.verdict], f"pill-{finding.verdict.value}")}</td>
@@ -640,284 +639,96 @@ def _esc(value: str) -> str:
 # table across every project of the branch, extended with a project (branch) axis.
 # ---------------------------------------------------------------------------
 
-BRANCH_TABLE_COLUMNS: tuple[tuple[str, str], ...] = (
-    ("branch", "Проект"),
-    ("criterion", "Критерий"),
-    ("kind", "Тип"),
-    ("verdict", "Вердикт"),
-    ("severity", "Критичность"),
-    ("level", "Уровень"),
-    ("file", "Файл"),
-    ("line", "Строка"),
-    ("fragment", "Фрагмент"),
-    ("evidence", "Обоснование"),
-    ("source", "Источник"),
-    ("confidence", "Уверенность"),
-    ("module", "Модуль"),
-)
-
-_BRANCH_COLGROUP = "".join(f'<col class="col-{key}">' for key, _label in BRANCH_TABLE_COLUMNS)
-
-
-def _branch_tagged_cases(projects: Sequence[tuple[str, AuditReport]]) -> list[Finding]:
-    """Non-pass findings across all branch projects, each tagged with its project name."""
-
-    cases: list[Finding] = []
+def _merge_projects_report(branch_id: str, projects: Sequence[tuple[str, AuditReport]]) -> AuditReport:
+    """Merge all projects of a branch into one AuditReport: every non-pass finding tagged with its
+    project name, units concatenated, files_total summed. Fed to the standard dashboard so the whole
+    branch renders in the exact single-project layout."""
+    findings: list[Finding] = []
+    units: list[Any] = []
+    files_total = 0
     for name, report in projects:
         for finding in report.findings:
             if finding.verdict is Verdict.PASS:
                 continue
-            cases.append(finding.model_copy(update={"branch": name}))
-    return cases
-
-
-def _branch_level_pill(finding: Finding) -> str:
-    """Action tier for the reviewer: high-precision/actionable → fix, else review."""
-
-    if is_fix_tier(finding):
-        return _pill("К исправлению", "pill-fail")
-    return _pill("На проверку", "pill-info")
-
-
-def _render_branch_finding_row(finding: Finding) -> str:
-    project = finding.branch or ""
-    file_path = finding.location.file_path if finding.location else ""
-    line = str(finding.location.line_start or "") if finding.location else ""
-    explanation = format_finding_explanation_html(finding, _esc)
-    fragment = format_finding_fragment(finding)
-    return f"""
-<tr class="frow" data-branch="{_esc(project)}" data-criterion="{finding.criterion.value}" data-kind="{finding.issue_kind.value}" data-verdict="{finding.verdict.value}" data-severity="{finding.severity.value}">
-  <td class="mono">{_esc(project)}</td>
-  <td>{_esc(CRITERION_LABELS[finding.criterion])}</td>
-  <td>{_esc(ISSUE_KIND_LABELS[finding.issue_kind])}</td>
-  <td>{_pill(VERDICT_LABELS[finding.verdict], f"pill-{finding.verdict.value}")}</td>
-  <td>{_pill(SEVERITY_LABELS[finding.severity], f"pill-{finding.severity.value}")}</td>
-  <td>{_branch_level_pill(finding)}</td>
-  <td class="mono">{_esc(file_path)}</td>
-  <td class="mono">{_esc(line)}</td>
-  <td class="fragment">{_esc(fragment)}</td>
-  <td class="evidence">{explanation}</td>
-  <td class="source">{_esc(finding.source or "")}</td>
-  <td class="mono">{finding.confidence:.2f}</td>
-  <td class="mono">{_esc(finding.checker_name)}</td>
-</tr>"""
-
-
-def _render_branch_summary_strip(cases: list[Finding], project_count: int) -> str:
-    by_severity = Counter(finding.severity.value for finding in cases)
-    chips = "".join(
-        _severity_chip(severity, by_severity.get(severity.value, 0))
-        for severity in (Severity.CRITICAL, Severity.MAJOR, Severity.MINOR, Severity.INFO)
+            findings.append(finding.model_copy(update={"branch": name}))
+        units.extend(report.units or [])
+        files_total += report.summary.files_total
+    summary = projects[0][1].summary.model_copy(
+        update={"input_path": branch_id, "files_total": files_total, "findings_total": len(findings)}
     )
-    return f"""
-<section id="summary" class="summary-strip">
-  <div class="summary-main">
-    <span class="summary-number">{len(cases)}</span>
-    <span class="summary-text">случаев · {project_count} проектов</span>
-  </div>
-  <div class="severity-inline">{chips}</div>
-</section>"""
+    return AuditReport(summary=summary, units=units, entities=[], findings=findings)
 
 
-def _render_branch_chips(cases: list[Finding], projects: Sequence[tuple[str, AuditReport]]) -> str:
-    counts = Counter(finding.branch or "" for finding in cases)
+def _render_project_filters(report: AuditReport) -> str:
+    """'Проект — фильтр таблицы' plaque: one chip per project (+ Все), filtering the table on the
+    client. Renders nothing for a single-project report (findings carry no branch tag)."""
+    branches = [finding.branch for finding in report.findings if finding.branch]
+    if not branches:
+        return ""
+    counts = Counter(branches)
     buttons = [
-        '<button type="button" class="criterion-filter is-active" data-branch-filter="all">'
-        f'<span>Все проекты</span><span class="criterion-count">{len(cases)}</span></button>'
+        f"""
+<button type="button" class="criterion-filter is-active" data-branch-filter="all" data-branch-label="\u0432\u0441\u0435">
+  <span>\u0412\u0441\u0435 \u043f\u0440\u043e\u0435\u043a\u0442\u044b</span><span class="criterion-count">{len(branches)}</span>
+</button>
+"""
     ]
-    for name, _report in projects:
+    for name in sorted(counts):
         buttons.append(
-            f'<button type="button" class="criterion-filter" data-branch-filter="{_esc(name)}" title="{_esc(name)}">'
-            f'<span>{_esc(name)}</span><span class="criterion-count">{counts.get(name, 0)}</span></button>'
+            f"""
+<button type="button" class="criterion-filter" data-branch-filter="{_esc(name)}" data-branch-label="{_esc(name)}" title="{_esc(name)}">
+  <span>{_esc(name)}</span><span class="criterion-count">{counts[name]}</span>
+</button>
+"""
         )
     return f"""
 <section class="criteria-strip">
-  <div class="criteria-title">Проект — фильтр таблицы</div>
-  <div class="criteria-chips" id="branch-chips">
-{"".join(buttons)}
-  </div>
-</section>"""
+  <div class="criteria-title">\u041f\u0440\u043e\u0435\u043a\u0442 \u2014 \u0444\u0438\u043b\u044c\u0442\u0440 \u0442\u0430\u0431\u043b\u0438\u0446\u044b</div>
+  <div class="criteria-hint">\u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043f\u0440\u043e\u0435\u043a\u0442, \u0447\u0442\u043e\u0431\u044b \u043e\u0441\u0442\u0430\u0432\u0438\u0442\u044c \u0432 \u0442\u0430\u0431\u043b\u0438\u0446\u0435 \u0442\u043e\u043b\u044c\u043a\u043e \u0435\u0433\u043e \u0441\u043b\u0443\u0447\u0430\u0438.</div>
+  <div class="criteria-chips">{"".join(buttons)}</div>
+</section>
+"""
 
 
-def _render_branch_criterion_chips(cases: list[Finding]) -> str:
-    counts = Counter(finding.criterion.value for finding in cases)
-    buttons = [
-        '<button type="button" class="criterion-filter is-active" data-criterion-filter="all">'
-        f'<span>Все</span><span class="criterion-count">{len(cases)}</span></button>'
-    ]
-    for criterion in Criterion:
-        count = counts.get(criterion.value, 0)
-        if count == 0:
-            continue
-        buttons.append(
-            f'<button type="button" class="criterion-filter" data-criterion-filter="{criterion.value}" '
-            f'title="{_esc(CRITERION_LABELS[criterion])}">'
-            f'<span>{_esc(_criterion_short_label(criterion))}</span>'
-            f'<span class="criterion-count">{count}</span></button>'
-        )
-    return f"""
-<section class="criteria-strip">
-  <div class="criteria-title">Критерий — фильтр таблицы</div>
-  <div class="criteria-chips" id="criterion-chips">
-{"".join(buttons)}
-  </div>
-</section>"""
-
-
-def _render_branch_filter_bar(total: int, branch_id: str) -> str:
-    base = f"/app/auditor/branch/{quote(branch_id)}/download"
-    return f"""
+def _render_branch_filter_bar() -> str:
+    """Filter bar for the whole-branch dashboard: the standard chips plus a 'Проект' one."""
+    return """
 <section class="filter-bar" id="filter-bar">
-  <span class="filter-bar-label">Фильтры таблицы</span>
-  <span class="filter-chip" id="active-branch-label">Проект: все</span>
-  <span class="filter-chip" id="active-criterion-label">Критерий: все</span>
-  <span class="filter-chip" id="active-severity-label">Критичность: все</span>
-  <label class="check"><input type="checkbox" id="flt-hide-unknown"> Скрыть «нужна проверка»</label>
-  <input type="search" class="search-input" id="flt-search" placeholder="Поиск по тексту…">
-  <span class="filter-note" id="filter-result-count">видно: {total} из {total}</span>
-  <span class="dl-group" id="branch-downloads" data-base="{base}">
-    <span class="dl-label" id="dl-scope">Скачать (все проекты):</span>
-    <a class="link-button" data-file="report.xlsx" href="{base}?file=report.xlsx">XLSX</a>
-    <a class="link-button" data-file="report.csv" href="{base}?file=report.csv">CSV</a>
-  </span>
-</section>"""
+  <span class="filter-bar-label">\u0424\u0438\u043b\u044c\u0442\u0440\u044b \u0442\u0430\u0431\u043b\u0438\u0446\u044b</span>
+  <span class="filter-chip" id="active-branch-label">\u041f\u0440\u043e\u0435\u043a\u0442: \u0432\u0441\u0435</span>
+  <span class="filter-chip" id="active-criterion-label">\u041a\u0440\u0438\u0442\u0435\u0440\u0438\u0439: \u0432\u0441\u0435</span>
+  <span class="filter-chip" id="active-severity-label">\u041a\u0440\u0438\u0442\u0438\u0447\u043d\u043e\u0441\u0442\u044c: \u0432\u0441\u0435</span>
+  <span class="filter-chip" id="active-column-filter-label">\u041a\u043e\u043b\u043e\u043d\u043a\u0438: \u043d\u0435\u0442</span>
+  <label class="check"><input type="checkbox" id="flt-hide-unknown"> \u0421\u043a\u0440\u044b\u0442\u044c \u00ab\u043d\u0443\u0436\u043d\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430\u00bb</label>
+  <span class="filter-note" id="filter-result-count">\u0432\u0438\u0434\u043d\u043e: 0</span>
+</section>
+"""
 
 
-def _render_branch_distribution(cases: list[Finding]) -> str:
-    by_project = Counter(finding.branch or "" for finding in cases)
-    by_criterion = Counter(finding.criterion.value for finding in cases)
-    by_module = Counter(finding.checker_name for finding in cases)
-    criterion_labels = {criterion.value: CRITERION_LABELS[criterion] for criterion in Criterion}
+def _render_branch_downloads(branch_id: str) -> str:
+    """Consolidated CSV/XLSX for the whole branch (or the active project — the server honours the
+    ?branch= filter). Links hit the branch download route, which builds the merged report from disk."""
+    base = f"/app/auditor/branch/{quote(branch_id)}/download"
+    links = (("XLSX", "report.xlsx"), ("CSV", "report.csv"))
+    items = "\n".join(f'<a class="link-button" href="{base}?file={quote(name)}">{label}</a>' for label, name in links)
     return f"""
 <section class="section">
-  <div class="section-head"><h2>Распределение</h2><span class="muted">по объединённым проектам ветки</span></div>
-  <div class="grid-three">
-    <div class="panel"><label>Случаи по проектам</label>{_bars(by_project, {key: key for key in by_project})}</div>
-    <div class="panel"><label>Случаи по критериям</label>{_bars(by_criterion, criterion_labels)}</div>
-    <div class="panel"><label>Случаи по модулям</label>{_bars(by_module, {key: key for key in by_module})}</div>
-  </div>
-</section>"""
-
-
-def _render_branch_findings_table(cases: list[Finding]) -> str:
-    span = len(BRANCH_TABLE_COLUMNS)
-    headers = "\n".join(f"<th>{_esc(label)}</th>" for _key, label in BRANCH_TABLE_COLUMNS)
-    rows = "\n".join(_render_branch_finding_row(finding) for finding in cases)
-    if not rows:
-        rows = f'<tr><td colspan="{span}">По выбранным условиям случаев нет.</td></tr>'
-    rows += f'\n<tr id="no-match" class="no-match" style="display:none"><td colspan="{span}">Под выбранные фильтры ничего не попадает.</td></tr>'
-    return f"""
-<section id="findings" class="section">
-  <div class="section-head"><h2>Таблица результата</h2><span class="muted">одна строка — один найденный случай</span></div>
-  <div class="table-wrap">
-    <table id="findings-table" class="findings">
-      <colgroup>{_BRANCH_COLGROUP}</colgroup>
-      <thead><tr>
-{headers}
-      </tr></thead>
-      <tbody>{rows}</tbody>
-    </table>
-  </div>
-</section>"""
+  <div class="section-head"><h2>\u0424\u0430\u0439\u043b\u044b \u0441\u0432\u043e\u0434\u043d\u043e\u0433\u043e \u043e\u0442\u0447\u0451\u0442\u0430</h2><span class="muted">\u0432\u0441\u0435 \u043f\u0440\u043e\u0435\u043a\u0442\u044b \u0432\u0435\u0442\u043a\u0438 \u043e\u0434\u043d\u043e\u0439 \u0442\u0430\u0431\u043b\u0438\u0446\u0435\u0439</span></div>
+  <div class="downloads">{items}</div>
+</section>
+"""
 
 
 def _render_branch_skips(skipped: Sequence[Any]) -> str:
     if not skipped:
         return ""
     items = "".join(
-        f"<li><strong>{_esc(skip.name)}</strong> — {_esc(skip.message)}</li>" for skip in skipped
+        f"<li><strong>{_esc(skip.name)}</strong> \u2014 {_esc(skip.message)}</li>" for skip in skipped
     )
     return (
-        f'<section class="section"><div class="section-head"><h2>Пропущено ({len(skipped)})</h2></div>'
+        f'<section class="section"><div class="section-head"><h2>\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e ({len(skipped)})</h2></div>'
         f'<ul class="skips">{items}</ul></section>'
     )
-
-
-_BRANCH_EXTRA_STYLE = """
-<style>
-table { min-width: 2050px; }
-col.col-branch { width: 210px; }
-col.col-level { width: 140px; }
-.search-input { height: 34px; border: 1px solid var(--border-strong); border-radius: 999px; padding: 0 14px; background: var(--surface-strong); color: var(--text); font: 13px var(--font-sans); outline: none; min-width: 220px; }
-.search-input:focus { border-color: var(--accent); box-shadow: rgba(14,143,111,.14) 0 0 0 3px; }
-.dl-group { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
-.dl-label { font: 12px var(--font-sans); color: var(--muted); white-space: nowrap; }
-</style>
-"""
-
-_BRANCH_SCRIPT = """
-<script>
-(function () {
-  var state = { branch: 'all', criterion: 'all', severity: null, hideUnknown: false, q: '' };
-  var rows = Array.prototype.slice.call(document.querySelectorAll('#findings-table tbody tr.frow'));
-  var total = rows.length;
-
-  function apply() {
-    var q = state.q.toLowerCase();
-    var visible = 0;
-    rows.forEach(function (tr) {
-      var ok = (state.branch === 'all' || tr.dataset.branch === state.branch)
-        && (state.criterion === 'all' || tr.dataset.criterion === state.criterion)
-        && (!state.severity || tr.dataset.severity === state.severity)
-        && (!state.hideUnknown || tr.dataset.verdict !== 'unknown')
-        && (!q || tr.textContent.toLowerCase().indexOf(q) !== -1);
-      tr.style.display = ok ? '' : 'none';
-      if (ok) visible++;
-    });
-    var noMatch = document.getElementById('no-match');
-    if (noMatch) noMatch.style.display = visible ? 'none' : '';
-    document.getElementById('filter-result-count').textContent = 'видно: ' + visible + ' из ' + total;
-    document.getElementById('active-branch-label').textContent = 'Проект: ' + (state.branch === 'all' ? 'все' : state.branch);
-    var critBtn = document.querySelector('#criterion-chips .is-active span');
-    document.getElementById('active-criterion-label').textContent = 'Критерий: ' + (state.criterion === 'all' ? 'все' : (critBtn ? critBtn.textContent.toLowerCase() : 'все'));
-    document.getElementById('active-severity-label').textContent = 'Критичность: ' + (state.severity || 'все');
-    var dl = document.getElementById('branch-downloads');
-    if (dl) {
-      var base = dl.getAttribute('data-base');
-      var suffix = state.branch === 'all' ? '' : '&branch=' + encodeURIComponent(state.branch);
-      dl.querySelectorAll('a[data-file]').forEach(function (a) {
-        a.href = base + '?file=' + encodeURIComponent(a.getAttribute('data-file')) + suffix;
-      });
-      document.getElementById('dl-scope').textContent =
-        'Скачать (' + (state.branch === 'all' ? 'все проекты' : state.branch) + '):';
-    }
-  }
-
-  function bindChips(containerId, attr, key) {
-    var box = document.getElementById(containerId);
-    if (!box) return;
-    box.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-' + attr + ']');
-      if (!btn) return;
-      box.querySelectorAll('.criterion-filter').forEach(function (b) { b.classList.remove('is-active'); });
-      btn.classList.add('is-active');
-      state[key] = btn.getAttribute('data-' + attr);
-      apply();
-    });
-  }
-  bindChips('branch-chips', 'branch-filter', 'branch');
-  bindChips('criterion-chips', 'criterion-filter', 'criterion');
-
-  document.querySelectorAll('.severity-chip').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var s = btn.getAttribute('data-severity-filter');
-      if (state.severity === s) { state.severity = null; btn.classList.remove('is-active'); }
-      else {
-        document.querySelectorAll('.severity-chip').forEach(function (b) { b.classList.remove('is-active'); });
-        btn.classList.add('is-active');
-        state.severity = s;
-      }
-      apply();
-    });
-  });
-
-  var hide = document.getElementById('flt-hide-unknown');
-  if (hide) hide.addEventListener('change', function (e) { state.hideUnknown = e.target.checked; apply(); });
-  var search = document.getElementById('flt-search');
-  if (search) search.addEventListener('input', function (e) { state.q = e.target.value; apply(); });
-})();
-</script>
-"""
 
 
 def render_branch_dashboard(
@@ -925,30 +736,25 @@ def render_branch_dashboard(
     projects: Sequence[tuple[str, AuditReport]],
     skipped: Sequence[Any],
 ) -> str:
-    """Render the consolidated branch report: one findings dashboard across all projects.
-
-    ``projects`` is the ordered list of completed ``(project_name, AuditReport)`` pairs; each
-    finding is tagged with its project so the client-side project filter and the "по проектам"
-    distribution work. ``skipped`` carries the branch's skip list (name + reason message).
-    Self-contained HTML — the same page the attached сводный отчёт shows.
-    """
-
-    cases = _branch_tagged_cases(projects)
-    total = len(cases)
-    body = "".join(
+    """Consolidated whole-branch report in the exact single-project dashboard layout, fed one merged
+    AuditReport (every finding tagged with its project) plus a 'Проект — фильтр таблицы' plaque so a
+    reviewer can narrow the standard table to one project."""
+    merged = _merge_projects_report(branch_id, projects)
+    body = "\n".join(
         [
             _render_topbar(),
             '<main class="shell">',
-            _render_branch_summary_strip(cases, len(projects)),
-            _render_branch_chips(cases, projects),
-            _render_branch_criterion_chips(cases),
-            _render_branch_filter_bar(total, branch_id),
-            _render_branch_distribution(cases),
-            _render_branch_findings_table(cases),
+            _render_summary(merged),
+            _render_project_filters(merged),
+            _render_criterion_filters(merged),
+            _render_branch_filter_bar(),
+            _render_findings_table(merged.findings),
+            _render_branch_downloads(branch_id),
             _render_branch_skips(skipped),
             "</main>",
-            _BRANCH_SCRIPT,
+            _render_script(),
         ]
     )
-    head = _render_head("Аудит контента · Сводный отчёт") + _BRANCH_EXTRA_STYLE
+    head = _render_head("\u0410\u0443\u0434\u0438\u0442 \u043a\u043e\u043d\u0442\u0435\u043d\u0442\u0430 \u00b7 \u0421\u0432\u043e\u0434\u043d\u044b\u0439 \u043e\u0442\u0447\u0451\u0442")
     return f'<!doctype html><html lang="ru"><head>{head}</head><body>{body}</body></html>'
+
