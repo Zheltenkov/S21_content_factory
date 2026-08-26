@@ -1153,10 +1153,21 @@ def _project_verdict(summary: dict[str, Any] | None) -> tuple[str, int, str]:
 
 _ACTIVITY_CSS = {
     "активен": "active",
-    "застывает": "fading",
+    "затухает": "fading",
     "архив": "archived",
     "нет данных": "nodata",
 }
+
+_ACTIVITY_LEGEND = (
+    '<section class="actlegend"><ul>'
+    '<li><span class="act act-active">активен</span> — последняя сдача ≤ 90 дней назад '
+    "И ≥ 20 учеников за год.</li>"
+    '<li><span class="act act-fading">затухает</span> — сдачи в пределах года есть, '
+    "но условие «активен» не выполнено.</li>"
+    '<li><span class="act act-archived">архив</span> — последняя сдача &gt; 365 дней назад.</li>'
+    '<li><span class="act act-nodata">нет данных</span> — имя проекта не сматчилось с DWH.</li>'
+    "</ul></section>"
+)
 
 
 def _activity_cell(info: Any) -> tuple[str, str]:
@@ -1185,13 +1196,14 @@ def _render_branch_activity_bar(summary: Any) -> str:
     return (
         '<section class="actbar">'
         + metric(summary.active, "активных")
-        + metric(summary.fading, "застывают")
+        + metric(summary.fading, "затухают")
         + metric(summary.archived, "архив")
         + metric(summary.no_data, "нет данных")
         + '<div class="sep"></div>'
         + metric(f"{summary.students_last_365d:,}".replace(",", " "), "активных учеников за год")
         + f'<div class="src">актуальность по данным School&nbsp;21 DWH · {DWH_SNAPSHOT_DATE}</div>'
         + "</section>"
+        + _ACTIVITY_LEGEND
     )
 
 
@@ -1274,6 +1286,10 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
  .act-active{{background:#dcfce7;color:#166534;}} .act-fading{{background:#fef3c7;color:#92400e;}}
  .act-archived{{background:#e5e7eb;color:#4b5563;}} .act-nodata{{background:#f1f5f9;color:#94a3b8;}}
  .students{{font-variant-numeric:tabular-nums;font-weight:600;color:#1c2b27;}}
+ .actlegend{{margin:-8px 0 22px;font-size:.8rem;color:#5b6b66;}}
+ .actlegend ul{{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}}
+ .actlegend li{{display:flex;align-items:baseline;gap:8px;}}
+ .actlegend .act{{flex:0 0 auto;}}
 </style></head><body><div class="wrap">
 <a class="back" href="/app/auditor">← к аудитору</a>
 <div class="head-row">
