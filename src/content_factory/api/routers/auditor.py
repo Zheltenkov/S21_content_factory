@@ -1151,16 +1151,67 @@ def _project_verdict(summary: dict[str, Any] | None) -> tuple[str, int, str]:
     return (verdict, findings, severity)
 
 
+_ACTIVITY_CSS = {
+    "активен": "active",
+    "застывает": "fading",
+    "архив": "archived",
+    "нет данных": "nodata",
+}
+
+
+def _activity_cell(info: Any) -> tuple[str, str]:
+    """(activity badge html, students-per-year cell html) for one project's DWH activity."""
+
+    from html import escape
+
+    css = _ACTIVITY_CSS.get(info.activity, "nodata")
+    label = escape(info.activity)
+    if info.ambiguous:
+        label += " *"
+    badge = f'<span class="act act-{css}">{label}</span>'
+    students = f'<span class="students">{info.students_last_365d}</span>' if info.matched else '<span class="muted">—</span>'
+    return badge, students
+
+
+def _render_branch_activity_bar(summary: Any) -> str:
+    """High-level branch actuality banner: how many projects are live / fading / archived and the
+    total active students over the last year — the top-level report the head of audit asked for."""
+
+    from content_factory.audit.activity import DWH_SNAPSHOT_DATE
+
+    def metric(value: object, caption: str, extra: str = "") -> str:
+        return f'<div class="metric"{extra}><b>{value}</b><span>{caption}</span></div>'
+
+    return (
+        '<section class="actbar">'
+        + metric(summary.active, "активных")
+        + metric(summary.fading, "застывают")
+        + metric(summary.archived, "архив")
+        + metric(summary.no_data, "нет данных")
+        + '<div class="sep"></div>'
+        + metric(f"{summary.students_last_365d:,}".replace(",", " "), "активных учеников за год")
+        + f'<div class="src">актуальность по данным School&nbsp;21 DWH · {DWH_SNAPSHOT_DATE}</div>'
+        + "</section>"
+    )
+
+
 def _render_branch_summary(branch_id: str, report: Any) -> str:
     """Self-contained summary page: per-project verdicts (drill-down links) + the skip list."""
 
     from html import escape
 
+    from content_factory.audit import activity as _activity
+
+    activity_by_name = {project.name: _activity.lookup(project.name) for project in report.projects}
+    branch_activity = _activity.summarize_branch([project.name for project in report.projects])
+
     rows: list[str] = []
     for index, project in enumerate(report.projects):
+        act_badge, act_students = _activity_cell(activity_by_name[project.name])
         if project.status == "failed":
             rows.append(
                 f'<tr class="failed"><td>{escape(project.name)}</td><td>✗ ошибка</td><td>—</td>'
+                f'<td>{act_badge}</td><td>{act_students}</td>'
                 f'<td>{escape(project.error or "")}</td><td>—</td></tr>'
             )
             continue
@@ -1168,7 +1219,8 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
         link = f"/app/auditor/branch/{branch_id}/project/{index}"
         rows.append(
             f'<tr><td>{escape(project.name)}</td><td>{escape(verdict)}</td>'
-            f'<td>{escape(severity) or "—"}</td><td class="muted">—</td>'
+            f'<td>{escape(severity) or "—"}</td><td>{act_badge}</td><td>{act_students}</td>'
+            f'<td class="muted">—</td>'
             f'<td><a class="open" href="{escape(link)}">Открыть отчёт →</a></td></tr>'
         )
     skips = "".join(
@@ -1181,10 +1233,13 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
     )
     table = (
         '<table><thead><tr><th>Проект</th><th>Вердикт</th><th>Severity</th>'
-        '<th>Замечание</th><th></th></tr></thead><tbody>' + "".join(rows) + "</tbody></table>"
+        '<th>Активность</th><th>Ученики/год</th><th>Замечание</th><th></th></tr></thead><tbody>'
+        + "".join(rows)
+        + "</tbody></table>"
         if rows
         else '<p class="muted">В ветке не найдено ни одного проекта с README.</p>'
     )
+    activity_bar = _render_branch_activity_bar(branch_activity) if report.projects else ""
     all_button = (
         f'<a class="all-branch" href="/app/auditor/branch/{branch_id}/all">▦ Аудит всей ветки</a>'
         if report.completed_count
@@ -1209,6 +1264,16 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
  a.open{{color:#0e8f6f;text-decoration:none;font-weight:600;white-space:nowrap;}}
  .skips{{margin-top:24px;background:#fffaf0;border-left:3px solid #f0b429;border-radius:8px;padding:12px 18px;}}
  .skips h2{{font-size:1rem;margin:.2rem 0 .5rem;}} .skips li{{margin:.25rem 0;color:#5b5138;}}
+ .actbar{{display:flex;flex-wrap:wrap;gap:20px;align-items:center;background:#fff;border-radius:10px;
+   padding:14px 20px;margin:0 0 20px;box-shadow:0 1px 3px rgba(0,0,0,.06);}}
+ .actbar .metric{{display:flex;flex-direction:column;line-height:1.15;}}
+ .actbar .metric b{{font-size:1.35rem;color:#1c2b27;}} .actbar .metric span{{font-size:.72rem;color:#6b7a75;}}
+ .actbar .sep{{width:1px;align-self:stretch;background:#eef2f0;}}
+ .actbar .src{{margin-left:auto;font-size:.72rem;color:#9aa7a2;max-width:180px;text-align:right;}}
+ .act{{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap;}}
+ .act-active{{background:#dcfce7;color:#166534;}} .act-fading{{background:#fef3c7;color:#92400e;}}
+ .act-archived{{background:#e5e7eb;color:#4b5563;}} .act-nodata{{background:#f1f5f9;color:#94a3b8;}}
+ .students{{font-variant-numeric:tabular-nums;font-weight:600;color:#1c2b27;}}
 </style></head><body><div class="wrap">
 <a class="back" href="/app/auditor">← к аудитору</a>
 <div class="head-row">
@@ -1217,6 +1282,7 @@ def _render_branch_summary(branch_id: str, report: Any) -> str:
 </div>
 <p class="sub">Проверено проектов: <strong>{report.completed_count}</strong> ·
  с ошибкой: <strong>{report.failed_count}</strong> · пропущено: <strong>{len(report.skipped)}</strong></p>
+{activity_bar}
 {table}
 {skip_block}
 </div></body></html>"""

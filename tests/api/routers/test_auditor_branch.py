@@ -646,3 +646,27 @@ def test_branch_download_xlsx_and_bad_file_and_unknown_branch(
     assert ok.content[:2] == b"PK"  # a real zip-based xlsx
     assert branch_client.get("/app/auditor/branch/DLBR2/download?file=evil.exe").status_code == 400
     assert branch_client.get("/app/auditor/branch/nope/download?file=report.csv").status_code == 404
+
+
+def test_branch_summary_shows_dwh_activity_bar_and_per_project_badges() -> None:
+    # the summary enriches each project with DWH learning activity + an active-students count,
+    # and a top-level actuality banner — the head-of-audit ask ("which branches are live")
+    report = BranchReport(
+        projects=[
+            BranchProjectResult(name="BSA00_Decomposition.ID_777", status="completed", summary={"findings_total": 2}),
+            BranchProjectResult(name="Python 3.Project 1", status="completed", summary={"findings_total": 0}),
+            BranchProjectResult(name="totally_made_up_xyz", status="failed", error="e"),
+        ],
+        skipped=[],
+    )
+    html = auditor._render_branch_summary("BR", report)
+
+    # top-level actuality banner
+    assert 'class="actbar"' in html
+    assert "активных учеников за год" in html
+    assert "4 418".replace(" ", "\u00a0") in html or "4 418" in html  # BSA00 live students
+    # per-project columns + badges
+    assert ">Активность<" in html and ">Ученики/год<" in html
+    assert "act-active" in html  # BSA00 живой
+    assert "act-archived" in html  # Python 3 мёртвый
+    assert "act-nodata" in html  # unmatched project
