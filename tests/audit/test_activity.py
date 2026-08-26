@@ -56,6 +56,30 @@ def test_one_name_two_goal_ids_sums_and_flags_ambiguous() -> None:
     assert info.activity == ACTIVE  # recomputed from the aggregate, not per-row
 
 
+def test_word_order_divergence_recovered_via_token_key() -> None:
+    # repo "PROJECT4.1_PYTHON" vs platform "PYTHON PROJECT 4.1" — same tokens, different order
+    info = lookup("PROJECT4.1_PYTHON")
+    assert info.matched and info.fuzzy is True
+    assert info.goal_ids == ("66858",)  # PYTHON PROJECT 4.1
+    # exact matches are NOT flagged fuzzy
+    assert lookup("BSA00_Decomposition").fuzzy is False
+
+
+def test_token_key_keeps_digit_order_no_false_match() -> None:
+    # 1.2 vs 2.1 share a token multiset; the DWH has that key under two different names,
+    # so it is dropped as ambiguous — a miss, never a wrong match
+    assert lookup("PROJECT1.2_SQL").matched is False
+    # 2.1 has a single unambiguous twin -> recovered
+    assert lookup("PROJECT2.1_SQL").goal_ids == ("66847",)  # SQL PROJECT 2.1
+
+
+def test_token_key_does_not_cross_match_distinct_projects() -> None:
+    # D01T01 and T01D01 are DIFFERENT projects with the same tokens -> token key is ambiguous,
+    # neither may borrow the other's stats (both still resolve by their own exact name)
+    assert lookup("D01T01").goal_ids == ("73187",)
+    assert lookup("T01D01").goal_ids == ("19153",)
+
+
 def test_summarize_branch_counts_and_sorts() -> None:
     summary = summarize_branch(
         [

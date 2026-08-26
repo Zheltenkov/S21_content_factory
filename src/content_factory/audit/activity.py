@@ -36,6 +36,7 @@ _ACTIVE_STUDENTS = 20
 
 _NORM_RE = re.compile(r"[^0-9A-Za-zА-Яа-яЁё]")
 _ID_RE = re.compile(r"[._-]?[Ii][Dd]_[0-9A-Za-z?]+$")
+_TOKEN_RE = re.compile(r"[0-9]+|[A-Za-zА-Яа-яЁё]+")
 
 
 def _norm(name: str) -> str:
@@ -49,6 +50,18 @@ def _strip_id(name: str) -> str:
     """``BSA15_REST.ID_1361470`` → ``BSA15_REST``: хвост ``.ID_<n>`` — ID задания в CMS, в DWH его нет."""
 
     return _ID_RE.sub("", name)
+
+
+def _token_key(name: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Вторичный ключ: СЛОВА без порядка (sorted), ЦИФРЫ в порядке. Ловит расхождение порядка
+    слов (репо ``PROJECT4.1_PYTHON`` ↔ платформа ``PYTHON PROJECT 4.1``), но НЕ схлопывает
+    ``1.2`` c ``2.1`` (порядок цифр сохранён) и не путает ``D01T01`` c ``T01D01``. Применяется
+    только к ОДНОЗНАЧНЫМ ключам (см. ``_load``) — иначе пропуск, а не ложное совпадение."""
+
+    tokens = _TOKEN_RE.findall(name)
+    letters = tuple(sorted(token.upper() for token in tokens if not token.isdigit()))
+    digits = tuple(token for token in tokens if token.isdigit())
+    return (letters, digits)
 
 
 @dataclass(frozen=True)
@@ -65,6 +78,7 @@ class ProjectActivity:
     in_sber_catalog: bool
     goal_ids: tuple[str, ...]
     ambiguous: bool  # имя ведёт на >1 goal_id (старая+новая версия курса) — счётчики суммированы
+    fuzzy: bool = False  # сопоставлено по порядку-слов (вторичный ключ), не точным именем
 
 
 _NO_DATA_ACTIVITY = ProjectActivity(
@@ -81,18 +95,26 @@ _NO_DATA_ACTIVITY = ProjectActivity(
 
 
 @cache
-def _load() -> tuple[dict[str, list[str]], dict[str, dict[str, str]]]:
-    """(индекс имя→[goal_id], каталог goal_id→строка). Кэшируется на процесс; снапшот статичен."""
+def _load() -> tuple[dict[str, list[str]], dict[str, dict[str, str]], dict[tuple, str]]:
+    """(индекс имя→[goal_id], каталог goal_id→строка, вторичный token→match_key). Кэш на процесс.
+
+    ``token_index`` — только ОДНОЗНАЧНЫЕ вторичные ключи: если один token-ключ ведёт на >1 разных
+    имён (напр. ``PROJECT 2.3. SQL`` vs ``SQL PROJECT 2.3``), он выброшен — лучше пропуск, чем ложное
+    совпадение."""
 
     index: dict[str, list[str]] = {}
+    token_names: dict[tuple, set[str]] = {}
     with _INDEX_CSV.open(encoding="utf-8-sig", newline="") as handle:
         for row in csv.DictReader(handle):
-            index.setdefault(row["match_key"], []).append(row["goal_id"])
+            match_key = row["match_key"]
+            index.setdefault(match_key, []).append(row["goal_id"])
+            token_names.setdefault(_token_key(row["name"]), set()).add(match_key)
+    token_index = {key: next(iter(keys)) for key, keys in token_names.items() if len(keys) == 1}
     catalog: dict[str, dict[str, str]] = {}
     with _ACTIVITY_CSV.open(encoding="utf-8-sig", newline="") as handle:
         for row in csv.DictReader(handle):
             catalog[row["goal_id"]] = row
-    return index, catalog
+    return index, catalog, token_index
 
 
 def _classify(days_since_last: int, students_last_365d: int) -> str:
@@ -107,10 +129,16 @@ def lookup(project_name: str) -> ProjectActivity:
     """Учебная активность проекта по его имени в аудите. Никогда не None: несопоставленное имя
     → ``NO_DATA`` (matched=False). Несколько goal_id одного имени суммируются (как в join-скрипте)."""
 
-    index, catalog = _load()
-    key = _norm(_strip_id(project_name))
-    goal_ids = index.get(key, [])
-    records = [catalog[gid] for gid in goal_ids if gid in catalog]
+    index, catalog, token_index = _load()
+    stripped = _strip_id(project_name)
+    goal_ids = index.get(_norm(stripped))
+    fuzzy = False
+    if not goal_ids:  # точное имя не нашлось — пробуем однозначный token-ключ (порядок слов)
+        match_key = token_index.get(_token_key(stripped))
+        if match_key is not None:
+            goal_ids = index.get(match_key)
+            fuzzy = True
+    records = [catalog[gid] for gid in (goal_ids or []) if gid in catalog]
     if not records:
         return _NO_DATA_ACTIVITY
     students_365 = sum(int(record["students_last_365d"]) for record in records)
@@ -130,6 +158,7 @@ def lookup(project_name: str) -> ProjectActivity:
         in_sber_catalog=any(record["in_sber_catalog"] == "да" for record in records),
         goal_ids=tuple(record["goal_id"] for record in records),
         ambiguous=len(records) > 1,
+        fuzzy=fuzzy,
     )
 
 
