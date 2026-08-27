@@ -26,6 +26,133 @@ BranchInput = tuple[str, str, str, Any]
 _ACTIVITY_CSS = {ACTIVE: "active", FADING: "fading", ARCHIVED: "archived", NO_DATA: "nodata"}
 _PROJECT_RANK = {ACTIVE: 0, FADING: 1, ARCHIVED: 2, NO_DATA: 3}
 
+# Русское название ветки по её коду (имени zip). Проставлено по содержимому проектов ветки
+# (см. историю разбора). Ключ — код в ВЕРХНЕМ регистре без ".zip". Служебные/личные/тестовые
+# и транслит-ветки помечены явно. Нет ключа → в отчёте показывается сам код.
+_BRANCH_NAMES = {
+    "A": "Ядро: алгоритмы (A-серия, все языки)",
+    "AI": "Искусственный интеллект",
+    "AIE": "ИИ-инженер: LLM, агенты, RAG",
+    "ANALYSIS": "Аналитика данных (pandas)",
+    "AND": "Android-разработка",
+    "ANNA": "Личные прогоны (Анна)",
+    "AP": "Проверочные АР (по языкам)",
+    "APAI": "ИИ: локальные LLM и агенты",
+    "APC": "Проекты C#",
+    "APEX": "Экзаменационные упражнения (APEx)",
+    "APG": "Проекты Go",
+    "APJ": "Проекты Java",
+    "APP": "Проекты Python",
+    "AQA": "Автотестирование (AQA)",
+    "AR": "BrickGame (мультиязык)",
+    "ASSEMBLER": "Ассемблер",
+    "BA": "Бизнес-анализ",
+    "BASSEYON": "Бассейн (интенсив)",
+    "BE": "Бэкенд-разработка",
+    "BINF": "Биоинформатика",
+    "BSA": "Бизнес- и системный анализ",
+    "BUSINESS": "Бизнес-анализ",
+    "C": "Ядро C (s21-проекты)",
+    "CAREER": "Карьерный трек",
+    "CASE": "Кейсы (анализ)",
+    "CBS": "Кибербезопасность",
+    "CORE": "Core AI (проекты)",
+    "COREAI": "Core AI (дни и проекты)",
+    "CPP": "Ядро C++",
+    "CPPE": "Экзамен C++",
+    "CPPEX": "Упражнения C++",
+    "CSEC": "Кибербезопасность (CTF/CSec)",
+    "CT": "Карьерный трек (soft skills)",
+    "D": "Дни основного потока (ITS/Linux/UX)",
+    "DA": "Аналитика данных (DA)",
+    "DAML": "Data Analytics и ML",
+    "DATA": "Аналитика данных",
+    "DAY": "Учебные дни (Python/SQL/PM/UX)",
+    "DEAP": "Data Engineering и Deep Learning",
+    "DEN": "Дни (личные прогоны)",
+    "DEVOPS": "DevOps",
+    "DIGITAL": "Цифровой маркетинг",
+    "DO": "DevOps",
+    "DS": "Data Science",
+    "DSB": "Data Science Bootcamp",
+    "DSPY": "Data Science (Python)",
+    "DSPYTHON": "Data Science (Python)",
+    "EEB": "Электроника и встраиваемые системы",
+    "EX": "Упражнения (Ex, ITS)",
+    "FE": "Фронтенд",
+    "FEB": "Фронтенд Bootcamp",
+    "FINAL": "Финальные проекты и экзамены",
+    "FRONT": "Фронтенд",
+    "FRONTEND": "Фронтенд",
+    "GAI": "Генеративный ИИ",
+    "GD": "Геймдев (Unity)",
+    "GEN": "Gen: карьерный трек и данные",
+    "GENAI": "Генеративный ИИ",
+    "GO": "Go",
+    "GRUP": "Групповые прогоны (тест)",
+    "INTENSIVE": "Интенсивы",
+    "IOS": "iOS-разработка",
+    "JAVA": "Java Bootcamp",
+    "KOTLIN": "Kotlin Bootcamp",
+    "L": "Инженерные проекты (электроника, робо, 3D)",
+    "LANG": "LLM и промпт-инжиниринг",
+    "MISC": "Сборная: ИИ-безопасность и компьютерное зрение",
+    "MK": "Мобильная разработка (MK)",
+    "ML": "Машинное обучение",
+    "MOBILE": "Мобильная разработка",
+    "MT": "Ручное тестирование",
+    "MV": "Творческий кодинг (MV Bootcamp)",
+    "MVP": "MVP (продуктовый)",
+    "OT": "Личные прогоны (тест)",
+    "P": "Проектные дни (P-коды)",
+    "PASKAL": "Паскаль",
+    "PJM": "Проектный менеджмент",
+    "PM": "Проектный и продуктовый менеджмент",
+    "PRACTICE": "Практика для IT",
+    "PRCTC": "Практика (проекты)",
+    "PREMODULE": "Премодуль",
+    "PRODUCT": "Продуктовая разработка",
+    "PROJECT": "Сборная: проекты SQL/Python",
+    "PROYEKT": "ИИ-агенты (проекты)",
+    "PYTHON": "Python",
+    "PYTHONDS": "Python для Data Science",
+    "PYTHONDSBASICS": "Python DS (базовый)",
+    "PYTHONDSLIGHT": "Python DS (лёгкий)",
+    "QA": "Тестирование (QA)",
+    "ROSB": "Робототехника (ROS)",
+    "RV": "Групповые прогоны (тест)",
+    "SA": "Системная архитектура",
+    "SBERJV": "Java (Сбер, интенсив)",
+    "SELECT": "Отборочные (Select ITS)",
+    "SOFTLEAD": "Soft skills и лидерство",
+    "SOZDANIYE": "ИИ-агенты (создание прототипа)",
+    "SQL": "SQL",
+    "SQLB": "SQL Bootcamp",
+    "SWIFT": "Swift Bootcamp",
+    "T": "Задания основного потока (T-коды)",
+    "TASK": "Тестовые задания",
+    "TEST": "Тестовое (служебное)",
+    "TESTGROUP": "Тестовое (групповое)",
+    "TESTIND": "Тестовое (индивидуальное)",
+    "TESTOVOYE": "Тестовые задания",
+    "TP": "Технологическое предпринимательство",
+    "UX": "UX/UI дизайн",
+    "UXUI": "UX/UI дизайн",
+    "WEB": "Веб-разработка (ITS)",
+    "WEEKLYTHON": "Виклитон (хакатон)",
+    "YEKZAMEN": "Экзамен (ассемблер)",
+    "ZADANIYE": "Тестовые задания",
+    "ZV": "Личные прогоны (ZV)",
+}
+
+
+def _branch_label(archive_name: str) -> tuple[str, str]:
+    """(русское название, код-ветки). Код = имя zip без ``.zip``; название — из ``_BRANCH_NAMES``
+    (пусто, если кода нет в словаре — тогда в отчёте показывается сам код)."""
+
+    code = archive_name[:-4] if archive_name.lower().endswith(".zip") else archive_name
+    return _BRANCH_NAMES.get(code.upper(), ""), code
+
 
 @dataclass(frozen=True)
 class ProjectRow:
@@ -239,10 +366,14 @@ def _branch_rows_html(branches: tuple[BranchRow, ...], start_rank: int) -> str:
     parts: list[str] = []
     for offset, row in enumerate(branches):
         rank = start_rank + offset
+        name_ru, code = _branch_label(row.archive_name)
+        bname = (
+            f"{escape(name_ru)}<em>{escape(code)}</em>" if name_ru else escape(code)
+        )
         parts.append(
             f'<details class="branch"><summary>'
             f'<span class="rank">{rank}</span>'
-            f'<span class="bname">{escape(row.archive_name)}</span>'
+            f'<span class="bname">{bname}</span>'
             f'<span class="col">{_mix_bar(row)} <b>{row.pct_active}%</b> живых</span>'
             f'<span class="col num">{_num(row.students_last_365d)}<small>учен/год</small></span>'
             f'<span class="col">{_freshness(row.days_since_last)}<small>последняя сдача</small></span>'
@@ -321,6 +452,7 @@ def render_overview_html(overview: Overview) -> str:
  details.branch[open]>summary{{background:#eef7f3;}}
  .rank{{font-weight:700;color:#0e8f6f;font-size:.95rem;}}
  .bname{{font-weight:600;word-break:break-word;}}
+ .bname em{{display:block;font-style:normal;font-size:.68rem;color:#9aa7a2;font-weight:400;margin-top:1px;}}
  .col{{display:flex;flex-direction:column;font-size:.9rem;line-height:1.15;}}
  .col.num{{text-align:right;align-items:flex-end;font-variant-numeric:tabular-nums;}}
  .col small{{font-size:.64rem;color:#9aa7a2;font-weight:400;}}

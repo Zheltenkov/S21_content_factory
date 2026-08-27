@@ -78,12 +78,20 @@ def test_render_is_self_contained_and_shows_sections() -> None:
     # no external assets — opens offline
     assert "http://" not in html and "https://" not in html
     assert 'src="' not in html and 'href="' not in html
-    # banner + ranked branches + collapsible unknown section
+    # banner + ranked branches + collapsible unknown section (code shown without .zip)
     assert "веток аудировано" in html
-    assert "BIG.zip" in html and "<details" in html
-    assert "Актуальность неизвестна" in html and "JUNK.zip" in html
+    assert "BIG" in html and "<details" in html
+    assert "Актуальность неизвестна" in html and "JUNK" in html
     # fix-first metric surfaced
     assert "на живых" in html
+
+
+def test_branch_shows_russian_name_with_code_when_known() -> None:
+    branches = [("b", "BSA.zip", "2026-08-20T10:00", _report(_proj("BSA00_Decomposition", 3)))]
+    html = render_overview_html(build_overview(branches))
+    assert "Бизнес- и системный анализ" in html  # translated title
+    assert "<em>BSA</em>" in html  # code kept as a small tag, no .zip
+    assert "BSA.zip" not in html
 
 
 def test_render_escapes_branch_and_project_names() -> None:

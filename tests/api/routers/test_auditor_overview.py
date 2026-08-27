@@ -48,7 +48,7 @@ def test_overview_download_returns_self_contained_html_attachment(
     body = resp.text
     assert body.strip().startswith("<!DOCTYPE html")
     assert "веток аудировано" in body  # banner
-    assert "BSA.zip" in body  # the branch is listed
+    assert "Бизнес- и системный анализ" in body  # BSA branch shown by its Russian name
     assert "на живых" in body  # fix-first metric
 
 
