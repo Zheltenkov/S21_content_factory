@@ -57,3 +57,6 @@ def test_recent_branches_panel_has_overview_download_button(monkeypatch: pytest.
     html = auditor._render_recent_branches()
     assert '/app/auditor/overview' in html
     assert "Скачать обзор всех аудитов" in html
+    # branch shown by its Russian name, code kept as a small tag
+    assert "Бизнес- и системный анализ" in html and "BSA" in html
+    assert 'data-name="бизнес- и системный анализ bsa"' in html  # search matches name or code

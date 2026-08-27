@@ -985,17 +985,25 @@ def _render_recent_branches() -> str:
         ]
     if not items:
         return ""
+    from content_factory.audit.overview import _branch_label
+
     items.sort(key=lambda item: item[1].get("created_at", ""), reverse=True)
     rows = []
     for branch_id, info, report in items[:_MAX_BRANCH_RUNS]:
         raw_name = info.get("archive_name") or "Ветка"
-        name = escape(raw_name)
+        name_ru, code = _branch_label(raw_name)
+        # Russian name as the title, the terse code kept as a small grey tag next to it
+        name = (
+            f"{escape(name_ru)}<span style=\"color:#9aa7a2;font-weight:400;font-size:.8rem;\"> · {escape(code)}</span>"
+            if name_ru
+            else escape(code)
+        )
         created_raw = info.get("created_at") or ""
         created = escape(created_raw.replace("T", " ")[:16])
         link = f"/app/auditor/branch/{branch_id}"
         delete_action = f"/app/auditor/branch/{branch_id}/delete"
         rows.append(
-            f'<li class="recent-row" data-name="{escape(raw_name.lower(), quote=True)}" '
+            f'<li class="recent-row" data-name="{escape(f"{name_ru} {code}".strip().lower(), quote=True)}" '
             f'data-ts="{escape(created_raw, quote=True)}" data-errors="{report.failed_count}" '
             'style="display:flex;align-items:center;justify-content:space-between;gap:12px;">'
             f'<span><a href="{link}" style="color:#0e8f6f;text-decoration:none;font-weight:600;">{name}</a>'

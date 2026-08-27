@@ -78,7 +78,7 @@ def test_recent_branches_panel_has_controls_and_row_data(monkeypatch: pytest.Mon
     assert 'data-recent="branches"' in html
     assert "recent-search" in html
     assert 'data-sort="name"' in html and 'data-sort="date"' in html and 'data-sort="errors"' in html
-    assert 'data-name="dsb1.zip"' in html  # lowercased for search
+    assert 'data-name="dsb1"' in html  # code (no .zip), lowercased for search
     assert 'data-errors="1"' in html  # failed-project count drives the "errors" sort
     assert 'data-ts="2026-08-18T10:00:00"' in html
 
@@ -408,7 +408,8 @@ def test_render_recent_branches_lists_newest_first() -> None:
             auditor._BRANCH_CREATED[bid] = {"created_at": ts, "archive_name": name}
         html = auditor._render_recent_branches()
         assert "Недавние ветки" in html
-        assert html.index("new.zip") < html.index("old.zip")  # newest first
+        # newest first: branch "b" (new) appears before branch "a" (old)
+        assert html.index("/app/auditor/branch/b") < html.index("/app/auditor/branch/a")
         assert "/app/auditor/branch/b" in html
         assert "/app/auditor/branch/b/delete" in html  # per-row delete control
     finally:
