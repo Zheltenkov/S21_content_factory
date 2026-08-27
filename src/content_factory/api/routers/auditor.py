@@ -115,6 +115,36 @@ async def render_auditor_page(request: Request) -> HTMLResponse:
     return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
 
+@page_router.get("/overview")
+async def download_auditor_overview(request: Request) -> Response:
+    """Single self-contained HTML report across ALL audited branches, ranked by learning activity —
+    the head-of-audit's top-level document. Downloaded as a file (no live page)."""
+
+    from datetime import date
+
+    from content_factory.audit.overview import build_overview, render_overview_html
+
+    await validate_request_user(request)
+    _ensure_branches_loaded()
+    with _UI_LOCK:
+        branches = [
+            (
+                branch_id,
+                str(_BRANCH_CREATED.get(branch_id, {}).get("archive_name") or "Ветка"),
+                str(_BRANCH_CREATED.get(branch_id, {}).get("created_at") or ""),
+                report,
+            )
+            for branch_id, report in _BRANCH_RUNS.items()
+        ]
+    html = render_overview_html(build_overview(branches))
+    filename = f"audit_overview_{date.today().isoformat()}.html"
+    return Response(
+        content=html,
+        media_type="text/html; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "no-store"},
+    )
+
+
 @page_router.post("/run/upload")
 async def upload_auditor_run(
     request: Request,
@@ -976,9 +1006,16 @@ def _render_recent_branches() -> str:
             '<button type="submit" title="Удалить" style="border:none;background:none;color:#b02a2a;'
             'cursor:pointer;font-size:1.15rem;line-height:1;">&times;</button></form></li>'
         )
+    overview_button = (
+        '<a href="/app/auditor/overview" '
+        'style="display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:8px 14px;'
+        'background:#10b981;color:#fff;border-radius:999px;text-decoration:none;font-weight:600;'
+        'font-size:.85rem;">⤓ Скачать обзор всех аудитов (HTML)</a>'
+    )
     return (
         '<section class="filter-panel recent-panel" data-recent="branches" style="margin-top:16px;">'
         f"{_recent_panel_head('Недавние ветки')}"
+        f"{overview_button}"
         f'<ul class="recent-list" style="{_RECENT_LIST_STYLE}">{"".join(rows)}</ul>'
         "</section>"
     )
