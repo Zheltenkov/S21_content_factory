@@ -33,12 +33,19 @@ def create_openai_embeddings(
     if not texts:
         return []
 
-    api_key = api_key or os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is not configured")
+    if api_key:
+        fallback_base_url = os.getenv("OPENAI_BASE_URL")
+    else:
+        # Прод — Polza (OpenAI-совместимый /embeddings), а не api.openai.com.
+        from content_factory.platform.llm.openai_compat import resolve_openai_compatible_credentials
+
+        try:
+            api_key, fallback_base_url = resolve_openai_compatible_credentials()
+        except ValueError as exc:
+            raise RuntimeError(str(exc)) from exc
 
     client_kwargs: dict[str, Any] = {"api_key": api_key}
-    resolved_base_url = base_url or os.getenv("OPENAI_BASE_URL")
+    resolved_base_url = base_url or fallback_base_url
     if resolved_base_url:
         client_kwargs["base_url"] = resolved_base_url
 

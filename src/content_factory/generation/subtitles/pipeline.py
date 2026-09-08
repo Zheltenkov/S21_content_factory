@@ -31,25 +31,12 @@ def _resolve_asr_credentials() -> tuple[str, str | None]:
     """(api_key, base_url) для Whisper — те же креды, что у остального LLM-стека.
 
     Прод работает через Polza, и она отдаёт ``/audio/transcriptions``, поэтому требовать
-    именно ``OPENAI_API_KEY`` нельзя — на Polza-конфиге перевод видео падал. Порядок:
-    явный OpenAI -> Polza -> OpenRouter. ``base_url=None`` означает дефолтный эндпоинт SDK.
+    именно ``OPENAI_API_KEY`` нельзя. Приоритет провайдеров общий для всех
+    OpenAI-совместимых вызовов, см. ``platform.llm.openai_compat``.
     """
-    from content_factory.platform.llm.model_registry import DEFAULT_POLZA_BASE_URL
+    from content_factory.platform.llm.openai_compat import resolve_openai_compatible_credentials
 
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if openai_key:
-        return openai_key, os.getenv("OPENAI_BASE_URL") or None
-    polza_key = os.getenv("POLZA_AI_API_KEY")
-    if polza_key:
-        base_url = os.getenv("POLZA_AI_BASE_URL") or os.getenv("POLZA_BASE_URL") or DEFAULT_POLZA_BASE_URL
-        return polza_key, base_url
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
-    if openrouter_key:
-        return openrouter_key, os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
-    raise ValueError(
-        "Ключ для распознавания речи не задан: нужен POLZA_AI_API_KEY "
-        "(либо OPENAI_API_KEY / OPENROUTER_API_KEY)"
-    )
+    return resolve_openai_compatible_credentials()
 
 
 def _get_openai_client():
