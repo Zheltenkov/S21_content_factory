@@ -16,7 +16,7 @@ WORKDIR /app
 # Early cached layer — code/static edits don't rebuild it.
 RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
     && apt-get update \
-    && apt-get install -y --no-install-recommends unrar unar \
+    && apt-get install -y --no-install-recommends unrar unar ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install deps + editable package first (depends only on pyproject + src), so that
