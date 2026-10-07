@@ -15,9 +15,16 @@
   (`PROJECT_LAB_MODEL`, `POLZA_AI_MODEL`), контейнер `cf-project-lab` пересоздан.
   `after_release.sh` прошёл: api 401, страница 303, 13 запусков на месте, ошибок 0.
   До правки бой был на gpt-5.4-mini — локальный gpt-6-sol туда не попадал.
-- Бой, основное приложение: `/opt/s21_content_factory/.env` переведён на gpt-6-sol,
-  но подействует только при следующем пересоздании `cf-app`. Копии обоих файлов
-  окружения рядом, суффикс `.bak.model-20261007`.
+- Бой, основное приложение: `/opt/s21_content_factory/.env` переведён на gpt-6-sol и
+  применён — `cf-app` пересоздан из снимка работающего контейнера
+  (`docker commit` → `deploy-app:latest` → `up --force-recreate --no-build --no-deps`),
+  поэтому горячий код, ffmpeg и 113 аудитов на месте. В окружении контейнера
+  `POLZA_AI_MODEL`, `MODEL_PLAN`, `MODEL_PANEL`, `MODEL_TEMPLATE_COUNCIL` = gpt-6-sol;
+  дефолты модели и цены реестра в коде контейнера тоже заменены. Проверено:
+  `/api/v1/auth/me` 401, `/app/auditor` 303, ошибок в журнале 0. При перезапуске
+  оборвался один считавшийся запуск (`reconciled stale active runs=1`).
+  Откат: образ `deploy-app:running-20261007`, прежний сборочный образ
+  `deploy-app:prebuilt-backup-20261007`, копии окружения `.bak.model-20261007`.
 - Копия аудитов снята на хост: `/opt/backups/auditor/auditor_20261007`, 711 МБ, 113 веток.
   Они лежали только в записываемом слое контейнера — см.
   [facts/cf-app-writable-layer.md](facts/cf-app-writable-layer.md).
@@ -28,9 +35,8 @@
 - Прогон: 1552 теста прошли, ruff чист.
 
 ## Следующий шаг
-- Решить с пользователем судьбу `cf-app`: модель там сменится только полноценным
-  релизом (собрать образ из исходника, сверив его с записываемым слоем, и вернуть
-  аудиты из копии). Пересоздание без этого откатит бой на июльский код.
+- Прогнать на бою реальный замысел и генерацию README, чтобы убедиться в качестве
+  ответов gpt-6-sol и увидеть цену по журналу вызовов.
 - Проверить, держит ли gpt-6-sol строгую `json_schema` через Polza, и при успехе
   добавить его в allowlist `src/content_factory/platform/llm/structured_runner.py:146`.
 
@@ -42,7 +48,10 @@
   учётных данных нет нигде, коннектор требует OAuth → от пользователя.
 
 ## Не трогать
-- `cf-app` не пересоздавать — [facts/cf-app-writable-layer.md](facts/cf-app-writable-layer.md).
+- `cf-app` пересоздавать только через снимок работающего контейнера —
+  [facts/cf-app-writable-layer.md](facts/cf-app-writable-layer.md). Образы
+  `deploy-app:running-20261007` и `deploy-app:prebuilt-backup-20261007` не удалять:
+  это откат.
 - Работа по РПД в дереве (`src/content_factory/rpd/*`, незакоммиченные `assessment.py`,
   `competency_agents.py`, `curriculum.py`, 334 строки в `docs/rpd-generator.md`) — чужой
   сессии. В коммит `65a7522` из общих файлов попали только строки про модель.
