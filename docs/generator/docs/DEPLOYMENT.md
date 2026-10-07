@@ -27,7 +27,7 @@ CORS_ORIGINS=https://your-domain.example
 LLM_PROVIDER=polza
 POLZA_AI_API_KEY=...
 POLZA_AI_BASE_URL=https://polza.ai/api/v1
-POLZA_AI_MODEL=openai/gpt-5.4-mini
+POLZA_AI_MODEL=openai/gpt-6-sol
 ```
 
 Для видео:

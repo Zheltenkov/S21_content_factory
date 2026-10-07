@@ -63,7 +63,7 @@ PROVIDER_URLS = {
     "polza": "https://polza.ai/api/v1/chat/completions",
 }
 MODEL_BACKENDS = ("openrouter", "polza")
-DEFAULT_JUDGE_MODEL = "openai/gpt-5.4-mini"
+DEFAULT_JUDGE_MODEL = "openai/gpt-6-sol"
 
 URL_RE = re.compile(r"https?:[/\\]+[^\s)>\]\"'|]+", re.IGNORECASE)
 FILE_RE = re.compile(

@@ -21,7 +21,7 @@ from content_factory.audit.exporters import write_report
 from content_factory.audit.orchestrator import AuditRunner
 
 DEFAULT_REPORT_DIR = Path("reports") / "ui_latest"
-DEFAULT_MODEL = "openai/gpt-5.4-mini"
+DEFAULT_MODEL = "openai/gpt-6-sol"
 DEFAULT_FACT_MODEL = "perplexity/sonar"
 DEFAULT_TECH_MODEL = "qwen/qwen3-coder"
 AUTH_COOKIE_NAME = _web_rendering.AUTH_COOKIE_NAME

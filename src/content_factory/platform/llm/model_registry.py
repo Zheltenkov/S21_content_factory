@@ -32,8 +32,8 @@ PROVIDER_ALIASES = {
 SUPPORTED_PROVIDERS = {"polza", "openai", "azure", "deepseek", "gigachat"}
 
 DEFAULT_MODEL_BY_PROVIDER = {
-    "polza": "openai/gpt-5.4-mini",
-    "openai": "gpt-5.4-mini",
+    "polza": "openai/gpt-6-sol",
+    "openai": "gpt-6-sol",
     "azure": "gpt-4o-mini",
     "deepseek": "deepseek-chat",
     "gigachat": "GigaChat-2-Pro",
@@ -292,7 +292,7 @@ class ModelRegistry(BaseModel):
             roles={
                 "default": ModelRoleConfig(
                     fallback_chain=[
-                        ModelRoute(provider="polza", model_env="POLZA_AI_MODEL", model="openai/gpt-5.4-mini"),
+                        ModelRoute(provider="polza", model_env="POLZA_AI_MODEL", model="openai/gpt-6-sol"),
                         ModelRoute(provider="deepseek", model_env="DEEPSEEK_MODEL", model="deepseek-chat"),
                         ModelRoute(provider="gigachat", model_env="GIGACHAT_MODEL", model="GigaChat-2-Pro"),
                     ]

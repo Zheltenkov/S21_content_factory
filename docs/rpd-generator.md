@@ -346,7 +346,7 @@ readiness gate), `test_template_profiles` (capabilities/fingerprint/unsupported)
 | Параметр | Значение | Источник |
 |---|---|---|
 | Провайдер | Polza (`LLM_PROVIDER=polza`, base `https://polza.ai/api/v1`) | `.env` / `model_registry` |
-| Модель | `openai/gpt-5.4-mini` | `.env POLZA_AI_MODEL` |
+| Модель | `openai/gpt-6-sol` | `.env POLZA_AI_MODEL` |
 | Роль | `default` | `_llm_client()` |
 | Temperature | 0.4 | `.env POLZA_AI_TEMPERATURE` |
 | Timeout | 90 c | `.env POLZA_AI_TIMEOUT_SECONDS` |

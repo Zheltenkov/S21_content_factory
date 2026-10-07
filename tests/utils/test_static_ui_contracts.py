@@ -57,7 +57,8 @@ def test_auditor_run_panel_emits_three_card_intake_grid():
     assert 'class="intake-grid"' in panel
     assert "<!--BRANCH_CARD_SLOT-->" in panel  # branch card slot present for the app layer to fill
     assert 'class="intake-run-form"' in panel  # run-form is display:contents so its cards join grid
-    assert panel.count('class="intake-card"') == 2  # Архив + Путь cards (branch card added by app)
+    # the class may carry a modifier ("intake-card archive-card"); intake-card-title must not count
+    assert len(re.findall(r'class="intake-card[ "]', panel)) == 2  # Архив + Путь (branch card added by app)
     assert panel.count('type="submit"') == 2  # each single-audit card (Архив, Путь) runs on its own
     assert 'id="input_path"' in panel and 'id="archive-file-name"' in panel  # JS anchors preserved
 

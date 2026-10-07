@@ -266,7 +266,7 @@ class EvaluationPhaseExecutor:
         return (
             os.getenv("POLZA_AI_THEORY_MODEL")
             or os.getenv("POLZA_AI_MODEL")
-            or "openai/gpt-5.4-mini"
+            or "openai/gpt-6-sol"
         )
 
 

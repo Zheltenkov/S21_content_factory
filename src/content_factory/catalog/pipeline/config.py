@@ -100,14 +100,14 @@ LLM_USAGE_LOG_PATH = os.environ.get(
 )
 LLM_PRICE_USD_PER_1M = _env_model_price_map("LLM_PRICE_USD_PER_1M")
 EVIDENCE_CACHE_TTL_DAYS = int(os.environ.get("EVIDENCE_CACHE_TTL_DAYS", "30"))
-MODEL_PLAN = os.environ.get("MODEL_PLAN", "openai/gpt-5.4-mini")
+MODEL_PLAN = os.environ.get("MODEL_PLAN", "openai/gpt-6-sol")
 MODEL_SEARCH = os.environ.get("MODEL_SEARCH", "perplexity/sonar")
 MODEL_SEARCH_MAX_TOKENS = int(os.environ.get("MODEL_SEARCH_MAX_TOKENS", "1200"))
 MODEL_PANEL = [
     item.strip()
     for item in os.environ.get(
         "MODEL_PANEL",
-        "openai/gpt-5.4-mini,anthropic/claude-3.5-haiku,google/gemini-2.0-flash-001",
+        "openai/gpt-6-sol,anthropic/claude-3.5-haiku,google/gemini-2.0-flash-001",
     ).split(",")
     if item.strip()
 ]

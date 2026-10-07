@@ -232,6 +232,8 @@ def test_gateway_passes_polza_credentials_base_url_and_temperature(monkeypatch) 
     monkeypatch.setenv("POLZA_AI_API_KEY", "polza-key")
     monkeypatch.setenv("POLZA_AI_BASE_URL", "https://polza.example/api/v1")
     monkeypatch.setenv("POLZA_AI_TEMPERATURE", "0.2")
+    # resolved_model() puts the env override first, so pin it: otherwise the developer's .env decides
+    monkeypatch.setenv("POLZA_AI_MODEL", "openai/gpt-5.4-mini")
     gateway = LLMGateway(enable_cache=False)
     route = ModelRoute(provider="polza", model="openai/gpt-5.4-mini")
 
