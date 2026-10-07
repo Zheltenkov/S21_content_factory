@@ -7,44 +7,46 @@
 везде задаётся через env — во всей системе. Залить в git и на боевой сервер.
 
 ## Сделано
-- Модель по умолчанию переведена на `openai/gpt-6-sol` во всей системе — коммит `65a7522`,
-  подробности и намеренные исключения в [facts/model-gpt6-sol.md](facts/model-gpt6-sol.md).
-- В лаборатории менять было нечего: `project_generator_lab/core/llm.py:72` и
-  `PROJECT_LAB_MODEL` в локальном `.env` уже держали gpt-6-sol.
-- Локальный `.env` переведён на gpt-6-sol (`POLZA_AI_MODEL`, `OPENAI_MODEL`, `MODEL_PLAN`,
-  член openai в `MODEL_PANEL`, `MODEL_TEMPLATE_COUNCIL`, `TRANSLATE_SUBTITLES_MODEL`);
-  в git он не входит. Копия до правки — `.env.bak.model-gpt6sol-*` в корне.
-- Починены два устаревших теста: `tests/llm/test_llm_gateway.py:235` (модель читалась из
-  личного `.env`, потому что `resolved_model()` ставит env выше явной модели маршрута) и
-  `tests/utils/test_static_ui_contracts.py:60` (точное совпадение `class="intake-card"`
-  перестало работать после добавления класса-модификатора). Оба в коммите `65a7522`.
-- Снят `.git/index.lock` от 2026-09-26, пустой, без живого процесса git: он блокировал
-  коммиты с 08.09 — предыдущий коммит в истории именно от этой даты.
-- Прогон: 1552 теста прошли, ruff чист, YAML реестра разбирается.
+- Код: модель по умолчанию переведена на gpt-6-sol во всей системе — коммит `65a7522`,
+  разбор и намеренные исключения в [facts/model-gpt6-sol.md](facts/model-gpt6-sol.md).
+  В лаборатории менять было нечего: `project_generator_lab/core/llm.py:72` уже держал gpt-6-sol.
+- Ветка `auditor-branch-dashboard` отправлена в `origin` (GitHub, Zheltenkov/S21_content_factory).
+- Бой, лаборатория: `/opt/s21_project_lab/model.env` переведён на gpt-6-sol
+  (`PROJECT_LAB_MODEL`, `POLZA_AI_MODEL`), контейнер `cf-project-lab` пересоздан.
+  `after_release.sh` прошёл: api 401, страница 303, 13 запусков на месте, ошибок 0.
+  До правки бой был на gpt-5.4-mini — локальный gpt-6-sol туда не попадал.
+- Бой, основное приложение: `/opt/s21_content_factory/.env` переведён на gpt-6-sol,
+  но подействует только при следующем пересоздании `cf-app`. Копии обоих файлов
+  окружения рядом, суффикс `.bak.model-20261007`.
+- Копия аудитов снята на хост: `/opt/backups/auditor/auditor_20261007`, 711 МБ, 113 веток.
+  Они лежали только в записываемом слое контейнера — см.
+  [facts/cf-app-writable-layer.md](facts/cf-app-writable-layer.md).
+- Починены два устаревших теста (`tests/llm/test_llm_gateway.py:235`,
+  `tests/utils/test_static_ui_contracts.py:60`) — в коммите `65a7522`.
+- Снят `.git/index.lock` от 2026-09-26: пустой, без живого процесса git, блокировал
+  коммиты с 08.09.
+- Прогон: 1552 теста прошли, ruff чист.
 
 ## Следующий шаг
-- Отправить ветку в remote и правку моделей на бой: `/opt/s21_content_factory/.env` и
-  `/opt/s21_project_lab/model.env`, затем перезапуск `cf-app` и `cf-project-lab`.
-  Env перебивает дефолт кода, поэтому без этого коммит на бою ничего не меняет.
-- Привести строку модели в `deploy/env.production.sample` к gpt-6-sol.
+- Решить с пользователем судьбу `cf-app`: модель там сменится только полноценным
+  релизом (собрать образ из исходника, сверив его с записываемым слоем, и вернуть
+  аудиты из копии). Пересоздание без этого откатит бой на июльский код.
 - Проверить, держит ли gpt-6-sol строгую `json_schema` через Polza, и при успехе
-  добавить его в allowlist `platform/llm/structured_runner.py:146`.
+  добавить его в allowlist `src/content_factory/platform/llm/structured_runner.py:146`.
 
 ## Открытые вопросы
 - Переход на gpt-6-sol втрое дороже по прайсу (2.0/10.0 против 0.75/4.5 USD за 1M):
   принять рост счёта на всём генераторе → ответ нужен от пользователя.
-- Заводить ли `project_generator_lab/` под git целиком вместе с `data/` (бенчмарки,
-  снимки запусков) → ответ нужен от пользователя.
+- Заводить ли `project_generator_lab/` под git целиком вместе с `data/` → от пользователя.
+- Доступа в Jira нет: плагин `atlassian-rovo` в каталоге Codex стоит как `AVAILABLE`,
+  учётных данных нет нигде, коннектор требует OAuth → от пользователя.
 
 ## Не трогать
-- Работа по РПД в дереве (`src/content_factory/rpd/*`, незакоммиченные
-  `assessment.py`, `competency_agents.py`, `curriculum.py` и прочее, 334 строки в
-  `docs/rpd-generator.md`) — чужой сессии. В коммит `65a7522` из общих файлов попали
-  только строки про модель, остальное оставлено в дереве.
+- `cf-app` не пересоздавать — [facts/cf-app-writable-layer.md](facts/cf-app-writable-layer.md).
+- Работа по РПД в дереве (`src/content_factory/rpd/*`, незакоммиченные `assessment.py`,
+  `competency_agents.py`, `curriculum.py`, 334 строки в `docs/rpd-generator.md`) — чужой
+  сессии. В коммит `65a7522` из общих файлов попали только строки про модель.
 - `tests/api/routers/test_curriculum.py::test_build_context_rejects_ad_hoc_without_source_plan_id`
-  падает — это та же незакоммиченная работа по РПД.
+  падает — та же незакоммиченная работа по РПД.
 - `tests/content_gen/test_node_services.py::test_practice_service_blocks_critical_critic_issue`
-  падает и на HEAD: код и тест совпадают с HEAD, текст сообщения критика разошёлся с
-  ожиданием теста. К модели отношения не имеет.
-- Боевой релиз лаборатории `20261007-01` от 07.10.2026 18:22 МСК выложен другим агентом —
-  его состоянием эта сессия не управляет.
+  падает и на HEAD: текст сообщения критика разошёлся с ожиданием теста. К модели не относится.
