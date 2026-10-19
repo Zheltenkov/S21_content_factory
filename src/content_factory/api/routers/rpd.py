@@ -8,10 +8,14 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import os
 import shutil
+import time
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from html import escape
 from pathlib import Path
@@ -19,6 +23,8 @@ from threading import Lock
 from typing import Any
 from urllib.parse import quote
 
+from docx.image.exceptions import UnrecognizedImageError
+from docx.image.image import Image as DocxImage
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.concurrency import run_in_threadpool
@@ -28,28 +34,43 @@ from content_factory.api.integrations.project_paths import GENERATOR_ROOT
 from content_factory.catalog.viewer.curriculum_ops import get_curriculum_plan, list_curriculum_plans
 from content_factory.catalog.web.deps import get_conn
 from content_factory.rpd import RpdBuild, UpPlan, build_rpd_sections, from_registry_plan, parse_up_csv, render_build
+from content_factory.rpd.assessment import refresh_final_attestation_form
 from content_factory.rpd.build import RpdDocumentFields
 from content_factory.rpd.evaluation import evaluate_rpd_build
 from content_factory.rpd.llm_runtime import create_rpd_llm_router
+from content_factory.rpd.module_evidence import (
+    EvidenceKind,
+    PlatformEvidenceRequirement,
+    synchronize_module_evidence,
+    visible_evidence_text,
+)
+from content_factory.rpd.passport import document_field_updates, merge_document_fields
 from content_factory.rpd.quality import evaluate_build_quality
+from content_factory.rpd.schedule import refresh_schedule_projection
 from content_factory.rpd.translate import russify_up
 
 page_router = APIRouter(prefix="/app/rpd", include_in_schema=False, tags=["rpd-ui"])
 
 RPD_ROOT = (GENERATOR_ROOT / ".tmp" / "rpd").resolve()
 MAX_DOCX_BYTES = int(os.getenv("RPD_MAX_DOCX_BYTES", "50000000"))
+MAX_EVIDENCE_IMAGE_BYTES = int(os.getenv("RPD_MAX_EVIDENCE_IMAGE_BYTES", "10000000"))
 OUTPUT_FILENAME = "РПД.docx"
 BUILD_FILE = "build.json"
 EVALUATION_FILE = "evaluation.json"
 _META_FILE = "rpd_meta.json"
 _MAX_RUNS = 12
 _MAX_UPLOADS = 10
+_MAX_JOBS = 40
 
 _LOCK = Lock()
 # Загруженные, но ещё не собранные программы: upload_id -> {work_dir, path, name}.
 _UPLOADS: dict[str, dict[str, Any]] = {}
 # Готовые прогоны на пользователя: state_key -> [meta, ...] (новые первыми).
 _RUNS: dict[str, list[dict[str, Any]]] = {}
+# Идущие и только что закончившиеся сборки: run_id -> {state, state_key, name, started_at, error}.
+_JOBS: dict[str, dict[str, Any]] = {}
+# Ссылки на фоновые задачи: без них сборщик мусора вправе забрать задачу на полпути.
+_TASKS: dict[str, asyncio.Task[None]] = {}
 _LOADED = False
 
 
@@ -156,6 +177,64 @@ def _find_run(state_key: str, run_id: str) -> dict[str, Any] | None:
         return next((r for r in _RUNS.get(state_key, []) if r.get("run_id") == run_id), None)
 
 
+def _job(run_id: str) -> dict[str, Any] | None:
+    with _LOCK:
+        job = _JOBS.get(run_id)
+        return dict(job) if job is not None else None
+
+
+def _set_job(run_id: str, **fields: Any) -> None:
+    with _LOCK:
+        job = _JOBS.get(run_id)
+        if job is not None:
+            job.update(fields)
+
+
+def _evict_jobs() -> None:
+    while len(_JOBS) > _MAX_JOBS:
+        done = next((rid for rid, job in _JOBS.items() if job.get("state") != "running"), None)
+        if done is None:  # все идут — ничего не выбрасываем, иначе потеряем ход живой сборки
+            return
+        _JOBS.pop(done, None)
+        _TASKS.pop(done, None)
+
+
+def _start_build(
+    state_key: str,
+    run_id: str,
+    build: Callable[[], dict[str, Any]],
+    name: str,
+    cleanup: Callable[[], None] | None = None,
+) -> None:
+    """Считает сборку в фоне: запрос отвечает сразу, страница следит за ходом по ``/status``.
+
+    Сборка — это два десятка вызовов модели подряд, минуты две. Держать на них HTTP-запрос значит
+    показывать методисту пустой экран: он успевает решить, что модуль упал, и перезагрузить страницу,
+    а расчёт при этом доходит до конца и пропадает впустую.
+    """
+    with _LOCK:
+        _JOBS[run_id] = {"state": "running", "state_key": state_key, "name": name,
+                         "started_at": time.monotonic(), "error": ""}
+        _evict_jobs()
+
+    async def runner() -> None:
+        try:
+            meta = await run_in_threadpool(build)
+        except Exception as exc:  # noqa: BLE001 - любой отказ сборки должен дойти до методиста словами
+            _set_job(run_id, state="error", error=str(exc) or exc.__class__.__name__)
+            return
+        finally:
+            if cleanup is not None:
+                cleanup()
+        run_dir = _run_dir(state_key, run_id)
+        meta.update({"run_id": run_id, "state_key": state_key, "run_dir": str(run_dir),
+                     "created_at": datetime.now(UTC).isoformat(), "name": name})
+        _persist_run(state_key, meta, run_dir)
+        _set_job(run_id, state="done")
+
+    _TASKS[run_id] = asyncio.create_task(runner())
+
+
 # --------------------------------------------------------------------------- routes
 
 
@@ -203,15 +282,16 @@ async def rpd_generate(request: Request, upload_id: str = Form(""), title: str =
     run_dir.mkdir(parents=True, exist_ok=True)
     program_name = str(pending["name"])
     program_title = title.strip() or Path(program_name).stem
-    try:
-        meta = await run_in_threadpool(_build_run, pending["path"], run_dir, program_title)
-    finally:
-        shutil.rmtree(pending["work_dir"], ignore_errors=True)
-
-    meta.update({"run_id": run_id, "state_key": state_key, "run_dir": str(run_dir),
-                 "created_at": datetime.now(UTC).isoformat(), "name": program_title})
-    _persist_run(state_key, meta, run_dir)
-    return JSONResponse({"run_id": run_id, "redirect": f"/app/rpd/{run_id}"})
+    source = pending["path"]
+    work_dir = pending["work_dir"]
+    _start_build(
+        state_key,
+        run_id,
+        lambda: _build_run(source, run_dir, program_title),
+        program_title,
+        cleanup=lambda: shutil.rmtree(work_dir, ignore_errors=True),
+    )
+    return JSONResponse({"run_id": run_id, "status_url": f"/app/rpd/{run_id}/status"}, status_code=202)
 
 
 def _build_run(csv_path: Path, run_dir: Path, program_title: str) -> dict[str, Any]:
@@ -224,7 +304,7 @@ def _build_from_up(up: UpPlan, run_dir: Path) -> dict[str, Any]:
     client = _llm_client()
     up = russify_up(up, client)  # англоязычные названия тем/модулей → русский (термины оставляем)
     build = build_rpd_sections(up, None, client)
-    rendered = render_build(build)
+    rendered = render_build(build, evidence_root=run_dir)
     build.quality = evaluate_build_quality(build, rendered)
     _save_run_artifacts(run_dir, build)
     _atomic_write_bytes(run_dir / OUTPUT_FILENAME, rendered)
@@ -280,6 +360,41 @@ def _atomic_write_bytes(path: Path, content: bytes) -> None:
         temporary.unlink(missing_ok=True)
 
 
+async def _read_evidence_image(upload: UploadFile) -> tuple[bytes, str, str]:
+    """Read and validate one screenshot using the same parser that will embed it into DOCX."""
+    payload = bytearray()
+    while True:
+        chunk = await upload.read(1024 * 1024)
+        if not chunk:
+            break
+        payload.extend(chunk)
+        if len(payload) > MAX_EVIDENCE_IMAGE_BYTES:
+            raise HTTPException(status_code=413, detail="Скриншот превышает допустимый размер")
+    if not payload:
+        raise HTTPException(status_code=400, detail="Файл скриншота пуст")
+    try:
+        image = DocxImage.from_blob(bytes(payload))
+    except (UnrecognizedImageError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Нужен корректный PNG или JPEG") from exc
+    if image.content_type not in {"image/png", "image/jpeg"}:
+        raise HTTPException(status_code=400, detail="Поддерживаются только PNG и JPEG")
+    extension = "png" if image.content_type == "image/png" else "jpg"
+    return bytes(payload), extension, image.content_type
+
+
+def _resolved_run_file(run_dir: Path, relative_path: str) -> Path | None:
+    """Resolve persisted evidence paths without allowing a build JSON path traversal."""
+    if not relative_path:
+        return None
+    root = run_dir.resolve()
+    candidate = (root / relative_path).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    return candidate
+
+
 @page_router.get("/registry")
 async def rpd_registry_list(request: Request, conn: Any = Depends(get_conn)) -> Response:
     """Список УП из Реестра для выбора источника (id + название + часы)."""
@@ -316,11 +431,8 @@ async def rpd_from_registry(request: Request, plan_id: int, conn: Any = Depends(
     run_id = uuid.uuid4().hex
     run_dir = _run_dir(state_key, run_id)
     run_dir.mkdir(parents=True, exist_ok=True)
-    meta = await run_in_threadpool(_build_from_up, up, run_dir)
-    meta.update({"run_id": run_id, "state_key": state_key, "run_dir": str(run_dir),
-                 "created_at": datetime.now(UTC).isoformat(), "name": title})
-    _persist_run(state_key, meta, run_dir)
-    return JSONResponse({"run_id": run_id, "redirect": f"/app/rpd/{run_id}"})
+    _start_build(state_key, run_id, lambda: _build_from_up(up, run_dir), title)
+    return JSONResponse({"run_id": run_id, "status_url": f"/app/rpd/{run_id}/status"}, status_code=202)
 
 
 def _registry_plan_title(plan: dict[str, Any]) -> str:
@@ -339,6 +451,27 @@ def _registry_plan_title(plan: dict[str, Any]) -> str:
     return f"Учебный план #{plan_id}" if plan_id else "Учебный план без названия"
 
 
+@page_router.get("/{run_id}/status")
+async def rpd_build_status(request: Request, run_id: str) -> JSONResponse:
+    """Ход фоновой сборки — по нему страница понимает, ждать дальше или открывать результат."""
+    user = await validate_request_user(request)
+    _ensure_loaded()
+    state_key = _user_key(user)
+    job = _job(run_id)
+    if job is None or job.get("state_key") != state_key:
+        # Сборка давно закончилась и вытеснена из памяти, но результат на месте.
+        if _find_run(state_key, run_id) is not None:
+            return JSONResponse({"state": "done", "elapsed": 0, "redirect": f"/app/rpd/{run_id}"},
+                                headers={"Cache-Control": "no-store"})
+        raise HTTPException(status_code=404, detail="Прогон РПД не найден")
+    payload: dict[str, Any] = {"state": job["state"], "elapsed": int(time.monotonic() - job["started_at"])}
+    if job["state"] == "done":
+        payload["redirect"] = f"/app/rpd/{run_id}"
+    if job["state"] == "error":
+        payload["error"] = job["error"]
+    return JSONResponse(payload, headers={"Cache-Control": "no-store"})
+
+
 @page_router.get("/{run_id}")
 async def rpd_view(request: Request, run_id: str, s: int = 0, check: bool = False) -> HTMLResponse:
     user = await validate_request_user(request)
@@ -346,6 +479,9 @@ async def rpd_view(request: Request, run_id: str, s: int = 0, check: bool = Fals
     state_key = _user_key(user)
     meta = _find_run(state_key, run_id)
     if meta is None:
+        job = _job(run_id)
+        if job is not None and job.get("state_key") == state_key and job["state"] != "done":
+            return HTMLResponse(_render_waiting(run_id, job), headers={"Cache-Control": "no-store"})
         raise HTTPException(status_code=404, detail="Прогон РПД не найден")
     build = _load_build(meta)
     if build is None or not build.sections:  # старый прогон без черновика — итог + скачать
@@ -374,15 +510,33 @@ async def rpd_save_section(request: Request, run_id: str, index: int) -> Respons
                 return _render_revision_conflict(run_id, build)
             raise
         section = build.sections[index]
-        if section.kind == "table":
-            rows = _table_from_json(str(form.get("table_json", "")))
-            if rows:  # пустая форма (не та секция) не должна стирать таблицу
-                section.table_rows = rows
-        else:
-            text = str(form.get("text", ""))
-            section.paragraphs = [line.strip() for line in text.splitlines() if line.strip()] or [""]
+        if section.editable:
+            if section.kind == "table":
+                rows = _table_from_json(str(form.get("table_json", "")))
+                if rows:  # пустая форма (не та секция) не должна стирать таблицу
+                    section.table_rows = rows
+                    if section.category == "passport":
+                        # The passport table is the visible editor; mirror its semantic values to
+                        # document metadata so cover bindings and repeated summary tables stay aligned.
+                        updates = document_field_updates(rows, build.template_profile_id)
+                        build.document_fields = build.document_fields.model_copy(update=updates)
+                        _refresh_schedule_from_metadata(build)
+            elif section.kind == "module_blocks":
+                module_updates = _module_blocks_from_json(str(form.get("module_blocks_json", "")))
+                for block in section.module_blocks:
+                    block_updates = module_updates.get(block.module_index, {})
+                    passport_rows = block_updates.get("passport")
+                    topics_rows = block_updates.get("topics")
+                    if passport_rows:
+                        block.passport_rows = passport_rows
+                    if topics_rows:
+                        block.topics_rows = topics_rows
+            else:
+                text = str(form.get("text", ""))
+                section.paragraphs = [line.strip() for line in text.splitlines() if line.strip()] or [""]
         section.done = bool(form.get("done"))
-        section.flag = ""  # явная правка методиста закрывает прежнее замечание LLM-критика
+        if section.editable:
+            section.flag = ""  # явная правка методиста закрывает прежнее замечание LLM-критика
         build.revision += 1
         build.quality = evaluate_build_quality(build)
         _save_build(meta, build)
@@ -412,10 +566,77 @@ async def rpd_save_metadata(request: Request, run_id: str) -> Response:
     allowed = {name for name, _label in RpdDocumentFields.required_fields()}
     updates = {name: str(form.get(name, "")).strip() for name in allowed}
     build.document_fields = build.document_fields.model_copy(update=updates)
+    passport = next((section for section in build.sections if section.category == "passport"), None)
+    if passport is not None:
+        # Metadata edits use the same contract in the opposite direction; no second source of truth.
+        passport.table_rows = merge_document_fields(
+            passport.table_rows,
+            build.document_fields,
+            build.template_profile_id,
+        )
+    _refresh_schedule_from_metadata(build)
     build.revision += 1
     build.quality = evaluate_build_quality(build)
     _save_build(meta, build)
     return RedirectResponse(f"/app/rpd/{run_id}", status_code=303)
+
+
+def _refresh_schedule_from_metadata(build: RpdBuild) -> None:
+    """Keep untouched 3.2 and 4.2 projections aligned with canonical passport metadata."""
+    _refresh_final_attestation_from_metadata(build)
+    trace = build.schedule_trace
+    schedule = next((section for section in build.sections if section.category == "up_grafik"), None)
+    if trace is None or schedule is None or schedule.kind != "table":
+        return
+    if schedule.initial_content_hash and schedule.content_hash() != schedule.initial_content_hash:
+        return  # a methodologist-owned edit must never be overwritten by metadata synchronization
+    before = schedule.content_hash()
+    refreshed = refresh_schedule_projection(
+        schedule.table_rows,
+        duration=build.document_fields.duration,
+        final_attestation=build.document_fields.final_attestation,
+        trace=trace,
+    )
+    schedule.table_header = list(refreshed.header)
+    schedule.table_rows = [list(row) for row in refreshed.rows]
+    build.schedule_trace = refreshed.trace
+    after = schedule.content_hash()
+    if after != before:
+        schedule.done = False
+        schedule.flag = ""
+    schedule.initial_content_hash = after
+
+
+def _refresh_final_attestation_from_metadata(build: RpdBuild) -> None:
+    """Update only the canonical 4.2 form while preserving methodologist-owned table edits."""
+    section = next(
+        (item for item in build.sections if item.category == "final_attestation"),
+        None,
+    )
+    if section is None or section.kind != "table":
+        return
+    if section.initial_content_hash and section.content_hash() != section.initial_content_hash:
+        return
+    before = section.content_hash()
+    section.table_rows = refresh_final_attestation_form(
+        section.table_rows,
+        build.document_fields.final_attestation,
+    )
+    if build.assessment_trace is not None:
+        form = next(
+            (
+                row[1]
+                for row in section.table_rows
+                if len(row) >= 2 and row[0].strip().casefold() == "форма"
+            ),
+            "",
+        )
+        build.assessment_trace.final_control_form = form
+    after = section.content_hash()
+    if after != before:
+        section.done = False
+        section.flag = ""
+    section.initial_content_hash = after
 
 
 def _require_current_revision(raw_revision: Any, build: RpdBuild) -> None:
@@ -465,6 +686,146 @@ def _table_from_json(raw: str) -> list[list[str]]:
     return rows
 
 
+def _module_blocks_from_json(raw: str) -> dict[int, dict[str, list[list[str]]]]:
+    """Validate the browser payload for editable passport/topics tables in section 3.3.1."""
+    if not raw.strip():
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    result: dict[int, dict[str, list[list[str]]]] = {}
+    for raw_index, raw_tables in data.items():
+        try:
+            module_index = int(raw_index)
+        except (TypeError, ValueError):
+            continue
+        if module_index < 1 or not isinstance(raw_tables, dict):
+            continue
+        tables: dict[str, list[list[str]]] = {}
+        for role in ("passport", "topics"):
+            raw_rows = raw_tables.get(role)
+            if not isinstance(raw_rows, list):
+                continue
+            rows = [
+                [str(cell) for cell in row]
+                for row in raw_rows
+                if isinstance(row, list)
+            ]
+            if rows:
+                tables[role] = rows
+        if tables:
+            result[module_index] = tables
+    return result
+
+
+@page_router.post("/{run_id}/evidence/{evidence_id}")
+async def rpd_upload_evidence(
+    request: Request,
+    run_id: str,
+    evidence_id: str,
+    screenshot: UploadFile | None = File(None),
+    revision: str = Form(""),
+    return_section: int = Form(-1),
+) -> Response:
+    """Attach one assignment/control screenshot to its immutable evidence requirement."""
+    user = await validate_request_user(request)
+    _ensure_loaded()
+    state_key = _user_key(user)
+    meta = _find_run(state_key, run_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Прогон РПД не найден")
+    build = _load_build(meta)
+    if build is None:
+        raise HTTPException(status_code=404, detail="Черновик РПД не найден")
+    try:
+        _require_current_revision(revision, build)
+    except HTTPException as exc:
+        if exc.status_code == 409:
+            return _render_revision_conflict(run_id, build)
+        raise
+    requirement = next(
+        (item for item in build.module_evidence if item.evidence_id == evidence_id),
+        None,
+    )
+    if requirement is None:
+        raise HTTPException(status_code=404, detail="Требование к скриншоту не найдено")
+    if screenshot is None or not screenshot.filename:
+        raise HTTPException(status_code=400, detail="Не выбран файл скриншота")
+
+    payload, extension, content_type = await _read_evidence_image(screenshot)
+    run_dir = Path(str(meta["run_dir"])).resolve()
+    relative_path = f"evidence/{requirement.evidence_id}.{extension}"
+    target = _resolved_run_file(run_dir, relative_path)
+    if target is None:  # defensive guard; the generated relative path is expected to be safe
+        raise HTTPException(status_code=400, detail="Некорректный путь скриншота")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    _atomic_write_bytes(target, payload)
+
+    # Persist only relative, content-addressed metadata; the binary remains in the scoped run dir.
+    requirement.status = "uploaded"
+    requirement.relative_path = relative_path
+    requirement.original_filename = _safe_name(screenshot.filename)
+    requirement.content_type = content_type
+    requirement.sha256 = hashlib.sha256(payload).hexdigest()
+    module_index = next(
+        (index for index, section in enumerate(build.sections) if section.category == "up_modules"),
+        0,
+    )
+    module_section = build.sections[module_index] if build.sections else None
+    if module_section is not None and module_section.category == "up_modules":
+        synchronize_module_evidence(module_section.module_blocks, requirement)
+        module_section.done = False
+        module_section.flag = ""
+    assessment_index = next(
+        (
+            index
+            for index, section in enumerate(build.sections)
+            if section.category == "assessment_evidence"
+        ),
+        -1,
+    )
+    if requirement.kind == "control" and assessment_index >= 0:
+        build.sections[assessment_index].done = False
+    build.revision += 1
+    build.quality = evaluate_build_quality(build)
+    _save_build(meta, build)
+    redirect_index = (
+        return_section
+        if 0 <= return_section < len(build.sections)
+        and build.sections[return_section].category in {"up_modules", "assessment_evidence"}
+        else module_index
+    )
+    return RedirectResponse(f"/app/rpd/{run_id}?s={redirect_index}", status_code=303)
+
+
+@page_router.get("/{run_id}/evidence/{evidence_id}")
+async def rpd_view_evidence(request: Request, run_id: str, evidence_id: str) -> Response:
+    """Serve an authenticated screenshot preview from the current user's run directory."""
+    user = await validate_request_user(request)
+    _ensure_loaded()
+    meta = _find_run(_user_key(user), run_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Прогон РПД не найден")
+    build = _load_build(meta)
+    requirement = next(
+        (item for item in build.module_evidence if item.evidence_id == evidence_id),
+        None,
+    ) if build is not None else None
+    if requirement is None or requirement.status != "uploaded":
+        raise HTTPException(status_code=404, detail="Скриншот не найден")
+    path = _resolved_run_file(Path(str(meta["run_dir"])), requirement.relative_path)
+    if path is None or not path.is_file():
+        raise HTTPException(status_code=404, detail="Файл скриншота не найден")
+    return Response(
+        content=path.read_bytes(),
+        media_type=requirement.content_type,
+        headers={"Cache-Control": "private, max-age=300"},
+    )
+
+
 @page_router.get("/{run_id}/download")
 async def rpd_download(request: Request, run_id: str, draft: bool = False) -> Response:
     user = await validate_request_user(request)
@@ -475,7 +836,8 @@ async def rpd_download(request: Request, run_id: str, draft: bool = False) -> Re
         raise HTTPException(status_code=404, detail="Прогон РПД не найден")
     build = _load_build(meta)
     if build is not None:  # рендерим из (отредактированного) черновика — свежий DOCX с правками
-        data = await run_in_threadpool(render_build, build)
+        run_dir = Path(str(meta["run_dir"])).resolve()
+        data = await run_in_threadpool(render_build, build, None, run_dir)
         build.quality = evaluate_build_quality(build, data)
         _save_build(meta, build)
         if not draft and not build.quality.ready:
@@ -535,7 +897,13 @@ async def rpd_delete(request: Request, run_id: str) -> RedirectResponse:
 # --------------------------------------------------------------------------- rendering
 
 
-_LABEL_CLASS = {"из УП": "up", "сгенерировано": "gen", "с платформы": "gap", "методист": "gap"}
+_LABEL_CLASS = {
+    "из УП": "up",
+    "УП + агенты": "up",
+    "сгенерировано": "gen",
+    "с платформы": "gap",
+    "методист": "gap",
+}
 
 
 def _label_chip(label: str) -> str:
@@ -545,20 +913,234 @@ def _label_chip(label: str) -> str:
 
 
 def _render_table_editor(section: Any) -> str:
-    row_widths = [len(row) for row in section.table_rows]
-    ncols = max([len(section.table_header), *row_widths], default=1)
-    ths = "".join(f"<th>{escape(str(h))}</th>" for h in section.table_header) + "<th></th>"
+    table = _render_editable_grid(
+        section.table_header,
+        section.table_rows,
+        table_id="edit-table",
+        table_kind="single",
+    )
+    return table + '<input type="hidden" name="table_json" id="table-json">'
+
+
+def _render_editable_grid(
+    header: list[str],
+    rows: list[list[str]],
+    *,
+    table_id: str,
+    table_kind: str,
+    module_index: int = 0,
+    role: str = "",
+) -> str:
+    """Render one editable table surface with explicit serialization metadata."""
+    row_widths = [len(row) for row in rows]
+    ncols = max([len(header), *row_widths], default=1)
+    ths = "".join(f"<th>{escape(str(h))}</th>" for h in header) + "<th></th>"
     body = []
-    for row in section.table_rows:
+    for row in rows:
         padded = [str(cell) for cell in row] + [""] * (ncols - len(row))
         cells = "".join(f'<td><textarea rows="1">{escape(cell)}</textarea></td>' for cell in padded)
         body.append(f'<tr>{cells}<td class="delc"><button type="button" class="delrow" title="Удалить строку">×</button></td></tr>')
     return (
-        f'<div class="tblwrap"><table class="edit" id="edit-table"><thead><tr>{ths}</tr></thead>'
+        f'<div class="tblwrap"><table class="edit" id="{table_id}" data-rpd-table="{table_kind}" '
+        f'data-ncols="{ncols}" data-module-index="{module_index}" data-role="{escape(role)}">'
+        f'<thead><tr>{ths}</tr></thead>'
         f'<tbody>{"".join(body)}</tbody></table></div>'
-        '<button type="button" class="addrow" id="add-row">+ строка</button>'
-        '<input type="hidden" name="table_json" id="table-json">'
-        f'<input type="hidden" id="ncols" value="{ncols}">'
+        f'<button type="button" class="addrow" data-table-target="{table_id}">+ строка</button>'
+    )
+
+
+def _render_module_blocks_editor(section: Any) -> str:
+    """Mirror the internal DOCX: two editable tables and one screenshot area per module."""
+    modules: list[str] = []
+    for block_index, block in enumerate(section.module_blocks):
+        passport_id = f"module-{block.module_index}-passport"
+        topics_id = f"module-{block.module_index}-topics"
+        passport = _render_editable_grid(
+            block.passport_header,
+            block.passport_rows,
+            table_id=passport_id,
+            table_kind="module",
+            module_index=block.module_index,
+            role="passport",
+        )
+        topics = _render_editable_grid(
+            block.topics_header,
+            block.topics_rows,
+            table_id=topics_id,
+            table_kind="module",
+            module_index=block.module_index,
+            role="topics",
+        )
+        evidence_items = "".join(
+            f'<div class="module-evidence-item">{escape(visible_evidence_text(row[0]))}</div>'
+            for row in block.evidence_rows
+            if row
+        )
+        if not evidence_items:
+            evidence_items = '<div class="module-evidence-item empty">Скриншоты для этого модуля не требуются.</div>'
+        modules.append(
+            f'<details class="module-program"{" open" if block_index == 0 else ""}>'
+            f'<summary>Модуль {block.module_index}: {escape(block.module_title)}</summary>'
+            '<h3>Паспорт учебного модуля</h3>'
+            f'{passport}<h3>Темы и виды работ</h3>{topics}'
+            '<section class="module-evidence-area">'
+            f'<div class="module-evidence-title">{escape(block.evidence_header[0])}</div>'
+            f'{evidence_items}</section></details>'
+        )
+    return (
+        '<div class="module-programs">' + "".join(modules) + "</div>"
+        '<input type="hidden" name="module_blocks_json" id="module-blocks-json">'
+    )
+
+
+def _render_readonly_section(section: Any) -> str:
+    """Render profile-owned template content without writable form controls."""
+    if section.kind == "table":
+        header = "".join(
+            f"<th>{escape(visible_evidence_text(str(cell)))}</th>" for cell in section.table_header
+        )
+        rows = "".join(
+            "<tr>"
+            + "".join(
+                f"<td>{escape(visible_evidence_text(str(cell)))}</td>" for cell in row
+            )
+            + "</tr>"
+            for row in section.table_rows
+        )
+        return (
+            '<div class="readonly-section" data-readonly="template">'
+            f'<div class="tblwrap"><table class="readonly-table"><thead><tr>{header}</tr></thead>'
+            f"<tbody>{rows}</tbody></table></div></div>"
+        )
+    items = "".join(f"<li>{escape(str(paragraph))}</li>" for paragraph in section.paragraphs)
+    return f'<div class="readonly-section" data-readonly="template"><ul>{items}</ul></div>'
+
+
+def _render_competency_trace(build: RpdBuild) -> str:
+    """Expose agent recommendations and deterministic coverage next to the editable table."""
+    trace = build.competency_trace
+    if trace is None:
+        return ""
+    coverage = (
+        f"{trace.source_coverage_rate:.0%}"
+        if trace.source_coverage_rate is not None
+        else "нет исходных навыков"
+    )
+    status_labels = {
+        "validated": "проверено",
+        "repaired": "исправлено и проверено",
+        "fallback": "безопасный fallback",
+        "not_run": "не запускалось",
+    }
+    matches = "".join(
+        "<li>"
+        f"<b>{escape(match.standard_code)}</b> — {escape(match.reason)} "
+        f"(уверенность {match.confidence:.0%})"
+        + (
+            "; функции: " + escape(", ".join(match.relevant_function_codes))
+            if match.relevant_function_codes
+            else ""
+        )
+        + "</li>"
+        for match in trace.matches
+    )
+    if matches:
+        recommendation = (
+            "<p>Рекомендации матчера — не нормативное утверждение. Проверьте профстандарт и "
+            "подтвердите основание в таблице.</p><ul>" + matches + "</ul>"
+        )
+    elif trace.candidate_standard_codes:
+        recommendation = "<p>Содержательно подходящий профстандарт не подтверждён матчер-критерием.</p>"
+    else:
+        recommendation = (
+            "<p>Локальный снимок профстандартов не настроен или не дал кандидатов. "
+            "Основание требуется заполнить и подтвердить методисту.</p>"
+        )
+    approved = (
+        "<p>Одобрены методистом: "
+        + escape(", ".join(trace.approved_standard_codes))
+        + ".</p>"
+        if trace.approved_standard_codes
+        else ""
+    )
+    return (
+        '<aside class="quality neutral"><div class="quality-title">Контур компетенций</div>'
+        '<div class="quality-metrics">'
+        f"Семейство: {escape(trace.family)} · статус: "
+        f"{escape(status_labels.get(trace.status, trace.status))} · покрытие навыков УП: {coverage}"
+        f"</div>{recommendation}{approved}</aside>"
+    )
+
+
+def _render_module_evidence(
+    run_id: str,
+    build: RpdBuild,
+    *,
+    evidence_kind: EvidenceKind | None = None,
+    return_section: int = 0,
+) -> str:
+    """Render a module-grouped upload checklist outside the editable-table form."""
+    requirements = [
+        item
+        for item in build.module_evidence
+        if evidence_kind is None or item.kind == evidence_kind
+    ]
+    panel_title = (
+        "Скриншоты примеров оценки по модулям"
+        if evidence_kind == "control"
+        else "Скриншоты заданий и контролей"
+    )
+    if not requirements:
+        return (
+            f'<aside class="evidence-panel"><div class="quality-title">{panel_title}</div>'
+            '<p class="evidence-empty">Реестр скриншотов отсутствует — пересоберите РПД из исходного УП.</p></aside>'
+        )
+    uploaded = sum(item.status == "uploaded" for item in requirements)
+    groups: dict[tuple[int, str], list[PlatformEvidenceRequirement]] = {}
+    for requirement in requirements:
+        groups.setdefault((requirement.module_index, requirement.module_title), []).append(requirement)
+
+    modules: list[str] = []
+    for group_index, ((module_index, module_title), items) in enumerate(groups.items()):
+        cards: list[str] = []
+        for requirement in items:
+            safe_id = escape(requirement.evidence_id)
+            kind = "Задание" if requirement.kind == "assignment" else "Контроль"
+            subject = escape(requirement.subject)
+            status = "Приложен" if requirement.status == "uploaded" else "Требуется"
+            status_class = "ok" if requirement.status == "uploaded" else "pending"
+            preview = (
+                f'<img loading="lazy" src="/app/rpd/{run_id}/evidence/{safe_id}" '
+                f'alt="Скриншот: {subject}">'
+                if requirement.status == "uploaded"
+                else ""
+            )
+            upload_label = "Заменить скриншот" if requirement.status == "uploaded" else "Загрузить скриншот"
+            cards.append(
+                '<article class="evidence-card">'
+                f'<div class="evidence-card-head"><b>{kind}</b><span class="evidence-status {status_class}">{status}</span></div>'
+                f'<div class="evidence-subject">{subject}</div>{preview}'
+                f'<form method="post" enctype="multipart/form-data" action="/app/rpd/{run_id}/evidence/{safe_id}">'
+                f'<input type="hidden" name="revision" value="{build.revision}">'
+                f'<input type="hidden" name="return_section" value="{return_section}">'
+                '<input required name="screenshot" type="file" accept="image/png,image/jpeg">'
+                f'<button class="evidence-upload" type="submit">{upload_label}</button></form></article>'
+            )
+        modules.append(
+            f'<details class="evidence-module"{" open" if group_index == 0 else ""}>'
+            f'<summary>Модуль {module_index}: {escape(module_title)} · {sum(item.status == "uploaded" for item in items)}/{len(items)}</summary>'
+            f'<div class="evidence-grid">{"".join(cards)}</div></details>'
+        )
+    requirement_text = (
+        "В разделе 4.4 требуется отдельный скриншот каждого контроля каждого модуля."
+        if evidence_kind == "control"
+        else "Для каждого задания из LMS/ЭИОС нужны отдельные скрины самого задания и формы контроля."
+    )
+    return (
+        f'<aside class="evidence-panel"><div class="quality-title">{panel_title}</div>'
+        f'<p class="evidence-summary">Приложено {uploaded} из {len(requirements)}. '
+        f"{requirement_text}</p>"
+        f'{"".join(modules)}</aside>'
     )
 
 
@@ -633,6 +1215,17 @@ def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: i
     total = len(sections)
     active = max(0, min(active, total - 1))
     section = sections[active]
+    if section.category == "up_modules":
+        evidence_panel = _render_module_evidence(run_id, build, return_section=active)
+    elif section.category == "assessment_evidence":
+        evidence_panel = _render_module_evidence(
+            run_id,
+            build,
+            evidence_kind="control",
+            return_section=active,
+        )
+    else:
+        evidence_panel = ""
 
     nav = "".join(
         '<a class="navitem{on}" href="/app/rpd/{rid}?s={i}">'
@@ -652,12 +1245,42 @@ def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: i
     done_count = sum(1 for sec in sections if sec.done)
     flag_note = (f'<p class="flagnote">⚠ Валидатор: {escape(section.flag)}</p>' if section.flag else "")
 
-    if section.kind == "table":
+    if not section.editable:
+        editor = _render_readonly_section(section)
+        hint = (
+            "Загрузите скриншоты контроля по каждому модулю; один и тот же файл используется "
+            "в рабочей программе модуля и в примерах оценки."
+            if section.category == "assessment_evidence"
+            else (
+                "Раздел задан профилем шаблона. Проверьте нормативные основания и отметьте «Готово»; "
+                "при экспорте сохраняется исходная вёрстка DOCX."
+            )
+        )
+    elif section.kind == "module_blocks":
+        editor = _render_module_blocks_editor(section)
+        hint = (
+            "Для каждого модуля проверьте паспорт, темы и виды работ, затем загрузите "
+            "отдельные скриншоты задания и контроля в области ниже."
+        )
+    elif section.kind == "table":
         editor = _render_table_editor(section)
-        hint = "Правьте ячейки; «+ строка» добавляет, «×» удаляет строку."
+        if section.category == "up_comp":
+            editor = _render_competency_trace(build) + editor
+        hint = (
+            "Проверьте рабочие программы и загрузите отдельные скриншоты задания и контроля ниже."
+            if section.category == "up_modules"
+            else "Правьте ячейки; «+ строка» добавляет, «×» удаляет строку."
+        )
     else:
         editor = f'<textarea name="text" class="prosein" rows="14">{escape(chr(10).join(section.paragraphs))}</textarea>'
         hint = "Один абзац — одна строка. Пустые строки игнорируются."
+
+    if section.editable and section.preserve_template:
+        # Раздел формы ДПО: правки необязательны и заменяют дословную вёрстку только если внесены.
+        hint = (
+            "Раздел из формы ДПО. Не трогаете — при экспорте сохранится исходная вёрстка шаблона; "
+            "любые правки заменят её вашим текстом."
+        )
 
     prev_btn = (f'<a class="navbtn" href="/app/rpd/{run_id}?s={active - 1}">← Назад</a>'
                 if active > 0 else '<span class="navbtn off">← Назад</span>')
@@ -683,9 +1306,11 @@ def _render_editor(run_id: str, build: RpdBuild, meta: dict[str, Any], active: i
         chip=_label_chip(section.label),
         hint=escape(hint),
         flag_note=flag_note,
+        evidence_panel=evidence_panel,
         index=active,
         revision=build.revision,
         editor=editor,
+        save_label="Подтвердить раздел" if not section.editable else "Сохранить раздел",
         done_checked="checked" if section.done else "",
         prev_btn=prev_btn,
         next_btn=next_btn,
@@ -700,6 +1325,16 @@ def _render_screen(state_key: str, active: dict[str, Any] | None) -> str:
         result=_render_result(active),
         recent=_render_recent(recent, active),
     )
+
+
+def _render_waiting(run_id: str, job: dict[str, Any]) -> str:
+    """Страница идущей сборки: открыть ссылку на прогон можно и до готовности."""
+    safe_run_id = escape(run_id)
+    name = escape(str(job.get("name") or "РПД"))
+    failed = job.get("state") == "error"
+    note = escape(str(job.get("error") or "")) if failed else ""
+    return _WAITING_TEMPLATE.format(run_id=safe_run_id, name=name,
+                                    hidden="" if failed else " hidden", error=note)
 
 
 def _render_result(meta: dict[str, Any] | None) -> str:
@@ -766,6 +1401,56 @@ def _render_recent(recent: list[dict[str, Any]], active: dict[str, Any] | None) 
         )
     return ('<section class="recent"><div class="rt">Недавние РПД</div>'
             f'<ul>{"".join(rows)}</ul></section>')
+
+
+_WAITING_TEMPLATE = """<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>РПД — сборка идёт</title>
+<style>
+ :root{{--accent:#0e8f6f;--ink:#15221d;--muted:#5c6b64;--line:#dde5e1}}
+ body{{font-family:system-ui,'Segoe UI',sans-serif;margin:0;background:#f4f7f5;color:var(--ink);
+   display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}}
+ .card{{background:#fff;border:1px solid var(--line);border-radius:14px;padding:28px 32px;max-width:520px;width:100%}}
+ h1{{font-size:1.25rem;margin:0 0 .3rem}}
+ .name{{color:var(--muted);margin:0 0 18px;font-size:.92rem}}
+ .bar{{height:8px;background:#e8efeb;border-radius:999px;overflow:hidden;margin:16px 0 10px}}
+ .bar i{{display:block;height:100%;width:35%;background:var(--accent);border-radius:999px;
+   animation:slide 1.6s ease-in-out infinite}}
+ @keyframes slide{{0%{{margin-left:-35%}}100%{{margin-left:100%}}}}
+ .hint{{color:var(--muted);font-size:.9rem;margin:0}}
+ .err{{color:#a8261a;font-size:.92rem;margin:14px 0 0}}
+ a{{color:var(--accent)}}
+</style></head>
+<body><div class="card">
+ <h1>Собираем РПД</h1>
+ <p class="name">{name}</p>
+ <div class="bar"><i></i></div>
+ <p class="hint" id="rpd-wait-note" aria-live="polite">Идёт <span id="rpd-wait-time">0:00</span>.
+   Обычно две-три минуты. Страницу можно не перезагружать — она откроется сама.</p>
+ <p class="err" id="rpd-wait-error"{hidden}>{error}</p>
+ <p class="hint" style="margin-top:16px"><a href="/app/rpd">← К списку РПД</a></p>
+</div>
+<script>
+(function(){{
+  var started=Date.now(),t=document.getElementById('rpd-wait-time'),
+      note=document.getElementById('rpd-wait-note'),err=document.getElementById('rpd-wait-error');
+  function tick(){{var s=Math.floor((Date.now()-started)/1000);
+    t.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}}
+  setInterval(tick,1000);
+  function poll(){{
+    fetch('/app/rpd/{run_id}/status',{{headers:{{'Accept':'application/json'}}}})
+      .then(function(r){{return r.json();}})
+      .then(function(d){{
+        if(d&&d.state==='done'&&d.redirect){{window.location.href=d.redirect;return;}}
+        if(d&&d.state==='error'){{note.textContent='Сборка не удалась.';
+          err.hidden=false;err.textContent=d.error||'Причина неизвестна';return;}}
+        setTimeout(poll,2000);
+      }}).catch(function(){{setTimeout(poll,4000);}});
+  }}
+  setTimeout(poll,2000);
+}})();
+</script>
+</body></html>"""
 
 
 _SCREEN_TEMPLATE = """<!DOCTYPE html>
@@ -875,13 +1560,35 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
   }});
   form.addEventListener('submit',function(e){{
     e.preventDefault();if(!hid.value){{lbl.textContent='Сначала загрузите УП (.csv)';prog.hidden=false;return;}}
-    go.disabled=true;go.textContent='Собираю РПД (генерю прозу)…';
+    go.disabled=true;go.textContent='Собираю РПД (генерю прозу)…';prog.hidden=false;
     var titleEl=document.getElementById('rpd-title');
     var body=new URLSearchParams();body.append('upload_id',hid.value);body.append('title',titleEl?titleEl.value:'');
     fetch('/app/rpd/generate',{{method:'POST',body:body,headers:{{'Content-Type':'application/x-www-form-urlencoded'}}}})
-      .then(function(r){{return r.json();}}).then(function(d){{if(d&&d.redirect){{window.location.href=d.redirect;}}else{{throw 0;}}}})
+      .then(function(r){{return r.json();}}).then(function(d){{
+        if(!d||!d.run_id){{throw 0;}}
+        watch(d.run_id);
+      }})
       .catch(function(){{go.disabled=false;go.textContent='Сформировать РПД →';lbl.textContent='Не удалось собрать РПД';}});
   }});
+  // Сборка идёт на сервере; запрос уже отвечен, поэтому ждём по статусу, а не держим соединение.
+  function watch(runId){{
+    var started=Date.now();
+    function elapsed(){{var s=Math.floor((Date.now()-started)/1000);
+      return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}}
+    function step(){{
+      fetch('/app/rpd/'+encodeURIComponent(runId)+'/status')
+        .then(function(r){{return r.json();}})
+        .then(function(d){{
+          if(d&&d.state==='done'&&d.redirect){{window.location.href=d.redirect;return;}}
+          if(d&&d.state==='error'){{go.disabled=false;go.textContent='Сформировать РПД →';
+            lbl.textContent='Сборка не удалась: '+(d.error||'причина неизвестна');return;}}
+          lbl.textContent='Собираю РПД — '+elapsed()+'. Обычно две-три минуты, не перезагружайте страницу.';
+          setTimeout(step,2000);
+        }}).catch(function(){{setTimeout(step,4000);}});
+    }}
+    lbl.textContent='Собираю РПД — 0:00. Обычно две-три минуты, не перезагружайте страницу.';
+    setTimeout(step,2000);
+  }}
 }})();
 (function(){{
   var select=document.getElementById('rpd-registry-select'),go=document.getElementById('rpd-registry-go'),
@@ -908,7 +1615,24 @@ _SCREEN_TEMPLATE = """<!DOCTYPE html>
     var planId=select.value;if(!planId)return;
     select.disabled=true;go.disabled=true;go.textContent='Собираю РПД…';state.textContent='Формируется документ из выбранного УП.';
     fetch('/app/rpd/registry/'+encodeURIComponent(planId),{{method:'POST'}}).then(function(r){{return r.json();}})
-      .then(function(x){{if(x&&x.redirect){{window.location.href=x.redirect;}}else{{throw 0;}}}})
+      .then(function(x){{
+        if(!x||!x.run_id){{throw 0;}}
+        var started=Date.now();
+        function step(){{
+          fetch('/app/rpd/'+encodeURIComponent(x.run_id)+'/status').then(function(r){{return r.json();}})
+            .then(function(d){{
+              if(d&&d.state==='done'&&d.redirect){{window.location.href=d.redirect;return;}}
+              if(d&&d.state==='error'){{select.disabled=false;go.textContent='Повторить →';ready(select.value);
+                state.textContent='Сборка не удалась: '+(d.error||'причина неизвестна');return;}}
+              var s=Math.floor((Date.now()-started)/1000);
+              state.textContent='Собираю РПД — '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0')
+                +'. Обычно две-три минуты, не перезагружайте страницу.';
+              setTimeout(step,2000);
+            }}).catch(function(){{setTimeout(step,4000);}});
+        }}
+        state.textContent='Собираю РПД — 0:00. Обычно две-три минуты, не перезагружайте страницу.';
+        setTimeout(step,2000);
+      }})
       .catch(function(){{select.disabled=false;go.textContent='Повторить →';ready(select.value);
         state.textContent='Не удалось собрать РПД. Попробуйте ещё раз.';}});
   }});
@@ -928,8 +1652,10 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
  a.back{{color:var(--accent);text-decoration:none;font-size:.9rem}}
  h1{{font-size:1.35rem;margin:.4rem 0 .1rem}} .sub{{color:var(--muted);margin:0 0 18px;font-size:.9rem}}
  .grid{{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;align-items:start}}
+ .grid>div{{min-width:0}}
  @media (max-width:820px){{.grid{{grid-template-columns:1fr}}}}
  .nav{{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:74vh;overflow-y:auto}}
+ @media (max-width:820px){{.nav{{max-height:35vh}}}}
  .navitem{{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:10px 12px;border-top:1px solid var(--line);text-decoration:none;color:var(--ink)}}
  .navitem:first-child{{border-top:none}} .navitem.on{{background:var(--soft)}}
  .navitem .nnum{{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted);min-width:30px}}
@@ -940,6 +1666,9 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
  .sechead .snum{{font-family:ui-monospace,Consolas,monospace;color:var(--muted);font-size:.85rem}}
  .hint{{color:var(--muted);font-size:12.5px;margin:0 0 14px}}
  .prosein{{width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:14px;line-height:1.5;resize:vertical}}
+ .readonly-section{{padding:14px 18px;border:1px solid var(--line);border-radius:9px;background:#f8faf9;font-size:14px;line-height:1.5}}
+ .readonly-section ul{{margin:0;padding-left:22px}} .readonly-section li+li{{margin-top:7px}}
+ .readonly-table{{width:100%;border-collapse:collapse;background:#fff}} .readonly-table th,.readonly-table td{{border:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}}
  .tblwrap{{overflow-x:auto;border:1px solid var(--line);border-radius:9px}}
  table.edit{{border-collapse:collapse;width:100%;min-width:640px}}
  table.edit th{{background:var(--soft);color:var(--accent);font-size:11.5px;text-align:left;padding:8px 10px;position:sticky;top:0}}
@@ -973,6 +1702,29 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
  .meta summary{{font-weight:700;cursor:pointer}} .meta-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:12px 0}}
  .meta-field{{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}}
  .meta-field input{{padding:8px 9px;border:1px solid var(--line);border-radius:7px;font:inherit;color:var(--ink)}}
+ .evidence-panel{{border:1px solid var(--gap);background:var(--gapsoft);border-radius:10px;padding:12px;margin:0 0 14px}}
+ .evidence-summary,.evidence-empty{{font-size:12.5px;color:var(--muted);margin:6px 0 10px}}
+ .evidence-module{{background:#fff;border:1px solid var(--line);border-radius:8px;margin-top:8px;padding:8px}}
+ .evidence-module summary{{cursor:pointer;font-weight:700;font-size:13px}}
+ .evidence-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px;margin-top:8px}}
+ .evidence-card{{border:1px solid var(--line);border-radius:8px;padding:9px;background:#fff}}
+ .evidence-card-head{{display:flex;justify-content:space-between;gap:8px;font-size:12px}}
+ .evidence-status{{padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700}}
+ .evidence-status.ok{{background:var(--soft);color:var(--accent)}} .evidence-status.pending{{background:var(--gapsoft);color:var(--gap)}}
+ .evidence-subject{{font-size:12px;margin:5px 0;line-height:1.35}}
+ .evidence-card img{{display:block;max-width:100%;max-height:190px;object-fit:contain;border:1px solid var(--line);border-radius:6px;margin:7px auto}}
+ .evidence-card form{{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:7px}}
+ .evidence-card input[type=file]{{font-size:11px;max-width:180px}}
+ .evidence-upload{{border:1px solid var(--accent);background:#fff;color:var(--accent);border-radius:6px;padding:5px 8px;cursor:pointer;font-weight:650;font-size:11px}}
+ .module-programs{{display:grid;gap:14px}}
+ .module-program{{border:1px solid var(--line);border-radius:10px;padding:10px;background:#f8faf9}}
+ .module-program>summary{{cursor:pointer;font-weight:750;padding:2px 4px}}
+ .module-program h3{{font-size:13px;margin:14px 2px 7px;color:var(--muted)}}
+ .module-program .tblwrap{{background:#fff}}
+ .module-evidence-area{{border:1px solid var(--gap);background:#fff8e8;border-radius:8px;margin-top:14px;padding:12px}}
+ .module-evidence-title{{font-weight:750;font-size:13px;margin-bottom:8px}}
+ .module-evidence-item{{border-top:1px solid #ead8b7;padding:8px 2px;font-size:12px;line-height:1.4}}
+ .module-evidence-item.empty{{color:var(--muted)}}
 </style></head><body><div class="wrap">
  <a class="back" href="/app/rpd">← к списку РПД</a>
  <h1>РПД: {name}</h1>
@@ -990,12 +1742,13 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
          <input type="hidden" name="revision" value="{revision}">
          {editor}
          <div class="rowbar">
-           <button class="btn" type="submit">Сохранить раздел</button>
+           <button class="btn" type="submit">{save_label}</button>
            <label class="donebox"><input type="checkbox" name="done" {done_checked}> Готово</label>
            <span class="spacer"></span>
            {prev_btn}{next_btn}
          </div>
        </form>
+       {evidence_panel}
      </div>
      <div class="exportbar">{export_actions}</div>
    </div>
@@ -1003,26 +1756,56 @@ _EDITOR_TEMPLATE = """<!DOCTYPE html>
 </div>
 <script>
 (function(){{
-  var table=document.getElementById('edit-table');
-  if(!table) return;
-  var form=table.closest('form'), addBtn=document.getElementById('add-row');
-  var ncols=parseInt((document.getElementById('ncols')||{{}}).value||'1',10);
+  var tables=Array.prototype.slice.call(document.querySelectorAll('table.edit[data-rpd-table]'));
+  if(!tables.length) return;
+  var form=tables[0].closest('form');
   function fit(el){{ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }}
-  function autosize(scope){{ (scope||table).querySelectorAll('textarea').forEach(fit); }}
-  function bindDeletes(){{ table.querySelectorAll('.delrow').forEach(function(b){{ b.onclick=function(){{ b.closest('tr').remove(); }}; }}); }}
-  bindDeletes(); autosize();
-  table.addEventListener('input',function(e){{ if(e.target.tagName==='TEXTAREA') fit(e.target); }});
-  if(addBtn) addBtn.onclick=function(){{
-    var tb=table.querySelector('tbody'), tr=document.createElement('tr'), html='';
-    for(var c=0;c<ncols;c++) html+='<td><textarea rows="1"></textarea></td>';
-    html+='<td class="delc"><button type="button" class="delrow" title="Удалить строку">&times;</button></td>';
-    tr.innerHTML=html; tb.appendChild(tr); bindDeletes(); autosize(tr);
-  }};
-  if(form) form.addEventListener('submit',function(){{
-    var rows=[]; table.querySelectorAll('tbody tr').forEach(function(tr){{
-      var row=[]; tr.querySelectorAll('textarea').forEach(function(inp){{ row.push(inp.value); }}); rows.push(row);
+  function autosize(scope){{ (scope||document).querySelectorAll('textarea').forEach(fit); }}
+  function bindDelete(button){{ button.onclick=function(){{ button.closest('tr').remove(); }}; }}
+  function serialize(table){{
+    var rows=[];
+    table.querySelectorAll('tbody tr').forEach(function(tr){{
+      var row=[];
+      tr.querySelectorAll('textarea').forEach(function(input){{ row.push(input.value); }});
+      rows.push(row);
     }});
-    var hid=document.getElementById('table-json'); if(hid) hid.value=JSON.stringify(rows);
+    return rows;
+  }}
+  tables.forEach(function(table){{
+    table.querySelectorAll('.delrow').forEach(bindDelete);
+    table.addEventListener('input',function(event){{
+      if(event.target.tagName==='TEXTAREA') fit(event.target);
+    }});
+  }});
+  document.querySelectorAll('.addrow[data-table-target]').forEach(function(button){{
+    button.onclick=function(){{
+      var table=document.getElementById(button.dataset.tableTarget);
+      if(!table) return;
+      var ncols=parseInt(table.dataset.ncols||'1',10);
+      var tr=document.createElement('tr'), html='';
+      for(var column=0;column<ncols;column++) html+='<td><textarea rows="1"></textarea></td>';
+      html+='<td class="delc"><button type="button" class="delrow" title="Удалить строку">&times;</button></td>';
+      tr.innerHTML=html;
+      table.querySelector('tbody').appendChild(tr);
+      tr.querySelectorAll('.delrow').forEach(bindDelete);
+      autosize(tr);
+    }};
+  }});
+  autosize();
+  if(form) form.addEventListener('submit',function(){{
+    var single=document.querySelector('table.edit[data-rpd-table="single"]');
+    var singleHidden=document.getElementById('table-json');
+    if(single && singleHidden) singleHidden.value=JSON.stringify(serialize(single));
+    var moduleHidden=document.getElementById('module-blocks-json');
+    if(moduleHidden){{
+      var payload={{}};
+      document.querySelectorAll('table.edit[data-rpd-table="module"]').forEach(function(table){{
+        var moduleIndex=table.dataset.moduleIndex, role=table.dataset.role;
+        if(!payload[moduleIndex]) payload[moduleIndex]={{}};
+        payload[moduleIndex][role]=serialize(table);
+      }});
+      moduleHidden.value=JSON.stringify(payload);
+    }}
   }});
 }})();
 </script>
