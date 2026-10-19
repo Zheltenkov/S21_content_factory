@@ -99,3 +99,41 @@ def test_disable_auth_resolves_to_dev_admin(monkeypatch: pytest.MonkeyPatch) -> 
 
     client = TestClient(app)
     assert client.post("/app/spravochnik/intake").status_code == 200
+
+
+def test_rpd_sends_anonymous_visitors_to_login_like_the_other_tools() -> None:
+    """Без сессии РПД должен вести на форму входа, а не отдавать JSON-ошибку.
+
+    Остальные страницы-инструменты перечислены в protected_prefixes, поэтому гость
+    попадает на вход. РПД там не было: в режиме инкогнито страница отвечала
+    401 c телом {"detail": "Требуется аутентификация"}, и методисты читали это как
+    «модуль не работает».
+    """
+
+    from content_factory.api.main import app
+
+    tool_auth = next(mw for mw in app.user_middleware if mw.cls is ToolAuthCookieMiddleware)
+
+    assert "/app/rpd" in tool_auth.kwargs["protected_prefixes"]
+    # Сборку РПД ведёт методист, не администратор: POST-маршруты закрывать ролью нельзя.
+    assert "/app/rpd" not in tool_auth.kwargs["admin_write_prefixes"]
+
+
+def test_unauthenticated_rpd_page_redirects_instead_of_returning_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_validate(request, db=None):  # type: ignore[no-untyped-def]
+        raise HTTPException(status_code=401, detail="Требуется аутентификация")
+
+    monkeypatch.setattr(auth_cookie, "validate_request_user", fake_validate)
+    app = FastAPI()
+    app.add_middleware(ToolAuthCookieMiddleware, protected_prefixes=("/app/rpd",))
+
+    @app.get("/app/rpd")
+    def _page() -> PlainTextResponse:
+        return PlainTextResponse("страница РПД")
+
+    resp = TestClient(app).get("/app/rpd", follow_redirects=False)
+
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/?next=/app/rpd"

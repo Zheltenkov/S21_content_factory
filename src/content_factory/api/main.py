@@ -99,7 +99,7 @@ app.add_middleware(ActivityTrackingMiddleware, update_interval_seconds=update_in
 # Browser-mounted tools use normal navigation, so they receive the shared auth cookie.
 app.add_middleware(
     ToolAuthCookieMiddleware,
-    protected_prefixes=("/app/auditor", "/app/check", "/app/curriculum", "/app/spravochnik"),
+    protected_prefixes=("/app/auditor", "/app/check", "/app/curriculum", "/app/rpd", "/app/spravochnik"),
     # Catalog mutations (intake, reviews, admin, curriculum-plan edits) require the
     # admin role; read-only catalog pages stay open to any authenticated user. The
     # curriculum-builder POST routes mutate the shared catalog/DAG/templates/plans,
