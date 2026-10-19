@@ -79,8 +79,10 @@ def test_home_registry_picker_is_a_dropdown(client: TestClient) -> None:
     assert 'id="rpd-registry-select"' in response.text
     assert '<select class="registry-select"' in response.text
     assert 'id="rpd-registry-go"' in response.text
-    assert "plans.forEach" in response.text
-    assert "document.createElement('option')" in response.text
+    # Сам список строит скрипт, вынесенный из HTML, — проверяем его там, где он теперь лежит.
+    script = (Path(__file__).resolve().parents[2] / "static" / "js" / "rpd-page.js").read_text(encoding="utf-8")
+    assert "plans.forEach" in script
+    assert "document.createElement('option')" in script
 
 
 def test_registry_list_exposes_meaningful_plan_names(
@@ -737,7 +739,10 @@ def test_open_run_while_it_builds_shows_waiting_page_not_404(client: TestClient,
 
     assert page.status_code == 200
     assert "Собираем РПД" in page.text
-    assert f"/app/rpd/{run_id}/status" in page.text  # страница сама следит за ходом
+    # Страница сама следит за ходом: номер прогона уходит в data-атрибут, адрес статуса
+    # собирает вынесенный скрипт.
+    assert f'data-run-id="{run_id}"' in page.text
+    assert "/static/js/rpd-waiting.js" in page.text
     held_build.set()
     _wait_state(client, run_id, "done")
 
@@ -782,3 +787,49 @@ def _parse_up_fixture():
         handle.write(_up_csv())
         path = Path(handle.name)
     return rpd.parse_up_csv(path, title="УП из Реестра")
+
+
+# ------------------------------------------------- скрипты страниц отдельными файлами
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_home_page_keeps_its_script_in_a_file_not_inside_the_html(client: TestClient) -> None:
+    """Корпоративный прокси методистов обрывает ответ со встроенным скриптом.
+
+    19.10.2026 это проверено на боевом адресе: та же страница без скриптов проходит,
+    со скриптами — нет, а с тем же кодом отдельным файлом снова проходит. Виноват блок
+    загрузки УП: `XMLHttpRequest` с `upload.onprogress` и `FormData` фильтр принимает за
+    отправку файлов наружу. Внешние скрипты того же сервера он пропускает.
+    """
+    html = client.get("/app/rpd").text
+
+    assert "/static/js/rpd-page.js" in html
+    assert "XMLHttpRequest" not in html
+    assert "<script>" not in html
+
+
+def test_home_script_file_carries_the_upload_and_build_logic() -> None:
+    script = _REPO_ROOT / "static" / "js" / "rpd-page.js"
+
+    body = script.read_text(encoding="utf-8")
+
+    assert "XMLHttpRequest" in body and "/app/rpd/upload" in body
+    assert "/app/rpd/generate" in body
+    assert "/status" in body  # опрос хода фоновой сборки уехал вместе со скриптом
+
+
+def test_waiting_page_keeps_its_script_in_a_file_and_passes_the_run_id_as_data(
+    client: TestClient, held_build
+) -> None:
+    upload_id = _upload(client)
+    run_id = client.post("/app/rpd/generate", data={"upload_id": upload_id, "title": "Тест"}).json()["run_id"]
+    assert held_build.entered.wait(5)
+
+    page = client.get(f"/app/rpd/{run_id}").text
+
+    assert "/static/js/rpd-waiting.js" in page
+    assert f'data-run-id="{run_id}"' in page
+    assert "<script>" not in page
+    held_build.set()
+    _wait_state(client, run_id, "done")
