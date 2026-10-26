@@ -8,6 +8,12 @@
 способ не требует правильности разметки (а она в учебных материалах бывает всякая) и даёт
 побайтное совпадение, когда переводить нечего.
 
+Проход линейный, и это не украшение. Первая редакция искала пропускаемые куски одним регулярным
+выражением с ``.*?``; на сорока тысячах незакрытых ``<script>`` разбор занимал 68 секунд, потому
+что каждая незакрытая конструкция заставляла движок дочитывать файл до конца заново. Потолки на
+число кусков от этого не защищали: текста между тегами там нет, счётчик не растёт, а время уже
+потрачено. Теперь курсор всегда идёт вперёд, а незакрытая конструкция дочитывается один раз.
+
 Модель видит текст без сущностей (``Caf&eacute;`` → ``Café``), а на обратном пути перевод
 экранируется. Поэтому ответ модели не может стать разметкой: ``<b>`` из перевода попадёт на
 страницу как видимый текст, а не как тег.
@@ -25,18 +31,12 @@ from content_factory.translation.errors import DocumentFormatError
 from content_factory.translation.units import TextUnit
 
 # Пределы: файл приходит из загруженного архива.
+MAX_BYTES = 10 * 1024 * 1024
 MAX_UNITS = 20_000
 MAX_CHARS = 2_000_000
 
-_SKIP_RE = re.compile(
-    r"<!--.*?-->"  # комментарий
-    r"|<!\[CDATA\[.*?\]\]>"
-    r"|<!.*?>"  # DOCTYPE и прочие объявления
-    r"|<script\b.*?</script\s*>"
-    r"|<style\b.*?</style\s*>"
-    r"|<[^>]*>",  # обычный тег
-    re.IGNORECASE | re.DOTALL,
-)
+# Элементы, внутри которых переводить нечего: их содержимое — код, а не текст.
+_RAW_ELEMENT_RE = re.compile(r"<(script|style)\b", re.IGNORECASE)
 
 
 class HtmlHandler:
@@ -45,23 +45,37 @@ class HtmlHandler:
     extensions = frozenset({".html", ".htm"})
 
     def extract(self, content: bytes) -> list[TextUnit]:
-        text = content.decode("utf-8")
+        text = _decode(content)
         return [
             TextUnit(unit_id=unit_id, text=value, hint="текст страницы")
             for unit_id, _start, _end, value in _spans(text)
         ]
 
     def apply(self, content: bytes, translations: dict[str, str]) -> bytes:
-        text = content.decode("utf-8")
-        for unit_id, start, end, _value in reversed(_spans(text)):
+        text = _decode(content)
+        # Сборка кусками: срезы строки на каждую замену переписывали бы весь файл заново.
+        pieces: list[str] = []
+        cursor = 0
+        for unit_id, start, end, _value in _spans(text):
             translated = translations.get(unit_id)
             if translated is None:
                 continue
             original = text[start:end]
             head = original[: len(original) - len(original.lstrip())]
             tail = original[len(original.rstrip()) :]
-            text = text[:start] + head + html.escape(translated, quote=False) + tail + text[end:]
-        return text.encode("utf-8")
+            pieces.append(text[cursor:start])
+            pieces.append(head + html.escape(translated, quote=False) + tail)
+            cursor = end
+        pieces.append(text[cursor:])
+        return "".join(pieces).encode("utf-8")
+
+
+def _decode(content: bytes) -> str:
+    if len(content) > MAX_BYTES:
+        raise DocumentFormatError(
+            f"HTML-файл слишком велик: {len(content)} байт при пределе {MAX_BYTES}"
+        )
+    return content.decode("utf-8")
 
 
 def _spans(text: str) -> list[tuple[str, int, int, str]]:
@@ -69,7 +83,6 @@ def _spans(text: str) -> list[tuple[str, int, int, str]]:
     found: list[tuple[str, int, int, str]] = []
     counter = 0
     characters = 0
-    cursor = 0
 
     def take(start: int, end: int) -> None:
         nonlocal counter, characters
@@ -87,8 +100,31 @@ def _spans(text: str) -> list[tuple[str, int, int, str]]:
             raise DocumentFormatError(f"В HTML больше {MAX_CHARS} знаков текста")
         found.append((f"{counter:04d}", start, end, value))
 
-    for match in _SKIP_RE.finditer(text):
-        take(cursor, match.start())
-        cursor = match.end()
-    take(cursor, len(text))
+    cursor = 0
+    while cursor < len(text):
+        opening = text.find("<", cursor)
+        if opening < 0:
+            take(cursor, len(text))
+            break
+        take(cursor, opening)
+        cursor = _skip_construct(text, opening)
     return found
+
+
+def _skip_construct(text: str, opening: int) -> int:
+    """Конец конструкции, начавшейся с ``<``. Незакрытая считается идущей до конца файла."""
+    if text.startswith("<!--", opening):
+        return _after(text, "-->", opening + 4)
+    if text.startswith("<![CDATA[", opening):
+        return _after(text, "]]>", opening + 9)
+    raw = _RAW_ELEMENT_RE.match(text, opening)
+    if raw:
+        closing = text.lower().find(f"</{raw.group(1).lower()}", opening)
+        return _after(text, ">", closing) if closing >= 0 else len(text)
+    return _after(text, ">", opening + 1)
+
+
+def _after(text: str, closing: str, start: int) -> int:
+    """Позиция сразу за закрывающей строкой; её нет — конец файла."""
+    position = text.find(closing, start)
+    return position + len(closing) if position >= 0 else len(text)

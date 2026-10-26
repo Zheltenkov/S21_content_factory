@@ -92,3 +92,58 @@ def test_a_translation_with_markup_characters_is_escaped(handler: HtmlHandler) -
     result = handler.apply(source, {unit.unit_id: "1 < 2 и <b>не тег</b>"}).decode("utf-8")
 
     assert "&lt;b&gt;" in result, "разметка из перевода не должна становиться разметкой страницы"
+
+
+# --------------------------------------------------------- устойчивость разбора
+
+def test_many_unterminated_comments_do_not_blow_up_the_scan(handler: HtmlHandler) -> None:
+    """Незакрытая конструкция обязана дочитываться один раз, а не с каждой позиции заново.
+
+    Потолки на число кусков тут не помогают: текста между тегами нет, счётчик не растёт, а
+    разбор уже занят перебором. Поэтому проверяем временем.
+    """
+    import time
+
+    source = ("<!--" * 60_000 + "<p>текст</p>").encode("utf-8")
+
+    started = time.monotonic()
+    handler.extract(source)
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 5, f"разбор занял {elapsed:.1f} с — похоже на перебор с каждой позиции"
+
+
+def test_an_unclosed_script_does_not_blow_up_the_scan(handler: HtmlHandler) -> None:
+    import time
+
+    source = ("<script>" * 40_000 + "<p>текст</p>").encode("utf-8")
+
+    started = time.monotonic()
+    handler.extract(source)
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 5, f"разбор занял {elapsed:.1f} с"
+
+
+def test_an_oversized_file_is_refused_before_parsing(handler: HtmlHandler) -> None:
+    from content_factory.translation.errors import DocumentFormatError
+    from content_factory.translation.handlers.html import MAX_BYTES
+
+    with pytest.raises(DocumentFormatError, match="велик"):
+        handler.extract(b"<p>a</p>" * (MAX_BYTES // 8 + 10))
+
+
+def test_many_translations_are_applied_without_quadratic_rebuilding(handler: HtmlHandler) -> None:
+    """Сборка результата срезами строки переписывает весь файл на каждую замену."""
+    import time
+
+    source = ("<p>text</p>" * 5_000).encode("utf-8")
+    units = handler.extract(source)
+    translations = {unit.unit_id: "текст" for unit in units}
+
+    started = time.monotonic()
+    result = handler.apply(source, translations)
+    elapsed = time.monotonic() - started
+
+    assert result.count("текст".encode()) == 5_000
+    assert elapsed < 5, f"сборка заняла {elapsed:.1f} с"
