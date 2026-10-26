@@ -163,7 +163,7 @@ def test_a_go_raw_string_has_no_escapes() -> None:
     """В сырой строке Go обратный слеш — обычный знак, он не экранирует кавычку."""
     from content_factory.translation.handlers.code import GoCommentHandler
 
-    source = "var p = `C:\path\`\n// пояснение\n".encode()
+    source = "var p = `C:\\path\\`\n// пояснение\n".encode()
 
     assert [u.text for u in GoCommentHandler().extract(source)] == ["пояснение"]
 
