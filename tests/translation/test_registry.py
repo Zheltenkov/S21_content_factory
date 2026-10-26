@@ -73,3 +73,10 @@ def test_every_format_from_the_design_is_covered() -> None:
     }
 
     assert expected <= supported_extensions()
+
+
+def test_python_sources_have_a_comment_handler() -> None:
+    handler = handler_for(".py")
+
+    assert handler is not None
+    assert ".py" in handler.extensions

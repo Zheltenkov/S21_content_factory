@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from content_factory.translation.handlers.code import PythonCommentHandler
 from content_factory.translation.handlers.docx import DocxHandler
 from content_factory.translation.handlers.html import HtmlHandler
 from content_factory.translation.handlers.pdf import PdfHandler
@@ -24,6 +25,7 @@ _HANDLERS: tuple[FormatHandler, ...] = (
     XlsxHandler(),
     PptxHandler(),
     PdfHandler(),
+    PythonCommentHandler(),
 )
 
 
