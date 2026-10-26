@@ -16,6 +16,7 @@ from io import BytesIO
 from xml.etree import ElementTree
 
 from content_factory.translation.errors import DocumentFormatError
+from content_factory.translation.ooxml import spread_over_runs, strip_invalid_xml
 from content_factory.translation.units import TextUnit
 from content_factory.translation.xml_safety import parse_xml_without_dtd
 
@@ -91,51 +92,14 @@ def _walk(content: bytes) -> list[tuple[str, str, int, str]]:
 
 def _apply_to_paragraph(paragraph: ElementTree.Element, translated: str) -> None:
     """Заменяет текст абзаца, не трогая стили, таблицы, списки и прочие узлы OOXML."""
-    translated = _INVALID_XML_RE.sub("", translated or "")
+    translated = strip_invalid_xml(translated)
     nodes = [node for node in paragraph.iter() if node.tag == _TEXT_TAG]
     if not nodes:
         return
-    chunks = _spread_over_runs(translated, [node.text or "" for node in nodes])
+    chunks = spread_over_runs(translated, [node.text or "" for node in nodes])
     for node, chunk in zip(nodes, chunks, strict=False):
         node.text = chunk
         if chunk[:1].isspace() or chunk[-1:].isspace():
             node.set(f"{{{XML_NAMESPACE}}}space", "preserve")
     for node in nodes[len(chunks) :]:
         node.text = ""
-
-
-def _spread_over_runs(translated: str, original_parts: list[str]) -> list[str]:
-    """Распределяет перевод по исходным run пропорционально длине — так inline-стили остаются."""
-    if not original_parts:
-        return []
-    if len(original_parts) == 1:
-        return [translated]
-
-    weights = [max(len(part or ""), 1) for part in original_parts]
-    total = sum(weights) or len(original_parts)
-    chunks: list[str] = []
-    cursor = 0
-    cumulative = 0
-    for weight in weights[:-1]:
-        cumulative += weight
-        target = round(len(translated) * cumulative / total)
-        cut = _cut_near_space(translated, target, cursor)
-        chunks.append(translated[cursor:cut])
-        cursor = cut
-    chunks.append(translated[cursor:])
-    return chunks
-
-
-def _cut_near_space(text: str, target: int, start: int) -> int:
-    """Граница куска около пробела, чтобы перевод не разрывался посреди слова."""
-    if target <= start:
-        return start
-    if target >= len(text):
-        return len(text)
-    window = max(20, min(80, len(text) // 8))
-    left = max(start, target - window)
-    right = min(len(text), target + window)
-    candidates = [left + m.end() for m in re.finditer(r"\s+", text[left:right])]
-    if not candidates:
-        return target
-    return min(candidates, key=lambda cut: abs(cut - target))

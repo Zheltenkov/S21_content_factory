@@ -41,3 +41,10 @@ def test_yaml_has_its_own_handler() -> None:
         handler = handler_for(extension)
         assert handler is not None, extension
         assert extension in handler.extensions
+
+
+def test_xlsx_has_its_own_handler() -> None:
+    handler = handler_for(".xlsx")
+
+    assert handler is not None
+    assert ".xlsx" in handler.extensions
