@@ -6,6 +6,7 @@ POST /translate/readme, POST /translate/document или POST /translate/video в
 """
 
 import asyncio
+import json
 import os
 import uuid
 from typing import Any, Literal
@@ -17,6 +18,15 @@ from pydantic import BaseModel
 from content_factory.api.db.logging_db import write_log_async
 from content_factory.api.db.user_runs_db import upsert_user_run
 from content_factory.api.dependencies import get_current_user
+from content_factory.api.routers.archive_translation import (
+    archive_source_language,
+    inspect_archive,
+    plan_for_user,
+    read_uploaded_archive,
+    remember_plan,
+    run_archive_translation,
+    selected_paths,
+)
 from content_factory.api.routers.document_translation import (
     STORAGE_DIR,
     _read_uploaded_translation_document,
@@ -158,10 +168,37 @@ class TranslateReadmeStatusResponse(BaseModel):
     source_format: str | None = None
 
 
+class ArchiveEntryResponse(BaseModel):
+    """Строка описи архива: один файл и всё, что о нём известно до перевода."""
+
+    path: str
+    handler: str | None = None
+    units: int
+    chars: int
+    language: str
+    selected: bool
+    skip_reason: str | None = None
 
 
+class ArchiveEstimateResponse(BaseModel):
+    """Смета по отмеченным файлам. Оценка, а не счёт."""
+
+    files: int
+    units: int
+    chars: int
+    seconds: int
+    usd: float
+    model: str
 
 
+class ArchiveInspectResponse(BaseModel):
+    """Опись архива со сметой. Модель на этом шаге не зовётся ни разу."""
+
+    plan_id: str
+    source_filename: str
+    source_language: str
+    entries: list[ArchiveEntryResponse]
+    totals: ArchiveEstimateResponse
 
 
 
@@ -388,6 +425,139 @@ async def translate_document_start(
     return TranslateReadmeStartResponse(request_id=request_id)
 
 
+@router.post("/translate/archive/inspect", response_model=ArchiveInspectResponse)
+async def translate_archive_inspect(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+) -> ArchiveInspectResponse:
+    """Разбирает архив проекта и возвращает опись со сметой, не обращаясь к модели.
+
+    Шаг платный только по времени: ``extract`` считает единицы вхолостую. Зато битый файл
+    всплывает здесь, а не посреди прогона, и методист видит цену до того, как её заплатит.
+    """
+    filename, content = await read_uploaded_archive(file)
+    members, entries, estimate = inspect_archive(content)
+    plan_id = remember_plan(
+        user_id=user.get("id", "anonymous"),
+        filename=filename,
+        members=members,
+        entries=entries,
+    )
+
+    logger.info(
+        "Archive inspected (plan_id=%s, files=%s, selected=%s, usd=%s)",
+        plan_id,
+        len(entries),
+        estimate.files,
+        estimate.usd,
+    )
+    return ArchiveInspectResponse(
+        plan_id=plan_id,
+        source_filename=filename,
+        source_language=archive_source_language(),
+        entries=[ArchiveEntryResponse(**vars(entry)) for entry in entries],
+        totals=ArchiveEstimateResponse(**vars(estimate)),
+    )
+
+
+@router.post("/translate/archive/{plan_id}/start", response_model=TranslateReadmeStartResponse)
+async def translate_archive_start(
+    plan_id: str,
+    target_language: str = Form(...),
+    paths: str | None = Form(None),
+    llm_provider: Literal["polza", "openrouter", "openai", "deepseek", "gigachat"] | None = Form(None),
+    user: dict = Depends(get_current_user),
+) -> TranslateReadmeStartResponse:
+    """Запускает перевод отмеченных файлов плана и сразу возвращает ``request_id``.
+
+    ``paths`` — список путей в JSON, те самые галочки. Без него берётся всё, что опись
+    отметила сама.
+    """
+    user_id = user.get("id", "anonymous")
+    plan = plan_for_user(plan_id, user_id)
+
+    target_language = (target_language or "").lower().strip()
+    if target_language not in SUPPORTED_LANGUAGES:
+        raise HTTPException(
+            status_code=400, detail=f"Неподдерживаемый язык перевода: {target_language!r}"
+        )
+
+    chosen = selected_paths(plan["entries"], _parse_paths(paths))
+    if not chosen:
+        raise HTTPException(status_code=400, detail="Не отмечен ни один файл для перевода")
+
+    try:
+        seed = _build_translation_seed(
+            llm_provider=llm_provider,
+            thematic_block="GEN",
+            title_seed=plan["filename"],
+            project_description=f"Перевод архива {plan['filename']}",
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=400, detail=f"Ошибка подготовки контекста для перевода: {exc}"
+        ) from exc
+
+    request_id = str(uuid.uuid4())
+    set_request_id(request_id)
+    set_user_id(user_id)
+
+    set_translation_job(
+        request_id=request_id,
+        status="in_progress",
+        user_id=user_id,
+        phase="translate",
+        progress=0.0,
+        target_language=target_language,
+        job_type="archive",
+        source_filename=plan["filename"],
+        source_format="zip",
+    )
+    await asyncio.to_thread(
+        upsert_user_run,
+        request_id=request_id,
+        user_id=user_id,
+        kind="translation",
+        status="in_progress",
+        title=plan["filename"],
+        result_url=f"/api/v1/translate/status/{request_id}",
+        metadata={"target_language": target_language, "source_format": "zip", "files": len(chosen)},
+    )
+
+    asyncio.create_task(
+        asyncio.to_thread(
+            run_archive_translation,
+            request_id=request_id,
+            user_id=user_id,
+            plan=plan,
+            target_language=target_language,
+            paths=chosen,
+            seed=seed,
+        )
+    )
+
+    logger.info(
+        "Archive translation started (request_id=%s, plan_id=%s, files=%s)",
+        request_id,
+        plan_id,
+        len(chosen),
+    )
+    return TranslateReadmeStartResponse(request_id=request_id)
+
+
+def _parse_paths(raw: str | None) -> list[str] | None:
+    """Разбирает список путей из формы. Мусор — ошибка вызова, а не повод перевести всё."""
+    if raw is None or not raw.strip():
+        return None
+    try:
+        parsed = json.loads(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Поле paths должно быть списком в JSON") from exc
+    if not isinstance(parsed, list) or not all(isinstance(item, str) for item in parsed):
+        raise HTTPException(status_code=400, detail="Поле paths должно быть списком строк")
+    return parsed
+
+
 @router.post("/translate/video", response_model=TranslateReadmeStartResponse)
 async def translate_video_start(
     file: UploadFile = File(...),
@@ -536,6 +706,7 @@ async def _stream_download(request_id: str, file_type: str, job: dict[str, Any])
         "htm": "text/html",
         "yml": "application/yaml",
         "yaml": "application/yaml",
+        "zip": "application/zip",
     }
     return FileResponse(
         path=file_path,
@@ -556,8 +727,9 @@ async def download_translation_artifact(
     if job.get("job_type") == "video":
         if kind not in ("video", "vtt", "srt", "ass", "transcript"):
             raise HTTPException(status_code=400, detail="type должен быть: video, vtt, srt, ass, transcript")
-    elif job.get("job_type") == "document":
-        # Документ возвращается в своём формате, поэтому вид артефакта задаёт сама задача.
+    elif job.get("job_type") in ("document", "archive"):
+        # Документ и архив возвращаются в своём формате, поэтому вид артефакта задаёт
+        # сама задача: один собрал pdf, другой xlsx, третий zip.
         available = sorted((job.get("result_links") or {}).keys())
         if kind not in available:
             raise HTTPException(
