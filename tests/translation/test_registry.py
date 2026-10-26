@@ -1,0 +1,29 @@
+"""Реестр: по расширению файла находится обработчик, и ровно один."""
+
+from __future__ import annotations
+
+from content_factory.translation.registry import all_handlers, handler_for
+
+
+def test_markdown_and_text_go_to_the_plain_handler() -> None:
+    for extension in (".md", ".markdown", ".txt"):
+        handler = handler_for(extension)
+        assert handler is not None, extension
+        assert extension in handler.extensions
+
+
+def test_an_unknown_extension_has_no_handler() -> None:
+    assert handler_for(".bin") is None
+    assert handler_for("") is None
+
+
+def test_the_extension_is_matched_regardless_of_case() -> None:
+    assert handler_for(".MD") is handler_for(".md")
+
+
+def test_no_two_handlers_claim_the_same_extension() -> None:
+    seen: dict[str, object] = {}
+    for handler in all_handlers():
+        for extension in handler.extensions:
+            assert extension not in seen, f"{extension} заявлен дважды"
+            seen[extension] = handler
