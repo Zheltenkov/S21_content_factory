@@ -14,6 +14,13 @@ SQL. Каждое чинилось отказом от сомнительног�
 принят, нет — возвращается исходный. Ошибка грамматики на файле (``has_error``) тоже означает
 отказ: гадать о сломанном коде незачем.
 
+У повторного разбора есть граница, и она важна. Он проверяет то, что видит грамматика, а над
+грамматикой у некоторых языков есть слой, который работает раньше неё: Java разворачивает
+``u``-экранирование до разбора, C склеивает строки по обратной косой и читает триграф ``??/`` как
+ту же косую, SQL экранирует ею кавычки. Перевод с такой косой прошёл бы проверку и изменил смысл
+файла. Поэтому обратная косая в переводе запрещена целиком, для всех языков: русское пояснение в
+ней не нуждается, а разбирать, какой слой её развернёт, значит снова гадать.
+
 Работаем в байтах: tree-sitter отдаёт смещения в UTF-8, и пересчёт в символы — лишний источник
 ошибок. На строках документации Python это уже один раз стоило разбора.
 """
@@ -30,6 +37,21 @@ from content_factory.translation.units import TextUnit
 MAX_UNITS = 5_000
 # Длина файла, выше которой за разбор не беремся: грамматика строит дерево в памяти.
 MAX_BYTES = 4 * 1024 * 1024
+
+# Знаки, которые разбираются ДО грамматики, — повторный разбор их не увидит.
+# Обратная косая: ``u``-экранирование Java, перенос строки в C, экранирование SQL.
+# ``??/`` — та же косая в виде триграфа C.
+FORBIDDEN_IN_TRANSLATION: tuple[str, ...] = (chr(92), "??/")
+
+
+def _is_comment(node_type: str) -> bool:
+    """Пояснение ли это по мнению грамматики.
+
+    Имена узлов у грамматик разные: ``comment``, ``block_comment`` у Java и ``marginalia``
+    у SQL — так в этой грамматике называется ``/* … */``. Проверка по подстроке «comment»
+    пропускала их, и блочные пояснения SQL не переводились вовсе.
+    """
+    return "comment" in node_type or node_type == "marginalia"
 
 
 @dataclass(frozen=True)
@@ -72,7 +94,15 @@ class TreeSitterCommentHandler:
                 continue
             # Перенос строки оборвал бы строчный комментарий и сделал остаток кодом.
             safe = " ".join(translated.split())
+            if any(mark in safe for mark in FORBIDDEN_IN_TRANSLATION):
+                continue  # оставляем исходное пояснение: проверка разбором это не поймала бы
+            if any(mark in safe.encode("utf-8") for mark in self.refuse_if_contains):
+                continue
             pieces.append(content[cursor : comment.start])
+            if comment.start > 0 and content[comment.start - 1 : comment.start] not in (b" ", b"\t"):
+                # Пояснение идёт сразу за меткой. У MySQL `/*!` — исполняемый код, а не
+                # пояснение, и перевод с `!` в начале стал бы им. Пробел снимает это.
+                pieces.append(b" ")
             pieces.append(safe.encode("utf-8"))
             cursor = comment.end
             changed = True
@@ -106,7 +136,7 @@ class TreeSitterCommentHandler:
 
         found: list[_Comment] = []
         for node in _walk(tree.root_node):
-            if "comment" not in node.type:
+            if not _is_comment(node.type):
                 continue
             raw = content[node.start_byte : node.end_byte]
             if node.start_byte == 0 and raw.startswith(b"#!"):
@@ -136,7 +166,7 @@ class TreeSitterCommentHandler:
             return None
         shape: list[tuple[str, bytes]] = []
         for node in _walk(tree.root_node):
-            if "comment" in node.type:
+            if _is_comment(node.type):
                 continue
             if node.child_count == 0:
                 shape.append((node.type, content[node.start_byte : node.end_byte]))
@@ -149,7 +179,7 @@ def _walk(node: Any) -> Iterator[Any]:
     while stack:
         current = stack.pop()
         yield current
-        if "comment" in current.type:
+        if _is_comment(current.type):
             continue
         stack.extend(reversed(current.children))
 

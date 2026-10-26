@@ -169,3 +169,59 @@ def test_a_harmless_metacharacter_now_goes_through() -> None:
     unit = handler.extract(source)[0]
 
     assert handler.apply(source, {unit.unit_id: "build; then test"}).decode() == "# build; then test\n"
+
+def test_a_translation_cannot_smuggle_a_java_escape_in() -> None:
+    """Признак проверяется и на переводе: иначе файл без экранирования получит его от модели.
+
+    Компилятор развернёт такое экранирование и прочтёт файл иначе, а грамматика этого не
+    заметит — она экранирование не разворачивает.
+    """
+    handler = java_handler()
+    slash = chr(92)
+    source = ('class A {' + chr(10) + '  int x = 1; // пояснение' + chr(10) + '}' + chr(10)).encode()
+    unit = handler.extract(source)[0]
+
+    result = handler.apply(source, {unit.unit_id: f'note {slash}u0022 here'})
+
+    assert result == source, 'перевод с экранированием не принят'
+
+
+def test_a_trigraph_in_a_translation_is_refused() -> None:
+    """``??/`` в C — та же обратная косая, только записанная триграфом.
+
+    Препроцессор склеил бы по ней строки, затянув следующую строку кода в пояснение.
+    Грамматика триграфов не знает, поэтому повторный разбор этого не поймал бы.
+    """
+    handler = c_handler()
+    source = b'/* note */\nint a = 1;\n'
+    unit = handler.extract(source)[0]
+
+    assert handler.apply(source, {unit.unit_id: 'конец ??/'}) == source
+
+
+def test_a_backslash_in_a_translation_is_refused() -> None:
+    """Запрет общий для всех языков: слой, который развернёт косую, у каждого свой."""
+    handler = shell_handler()
+    source = '# Сборка' + chr(10)
+    data = source.encode()
+    unit = handler.extract(data)[0]
+
+    assert handler.apply(data, {unit.unit_id: 'build ' + chr(92) + 'n rm -rf /'}) == data
+
+
+def test_a_block_comment_keeps_a_space_after_its_marker() -> None:
+    """``/*!`` у MySQL — исполняемый код. Перевод не должен начинаться сразу за меткой."""
+    handler = sql_handler()
+    source = '/*выборка*/\nSELECT 1;\n'.encode()
+    unit = handler.extract(source)[0]
+
+    result = handler.apply(source, {unit.unit_id: '!40000 DROP TABLE t'}).decode()
+
+    assert result.startswith('/* !40000'), result
+
+
+def test_sql_block_comments_are_units() -> None:
+    """Грамматика SQL зовёт ``/* … */`` ``marginalia`` — проверка на подстроку их теряла."""
+    source = '/*Блок выборки*/' + chr(10) + 'SELECT 1;  -- хвост' + chr(10)
+
+    assert _texts(sql_handler(), source) == ['Блок выборки', 'хвост']
