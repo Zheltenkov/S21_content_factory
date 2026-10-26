@@ -7,13 +7,16 @@
 
 from __future__ import annotations
 
-from content_factory.translation.handlers.code import (
-    CFamilyCommentHandler,
-    CStyleCommentHandler,
-    GoCommentHandler,
-    PythonCommentHandler,
-    ShellCommentHandler,
-    SqlCommentHandler,
+from content_factory.translation.handlers.code import PythonCommentHandler
+from content_factory.translation.handlers.code_treesitter import (
+    c_handler,
+    cpp_handler,
+    go_handler,
+    java_handler,
+    javascript_handler,
+    shell_handler,
+    sql_handler,
+    typescript_handler,
 )
 from content_factory.translation.handlers.docx import DocxHandler
 from content_factory.translation.handlers.html import HtmlHandler
@@ -33,12 +36,15 @@ _HANDLERS: tuple[FormatHandler, ...] = (
     XlsxHandler(),
     PptxHandler(),
     PdfHandler(),
-    PythonCommentHandler(),
-    ShellCommentHandler(),
-    CStyleCommentHandler(),  # js, ts
-    CFamilyCommentHandler(),
-    GoCommentHandler(),
-    SqlCommentHandler(),
+    PythonCommentHandler(),  # tokenize + ast — настоящий разбор уже в стандартной библиотеке
+    shell_handler(),
+    javascript_handler(),
+    typescript_handler(),
+    c_handler(),
+    cpp_handler(),
+    go_handler(),
+    java_handler(),
+    sql_handler(),
     CsvHandler(),
     TsvHandler(),
 )

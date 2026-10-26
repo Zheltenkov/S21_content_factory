@@ -96,10 +96,20 @@ def test_c_like_languages_and_sql_have_comment_handlers() -> None:
         assert extension in handler.extensions
 
 
-def test_only_javascript_treats_a_slash_as_unmodelled() -> None:
-    """В C и Go косая черта — только деление, там хвостовые пояснения терять незачем."""
-    assert handler_for(".js").regex_literals is True
-    assert handler_for(".c").regex_literals is False
+def test_code_is_parsed_by_real_grammars() -> None:
+    """Ручные сканеры заменены грамматиками: шесть разборов безопасности подряд были о них."""
+    from content_factory.translation.handlers.code_treesitter import TreeSitterCommentHandler
+
+    for extension in (".sh", ".js", ".ts", ".c", ".cpp", ".go", ".java", ".sql"):
+        handler = handler_for(extension)
+        assert isinstance(handler, TreeSitterCommentHandler), extension
+
+
+def test_python_keeps_the_standard_library_parser() -> None:
+    """Для Python настоящий разбор уже есть в tokenize и ast — менять его было не на что."""
+    from content_factory.translation.handlers.code import PythonCommentHandler
+
+    assert isinstance(handler_for(".py"), PythonCommentHandler)
 
 
 def test_data_examples_have_a_handler() -> None:
