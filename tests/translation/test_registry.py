@@ -27,3 +27,10 @@ def test_no_two_handlers_claim_the_same_extension() -> None:
         for extension in handler.extensions:
             assert extension not in seen, f"{extension} заявлен дважды"
             seen[extension] = handler
+
+
+def test_docx_has_its_own_handler() -> None:
+    handler = handler_for(".docx")
+
+    assert handler is not None
+    assert ".docx" in handler.extensions
