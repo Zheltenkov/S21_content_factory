@@ -34,3 +34,10 @@ def test_docx_has_its_own_handler() -> None:
 
     assert handler is not None
     assert ".docx" in handler.extensions
+
+
+def test_yaml_has_its_own_handler() -> None:
+    for extension in (".yml", ".yaml"):
+        handler = handler_for(extension)
+        assert handler is not None, extension
+        assert extension in handler.extensions
