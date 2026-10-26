@@ -183,3 +183,36 @@ def test_a_java_text_block_stops_the_scan() -> None:
     source = 'String s = """\n  a " // not a comment\n  """;\n// пояснение\n'.encode()
 
     assert CFamilyCommentHandler().extract(source) == []
+
+
+def test_cpp_digit_separators_stop_the_scan() -> None:
+    """``1'000'000``: апостроф здесь разделитель разрядов, а не начало символьного литерала."""
+    from content_factory.translation.handlers.code import CFamilyCommentHandler
+
+    source = "int total = 1'000'000;\n// пояснение\n".encode()
+
+    assert CFamilyCommentHandler().extract(source) == []
+
+
+def test_java_unicode_escapes_stop_the_scan() -> None:
+    """Java разворачивает ``\u002f`` до разбора, поэтому такой файл может значить не то, что видно."""
+    from content_factory.translation.handlers.code import CFamilyCommentHandler
+
+    source = "String s = \"\u0022\";\n// пояснение\n".encode()
+
+    assert CFamilyCommentHandler().extract(source) == []
+
+
+def test_a_backslash_inside_a_sql_string_stops_the_scan() -> None:
+    """В MySQL слеш экранирует, в стандарте нет: угадывать диалект нельзя."""
+    sql = SqlCommentHandler()
+    source = "SELECT 'a\'b' AS x;  -- пояснение\n".encode()
+
+    assert sql.extract(source) == []
+
+
+def test_a_comment_continued_by_a_backslash_is_skipped(js: CStyleCommentHandler) -> None:
+    """Такое пояснение продолжается на следующую строку, и её границы разбор не знает."""
+    source = ("// пояснение \\" + "\n" + "const a = 1;\n// обычное\n").encode()
+
+    assert [u.text for u in js.extract(source)] == ["обычное"]

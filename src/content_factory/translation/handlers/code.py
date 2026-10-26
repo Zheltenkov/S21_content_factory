@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import ast
 import io
+import re
 import tokenize
 
 from content_factory.translation.errors import DocumentFormatError
@@ -432,6 +433,7 @@ class CStyleCommentHandler:
         doubled_quote_escapes: bool = False,
         regex_literals: bool = True,
         unmodelled: tuple[str, ...] = (),
+        unmodelled_patterns: tuple[str, ...] = (),
     ) -> None:
         self.extensions = extensions or frozenset({".js", ".ts", ".mjs", ".cjs"})
         self.line_token = line_token
@@ -442,6 +444,7 @@ class CStyleCommentHandler:
         self.regex_literals = regex_literals
         # Конструкции, которых разбор не знает вовсе: встретив любую, он за файл не берётся.
         self.unmodelled = unmodelled
+        self.unmodelled_patterns = tuple(re.compile(pattern) for pattern in unmodelled_patterns)
 
     def extract(self, content: bytes) -> list[TextUnit]:
         text = _decode(content)
@@ -489,6 +492,8 @@ class CStyleCommentHandler:
         """Пояснения: ``(начало текста, конец текста, текст, это блок)``."""
         if any(mark in text for mark in self.unmodelled):
             return []  # в файле конструкция, которой разбор не знает
+        if any(pattern.search(text) for pattern in self.unmodelled_patterns):
+            return []
 
         found: list[tuple[int, int, str, bool]] = []
         index = 0
@@ -500,9 +505,14 @@ class CStyleCommentHandler:
 
             if quote is not None:
                 escapes = self.backtick_escapes if quote == "`" else self.backslash_escapes
-                if char == "\\" and escapes:
-                    index += 2
-                    continue
+                if char == "\\":
+                    if escapes:
+                        index += 2
+                        continue
+                    if quote != "`":
+                        # Слеш в строке языка, где он не экранирует: диалекты расходятся
+                        # (в MySQL экранирует, в стандарте SQL нет), угадывать нельзя.
+                        return []
                 if quote == "`" and self.backtick_strings and text.startswith("${", index):
                     return []  # вложенная подстановка — разбор не берётся
                 if char == quote:
@@ -534,7 +544,10 @@ class CStyleCommentHandler:
                 line_end = text.find("\n", index)
                 line_end = length if line_end < 0 else line_end
                 body = text[index + len(self.line_token) : line_end]
-                if body.strip() and len(found) < MAX_UNITS and self._line_is_plain(text, index):
+                # Слеш в конце продолжает пояснение на следующую строку: её границы разбор
+                # не знает, поэтому такой кусок не трогаем.
+                continued = body.rstrip().endswith(("\\", "??/"))
+                if body.strip() and not continued and len(found) < MAX_UNITS and self._line_is_plain(text, index):
                     lead = len(body) - len(body.lstrip())
                     tail = len(body) - len(body.rstrip())
                     found.append((index + len(self.line_token) + lead, line_end - tail, body.strip(), False))
@@ -601,5 +614,9 @@ class CFamilyCommentHandler(CStyleCommentHandler):
             frozenset({".c", ".cpp", ".cc", ".h", ".hpp", ".java"}),
             backtick_strings=False,
             regex_literals=False,
-            unmodelled=('R"', '"""'),
+            # Java разворачивает \u-экранирование до разбора: / это «/», и файл может
+            # значить не то, что видно глазами.
+            unmodelled=('R"', '"""', "\\u"),
+            # ``1'000'000`` — разделитель разрядов C++14, а не символьный литерал.
+            unmodelled_patterns=(r"[0-9a-fA-F]'[0-9]",),
         )
