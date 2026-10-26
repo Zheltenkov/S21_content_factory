@@ -396,3 +396,152 @@ def _heredoc_marker(text: str, index: int) -> tuple[str, int] | None:
     if cursor == opening:
         return None
     return text[opening:cursor], cursor
+
+
+class CStyleCommentHandler:
+    """Переводит комментарии C-подобных языков: ``//`` до конца строки и ``/* */``.
+
+    Разбор моделирует строки в кавычках, при ``backtick_strings`` — обратные кавычки (шаблонные
+    строки JavaScript, сырые строки Go), экранирование обратным слешем и оба вида комментариев.
+
+    Чего он не моделирует и где поэтому отказывается судить:
+
+    * регулярные выражения JavaScript. Косая черта начинает и деление, и регулярное выражение, а
+      внутри него ``//`` вовсе не комментарий. Различить это без полного разбора языка нельзя,
+      поэтому при ``regex_literals`` строка, где перед предполагаемым комментарием встречается
+      косая черта, пропускается целиком;
+    * подстановки ``${...}`` внутри шаблонных строк: в них может быть вложена ещё одна шаблонная
+      строка. Поэтому шаблонная строка со вложенной подстановкой обрывает разбор файла.
+
+    Выход за конец файла внутри строки или незакрытого блока означает, что разбор сбился, — файл
+    не отдаёт ни одной единицы.
+    """
+
+    def __init__(
+        self,
+        extensions: frozenset[str] | None = None,
+        *,
+        line_token: str = "//",
+        backtick_strings: bool = True,
+        regex_literals: bool = True,
+    ) -> None:
+        self.extensions = extensions or frozenset({".js", ".ts", ".mjs", ".cjs"})
+        self.line_token = line_token
+        self.backtick_strings = backtick_strings
+        self.regex_literals = regex_literals
+
+    def extract(self, content: bytes) -> list[TextUnit]:
+        text = _decode(content)
+        return [
+            TextUnit(unit_id=f"{index + 1:04d}", text=value, hint="комментарий")
+            for index, (_start, _end, value, _block) in enumerate(self._comments(text))
+        ]
+
+    def apply(self, content: bytes, translations: dict[str, str]) -> bytes:
+        text = _decode(content)
+        pieces: list[str] = []
+        cursor = 0
+        changed = False
+        for index, (start, end, _value, _block) in enumerate(self._comments(text)):
+            translated = translations.get(f"{index + 1:04d}")
+            if translated is None:
+                continue
+            safe = " ".join(translated.split())
+            if "*/" in safe or "/*" in safe:
+                # Такой перевод закрыл бы пояснение, а остаток строки стал бы кодом.
+                safe = text[start:end]
+            pieces.append(text[cursor:start])
+            pieces.append(safe)
+            cursor = end
+            changed = True
+        if not changed:
+            return content
+        pieces.append(text[cursor:])
+        result = "".join(pieces)
+
+        if self._without_comments(result) != self._without_comments(text):
+            return content
+        return result.encode("utf-8")
+
+    def _without_comments(self, text: str) -> str:
+        pieces: list[str] = []
+        cursor = 0
+        for start, end, _value, _block in self._comments(text):
+            pieces.append(text[cursor:start])
+            cursor = end
+        pieces.append(text[cursor:])
+        return "".join(pieces)
+
+    def _comments(self, text: str) -> list[tuple[int, int, str, bool]]:
+        """Пояснения: ``(начало текста, конец текста, текст, это блок)``."""
+        found: list[tuple[int, int, str, bool]] = []
+        index = 0
+        length = len(text)
+        quote: str | None = None
+
+        while index < length:
+            char = text[index]
+
+            if quote is not None:
+                if char == "\\":
+                    index += 2
+                    continue
+                if quote == "`" and text.startswith("${", index):
+                    return []  # вложенная подстановка — разбор не берётся
+                if char == quote:
+                    quote = None
+                index += 1
+                continue
+
+            if char in "'\"" or (char == "`" and self.backtick_strings):
+                quote = char
+                index += 1
+                continue
+
+            if text.startswith("/*", index):
+                closing = text.find("*/", index + 2)
+                if closing < 0:
+                    return []  # незакрытый блок: разбор сбился
+                body = text[index + 2 : closing]
+                if body.strip() and len(found) < MAX_UNITS:
+                    lead = len(body) - len(body.lstrip())
+                    tail = len(body) - len(body.rstrip())
+                    found.append((index + 2 + lead, closing - tail, body.strip(), True))
+                index = closing + 2
+                continue
+
+            if text.startswith(self.line_token, index):
+                line_end = text.find("\n", index)
+                line_end = length if line_end < 0 else line_end
+                body = text[index + len(self.line_token) : line_end]
+                if body.strip() and len(found) < MAX_UNITS and self._line_is_plain(text, index):
+                    lead = len(body) - len(body.lstrip())
+                    tail = len(body) - len(body.rstrip())
+                    found.append((index + len(self.line_token) + lead, line_end - tail, body.strip(), False))
+                index = line_end
+                continue
+
+            index += 1
+
+        if quote is not None:
+            return []
+        return found
+
+    def _line_is_plain(self, text: str, token_index: int) -> bool:
+        """Нет ли перед пояснением того, чего разбор не моделирует."""
+        if not self.regex_literals:
+            return True
+        line_start = text.rfind("\n", 0, token_index) + 1
+        prefix = text[line_start:token_index]
+        if not prefix.strip():
+            return True  # пояснение с начала строки однозначно
+        return "/" not in prefix
+
+
+class SqlCommentHandler(CStyleCommentHandler):
+    """Переводит комментарии SQL: ``--`` до конца строки и ``/* */``."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            frozenset({".sql"}), line_token="--", backtick_strings=True, regex_literals=False
+        )

@@ -87,3 +87,16 @@ def test_shell_scripts_have_a_comment_handler() -> None:
         handler = handler_for(extension)
         assert handler is not None, extension
         assert extension in handler.extensions
+
+
+def test_c_like_languages_and_sql_have_comment_handlers() -> None:
+    for extension in (".js", ".ts", ".c", ".cpp", ".h", ".go", ".java", ".sql"):
+        handler = handler_for(extension)
+        assert handler is not None, extension
+        assert extension in handler.extensions
+
+
+def test_only_javascript_treats_a_slash_as_unmodelled() -> None:
+    """В C и Go косая черта — только деление, там хвостовые пояснения терять незачем."""
+    assert handler_for(".js").regex_literals is True
+    assert handler_for(".c").regex_literals is False

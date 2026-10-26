@@ -7,7 +7,12 @@
 
 from __future__ import annotations
 
-from content_factory.translation.handlers.code import PythonCommentHandler, ShellCommentHandler
+from content_factory.translation.handlers.code import (
+    CStyleCommentHandler,
+    PythonCommentHandler,
+    ShellCommentHandler,
+    SqlCommentHandler,
+)
 from content_factory.translation.handlers.docx import DocxHandler
 from content_factory.translation.handlers.html import HtmlHandler
 from content_factory.translation.handlers.pdf import PdfHandler
@@ -27,6 +32,12 @@ _HANDLERS: tuple[FormatHandler, ...] = (
     PdfHandler(),
     PythonCommentHandler(),
     ShellCommentHandler(),
+    CStyleCommentHandler(),  # js, ts
+    CStyleCommentHandler(
+        frozenset({".c", ".cpp", ".cc", ".h", ".hpp", ".go", ".java"}),
+        regex_literals=False,  # в этих языках косая черта — только деление
+    ),
+    SqlCommentHandler(),
 )
 
 
