@@ -529,6 +529,13 @@ async def _stream_download(request_id: str, file_type: str, job: dict[str, Any])
         "ass": "text/x-ssa",
         "transcript": "application/json",
         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "pdf": "application/pdf",
+        "html": "text/html",
+        "htm": "text/html",
+        "yml": "application/yaml",
+        "yaml": "application/yaml",
     }
     return FileResponse(
         path=file_path,
@@ -550,8 +557,17 @@ async def download_translation_artifact(
         if kind not in ("video", "vtt", "srt", "ass", "transcript"):
             raise HTTPException(status_code=400, detail="type должен быть: video, vtt, srt, ass, transcript")
     elif job.get("job_type") == "document":
-        if kind != "docx":
-            raise HTTPException(status_code=400, detail="Для документа доступен только type=docx")
+        # Документ возвращается в своём формате, поэтому вид артефакта задаёт сама задача.
+        available = sorted((job.get("result_links") or {}).keys())
+        if kind not in available:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Для этой задачи доступны: {', '.join(available)}"
+                    if available
+                    else "Для этой задачи нет файлов для скачивания"
+                ),
+            )
     else:
         raise HTTPException(status_code=400, detail="Для этой задачи нет файлов для скачивания")
     return await _stream_download(request_id, kind, job)

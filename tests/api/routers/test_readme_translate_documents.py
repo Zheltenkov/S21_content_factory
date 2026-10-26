@@ -174,3 +174,125 @@ def test_translation_job_for_user_returns_404_for_missing_job() -> None:
         _translation_job_for_user("missing", {"id": "user-1"})
 
     assert exc_info.value.status_code == 404
+
+
+# ---------------------------------------------- перевод через реестр обработчиков
+
+
+def test_accepted_extensions_follow_the_handler_registry() -> None:
+    """Список допустимых расширений ведёт реестр: добавили обработчик — формат принимается."""
+    from content_factory.translation.registry import supported_extensions
+
+    assert supported_extensions() <= TRANSLATION_DOCUMENT_EXTENSIONS
+    for extension in (".yml", ".yaml", ".xlsx", ".pptx"):
+        assert extension in TRANSLATION_DOCUMENT_EXTENSIONS
+
+
+class _FakeUnitsLlm:
+    """Отвечает по контракту движка: каждому id — перевод с пометкой."""
+
+    def complete(self, system: str, user: str, **kwargs) -> str:  # noqa: ARG002
+        import json
+
+        marker = "Входные данные:\n"
+        payload = json.loads(user[user.index(marker) + len(marker) :])
+        return json.dumps(
+            {"translations": {f["id"]: f"[ru] {f['text']}" for f in payload["fragments"]}},
+            ensure_ascii=False,
+        )
+
+
+def _run_translation(monkeypatch, tmp_path, filename: str, content: bytes) -> dict:
+    from content_factory.api.routers import document_translation as module
+    from content_factory.api.utils.result_cache import _translation_jobs
+
+    monkeypatch.setattr(module, "STORAGE_DIR", str(tmp_path))
+    monkeypatch.setattr(module, "create_llm_client", lambda **kwargs: _FakeUnitsLlm())
+    monkeypatch.setattr(module, "upsert_user_run", lambda **kwargs: None)
+
+    document = module.ExtractedTranslationDocument(
+        text="",
+        filename=filename,
+        extension="." + filename.rsplit(".", 1)[1],
+        title_seed=filename,
+        content=content,
+    )
+    module._run_document_translation(
+        request_id="req-1",
+        user_id="user-1",
+        document=document,
+        target_language="en",
+        translation_mode="direct",
+        seed=module.ProjectSeed(language="en", project_type="individual", project_description="тест"),
+    )
+    return _translation_jobs["req-1"]
+
+
+def test_a_pdf_comes_back_as_a_pdf_artifact(monkeypatch, tmp_path) -> None:
+    """Ради этого всё и затевалось: PDF перестаёт превращаться в голый текст."""
+    import pymupdf
+
+    document = pymupdf.open()
+    page = document.new_page()
+    page.insert_textbox(pymupdf.Rect(50, 50, 500, 150), "Intro to Machine Learning", fontsize=11)
+    job = _run_translation(monkeypatch, tmp_path, "lecture.pdf", document.tobytes())
+
+    assert job["status"] == "completed", job.get("error")
+    assert "pdf" in (job.get("result_links") or {}), "должен появиться файл того же формата"
+    stored = (tmp_path / "translations" / "req-1" / job["result_links"]["pdf"]).read_bytes()
+    assert stored.startswith(b"%PDF"), "это настоящий PDF, а не текст"
+    assert "[ru] Intro to Machine Learning" in " ".join(
+        p.get_text() for p in pymupdf.open("pdf", stored)
+    )
+
+
+def test_a_docx_keeps_its_artifact_key(monkeypatch, tmp_path) -> None:
+    """Прежние задачи и страница читают ключ docx — его нельзя переименовывать молча."""
+    job = _run_translation(monkeypatch, tmp_path, "notes.docx", _minimal_docx(["Hello world"]))
+
+    assert job["status"] == "completed", job.get("error")
+    assert "docx" in (job.get("result_links") or {})
+
+
+def test_any_produced_artifact_kind_can_be_downloaded(monkeypatch, tmp_path) -> None:
+    """Скачивание больше не знает про один docx: отдаётся то, что задача действительно собрала."""
+    import asyncio
+
+    from content_factory.api.routers import readme_translate as route
+
+    job = _run_translation(monkeypatch, tmp_path, "sheet.xlsx", _minimal_xlsx())
+    assert "xlsx" in (job.get("result_links") or {}), job.get("error")
+
+    monkeypatch.setattr(route, "STORAGE_DIR", str(tmp_path))
+    monkeypatch.setattr(route, "_translation_job_for_user", lambda request_id, user: job)
+    response = asyncio.run(
+        route.download_translation_artifact(request_id="req-1", type="xlsx", user={"id": "user-1"})
+    )
+
+    assert response.status_code == 200
+
+
+def test_an_artifact_kind_the_job_never_made_is_refused(monkeypatch, tmp_path) -> None:
+    import asyncio
+
+    from fastapi import HTTPException as FastApiHTTPException
+
+    from content_factory.api.routers import readme_translate as route
+
+    job = _run_translation(monkeypatch, tmp_path, "sheet.xlsx", _minimal_xlsx())
+    monkeypatch.setattr(route, "_translation_job_for_user", lambda request_id, user: job)
+
+    with pytest.raises(FastApiHTTPException):
+        asyncio.run(
+            route.download_translation_artifact(request_id="req-1", type="docx", user={"id": "u"})
+        )
+
+
+def _minimal_xlsx() -> bytes:
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    workbook.active["A1"] = "Project name"
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()

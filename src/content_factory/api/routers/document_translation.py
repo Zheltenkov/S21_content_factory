@@ -30,14 +30,17 @@ from content_factory.generation.agents.translator import TranslatorAgent
 from content_factory.generation.models.schemas import ProjectSeed
 from content_factory.generation.utils.translation_languages import get_translation_language_profile
 from content_factory.platform.llm.factory import create_llm_client
+from content_factory.translation.engine import translate_units
 from content_factory.translation.errors import DocumentFormatError
+from content_factory.translation.registry import handler_for, supported_extensions
 from content_factory.translation.xml_safety import parse_xml_without_dtd
 
 logger = get_logger("translate-document")
 
 STORAGE_DIR = os.getenv("STORAGE_DIR", os.path.join(tempfile.gettempdir(), "content_generator_translations"))
 MAX_TRANSLATION_DOCUMENT_SIZE = int(os.getenv("MAX_TRANSLATION_DOCUMENT_SIZE_BYTES", 25 * 1024 * 1024))
-TRANSLATION_DOCUMENT_EXTENSIONS = {".md", ".markdown", ".txt", ".html", ".htm", ".docx", ".pdf"}
+# Допустимые расширения ведёт реестр: добавили обработчик — формат принимается на загрузку.
+TRANSLATION_DOCUMENT_EXTENSIONS = set(supported_extensions())
 TEXT_DOCUMENT_EXTENSIONS = {".md", ".markdown", ".txt"}
 HTML_DOCUMENT_EXTENSIONS = {".html", ".htm"}
 DOCX_WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -589,12 +592,18 @@ def _run_document_translation(
     )
     try:
         result_links: dict[str, str] | None = None
-        if document.extension == ".docx":
-            units = _iter_docx_text_units(document.content)
+        # Формат, у которого есть обработчик, собирается обратно в себя же: вёрстка сохраняется
+        # по построению. Простой текст остаётся за переводчиком-агентом — у него разбивка на
+        # части, доработка и режим «combined», которыми пользуются методисты.
+        handler = (
+            None if document.extension in TEXT_DOCUMENT_EXTENSIONS else handler_for(document.extension)
+        )
+        if handler is not None:
+            units = handler.extract(document.content)
             if target_language == "ru":
                 translations = {unit.unit_id: unit.text for unit in units}
             else:
-                translations = _translate_docx_units(
+                translations = translate_units(
                     cast(LLMClientProtocol, llm_client),
                     units,
                     target_language,
@@ -604,10 +613,11 @@ def _run_document_translation(
                 "\n".join(translations.get(unit.unit_id, unit.text) for unit in units)
             )
             progress_callback("build_docx")
-            translated_docx = _build_translated_docx(document.content, units, translations)
-            docx_filename = f"{_safe_download_stem(document.filename)}_{target_language}.docx"
-            stored_filename = _write_translation_artifact(request_id, docx_filename, translated_docx)
-            result_links = {"docx": stored_filename}
+            kind = document.extension.lstrip(".")
+            translated_bytes = handler.apply(document.content, translations)
+            artifact_name = f"{_safe_download_stem(document.filename)}_{target_language}.{kind}"
+            stored_filename = _write_translation_artifact(request_id, artifact_name, translated_bytes)
+            result_links = {kind: stored_filename}
         else:
             translator = TranslatorAgent(cast(LLMClientProtocol, llm_client))
             translated_md = translator.translate(
@@ -623,7 +633,7 @@ def _run_document_translation(
             request_id=request_id,
             status="completed",
             user_id=user_id,
-            phase="build_docx" if document.extension == ".docx" else ("combine" if translation_mode == "combined" else "translate"),
+            phase="build_docx" if handler is not None else ("combine" if translation_mode == "combined" else "translate"),
             original_markdown=document.text,
             translated_markdown=translated_md,
             target_language=target_language,

@@ -601,10 +601,14 @@
                             const isVideoResult = job.job_type === 'video';
                             translationJobType = isVideoResult ? 'video' : 'document';
                             updateTranslationSummary(isVideoResult ? 'video' : 'document', 'Готово');
-                            const hasDocxArtifact = !!(job.result_links && job.result_links.docx);
-                            translationDocumentDownloadType = hasDocxArtifact ? 'docx' : 'markdown';
+                            // Документ возвращается в своём формате, поэтому вид артефакта
+                            // берём из задачи, а не считаем, что это всегда DOCX.
+                            const artifactKind = Object.keys((job.result_links || {}))[0] || '';
+                            const hasFileArtifact = !isVideoResult && !!artifactKind;
+                            translationDocumentDownloadType = hasFileArtifact ? artifactKind : 'markdown';
                             if (!isVideoResult && job.source_filename) {
-                                translationFileName = String(job.source_filename).replace(/\.[^.]+$/, '') + (hasDocxArtifact ? '_translated.docx' : '_translated.md');
+                                const stem = String(job.source_filename).replace(/\.[^.]+$/, '');
+                                translationFileName = stem + '_translated.' + (hasFileArtifact ? artifactKind : 'md');
                             }
                             translationOriginalMarkdown = isVideoResult ? (job.original_transcript || '') : (job.original_markdown || sourceMarkdown);
                             translationTranslatedMarkdown = isVideoResult ? (job.translated_subtitles || '') : (job.translated_markdown || sourceMarkdown);
@@ -613,9 +617,9 @@
                             const resultsArea = document.getElementById('translationResultsArea');
                             const mdBtn = document.getElementById('downloadTranslatedMarkdownBtn');
                             if (mdBtn) {
-                                mdBtn.textContent = hasDocxArtifact ? '↓ Скачать DOCX' : '↓ Скачать';
-                                mdBtn.onclick = hasDocxArtifact
-                                    ? function() { downloadTranslationArtifact(translationCurrentRequestId, 'docx'); }
+                                mdBtn.textContent = hasFileArtifact ? ('↓ Скачать ' + artifactKind.toUpperCase()) : '↓ Скачать';
+                                mdBtn.onclick = hasFileArtifact
+                                    ? function() { downloadTranslationArtifact(translationCurrentRequestId, artifactKind); }
                                     : downloadTranslatedMarkdown;
                             }
                             if (isVideoResult) {
@@ -705,8 +709,8 @@
         }
 
         function downloadTranslatedMarkdown() {
-            if (translationDocumentDownloadType === 'docx' && translationCurrentRequestId) {
-                downloadTranslationArtifact(translationCurrentRequestId, 'docx');
+            if (translationDocumentDownloadType !== 'markdown' && translationCurrentRequestId) {
+                downloadTranslationArtifact(translationCurrentRequestId, translationDocumentDownloadType);
                 return;
             }
             if (!translationTranslatedMarkdown) {
@@ -872,7 +876,9 @@
                 if (filename.indexOf('.') < 0 && type === 'vtt') filename = 'subtitles.vtt';
                 if (filename.indexOf('.') < 0 && type === 'srt') filename = 'subtitles.srt';
                 if (filename.indexOf('.') < 0 && type === 'ass') filename = 'subtitles.ass';
-                if (filename.indexOf('.') < 0 && type === 'docx') filename = translationFileName || 'document_translated.docx';
+                if (filename.indexOf('.') < 0 && type !== 'video' && type !== 'transcript') {
+                    filename = translationFileName || ('document_translated.' + type);
+                }
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
