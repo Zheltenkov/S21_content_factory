@@ -202,7 +202,9 @@ class _FakeUnitsLlm:
         )
 
 
-def _run_translation(monkeypatch, tmp_path, filename: str, content: bytes) -> dict:
+def _run_translation(
+    monkeypatch, tmp_path, filename: str, content: bytes, target_language: str = "en"
+) -> dict:
     from content_factory.api.routers import document_translation as module
     from content_factory.api.utils.result_cache import _translation_jobs
 
@@ -221,7 +223,7 @@ def _run_translation(monkeypatch, tmp_path, filename: str, content: bytes) -> di
         request_id="req-1",
         user_id="user-1",
         document=document,
-        target_language="en",
+        target_language=target_language,
         translation_mode="direct",
         seed=module.ProjectSeed(language="en", project_type="individual", project_description="тест"),
     )
@@ -296,3 +298,19 @@ def _minimal_xlsx() -> bytes:
     buffer = BytesIO()
     workbook.save(buffer)
     return buffer.getvalue()
+
+
+def test_translating_to_russian_is_a_deliberate_no_op(monkeypatch, tmp_path) -> None:
+    """Исходники фабрики всегда на русском, поэтому «перевести на русский» ничего не меняет.
+
+    Выглядит как недосмотр, но это принятый порядок: файл пересобирается, текст остаётся.
+    """
+    from content_factory.api.routers import document_translation as module
+
+    assert module.SOURCE_LANGUAGE == "ru"
+
+    source = _minimal_docx(["Первый абзац", "Второй абзац"])
+    job = _run_translation(monkeypatch, tmp_path, "notes.docx", source, target_language="ru")
+
+    assert job["status"] == "completed", job.get("error")
+    assert "Первый абзац" in job["translated_markdown"], "текст остался исходным"

@@ -41,6 +41,9 @@ STORAGE_DIR = os.getenv("STORAGE_DIR", os.path.join(tempfile.gettempdir(), "cont
 MAX_TRANSLATION_DOCUMENT_SIZE = int(os.getenv("MAX_TRANSLATION_DOCUMENT_SIZE_BYTES", 25 * 1024 * 1024))
 # Допустимые расширения ведёт реестр: добавили обработчик — формат принимается на загрузку.
 TRANSLATION_DOCUMENT_EXTENSIONS = set(supported_extensions())
+# Язык исходников фабрики. Перевод всегда идёт с него, поэтому запрос «перевести на русский» —
+# холостой ход, а не ошибка пользователя.
+SOURCE_LANGUAGE = "ru"
 TEXT_DOCUMENT_EXTENSIONS = {".md", ".markdown", ".txt"}
 HTML_DOCUMENT_EXTENSIONS = {".html", ".htm"}
 DOCX_WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -600,7 +603,10 @@ def _run_document_translation(
         )
         if handler is not None:
             units = handler.extract(document.content)
-            if target_language == "ru":
+            if target_language == SOURCE_LANGUAGE:
+                # Исходники в фабрике всегда на русском, поэтому «перевести на русский» — это
+                # холостой ход: текст возвращается как был, но файл всё равно пересобирается и
+                # методист получает его в привычном виде. Не дефект, а принятый порядок.
                 translations = {unit.unit_id: unit.text for unit in units}
             else:
                 translations = translate_units(

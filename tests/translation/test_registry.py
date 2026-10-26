@@ -107,3 +107,19 @@ def test_data_examples_have_a_handler() -> None:
         handler = handler_for(extension)
         assert handler is not None, extension
         assert extension in handler.extensions
+
+
+def test_the_page_offers_documents_but_not_source_files() -> None:
+    """На странице одиночной загрузки языкам программирования не место.
+
+    Реестр знает их ради перевода архива, где скрипты проекта идут вместе с документами, но
+    методист не приносит один файл кода.
+    """
+    from content_factory.translation.registry import page_extensions, supported_extensions
+
+    visible = page_extensions()
+
+    assert {".md", ".docx", ".pdf", ".yml", ".xlsx", ".pptx", ".csv"} <= visible
+    for hidden in (".py", ".sh", ".js", ".c", ".go", ".java", ".sql"):
+        assert hidden not in visible, hidden
+        assert hidden in supported_extensions(), "в архиве такой файл всё равно переводится"

@@ -63,3 +63,13 @@ def handler_for(extension: str) -> FormatHandler | None:
 def supported_extensions() -> frozenset[str]:
     """Все расширения, для которых есть обработчик."""
     return frozenset().union(*(handler.extensions for handler in _HANDLERS)) if _HANDLERS else frozenset()
+
+
+def page_extensions() -> frozenset[str]:
+    """Расширения, которые показываем на странице одиночной загрузки.
+
+    Уже реестра: языки программирования нужны переводу архива, но методист не приносит один
+    файл кода, а длинный список в выборе файла только мешает.
+    """
+    offered = [h.extensions for h in _HANDLERS if getattr(h, "offered_on_page", True)]
+    return frozenset().union(*offered) if offered else frozenset()

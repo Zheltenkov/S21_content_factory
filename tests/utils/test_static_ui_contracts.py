@@ -394,8 +394,8 @@ def test_translator_accepts_common_document_upload_formats():
     router = (PKG / "api" / "routers" / "readme_translate.py").read_text(encoding="utf-8")
     doc_service = (PKG / "api" / "routers" / "document_translation.py").read_text(encoding="utf-8")
 
-    assert 'accept=".md,.markdown,.txt,.html,.htm,.docx,.pdf,.yml,.yaml,.xlsx,.pptx,.py,.sh,.bash,.js,.ts,.mjs,.cjs,.c,.cpp,.cc,.h,.hpp,.go,.java,.sql,.csv,.tsv"' in html
-    assert "XLSX, PPTX и файлы кода" in html
+    assert 'accept=".md,.markdown,.txt,.html,.htm,.docx,.pdf,.yml,.yaml,.xlsx,.pptx,.csv,.tsv"' in html
+    assert "XLSX, PPTX, CSV" in html
     assert "Перевод документов" in html
     # Структурные форматы возвращаются собой же, а не превращаются в Markdown.
     assert "Результат: <strong>файл того же формата</strong>" in html
@@ -406,10 +406,10 @@ def test_translator_accepts_common_document_upload_formats():
     # Список расширений ведёт реестр обработчиков, а не литерал в сервисе: добавили обработчик —
     # формат принимается и страницей, и загрузкой.
     assert "TRANSLATION_DOCUMENT_EXTENSIONS = set(supported_extensions())" in doc_service
-    from content_factory.translation.registry import supported_extensions
+    from content_factory.translation.registry import page_extensions
 
     accept = re.search(r'id="translationFile" accept="([^"]+)"', html).group(1)
-    assert supported_extensions() <= set(accept.split(",")), "страница принимает всё, что умеет реестр"
+    assert page_extensions() <= set(accept.split(",")), "страница предлагает всё, что для неё отобрано"
 
 
 def test_checker_heading_uses_generic_readme_copy():

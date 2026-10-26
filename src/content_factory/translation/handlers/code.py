@@ -35,6 +35,9 @@ class PythonCommentHandler:
     """Переводит комментарии и строки документации Python."""
 
     extensions = frozenset({".py"})
+    # Языкам программирования не место в списке одиночной загрузки: реестр знает их ради
+    # перевода архива, где скрипты проекта идут вместе с документами.
+    offered_on_page = False
 
     def extract(self, content: bytes) -> list[TextUnit]:
         text = _decode(content)
@@ -214,6 +217,7 @@ class ShellCommentHandler:
     """
 
     extensions = frozenset({".sh", ".bash"})
+    offered_on_page = False
     # Конструкции, которые разбор не моделирует. Встретив их перед решёткой в той же строке,
     # он не берётся судить, пояснение это или код, и пропускает строку целиком.
     UNMODELLED = ("`", "$(")
@@ -436,6 +440,7 @@ class CStyleCommentHandler:
         unmodelled_patterns: tuple[str, ...] = (),
     ) -> None:
         self.extensions = extensions or frozenset({".js", ".ts", ".mjs", ".cjs"})
+        self.offered_on_page = False
         self.line_token = line_token
         self.backtick_strings = backtick_strings
         self.backtick_escapes = backtick_escapes
