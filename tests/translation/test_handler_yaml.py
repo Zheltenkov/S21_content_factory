@@ -113,3 +113,43 @@ def test_broken_yaml_is_a_format_error(handler: YamlHandler) -> None:
 
     with pytest.raises(DocumentFormatError):
         handler.extract(b"key: [unclosed\n")
+
+
+# ------------------------------------------------------------------ якоря и псевдонимы
+
+def test_a_self_referential_anchor_does_not_hang(handler: YamlHandler) -> None:
+    """Якорь, ссылающийся на себя, даёт цикл в графе узлов — обход обязан его заметить."""
+    from content_factory.translation.errors import DocumentFormatError
+
+    source = b"root: &x\n  nested: *x\n"
+
+    try:
+        units = handler.extract(source)
+    except DocumentFormatError:
+        return  # отказ тоже годится, лишь бы не зависание
+    assert len(units) < 100
+
+
+def test_nested_aliases_do_not_multiply_the_work(handler: YamlHandler) -> None:
+    """Псевдонимы ссылаются на один узел, поэтому обойти его нужно один раз, а не 10^5.
+
+    Без защиты обход разворачивает каждую ссылку заново, и число посещений растёт степенью
+    вложенности — обычный приём отказа в обслуживании для YAML.
+    """
+    lines = ['a: &a ["текст один", "текст два", "текст три"]']
+    for current, previous in (("b", "a"), ("c", "b"), ("d", "c"), ("e", "d")):
+        refs = ", ".join([f"*{previous}"] * 10)
+        lines.append(f"{current}: &{current} [{refs}]")
+    source = ("\n".join(lines) + "\n").encode("utf-8")
+
+    units = handler.extract(source)
+
+    assert len(units) <= 10, f"обход размножился: {len(units)} единиц"
+
+
+def test_an_alias_points_at_the_same_text_once(handler: YamlHandler) -> None:
+    source = b'first: &t "\xd0\xa2\xd0\xb5\xd0\xba\xd1\x81\xd1\x82 \xd0\xbf\xd1\x80\xd0\xbe\xd0\xb5\xd0\xba\xd1\x82\xd0\xb0"\nsecond: *t\n'
+
+    units = handler.extract(source)
+
+    assert len(units) == 1, "псевдоним — ссылка на тот же узел, а не второй текст"

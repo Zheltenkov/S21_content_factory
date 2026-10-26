@@ -30,6 +30,9 @@ from content_factory.translation.units import TextUnit
 
 # Длина, ниже которой скаляр без пробелов считается кодом, а не текстом.
 _CODE_MAX_LENGTH = 20
+# Потолок на число переводимых значений: конфигурация такого размера не бывает осмысленной,
+# а вот собранный нарочно файл добирается до него мгновенно.
+_MAX_UNITS = 5000
 _STR_TAG = "tag:yaml.org,2002:str"
 
 
@@ -67,12 +70,23 @@ def _spans(text: str) -> list[tuple[str, int, int, str, str]]:
 
     found: list[tuple[str, int, int, str, str]] = []
     counter = [0]
+    seen: set[int] = set()
 
     def add(start: int, end: int, value: str, hint: str) -> None:
         counter[0] += 1
+        if counter[0] > _MAX_UNITS:
+            raise DocumentFormatError(
+                f"В YAML больше {_MAX_UNITS} переводимых значений — такой файл не обрабатываем"
+            )
         found.append((f"{counter[0]:04d}", start, end, value, hint))
 
     def visit(node: yaml.Node) -> None:
+        # Псевдоним YAML — ссылка на тот же узел, а не его копия. Без этой отметки
+        # самоссылающийся якорь зацикливает обход, а вложенные псевдонимы размножают его
+        # степенью вложенности: пять строк разворачиваются в десятки тысяч посещений.
+        if id(node) in seen:
+            return
+        seen.add(id(node))
         if isinstance(node, yaml.MappingNode):
             for _key, value in node.value:
                 visit(value)  # ключи не переводим
@@ -82,7 +96,10 @@ def _spans(text: str) -> list[tuple[str, int, int, str, str]]:
         elif isinstance(node, yaml.ScalarNode):
             _visit_scalar(node, text, add)
 
-    visit(root)
+    try:
+        visit(root)
+    except RecursionError as exc:
+        raise DocumentFormatError("YAML вложен слишком глубоко") from exc
     return found
 
 
