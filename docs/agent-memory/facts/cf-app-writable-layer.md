@@ -11,6 +11,7 @@ metadata:
 месяц с лишним правок, доставленных через `docker cp`: добавленные
 `api/routers/rpd.py`, `audit/activity.py`, `audit/overview.py`, `audit/branch.py`,
 `audit/profanity.py`, `audit/topic_coherence.py`, `platform/llm/openai_compat.py`,
+весь пакет `translation/` (26.10.2026),
 `audit/data/dwh_*.csv`; изменённые `api/main.py`, `api/routers/auditor.py`,
 `api/routers/curriculum.py`, `audit/web_rendering.py`, `audit/templates/report.js`,
 `generation/embeddings.py`, `generation/subtitles/pipeline.py`, шаблоны
