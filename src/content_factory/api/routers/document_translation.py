@@ -30,6 +30,8 @@ from content_factory.generation.agents.translator import TranslatorAgent
 from content_factory.generation.models.schemas import ProjectSeed
 from content_factory.generation.utils.translation_languages import get_translation_language_profile
 from content_factory.platform.llm.factory import create_llm_client
+from content_factory.translation.errors import DocumentFormatError
+from content_factory.translation.xml_safety import parse_xml_without_dtd
 
 logger = get_logger("translate-document")
 
@@ -178,11 +180,11 @@ def _extract_text_from_docx(content: bytes) -> str:
 
     for path in xml_paths:
         try:
-            root = ElementTree.fromstring(archive.read(path))
+            root = parse_xml_without_dtd(archive.read(path), path)
         except KeyError:
             continue
-        except ElementTree.ParseError as exc:
-            raise HTTPException(status_code=400, detail="Не удалось разобрать XML внутри DOCX") from exc
+        except DocumentFormatError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         for paragraph in root.findall(".//w:p", namespace):
             pieces: list[str] = []
@@ -215,9 +217,9 @@ def _iter_docx_text_units(content: bytes) -> list[DocxTextUnit]:
             unit_index = 1
             for xml_path in xml_paths:
                 try:
-                    root = ElementTree.fromstring(archive.read(xml_path))
-                except ElementTree.ParseError as exc:
-                    raise HTTPException(status_code=400, detail=f"Не удалось разобрать {xml_path} внутри DOCX") from exc
+                    root = parse_xml_without_dtd(archive.read(xml_path), xml_path)
+                except DocumentFormatError as exc:
+                    raise HTTPException(status_code=400, detail=str(exc)) from exc
 
                 for paragraph_index, paragraph in enumerate(
                     root.findall(f".//{{{DOCX_WORD_NAMESPACE}}}p")
@@ -446,7 +448,7 @@ def _build_translated_docx(
                         target_archive.writestr(info, file_bytes)
                         continue
 
-                    root = ElementTree.fromstring(file_bytes)
+                    root = parse_xml_without_dtd(file_bytes, info.filename)
                     for paragraph_index, paragraph in enumerate(
                         root.findall(f".//{{{DOCX_WORD_NAMESPACE}}}p")
                     ):
@@ -459,8 +461,8 @@ def _build_translated_docx(
                     )
     except zipfile.BadZipFile as exc:
         raise HTTPException(status_code=400, detail="DOCX-файл поврежден или имеет неверный формат") from exc
-    except ElementTree.ParseError as exc:
-        raise HTTPException(status_code=400, detail="Не удалось разобрать XML внутри DOCX") from exc
+    except DocumentFormatError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return output_buffer.getvalue()
 
 

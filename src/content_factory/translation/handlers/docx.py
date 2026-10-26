@@ -17,6 +17,7 @@ from xml.etree import ElementTree
 
 from content_factory.translation.errors import DocumentFormatError
 from content_factory.translation.units import TextUnit
+from content_factory.translation.xml_safety import parse_xml_without_dtd
 
 WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace"
@@ -55,7 +56,7 @@ class DocxHandler:
                         if not TRANSLATABLE_XML_RE.match(info.filename):
                             target.writestr(info, payload)
                             continue
-                        root = ElementTree.fromstring(payload)
+                        root = parse_xml_without_dtd(payload, info.filename)
                         for index, paragraph in enumerate(root.findall(_PARAGRAPH_TAG)):
                             translated = lookup.get((info.filename, index))
                             if translated is not None:
@@ -65,8 +66,6 @@ class DocxHandler:
                         )
         except zipfile.BadZipFile as exc:
             raise DocumentFormatError("DOCX-файл поврежден или имеет неверный формат") from exc
-        except ElementTree.ParseError as exc:
-            raise DocumentFormatError("Не удалось разобрать XML внутри DOCX") from exc
         return output.getvalue()
 
 
@@ -78,10 +77,7 @@ def _walk(content: bytes) -> list[tuple[str, str, int, str]]:
             paths = [name for name in archive.namelist() if TRANSLATABLE_XML_RE.match(name)]
             counter = 1
             for xml_path in paths:
-                try:
-                    root = ElementTree.fromstring(archive.read(xml_path))
-                except ElementTree.ParseError as exc:
-                    raise DocumentFormatError(f"Не удалось разобрать {xml_path} внутри DOCX") from exc
+                root = parse_xml_without_dtd(archive.read(xml_path), xml_path)
                 for index, paragraph in enumerate(root.findall(_PARAGRAPH_TAG)):
                     text = "".join(node.text or "" for node in paragraph.iter() if node.tag == _TEXT_TAG)
                     if not text.strip():
