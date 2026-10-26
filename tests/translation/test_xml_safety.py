@@ -71,3 +71,31 @@ def test_the_word_doctype_inside_visible_text_is_not_a_dtd() -> None:
     units = DocxHandler().extract(_docx_with_part(safe))
 
     assert units[0].text == "<!DOCTYPE в тексте статьи"
+
+
+def test_the_same_bomb_in_utf16_is_refused_too() -> None:
+    """Проверка по сырым байтам обходится кодировкой, поэтому отказывать должен сам разборщик.
+
+    В UTF-16 те же байты выглядят как ``<\x00!\x00D\x00…``: поиск подстроки их не узнаёт, а
+    expat кодировку определяет по метке порядка байтов и сущности разворачивает.
+    """
+    with pytest.raises(DocumentFormatError):
+        parse_xml_without_dtd(_BOMB.encode("utf-16"), "word/document.xml")
+
+
+def test_utf16_without_a_dtd_still_parses() -> None:
+    root = parse_xml_without_dtd('<root><a>текст</a></root>'.encode("utf-16"), "part.xml")
+
+    assert root.find("a") is not None
+    assert root.find("a").text == "текст"
+
+
+def test_an_external_entity_is_refused_as_well() -> None:
+    external = (
+        '<?xml version="1.0"?>\n'
+        '<!DOCTYPE root [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>\n'
+        "<root>&xxe;</root>"
+    )
+
+    with pytest.raises(DocumentFormatError):
+        parse_xml_without_dtd(external.encode("utf-8"), "part.xml")
