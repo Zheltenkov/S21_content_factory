@@ -120,3 +120,66 @@ def test_sql_ignores_a_dash_inside_a_string(sql: SqlCommentHandler) -> None:
     source = "SELECT '-- не комментарий' AS marker;\n".encode()
 
     assert _texts(sql, source.decode("utf-8")) == []
+
+
+# ---------------------------------------------- отказ там, где язык расходится с разбором
+
+def test_a_translation_ending_in_a_backslash_cannot_swallow_the_next_line(
+    js: CStyleCommentHandler,
+) -> None:
+    """В C обратный слеш в конце пояснения продолжает его на следующую строку."""
+    source = "// пояснение\nconst a = 1;\n".encode()
+    unit = js.extract(source)[0]
+
+    result = js.apply(source, {unit.unit_id: "note \\"}).decode()
+
+    assert "const a = 1;" in result
+    assert not result.splitlines()[0].rstrip().endswith("\\"), "перевод не должен кончаться слешем"
+
+
+def test_a_translation_with_quotes_keeps_the_original(js: CStyleCommentHandler) -> None:
+    source = "// пояснение\n".encode()
+    unit = js.extract(source)[0]
+
+    assert js.apply(source, {unit.unit_id: 'note "quoted"'}).decode() == "// пояснение\n"
+
+
+def test_sql_does_not_treat_a_backslash_as_an_escape() -> None:
+    """В SQL строка кончается на кавычке, слеш её не продолжает."""
+    sql = SqlCommentHandler()
+    source = "SELECT 'a\' AS x;  -- пояснение\n".encode()
+
+    assert [u.text for u in sql.extract(source)] == ["пояснение"]
+
+
+def test_sql_understands_a_doubled_quote() -> None:
+    sql = SqlCommentHandler()
+    source = "SELECT 'it''s -- не комментарий' AS x;  -- пояснение\n".encode()
+
+    assert [u.text for u in sql.extract(source)] == ["пояснение"]
+
+
+def test_a_go_raw_string_has_no_escapes() -> None:
+    """В сырой строке Go обратный слеш — обычный знак, он не экранирует кавычку."""
+    from content_factory.translation.handlers.code import GoCommentHandler
+
+    source = "var p = `C:\path\`\n// пояснение\n".encode()
+
+    assert [u.text for u in GoCommentHandler().extract(source)] == ["пояснение"]
+
+
+def test_a_cpp_raw_string_stops_the_scan() -> None:
+    """Сырые строки C++ разбор не моделирует — за такой файл он не берётся."""
+    from content_factory.translation.handlers.code import CFamilyCommentHandler
+
+    source = 'auto s = R"(a " // not a comment)";\n// пояснение\n'.encode()
+
+    assert CFamilyCommentHandler().extract(source) == []
+
+
+def test_a_java_text_block_stops_the_scan() -> None:
+    from content_factory.translation.handlers.code import CFamilyCommentHandler
+
+    source = 'String s = """\n  a " // not a comment\n  """;\n// пояснение\n'.encode()
+
+    assert CFamilyCommentHandler().extract(source) == []

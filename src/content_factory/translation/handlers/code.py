@@ -417,18 +417,31 @@ class CStyleCommentHandler:
     не отдаёт ни одной единицы.
     """
 
+    # Знаки, которыми перевод может выйти из пояснения обратно в код. Обратный слеш в конце
+    # строчного пояснения продолжает его на следующую строку и выключает её.
+    FORBIDDEN_IN_TRANSLATION = ("\\", "`", '"', "'", "*/", "/*", "??/")
+
     def __init__(
         self,
         extensions: frozenset[str] | None = None,
         *,
         line_token: str = "//",
         backtick_strings: bool = True,
+        backtick_escapes: bool = True,
+        backslash_escapes: bool = True,
+        doubled_quote_escapes: bool = False,
         regex_literals: bool = True,
+        unmodelled: tuple[str, ...] = (),
     ) -> None:
         self.extensions = extensions or frozenset({".js", ".ts", ".mjs", ".cjs"})
         self.line_token = line_token
         self.backtick_strings = backtick_strings
+        self.backtick_escapes = backtick_escapes
+        self.backslash_escapes = backslash_escapes
+        self.doubled_quote_escapes = doubled_quote_escapes
         self.regex_literals = regex_literals
+        # Конструкции, которых разбор не знает вовсе: встретив любую, он за файл не берётся.
+        self.unmodelled = unmodelled
 
     def extract(self, content: bytes) -> list[TextUnit]:
         text = _decode(content)
@@ -447,8 +460,8 @@ class CStyleCommentHandler:
             if translated is None:
                 continue
             safe = " ".join(translated.split())
-            if "*/" in safe or "/*" in safe:
-                # Такой перевод закрыл бы пояснение, а остаток строки стал бы кодом.
+            if any(mark in safe for mark in self.FORBIDDEN_IN_TRANSLATION):
+                # Такой перевод вышел бы из пояснения обратно в код.
                 safe = text[start:end]
             pieces.append(text[cursor:start])
             pieces.append(safe)
@@ -474,6 +487,9 @@ class CStyleCommentHandler:
 
     def _comments(self, text: str) -> list[tuple[int, int, str, bool]]:
         """Пояснения: ``(начало текста, конец текста, текст, это блок)``."""
+        if any(mark in text for mark in self.unmodelled):
+            return []  # в файле конструкция, которой разбор не знает
+
         found: list[tuple[int, int, str, bool]] = []
         index = 0
         length = len(text)
@@ -483,12 +499,16 @@ class CStyleCommentHandler:
             char = text[index]
 
             if quote is not None:
-                if char == "\\":
+                escapes = self.backtick_escapes if quote == "`" else self.backslash_escapes
+                if char == "\\" and escapes:
                     index += 2
                     continue
-                if quote == "`" and text.startswith("${", index):
+                if quote == "`" and self.backtick_strings and text.startswith("${", index):
                     return []  # вложенная подстановка — разбор не берётся
                 if char == quote:
+                    if self.doubled_quote_escapes and text.startswith(quote * 2, index):
+                        index += 2  # удвоенная кавычка внутри строки, а не её конец
+                        continue
                     quote = None
                 index += 1
                 continue
@@ -539,9 +559,47 @@ class CStyleCommentHandler:
 
 
 class SqlCommentHandler(CStyleCommentHandler):
-    """Переводит комментарии SQL: ``--`` до конца строки и ``/* */``."""
+    """Переводит комментарии SQL: ``--`` до конца строки и ``/* */``.
+
+    В SQL обратный слеш строку не экранирует — кавычку внутри удваивают.
+    """
 
     def __init__(self) -> None:
         super().__init__(
-            frozenset({".sql"}), line_token="--", backtick_strings=True, regex_literals=False
+            frozenset({".sql"}),
+            line_token="--",
+            backtick_strings=True,
+            backtick_escapes=False,
+            backslash_escapes=False,
+            doubled_quote_escapes=True,
+            regex_literals=False,
+        )
+
+
+class GoCommentHandler(CStyleCommentHandler):
+    """Переводит комментарии Go. В сырой строке в обратных кавычках слеш не экранирует."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            frozenset({".go"}),
+            backtick_strings=True,
+            backtick_escapes=False,
+            regex_literals=False,
+        )
+
+
+class CFamilyCommentHandler(CStyleCommentHandler):
+    """Переводит комментарии C, C++, заголовков и Java.
+
+    Сырые строки C++ (``R"(...)"``) и текстовые блоки Java (``\"\"\"``) разбор не моделирует:
+    внутри них кавычки и косые черты ничего не значат, и ошибиться тут значит испортить код.
+    Встретив такую конструкцию, он за файл не берётся.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            frozenset({".c", ".cpp", ".cc", ".h", ".hpp", ".java"}),
+            backtick_strings=False,
+            regex_literals=False,
+            unmodelled=('R"', '"""'),
         )

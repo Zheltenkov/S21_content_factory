@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 from content_factory.translation.handlers.code import (
+    CFamilyCommentHandler,
     CStyleCommentHandler,
+    GoCommentHandler,
     PythonCommentHandler,
     ShellCommentHandler,
     SqlCommentHandler,
@@ -33,10 +35,8 @@ _HANDLERS: tuple[FormatHandler, ...] = (
     PythonCommentHandler(),
     ShellCommentHandler(),
     CStyleCommentHandler(),  # js, ts
-    CStyleCommentHandler(
-        frozenset({".c", ".cpp", ".cc", ".h", ".hpp", ".go", ".java"}),
-        regex_literals=False,  # в этих языках косая черта — только деление
-    ),
+    CFamilyCommentHandler(),
+    GoCommentHandler(),
     SqlCommentHandler(),
 )
 
