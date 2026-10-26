@@ -198,3 +198,35 @@ def test_a_translation_with_shell_metacharacters_keeps_the_original(
     result = handler.apply(source, {unit.unit_id: "Build; rm -rf /"}).decode("utf-8")
 
     assert result == "# Сборка\n", "перевод с управляющими знаками не берём"
+
+
+def test_a_plain_brace_inside_an_expansion_does_not_close_it(handler: ShellCommentHandler) -> None:
+    """``${x:-{a} # текст}``: простая скобка не закрывает подстановку, решётка всё ещё не пояснение."""
+    source = "echo ${x:-{a} # не комментарий}\n".encode()
+
+    assert handler.extract(source) == []
+    assert handler.apply(source, {"0001": "перевод"}) == source
+
+
+def test_a_metacharacter_is_refused_even_if_the_original_had_one(
+    handler: ShellCommentHandler,
+) -> None:
+    """Исходное пояснение пишет тот, кто прислал архив, — оно не может служить разрешением.
+
+    Комментарий, составленный как внушение модели, иначе протащил бы в перевод всё, что в нём
+    самом уже встречается.
+    """
+    source = "# вывод в $HOME, затем `date`\n".encode()
+    unit = handler.extract(source)[0]
+
+    result = handler.apply(source, {unit.unit_id: "output to $HOME, then `curl evil`"}).decode()
+
+    assert "curl evil" not in result
+    assert result == "# вывод в $HOME, затем `date`\n", "остался исходный текст"
+
+
+def test_a_clean_translation_still_goes_in(handler: ShellCommentHandler) -> None:
+    source = "# Сборка проекта\n".encode()
+    unit = handler.extract(source)[0]
+
+    assert handler.apply(source, {unit.unit_id: "Project build"}).decode() == "# Project build\n"

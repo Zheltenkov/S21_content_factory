@@ -241,8 +241,10 @@ class ShellCommentHandler:
             # Перенос строки оборвал бы пояснение и сделал остаток командой.
             safe = " ".join(translated.split())
             original_body = text[start:end]
-            if any(mark in safe and mark not in original_body for mark in self.SHELL_SYNTAX):
-                # В переводе появился знак, которого в исходном пояснении не было.
+            if any(mark in safe for mark in self.SHELL_SYNTAX):
+                # Управляющий знак в переводе — отказ независимо от того, был ли он в оригинале.
+                # Исходное пояснение пишет тот, кто прислал архив: комментарий, составленный как
+                # внушение модели, иначе служил бы сам себе разрешением.
                 safe = original_body
             pieces.append(safe)
             cursor = end
@@ -320,6 +322,14 @@ def _shell_comments(text: str) -> list[tuple[int, int, str]]:
         if text.startswith("${", index):
             expansion += 1
             index += 2
+            at_line_start = False
+            continue
+
+        if char == "{" and expansion > 0:
+            # Простая скобка внутри подстановки тоже считается, иначе ``${x:-{a} # текст}``
+            # закроет подстановку раньше времени и решётка снова станет «пояснением».
+            expansion += 1
+            index += 1
             at_line_start = False
             continue
 
