@@ -80,3 +80,10 @@ def test_python_sources_have_a_comment_handler() -> None:
 
     assert handler is not None
     assert ".py" in handler.extensions
+
+
+def test_shell_scripts_have_a_comment_handler() -> None:
+    for extension in (".sh", ".bash"):
+        handler = handler_for(extension)
+        assert handler is not None, extension
+        assert extension in handler.extensions

@@ -202,3 +202,147 @@ def _line_offsets(text: str) -> list[int]:
     for line in text.splitlines(keepends=True):
         offsets.append(offsets[-1] + len(line))
     return offsets
+
+
+class ShellCommentHandler:
+    """Переводит комментарии shell-скриптов.
+
+    Решётка начинает комментарий не везде: внутри кавычек это обычный знак, в ``${#array}`` —
+    длина, в строке запуска — не пояснение, а внутри heredoc вообще текст, который уйдёт в
+    программу. Поэтому разбор идёт посимвольно с памятью о состоянии.
+    """
+
+    extensions = frozenset({".sh", ".bash"})
+
+    def extract(self, content: bytes) -> list[TextUnit]:
+        text = _decode(content)
+        return [
+            TextUnit(unit_id=f"{index + 1:04d}", text=value, hint="комментарий")
+            for index, (_start, _end, value) in enumerate(_shell_comments(text))
+        ]
+
+    def apply(self, content: bytes, translations: dict[str, str]) -> bytes:
+        text = _decode(content)
+        spans = _shell_comments(text)
+        pieces: list[str] = []
+        cursor = 0
+        changed = False
+        for index, (start, end, _value) in enumerate(spans):
+            translated = translations.get(f"{index + 1:04d}")
+            if translated is None:
+                continue
+            pieces.append(text[cursor:start])
+            # Перенос строки оборвал бы пояснение и сделал остаток командой.
+            pieces.append(" ".join(translated.split()))
+            cursor = end
+            changed = True
+        if not changed:
+            return content
+        pieces.append(text[cursor:])
+        result = "".join(pieces)
+
+        if _without_comments(result) != _without_comments(text):
+            return content  # разбор сдвинулся: лучше непереведённый файл, чем сломанный
+        return result.encode("utf-8")
+
+
+def _without_comments(text: str) -> str:
+    """Остаток файла, если вырезать пояснения — по свежему разбору, а не по прежним границам."""
+    pieces: list[str] = []
+    cursor = 0
+    for start, end, _value in _shell_comments(text):
+        pieces.append(text[cursor:start])
+        cursor = end
+    pieces.append(text[cursor:])
+    return "".join(pieces)
+
+
+def _shell_comments(text: str) -> list[tuple[int, int, str]]:
+    """Границы пояснений: ``(начало текста, конец строки, текст)``."""
+    found: list[tuple[int, int, str]] = []
+    index = 0
+    length = len(text)
+    quote: str | None = None
+    heredoc: str | None = None
+    at_line_start = True
+
+    while index < length:
+        char = text[index]
+
+        if heredoc is not None:
+            line_end = text.find("\n", index)
+            line_end = length if line_end < 0 else line_end
+            if text[index:line_end].strip() == heredoc:
+                heredoc = None
+            index = line_end + 1
+            at_line_start = True
+            continue
+
+        if quote is not None:
+            if char == "\\" and quote == '"':
+                index += 2
+                continue
+            if char == quote:
+                quote = None
+            index += 1
+            continue
+
+        if char in "'\"":
+            quote = char
+            index += 1
+            at_line_start = False
+            continue
+
+        if char == "\\":
+            index += 2
+            continue
+
+        if text.startswith("<<", index):
+            marker = _heredoc_marker(text, index)
+            if marker is not None:
+                heredoc, index = marker
+                continue
+
+        if char == "#" and _starts_comment(text, index, at_line_start):
+            line_end = text.find("\n", index)
+            line_end = length if line_end < 0 else line_end
+            body = text[index + 1 : line_end]
+            lead = len(body) - len(body.lstrip())
+            if body.strip() and len(found) < MAX_UNITS:
+                found.append((index + 1 + lead, line_end, body.strip()))
+            index = line_end
+            continue
+
+        at_line_start = char == "\n" or (at_line_start and char in " \t")
+        index += 1
+    return found
+
+
+def _starts_comment(text: str, index: int, at_line_start: bool) -> bool:
+    """Решётка начинает пояснение, если перед ней начало строки или пробел."""
+    if index == 0:
+        return not text.startswith("#!")  # строка запуска
+    if at_line_start:
+        return True
+    return text[index - 1] in " \t"
+
+
+def _heredoc_marker(text: str, index: int) -> tuple[str, int] | None:
+    """Разбирает ``<<EOF`` и ``<<-'EOF'``, возвращая метку конца и позицию после неё."""
+    cursor = index + 2
+    if cursor < len(text) and text[cursor] == "-":
+        cursor += 1
+    while cursor < len(text) and text[cursor] in " \t":
+        cursor += 1
+    opening = cursor
+    if cursor < len(text) and text[cursor] in "'\"":
+        quote = text[cursor]
+        closing = text.find(quote, cursor + 1)
+        if closing < 0:
+            return None
+        return text[cursor + 1 : closing], closing + 1
+    while cursor < len(text) and (text[cursor].isalnum() or text[cursor] == "_"):
+        cursor += 1
+    if cursor == opening:
+        return None
+    return text[opening:cursor], cursor

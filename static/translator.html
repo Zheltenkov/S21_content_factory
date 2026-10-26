@@ -110,13 +110,13 @@
                 <div class="translate-field wide">
                     <label>Источник</label>
                     <div class="translate-file-pill" onclick="if (event.target.tagName !== 'INPUT') document.getElementById('translationFile').click()">
-                        <input type="file" id="translationFile" accept=".md,.markdown,.txt,.html,.htm,.docx,.pdf,.yml,.yaml,.xlsx,.pptx,.py" onclick="event.stopPropagation()" onchange="handleTranslationFileSelect(event)">
+                        <input type="file" id="translationFile" accept=".md,.markdown,.txt,.html,.htm,.docx,.pdf,.yml,.yaml,.xlsx,.pptx,.py,.sh,.bash" onclick="event.stopPropagation()" onchange="handleTranslationFileSelect(event)">
                         <span class="translate-file-icon">▤</span>
                         <strong id="translationSourceFileTitle">Загрузить README или документ</strong>
                         <small id="translationFileName">Документ для перевода</small>
                         <button type="button" aria-label="Очистить файл" onclick="event.stopPropagation(); clearTranslationFile()">×</button>
                     </div>
-                    <p class="translate-file-hint">TXT, Markdown, HTML, DOCX, PDF, YAML, XLSX, PPTX, PY. До 25 MB.</p>
+                    <p class="translate-file-hint">TXT, Markdown, HTML, DOCX, PDF, YAML, XLSX, PPTX, PY, SH. До 25 MB.</p>
                     <textarea id="translationInput" class="translate-hidden-input" rows="8" placeholder="Вставьте текст документа вручную"></textarea>
                 </div>
 
