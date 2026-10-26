@@ -104,3 +104,59 @@ def test_a_script_with_unbalanced_quotes_still_round_trips(handler: ShellComment
     source = b"echo 'unclosed\n# comment after\n"
 
     assert handler.apply(source, {}) == source
+
+
+# ------------------------------------------------ отказ там, где разбор не уверен
+
+def test_a_trailing_comment_after_a_backtick_is_skipped(handler: ShellCommentHandler) -> None:
+    """Обратные кавычки разбор не моделирует, поэтому такую строку он не трогает вовсе."""
+    source = b"X=`date` # not sure this is a comment\n"
+
+    assert handler.extract(source) == []
+    assert handler.apply(source, {"0001": "перевод"}) == source
+
+
+def test_a_trailing_comment_after_a_command_substitution_is_skipped(
+    handler: ShellCommentHandler,
+) -> None:
+    source = b"X=$(date) # not sure either\n"
+
+    assert handler.extract(source) == []
+
+
+def test_a_whole_line_comment_is_translated_even_near_those(handler: ShellCommentHandler) -> None:
+    """Пояснение с начала строки однозначно, его разбор трогает и рядом с такими конструкциями."""
+    source = "# Сборка\nX=`date`\n".encode()
+    unit = handler.extract(source)[0]
+
+    result = handler.apply(source, {unit.unit_id: "Build"}).decode("utf-8")
+
+    assert result.startswith("# Build\n")
+
+
+def test_a_trailing_comment_after_a_quoted_string_still_works(handler: ShellCommentHandler) -> None:
+    """Кавычки разбор моделирует, поэтому обычный хвостовой комментарий остаётся в работе."""
+    source = b'NAME="project"  # \xd0\xb8\xd0\xbc\xd1\x8f\n'
+
+    units = handler.extract(source)
+
+    assert [u.text for u in units] == ["имя"]
+
+
+def test_an_unterminated_quote_disables_the_whole_file(handler: ShellCommentHandler) -> None:
+    """Незакрытая кавычка означает, что разбор сбился: трогать такой файл нельзя."""
+    source = b"echo 'unclosed\n# comment after\n"
+
+    assert handler.extract(source) == []
+    assert handler.apply(source, {"0001": "перевод"}) == source
+
+
+def test_a_translation_that_adds_shell_syntax_is_refused(handler: ShellCommentHandler) -> None:
+    """Если в переводе появились обратные кавычки, которых не было, — берём исходный текст."""
+    source = b"# \xd0\xa1\xd0\xb1\xd0\xbe\xd1\x80\xd0\xba\xd0\xb0\n"
+    unit = handler.extract(source)[0]
+
+    result = handler.apply(source, {unit.unit_id: "Build `rm -rf /`"}).decode("utf-8")
+
+    assert "`rm -rf /`" not in result
+    assert result == "# Сборка\n", "остался исходный текст пояснения"

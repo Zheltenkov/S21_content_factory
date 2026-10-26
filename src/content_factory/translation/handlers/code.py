@@ -213,6 +213,9 @@ class ShellCommentHandler:
     """
 
     extensions = frozenset({".sh", ".bash"})
+    # Конструкции, которые разбор не моделирует. Встретив их перед решёткой в той же строке,
+    # он не берётся судить, пояснение это или код, и пропускает строку целиком.
+    UNMODELLED = ("`", "$(")
 
     def extract(self, content: bytes) -> list[TextUnit]:
         text = _decode(content)
@@ -233,7 +236,12 @@ class ShellCommentHandler:
                 continue
             pieces.append(text[cursor:start])
             # Перенос строки оборвал бы пояснение и сделал остаток командой.
-            pieces.append(" ".join(translated.split()))
+            safe = " ".join(translated.split())
+            original_body = text[start:end]
+            if any(mark in safe and mark not in original_body for mark in self.UNMODELLED):
+                # В переводе появился синтаксис, которого в исходном пояснении не было.
+                safe = original_body
+            pieces.append(safe)
             cursor = end
             changed = True
         if not changed:
@@ -308,14 +316,28 @@ def _shell_comments(text: str) -> list[tuple[int, int, str]]:
             line_end = length if line_end < 0 else line_end
             body = text[index + 1 : line_end]
             lead = len(body) - len(body.lstrip())
-            if body.strip() and len(found) < MAX_UNITS:
+            if body.strip() and len(found) < MAX_UNITS and _line_is_plain(text, index):
                 found.append((index + 1 + lead, line_end, body.strip()))
             index = line_end
             continue
 
         at_line_start = char == "\n" or (at_line_start and char in " \t")
         index += 1
+
+    if quote is not None or heredoc is not None:
+        # Разбор дошёл до конца файла внутри кавычки или heredoc — значит он сбился раньше,
+        # и ни одной найденной границе доверять нельзя.
+        return []
     return found
+
+
+def _line_is_plain(text: str, hash_index: int) -> bool:
+    """Нет ли перед решёткой в этой строке того, чего разбор не моделирует."""
+    line_start = text.rfind("\n", 0, hash_index) + 1
+    prefix = text[line_start:hash_index]
+    if not prefix.strip():
+        return True  # пояснение с начала строки однозначно
+    return not any(mark in prefix for mark in ShellCommentHandler.UNMODELLED)
 
 
 def _starts_comment(text: str, index: int, at_line_start: bool) -> bool:
