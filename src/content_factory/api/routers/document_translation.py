@@ -6,18 +6,15 @@ and the ``_run_document_translation`` job runner. The thin ``/translate/document
 route in ``readme_translate.py`` re-imports the entry points from here.
 """
 
-import json
 import os
 import re
 import tempfile
 import zipfile
-from collections.abc import Callable
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from io import BytesIO
 from pathlib import Path
 from typing import cast
-from xml.etree import ElementTree
 
 from fastapi import HTTPException, UploadFile
 
@@ -28,7 +25,6 @@ from content_factory.api.utils.result_cache import set_translation_job, set_tran
 from content_factory.generation.agents.base.llm_client import LLMClientProtocol
 from content_factory.generation.agents.translator import TranslatorAgent
 from content_factory.generation.models.schemas import ProjectSeed
-from content_factory.generation.utils.translation_languages import get_translation_language_profile
 from content_factory.platform.llm.factory import create_llm_client
 from content_factory.translation.engine import translate_units
 from content_factory.translation.errors import DocumentFormatError
@@ -46,36 +42,6 @@ TRANSLATION_DOCUMENT_EXTENSIONS = set(supported_extensions())
 SOURCE_LANGUAGE = "ru"
 TEXT_DOCUMENT_EXTENSIONS = {".md", ".markdown", ".txt"}
 HTML_DOCUMENT_EXTENSIONS = {".html", ".htm"}
-DOCX_WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace"
-DOCX_TRANSLATABLE_XML_RE = re.compile(
-    r"^word/(?:document|header\d+|footer\d+|footnotes|endnotes|comments)\.xml$",
-)
-MAX_DOCX_TRANSLATION_BATCH_CHARS = int(os.getenv("MAX_DOCX_TRANSLATION_BATCH_CHARS", "9000"))
-
-ElementTree.register_namespace("w", DOCX_WORD_NAMESPACE)
-ElementTree.register_namespace("xml", XML_NAMESPACE)
-
-
-def _strip_invalid_xml_chars(text: str) -> str:
-    """Удаляет символы, которые нельзя безопасно записать в XML 1.0.
-
-    DOCX хранит текст в XML-файлах. Некоторые ответы модели могут содержать
-    невидимые управляющие символы, которые ElementTree сериализует, но Word
-    потом считает документ поврежденным.
-    """
-    if not text:
-        return text
-    return "".join(
-        char
-        for char in text
-        if (
-            char in "\t\n\r"
-            or "\x20" <= char <= "\ud7ff"
-            or "\ue000" <= char <= "\ufffd"
-            or "\U00010000" <= char <= "\U0010ffff"
-        )
-    )
 
 
 @dataclass(frozen=True)
@@ -87,16 +53,6 @@ class ExtractedTranslationDocument:
     extension: str
     title_seed: str
     content: bytes
-
-
-@dataclass(frozen=True)
-class DocxTextUnit:
-    """Один переводимый текстовый блок внутри DOCX."""
-
-    unit_id: str
-    xml_path: str
-    paragraph_index: int
-    text: str
 
 
 class _PlainHtmlTextExtractor(HTMLParser):
@@ -207,269 +163,6 @@ def _extract_text_from_docx(content: bytes) -> str:
                 paragraphs.append(line)
 
     return _normalize_extracted_text("\n".join(paragraphs))
-
-
-def _is_docx_translatable_xml(path: str) -> bool:
-    """Возвращает True для XML-частей Word, где реально хранится пользовательский текст."""
-    return bool(DOCX_TRANSLATABLE_XML_RE.match(path))
-
-
-def _iter_docx_text_units(content: bytes) -> list[DocxTextUnit]:
-    """Собирает переводимые абзацы DOCX без изменения исходного архива."""
-    try:
-        with zipfile.ZipFile(BytesIO(content)) as archive:
-            xml_paths = [name for name in archive.namelist() if _is_docx_translatable_xml(name)]
-            units: list[DocxTextUnit] = []
-            unit_index = 1
-            for xml_path in xml_paths:
-                try:
-                    root = parse_xml_without_dtd(archive.read(xml_path), xml_path)
-                except DocumentFormatError as exc:
-                    raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-                for paragraph_index, paragraph in enumerate(
-                    root.findall(f".//{{{DOCX_WORD_NAMESPACE}}}p")
-                ):
-                    text_nodes = [
-                        node
-                        for node in paragraph.iter()
-                        if node.tag == f"{{{DOCX_WORD_NAMESPACE}}}t"
-                    ]
-                    text = "".join(node.text or "" for node in text_nodes)
-                    if not text.strip():
-                        continue
-                    units.append(
-                        DocxTextUnit(
-                            unit_id=f"{unit_index:04d}",
-                            xml_path=xml_path,
-                            paragraph_index=paragraph_index,
-                            text=text,
-                        )
-                    )
-                    unit_index += 1
-            return units
-    except zipfile.BadZipFile as exc:
-        raise HTTPException(status_code=400, detail="DOCX-файл поврежден или имеет неверный формат") from exc
-
-
-def _extract_json_object(raw_text: str) -> dict:
-    """Достаёт JSON-объект из ответа модели, даже если вокруг появились служебные фразы."""
-    raw = (raw_text or "").strip()
-    if not raw:
-        raise ValueError("Пустой ответ модели")
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError:
-        start = raw.find("{")
-        end = raw.rfind("}")
-        if start < 0 or end <= start:
-            raise
-        parsed = json.loads(raw[start : end + 1])
-    if not isinstance(parsed, dict):
-        raise ValueError("Ответ модели не является JSON-объектом")
-    return parsed
-
-
-def _docx_translation_batches(units: list[DocxTextUnit]) -> list[list[DocxTextUnit]]:
-    """Группирует абзацы DOCX так, чтобы один запрос к LLM оставался управляемым."""
-    batches: list[list[DocxTextUnit]] = []
-    current: list[DocxTextUnit] = []
-    current_chars = 0
-    for unit in units:
-        unit_cost = len(unit.text) + 80
-        if current and current_chars + unit_cost > MAX_DOCX_TRANSLATION_BATCH_CHARS:
-            batches.append(current)
-            current = []
-            current_chars = 0
-        current.append(unit)
-        current_chars += unit_cost
-    if current:
-        batches.append(current)
-    return batches
-
-
-def _translate_docx_units(
-    llm_client: LLMClientProtocol,
-    units: list[DocxTextUnit],
-    target_language: str,
-    progress_callback: Callable[[str], None] | None = None,
-) -> dict[str, str]:
-    """Переводит DOCX блоками через строгий JSON-контракт id -> translated_text."""
-    if not units:
-        return {}
-
-    target_profile = get_translation_language_profile(target_language)
-    system_prompt = (
-        "Ты переводишь текстовые фрагменты DOCX-документа. "
-        "Нужно вернуть только JSON без Markdown и пояснений. "
-        "Сохраняй смысл, числа, имена файлов, пути, технические термины, формулы и сокращения. "
-        f"Язык перевода: {target_profile.prompt_label}. "
-        f"Письменность: {target_profile.script_instruction}."
-    )
-    translations: dict[str, str] = {}
-    batches = _docx_translation_batches(units)
-
-    for batch_index, batch in enumerate(batches, 1):
-        if progress_callback:
-            progress_callback("translate")
-        payload = {
-            "target_language": target_profile.prompt_label,
-            "script_instruction": target_profile.script_instruction,
-            "fragments": [{"id": unit.unit_id, "text": unit.text} for unit in batch],
-        }
-        user_prompt = (
-            "Переведи каждый фрагмент отдельно и верни JSON строго такого вида:\n"
-            '{"translations":{"0001":"перевод фрагмента"}}\n'
-            "Не объединяй фрагменты, не меняй id, не добавляй новые ключи.\n\n"
-            f"Входные данные:\n{json.dumps(payload, ensure_ascii=False)}"
-        )
-
-        raw_response = ""
-        try:
-            raw_response = llm_client.complete(
-                system=system_prompt,
-                user=user_prompt,
-                response_format="json_object",
-                temperature=0.1,
-            )
-        except Exception:
-            raw_response = llm_client.complete(
-                system=system_prompt,
-                user=user_prompt,
-                temperature=0.1,
-            )
-
-        try:
-            parsed = _extract_json_object(raw_response)
-        except Exception:
-            raw_response = llm_client.complete(
-                system=system_prompt,
-                user=user_prompt,
-                temperature=0.1,
-            )
-            parsed = _extract_json_object(raw_response)
-        batch_translations = parsed.get("translations")
-        if not isinstance(batch_translations, dict):
-            raise RuntimeError("Модель вернула DOCX-перевод без объекта translations")
-
-        missing_ids: list[str] = []
-        for unit in batch:
-            translated = batch_translations.get(unit.unit_id)
-            if translated is None:
-                missing_ids.append(unit.unit_id)
-                continue
-            translations[unit.unit_id] = str(translated).strip()
-        if missing_ids:
-            raise RuntimeError(
-                "Модель не вернула перевод для DOCX-фрагментов: " + ", ".join(missing_ids[:10])
-            )
-
-        logger.info(
-            "DOCX translation batch done: batch=%s/%s units=%s",
-            batch_index,
-            len(batches),
-            len(batch),
-        )
-
-    return translations
-
-
-def _nearest_space_cut(text: str, target: int, start: int) -> int:
-    """Выбирает границу чанка около пробела, чтобы не резать слова при распределении по run."""
-    if target <= start:
-        return start
-    if target >= len(text):
-        return len(text)
-    window = max(20, min(80, len(text) // 8))
-    left = max(start, target - window)
-    right = min(len(text), target + window)
-    candidates = [m.end() for m in re.finditer(r"\s+", text[left:right])]
-    if not candidates:
-        return target
-    absolute = [left + candidate for candidate in candidates]
-    return min(absolute, key=lambda cut: abs(cut - target))
-
-
-def _split_text_for_docx_runs(translated_text: str, original_parts: list[str]) -> list[str]:
-    """Распределяет перевод по исходным run примерно пропорционально, сохраняя inline-стили."""
-    if not original_parts:
-        return []
-    if len(original_parts) == 1:
-        return [translated_text]
-
-    weights = [max(len(part or ""), 1) for part in original_parts]
-    total_weight = sum(weights) or len(original_parts)
-    chunks: list[str] = []
-    cursor = 0
-    cumulative_weight = 0
-    for _index, weight in enumerate(weights[:-1]):
-        cumulative_weight += weight
-        target = round(len(translated_text) * cumulative_weight / total_weight)
-        cut = _nearest_space_cut(translated_text, target, cursor)
-        chunks.append(translated_text[cursor:cut])
-        cursor = cut
-    chunks.append(translated_text[cursor:])
-    return chunks
-
-
-def _apply_text_to_docx_paragraph(paragraph: ElementTree.Element, translated_text: str) -> None:
-    """Заменяет текст абзаца, не трогая стили, таблицы, списки и другие OOXML-узлы."""
-    translated_text = _strip_invalid_xml_chars(translated_text)
-    text_nodes = [
-        node
-        for node in paragraph.iter()
-        if node.tag == f"{{{DOCX_WORD_NAMESPACE}}}t"
-    ]
-    if not text_nodes:
-        return
-    original_parts = [node.text or "" for node in text_nodes]
-    chunks = _split_text_for_docx_runs(translated_text, original_parts)
-    for node, chunk in zip(text_nodes, chunks, strict=False):
-        node.text = chunk
-        if chunk[:1].isspace() or chunk[-1:].isspace():
-            node.set(f"{{{XML_NAMESPACE}}}space", "preserve")
-    for node in text_nodes[len(chunks):]:
-        node.text = ""
-
-
-def _build_translated_docx(
-    content: bytes,
-    units: list[DocxTextUnit],
-    translations: dict[str, str],
-) -> bytes:
-    """Создаёт DOCX-копию с переведёнными текстовыми узлами и исходным форматированием."""
-    lookup = {
-        (unit.xml_path, unit.paragraph_index): translations[unit.unit_id]
-        for unit in units
-        if unit.unit_id in translations
-    }
-    input_buffer = BytesIO(content)
-    output_buffer = BytesIO()
-    try:
-        with zipfile.ZipFile(input_buffer, "r") as source_archive:
-            with zipfile.ZipFile(output_buffer, "w") as target_archive:
-                for info in source_archive.infolist():
-                    file_bytes = source_archive.read(info.filename)
-                    if not _is_docx_translatable_xml(info.filename):
-                        target_archive.writestr(info, file_bytes)
-                        continue
-
-                    root = parse_xml_without_dtd(file_bytes, info.filename)
-                    for paragraph_index, paragraph in enumerate(
-                        root.findall(f".//{{{DOCX_WORD_NAMESPACE}}}p")
-                    ):
-                        translated = lookup.get((info.filename, paragraph_index))
-                        if translated is not None:
-                            _apply_text_to_docx_paragraph(paragraph, translated)
-                    target_archive.writestr(
-                        info,
-                        ElementTree.tostring(root, encoding="utf-8", xml_declaration=True),
-                    )
-    except zipfile.BadZipFile as exc:
-        raise HTTPException(status_code=400, detail="DOCX-файл поврежден или имеет неверный формат") from exc
-    except DocumentFormatError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return output_buffer.getvalue()
 
 
 def _extract_text_from_pdf(content: bytes) -> str:

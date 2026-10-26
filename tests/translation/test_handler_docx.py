@@ -102,3 +102,17 @@ def test_a_document_that_unpacks_too_large_is_refused(
 
     with pytest.raises(DocumentFormatError, match="разворачивается"):
         handler.extract(buffer.getvalue())
+
+
+def test_a_control_character_in_a_translation_is_stripped(handler: DocxHandler) -> None:
+    """Word считает документ повреждённым, если в XML попал управляющий символ.
+
+    ElementTree такой символ запишет молча, поэтому убирать его должен обработчик.
+    """
+    source = _docx_bytes()
+    unit = handler.extract(source)[0]
+
+    result = handler.apply(source, {unit.unit_id: chr(2) + 'java fayllarda'})
+
+    assert 'java fayllarda' in _texts(result)
+    assert chr(2) not in "".join(_texts(result))

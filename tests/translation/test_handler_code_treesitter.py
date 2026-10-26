@@ -225,3 +225,32 @@ def test_sql_block_comments_are_units() -> None:
     source = '/*Блок выборки*/' + chr(10) + 'SELECT 1;  -- хвост' + chr(10)
 
     assert _texts(sql_handler(), source) == ['Блок выборки', 'хвост']
+
+
+def test_an_executable_sql_comment_is_not_a_comment() -> None:
+    """``/*!…*/`` у MySQL и ``/*+…*/`` у Oracle — это код, а не пояснение.
+
+    Грамматика зовёт их так же, ``marginalia``, и ошибки не видит. Перевести их значило бы
+    испортить дамп: сервер читает их как указания, а не как текст.
+    """
+    source = (
+        '/*!40000 ALTER TABLE t DISABLE KEYS */' + chr(10)
+        + '/*+ INDEX(t idx) */' + chr(10)
+        + '/*Настоящее пояснение*/' + chr(10)
+        + 'SELECT 1;' + chr(10)
+    )
+
+    assert _texts(sql_handler(), source) == ['Настоящее пояснение']
+
+
+def test_an_opening_block_marker_in_a_translation_is_refused() -> None:
+    """PostgreSQL вкладывает блочные пояснения друг в друга, а грамматика — нет.
+
+    ``/* перевод /* */`` для грамматики один комментарий, для сервера — незакрытая
+    вложенность, съедающая остаток файла. Повторный разбор этого не заметит.
+    """
+    handler = sql_handler()
+    source = ('/* выборка */' + chr(10) + 'SELECT 1;' + chr(10)).encode()
+    unit = handler.extract(source)[0]
+
+    assert handler.apply(source, {unit.unit_id: 'см. /* ниже'}) == source

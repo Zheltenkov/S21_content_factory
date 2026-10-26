@@ -1,7 +1,6 @@
 """Tests for document upload extraction in translation router."""
 
 from io import BytesIO
-from xml.etree import ElementTree
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
@@ -9,11 +8,8 @@ from fastapi import HTTPException
 
 from content_factory.api.routers.document_translation import (
     TRANSLATION_DOCUMENT_EXTENSIONS,
-    _build_translated_docx,
     _extract_translation_document_text,
-    _iter_docx_text_units,
     _safe_translation_filename,
-    _translate_docx_units,
 )
 from content_factory.api.routers.readme_translate import _translation_job_for_user
 from content_factory.api.utils.result_cache import _translation_jobs, set_translation_job
@@ -87,46 +83,6 @@ def test_extract_translation_document_text_from_docx() -> None:
 
     assert "Первый абзац" in text
     assert "Второй абзац" in text
-
-
-def test_translate_docx_units_uses_json_contract() -> None:
-    units = [
-        *_iter_docx_text_units(_minimal_docx(["Первый абзац", "Второй абзац"]))
-    ]
-
-    translations = _translate_docx_units(FakeDocxLlm(), units, "en")
-
-    assert translations == {
-        "0001": "First paragraph",
-        "0002": "Second paragraph",
-    }
-
-
-def test_build_translated_docx_replaces_text_and_keeps_package_parts() -> None:
-    source = _minimal_docx(["Первый абзац", "Второй абзац"])
-    units = _iter_docx_text_units(source)
-    translated = _build_translated_docx(
-        source,
-        units,
-        {"0001": "First paragraph", "0002": "Second paragraph"},
-    )
-
-    xml_text = _read_docx_document_xml(translated)
-    assert "First paragraph" in xml_text
-    assert "Second paragraph" in xml_text
-    assert "Первый абзац" not in xml_text
-    ElementTree.fromstring(xml_text.encode("utf-8"))
-
-
-def test_build_translated_docx_strips_invalid_xml_control_chars() -> None:
-    source = _minimal_docx(["В файлах .java"])
-    units = _iter_docx_text_units(source)
-    translated = _build_translated_docx(source, units, {"0001": "\x02java fayllarda"})
-
-    xml_text = _read_docx_document_xml(translated)
-    assert "\x02" not in xml_text
-    assert "java fayllarda" in xml_text
-    ElementTree.fromstring(xml_text.encode("utf-8"))
 
 
 def test_safe_translation_filename_rejects_unsupported_extension() -> None:
