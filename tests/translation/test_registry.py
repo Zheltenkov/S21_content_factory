@@ -48,3 +48,10 @@ def test_xlsx_has_its_own_handler() -> None:
 
     assert handler is not None
     assert ".xlsx" in handler.extensions
+
+
+def test_pptx_has_its_own_handler() -> None:
+    handler = handler_for(".pptx")
+
+    assert handler is not None
+    assert ".pptx" in handler.extensions

@@ -9,11 +9,12 @@ from __future__ import annotations
 
 from content_factory.translation.handlers.docx import DocxHandler
 from content_factory.translation.handlers.plain import PlainTextHandler
+from content_factory.translation.handlers.pptx import PptxHandler
 from content_factory.translation.handlers.xlsx import XlsxHandler
 from content_factory.translation.handlers.yaml_file import YamlHandler
 from content_factory.translation.units import FormatHandler
 
-_HANDLERS: tuple[FormatHandler, ...] = (PlainTextHandler(), DocxHandler(), YamlHandler(), XlsxHandler())
+_HANDLERS: tuple[FormatHandler, ...] = (PlainTextHandler(), DocxHandler(), YamlHandler(), XlsxHandler(), PptxHandler())
 
 
 def all_handlers() -> tuple[FormatHandler, ...]:
