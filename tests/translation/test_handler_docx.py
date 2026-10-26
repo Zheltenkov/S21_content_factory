@@ -87,3 +87,18 @@ def test_ids_are_the_same_on_extract_and_apply(handler: DocxHandler) -> None:
 def test_a_broken_file_is_a_format_error(handler: DocxHandler) -> None:
     with pytest.raises(DocumentFormatError):
         handler.extract(b"not a zip at all")
+
+
+def test_a_document_that_unpacks_too_large_is_refused(
+    handler: DocxHandler, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Загрузка считает сжатый размер, поэтому предел на разворачивание нужен и здесь."""
+    import zipfile
+
+    monkeypatch.setattr("content_factory.translation.zip_safety.MAX_MEMBER_BYTES", 2048)
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", b"\0" * 500_000)
+
+    with pytest.raises(DocumentFormatError, match="разворачивается"):
+        handler.extract(buffer.getvalue())

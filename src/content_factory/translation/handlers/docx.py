@@ -16,9 +16,10 @@ from io import BytesIO
 from xml.etree import ElementTree
 
 from content_factory.translation.errors import DocumentFormatError
-from content_factory.translation.ooxml import spread_over_runs, strip_invalid_xml
+from content_factory.translation.ooxml import MAX_UNITS, spread_over_runs, strip_invalid_xml
 from content_factory.translation.units import TextUnit
 from content_factory.translation.xml_safety import parse_xml_without_dtd
+from content_factory.translation.zip_safety import open_checked, read_member
 
 WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace"
@@ -50,10 +51,10 @@ class DocxHandler:
         }
         output = BytesIO()
         try:
-            with zipfile.ZipFile(BytesIO(content), "r") as source:
+            with open_checked(content) as source:
                 with zipfile.ZipFile(output, "w") as target:
                     for info in source.infolist():
-                        payload = source.read(info.filename)
+                        payload = read_member(source, info.filename)
                         if not TRANSLATABLE_XML_RE.match(info.filename):
                             target.writestr(info, payload)
                             continue
@@ -74,15 +75,17 @@ def _walk(content: bytes) -> list[tuple[str, str, int, str]]:
     """Абзацы с текстом: ``(ключ, часть архива, номер абзаца, текст)`` в устойчивом порядке."""
     found: list[tuple[str, str, int, str]] = []
     try:
-        with zipfile.ZipFile(BytesIO(content)) as archive:
+        with open_checked(content) as archive:
             paths = [name for name in archive.namelist() if TRANSLATABLE_XML_RE.match(name)]
             counter = 1
             for xml_path in paths:
-                root = parse_xml_without_dtd(archive.read(xml_path), xml_path)
+                root = parse_xml_without_dtd(read_member(archive, xml_path), xml_path)
                 for index, paragraph in enumerate(root.findall(_PARAGRAPH_TAG)):
                     text = "".join(node.text or "" for node in paragraph.iter() if node.tag == _TEXT_TAG)
                     if not text.strip():
                         continue
+                    if counter > MAX_UNITS:
+                        raise DocumentFormatError("В DOCX больше " + str(MAX_UNITS) + " переводимых кусков")
                     found.append((f"{counter:04d}", xml_path, index, text))
                     counter += 1
     except zipfile.BadZipFile as exc:
