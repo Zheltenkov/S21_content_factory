@@ -73,3 +73,28 @@ def test_a_broken_archive_is_a_format_error() -> None:
 
 def test_the_limits_are_sane() -> None:
     assert MAX_MEMBER_BYTES >= 50 * 1024 * 1024, "обычный DOCX с картинками должен проходить"
+
+
+def test_xml_parts_have_a_tighter_limit_than_media(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Сто мегабайт — нормальный предел для картинки и опасный для разбираемого XML.
+
+    Дерево объектов ElementTree занимает кратно больше самого текста, поэтому часть, которую
+    собираются разбирать, читается с отдельным, куда меньшим пределом.
+    """
+    from content_factory.translation.zip_safety import MAX_XML_BYTES
+
+    assert MAX_XML_BYTES < MAX_MEMBER_BYTES, "у XML предел должен быть строже"
+
+    monkeypatch.setattr("content_factory.translation.zip_safety.MAX_XML_BYTES", 4096)
+    content = _zip_with("word/document.xml", b"<w:t>" + b"a" * 20_000 + b"</w:t>")
+
+    with open_checked(content) as archive:
+        with pytest.raises(DocumentFormatError, match="разворачивается"):
+            read_member(archive, "word/document.xml", limit=4096)
+
+
+def test_media_still_passes_at_the_larger_limit() -> None:
+    content = _zip_with("word/media/image1.png", b"\x89PNG" + b"\0" * 5000)
+
+    with open_checked(content) as archive:
+        assert len(read_member(archive, "word/media/image1.png")) == 5004

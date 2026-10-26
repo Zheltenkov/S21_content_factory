@@ -23,7 +23,7 @@ from content_factory.translation.errors import DocumentFormatError
 from content_factory.translation.ooxml import MAX_UNITS, spread_over_runs, strip_invalid_xml
 from content_factory.translation.units import TextUnit
 from content_factory.translation.xml_safety import parse_xml_without_dtd
-from content_factory.translation.zip_safety import open_checked, read_member
+from content_factory.translation.zip_safety import open_checked, read_member, read_xml_member
 
 SHEET_NAMESPACE = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace"
@@ -55,10 +55,10 @@ class XlsxHandler:
             with open_checked(content) as source:
                 with zipfile.ZipFile(output, "w") as target:
                     for info in source.infolist():
-                        payload = read_member(source, info.filename)
                         if not TRANSLATABLE_XML_RE.match(info.filename):
-                            target.writestr(info, payload)
+                            target.writestr(info, read_member(source, info.filename))
                             continue
+                        payload = read_xml_member(source, info.filename)
                         root = parse_xml_without_dtd(payload, info.filename)
                         for index, holder in enumerate(_holders(root)):
                             translated = lookup.get((info.filename, index))
@@ -80,7 +80,7 @@ def _walk(content: bytes) -> list[tuple[str, str, int, str]]:
             parts = [name for name in archive.namelist() if TRANSLATABLE_XML_RE.match(name)]
             counter = 1
             for part in sorted(parts):
-                root = parse_xml_without_dtd(read_member(archive, part), part)
+                root = parse_xml_without_dtd(read_xml_member(archive, part), part)
                 for index, holder in enumerate(_holders(root)):
                     text = "".join(node.text or "" for node in holder.iter() if node.tag == _TEXT_TAG)
                     if not text.strip():

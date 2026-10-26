@@ -23,6 +23,10 @@ from content_factory.translation.errors import DocumentFormatError
 
 MAX_TOTAL_BYTES = 300 * 1024 * 1024
 MAX_MEMBER_BYTES = 100 * 1024 * 1024
+# Для частей, которые потом разбираются как XML, предел отдельный и куда строже: дерево объектов
+# занимает кратно больше самого текста, поэтому сто мегабайт разметки — это гигабайты в памяти.
+# Для картинки внутри документа сто мегабайт при этом нормальны.
+MAX_XML_BYTES = 16 * 1024 * 1024
 
 _TOO_BIG = "архив разворачивается слишком сильно: {detail}"
 
@@ -38,17 +42,26 @@ def open_checked(content: bytes) -> Iterator[zipfile.ZipFile]:
         raise DocumentFormatError("Файл повреждён или не является архивом") from exc
 
 
-def read_member(archive: zipfile.ZipFile, name: str) -> bytes:
-    """Читает часть архива с ограничением сверху, не доверяя заголовку."""
+def read_member(archive: zipfile.ZipFile, name: str, *, limit: int | None = None) -> bytes:
+    """Читает часть архива с ограничением сверху, не доверяя заголовку.
+
+    ``limit`` позволяет читать разбираемый XML строже, чем вложенную картинку.
+    """
+    ceiling = MAX_MEMBER_BYTES if limit is None else limit
     try:
         with archive.open(name) as stream:
-            payload = stream.read(MAX_MEMBER_BYTES + 1)
+            payload = stream.read(ceiling + 1)
     except zipfile.BadZipFile as exc:
         # Сюда приходит и соврaвший заголовок: объявленный размер не сошёлся с содержимым.
         raise DocumentFormatError(f"Часть {name} повреждена или объявлена неверно") from exc
-    if len(payload) > MAX_MEMBER_BYTES:
-        raise DocumentFormatError(_TOO_BIG.format(detail=f"часть {name} больше {MAX_MEMBER_BYTES} байт"))
+    if len(payload) > ceiling:
+        raise DocumentFormatError(_TOO_BIG.format(detail=f"часть {name} больше {ceiling} байт"))
     return payload
+
+
+def read_xml_member(archive: zipfile.ZipFile, name: str) -> bytes:
+    """Читает часть, которую собираются разбирать как XML, со строгим пределом."""
+    return read_member(archive, name, limit=MAX_XML_BYTES)
 
 
 def _check_sizes(archive: zipfile.ZipFile) -> None:
