@@ -231,7 +231,7 @@ def test_an_english_apostrophe_in_a_comment_does_not_disable_the_file() -> None:
     """Отказ должен защищать, а не выключать работу: апостроф в прозе встречается постоянно."""
     from content_factory.translation.handlers.code import CFamilyCommentHandler
 
-    source = "int a = 1;\n// don't touch this, it's the project's entry point\n".encode()
+    source = b"int a = 1;\n// don't touch this, it's the project's entry point\n"
 
     texts = [u.text for u in CFamilyCommentHandler().extract(source)]
 
