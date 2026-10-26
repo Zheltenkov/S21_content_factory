@@ -147,3 +147,29 @@ def test_many_translations_are_applied_without_quadratic_rebuilding(handler: Htm
 
     assert result.count("текст".encode()) == 5_000
     assert elapsed < 5, f"сборка заняла {elapsed:.1f} с"
+
+
+def test_many_closed_script_tags_do_not_copy_the_file_each_time(handler: HtmlHandler) -> None:
+    """Поиск закрывающего тега не должен приводить файл к нижнему регистру целиком.
+
+    Незакрытые теги обрывают разбор сразу, поэтому промах прячется именно за закрытыми парами:
+    каждая копия строки — проход по всему файлу, и вместе они дают квадрат.
+    """
+    import time
+
+    source = ("<script>var x = 1;</script><p>текст</p>" * 20_000).encode("utf-8")
+
+    started = time.monotonic()
+    units = handler.extract(source)
+    elapsed = time.monotonic() - started
+
+    assert len(units) == 20_000, "текст между парами нашёлся"
+    assert elapsed < 5, f"разбор занял {elapsed:.1f} с — похоже на копирование файла на каждый тег"
+
+
+def test_a_closing_tag_in_a_different_case_is_found(handler: HtmlHandler) -> None:
+    source = b"<SCRIPT>var x = 1;</SCRIPT><p>text</p>"
+
+    texts = [u.text for u in handler.extract(source)]
+
+    assert texts == ["text"], "регистр тега не должен мешать"

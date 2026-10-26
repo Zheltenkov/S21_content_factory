@@ -37,6 +37,13 @@ MAX_CHARS = 2_000_000
 
 # Элементы, внутри которых переводить нечего: их содержимое — код, а не текст.
 _RAW_ELEMENT_RE = re.compile(r"<(script|style)\b", re.IGNORECASE)
+# Закрывающие теги ищем предкомпилированным выражением от нужной позиции. Приведение всего файла
+# к нижнему регистру копировало бы строку на каждый такой тег: двадцать тысяч закрытых пар
+# разбирались 106 секунд.
+_RAW_CLOSERS = {
+    "script": re.compile(r"</script", re.IGNORECASE),
+    "style": re.compile(r"</style", re.IGNORECASE),
+}
 
 
 class HtmlHandler:
@@ -119,8 +126,8 @@ def _skip_construct(text: str, opening: int) -> int:
         return _after(text, "]]>", opening + 9)
     raw = _RAW_ELEMENT_RE.match(text, opening)
     if raw:
-        closing = text.lower().find(f"</{raw.group(1).lower()}", opening)
-        return _after(text, ">", closing) if closing >= 0 else len(text)
+        closing = _RAW_CLOSERS[raw.group(1).lower()].search(text, opening)
+        return _after(text, ">", closing.start()) if closing else len(text)
     return _after(text, ">", opening + 1)
 
 
