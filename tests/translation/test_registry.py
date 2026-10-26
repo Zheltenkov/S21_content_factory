@@ -67,6 +67,9 @@ def test_pdf_has_its_own_handler() -> None:
 def test_every_format_from_the_design_is_covered() -> None:
     from content_factory.translation.registry import supported_extensions
 
-    expected = {".md", ".markdown", ".txt", ".docx", ".yml", ".yaml", ".xlsx", ".pptx", ".pdf"}
+    expected = {
+        ".md", ".markdown", ".txt", ".html", ".htm",
+        ".docx", ".yml", ".yaml", ".xlsx", ".pptx", ".pdf",
+    }
 
     assert expected <= supported_extensions()

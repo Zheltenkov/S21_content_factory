@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from content_factory.translation.handlers.docx import DocxHandler
+from content_factory.translation.handlers.html import HtmlHandler
 from content_factory.translation.handlers.pdf import PdfHandler
 from content_factory.translation.handlers.plain import PlainTextHandler
 from content_factory.translation.handlers.pptx import PptxHandler
@@ -17,6 +18,7 @@ from content_factory.translation.units import FormatHandler
 
 _HANDLERS: tuple[FormatHandler, ...] = (
     PlainTextHandler(),
+    HtmlHandler(),
     DocxHandler(),
     YamlHandler(),
     XlsxHandler(),
