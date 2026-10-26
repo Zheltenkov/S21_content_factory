@@ -216,6 +216,9 @@ class ShellCommentHandler:
     # Конструкции, которые разбор не моделирует. Встретив их перед решёткой в той же строке,
     # он не берётся судить, пояснение это или код, и пропускает строку целиком.
     UNMODELLED = ("`", "$(")
+    # Знаки, которыми можно выйти из пояснения в код. В переводе прозы им взяться неоткуда,
+    # поэтому их появление означает либо ошибку разбора, либо попытку что-то подсунуть.
+    SHELL_SYNTAX = tuple("`$;|&(){}<>'\"\\")
 
     def extract(self, content: bytes) -> list[TextUnit]:
         text = _decode(content)
@@ -238,8 +241,8 @@ class ShellCommentHandler:
             # Перенос строки оборвал бы пояснение и сделал остаток командой.
             safe = " ".join(translated.split())
             original_body = text[start:end]
-            if any(mark in safe and mark not in original_body for mark in self.UNMODELLED):
-                # В переводе появился синтаксис, которого в исходном пояснении не было.
+            if any(mark in safe and mark not in original_body for mark in self.SHELL_SYNTAX):
+                # В переводе появился знак, которого в исходном пояснении не было.
                 safe = original_body
             pieces.append(safe)
             cursor = end
@@ -273,6 +276,9 @@ def _shell_comments(text: str) -> list[tuple[int, int, str]]:
     quote: str | None = None
     heredoc: str | None = None
     at_line_start = True
+    # Глубина ``${...}``: внутри подстановки решётка — часть значения, а не начало пояснения.
+    # ``echo ${x:- # текст}`` без этого съедался вместе с закрывающей скобкой.
+    expansion = 0
 
     while index < length:
         char = text[index]
@@ -311,7 +317,19 @@ def _shell_comments(text: str) -> list[tuple[int, int, str]]:
                 heredoc, index = marker
                 continue
 
-        if char == "#" and _starts_comment(text, index, at_line_start):
+        if text.startswith("${", index):
+            expansion += 1
+            index += 2
+            at_line_start = False
+            continue
+
+        if char == "}" and expansion > 0:
+            expansion -= 1
+            index += 1
+            at_line_start = False
+            continue
+
+        if char == "#" and expansion == 0 and _starts_comment(text, index, at_line_start):
             line_end = text.find("\n", index)
             line_end = length if line_end < 0 else line_end
             body = text[index + 1 : line_end]
@@ -324,9 +342,9 @@ def _shell_comments(text: str) -> list[tuple[int, int, str]]:
         at_line_start = char == "\n" or (at_line_start and char in " \t")
         index += 1
 
-    if quote is not None or heredoc is not None:
-        # Разбор дошёл до конца файла внутри кавычки или heredoc — значит он сбился раньше,
-        # и ни одной найденной границе доверять нельзя.
+    if quote is not None or heredoc is not None or expansion:
+        # Разбор дошёл до конца файла внутри кавычки, heredoc или подстановки — значит он сбился
+        # раньше, и ни одной найденной границе доверять нельзя.
         return []
     return found
 

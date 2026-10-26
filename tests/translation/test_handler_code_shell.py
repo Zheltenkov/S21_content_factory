@@ -160,3 +160,41 @@ def test_a_translation_that_adds_shell_syntax_is_refused(handler: ShellCommentHa
 
     assert "`rm -rf /`" not in result
     assert result == "# Сборка\n", "остался исходный текст пояснения"
+
+
+def test_a_hash_inside_parameter_expansion_is_not_a_comment(handler: ShellCommentHandler) -> None:
+    """В ``${x:- # текст}`` решётка — часть значения по умолчанию, а не начало пояснения.
+
+    Принять её за пояснение значит съесть и закрывающую скобку: перевод сломал бы код, а
+    проверка этого не увидела бы — она сканирует тем же разборщиком.
+    """
+    source = "echo ${x:- # это не комментарий}\n".encode("utf-8")
+
+    assert handler.extract(source) == []
+    assert handler.apply(source, {"0001": "перевод"}) == source
+
+
+def test_a_strip_expansion_still_allows_a_real_trailing_comment(
+    handler: ShellCommentHandler,
+) -> None:
+    """``${VAR#prefix}`` — обрезка, и настоящее пояснение после неё остаётся в работе."""
+    source = "X=${VAR#prefix}  # настоящее пояснение\n".encode("utf-8")
+
+    assert [u.text for u in handler.extract(source)] == ["настоящее пояснение"]
+
+
+def test_nested_expansion_is_tracked_to_its_end(handler: ShellCommentHandler) -> None:
+    source = "echo ${a:-${b:- # внутри}}  # снаружи\n".encode("utf-8")
+
+    assert [u.text for u in handler.extract(source)] == ["снаружи"]
+
+
+def test_a_translation_with_shell_metacharacters_keeps_the_original(
+    handler: ShellCommentHandler,
+) -> None:
+    source = "# Сборка\n".encode("utf-8")
+    unit = handler.extract(source)[0]
+
+    result = handler.apply(source, {unit.unit_id: "Build; rm -rf /"}).decode("utf-8")
+
+    assert result == "# Сборка\n", "перевод с управляющими знаками не берём"
