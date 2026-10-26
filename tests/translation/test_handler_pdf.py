@@ -14,7 +14,9 @@ import pymupdf
 import pytest
 
 from content_factory.translation.errors import DocumentFormatError
-from content_factory.translation.handlers.pdf import PdfHandler
+from content_factory.translation.handlers.pdf import MAX_PAGES, PdfHandler
+
+_PAGES_OVER_LIMIT = MAX_PAGES + 1
 
 
 def _pdf_bytes(*paragraphs: str, with_image: bool = False) -> bytes:
@@ -99,3 +101,40 @@ def test_a_translation_that_cannot_fit_leaves_the_block_alone(handler: PdfHandle
 def test_a_broken_file_is_a_format_error(handler: PdfHandler) -> None:
     with pytest.raises(DocumentFormatError):
         handler.extract(b"not a pdf at all")
+
+
+# ------------------------------------------------------------------ пределы разбора
+
+def test_a_document_with_too_many_pages_is_refused(handler: PdfHandler) -> None:
+    """Файл приходит из загруженного архива, поэтому число страниц ограничено."""
+    document = pymupdf.open()
+    for _ in range(_PAGES_OVER_LIMIT):
+        document.new_page()
+    source = document.tobytes()
+
+    with pytest.raises(DocumentFormatError, match="страниц"):
+        handler.extract(source)
+
+
+def test_a_dense_page_does_not_take_quadratic_time(handler: PdfHandler) -> None:
+    """Рамка блока расширяется до соседей, и наивный поиск соседа делал это за O(n²).
+
+    Полторы тысячи блоков — обычная плотная таблица, а не нападение: разбор обязан укладываться
+    в секунды, иначе страница сгенерированного отчёта вешает перевод.
+    """
+    import time
+
+    document = pymupdf.open()
+    page = document.new_page()  # A4: 595 x 842
+    for column in range(14):
+        for row in range(100):
+            # По точке, а не в рамку: в рамку высотой 7pt текст 5pt не влезает и не рисуется.
+            page.insert_text(pymupdf.Point(20 + column * 40, 28 + row * 8), f"c{column}-{row}", fontsize=5)
+    source = document.tobytes()
+
+    started = time.monotonic()
+    units = handler.extract(source)
+    elapsed = time.monotonic() - started
+
+    assert len(units) > 300, "блоки действительно нашлись"
+    assert elapsed < 10, f"разбор занял {elapsed:.1f} с — похоже на квадратичный обход"

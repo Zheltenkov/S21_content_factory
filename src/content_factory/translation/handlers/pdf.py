@@ -26,6 +26,9 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left
+from collections.abc import Callable
+
 import pymupdf
 
 from content_factory.translation.errors import DocumentFormatError
@@ -40,6 +43,11 @@ _PADDING = 1.0
 _BLOCK_GAP = 2.0
 # Нижнее поле страницы, если блок последний.
 _PAGE_MARGIN = 36.0
+# Пределы разбора: файл приходит из загруженного архива. Числа с запасом для учебных материалов,
+# но не дают собранному нарочно PDF съесть память и время.
+MAX_PAGES = 500
+MAX_UNITS = 20_000
+MAX_CHARS = 2_000_000
 
 
 class PdfHandler:
@@ -99,8 +107,14 @@ def _blocks(document: pymupdf.Document) -> list[tuple[str, int, pymupdf.Rect, fl
     Рамка возвращается уже расширенной до свободного места: иначе перевод, который длиннее
     оригинала, не поместится почти никогда.
     """
+    if document.page_count > MAX_PAGES:
+        raise DocumentFormatError(
+            f"В PDF {document.page_count} страниц — больше предела в {MAX_PAGES}"
+        )
+
     found: list[tuple[str, int, pymupdf.Rect, float, str]] = []
     counter = 1
+    characters = 0
     for page_number in range(document.page_count):
         page = document[page_number]
         raw: list[tuple[pymupdf.Rect, float, str]] = []
@@ -116,29 +130,40 @@ def _blocks(document: pymupdf.Document) -> list[tuple[str, int, pymupdf.Rect, fl
             size = max((float(span.get("size", 11)) for span in spans), default=11.0)
             raw.append((pymupdf.Rect(block["bbox"]), size, text))
 
+        room = _room_finder(raw, page)
         for rect, size, text in raw:
-            found.append((f"{counter:04d}", page_number, _room_for(rect, raw, page), size, text))
+            if counter > MAX_UNITS:
+                raise DocumentFormatError(f"В PDF больше {MAX_UNITS} переводимых блоков")
+            characters += len(text)
+            if characters > MAX_CHARS:
+                raise DocumentFormatError(f"В PDF больше {MAX_CHARS} знаков текста")
+            found.append((f"{counter:04d}", page_number, room(rect), size, text))
             counter += 1
     return found
 
 
-def _room_for(
-    rect: pymupdf.Rect, blocks: list[tuple[pymupdf.Rect, float, str]], page: pymupdf.Page
-) -> pymupdf.Rect:
-    """Рамка блока, расширенная до свободного места: вправо до края колонки, вниз до соседа."""
-    # Нижняя граница по ширине страницы: иначе у единственного блока «край колонки» совпадёт
-    # с его собственной узкой рамкой, и перевод переносился бы по одному слову в строку.
+def _room_finder(
+    blocks: list[tuple[pymupdf.Rect, float, str]], page: pymupdf.Page
+) -> Callable[[pymupdf.Rect], pymupdf.Rect]:
+    """Готовит поиск свободного места: вправо до края колонки, вниз до следующего блока.
+
+    Границы считаются один раз на страницу. Наивный вариант искал соседа перебором всех блоков
+    для каждого блока, то есть за O(n²): на плотной таблице в полторы тысячи ячеек это уже
+    заметная пауза, а на нарочно собранном файле — зависание.
+    """
     right = max(
-        max((other.x1 for other, _size, _text in blocks), default=rect.x1),
+        max((other.x1 for other, _size, _text in blocks), default=page.rect.x1),
         page.rect.x1 - _PAGE_MARGIN,
     )
-    below = [
-        other.y0
-        for other, _size, _text in blocks
-        if other.y0 >= rect.y1 - 0.5 and other is not rect
-    ]
-    bottom = min(below) - _BLOCK_GAP if below else page.rect.y1 - _PAGE_MARGIN
-    return pymupdf.Rect(rect.x0, rect.y0, max(rect.x1, right), max(rect.y1, bottom))
+    tops = sorted(other.y0 for other, _size, _text in blocks)
+    floor = page.rect.y1 - _PAGE_MARGIN
+
+    def room(rect: pymupdf.Rect) -> pymupdf.Rect:
+        index = bisect_left(tops, rect.y1 - 0.5)
+        bottom = tops[index] - _BLOCK_GAP if index < len(tops) else floor
+        return pymupdf.Rect(rect.x0, rect.y0, max(rect.x1, right), max(rect.y1, bottom))
+
+    return room
 
 
 def _prepare(
