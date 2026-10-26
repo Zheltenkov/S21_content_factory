@@ -216,3 +216,23 @@ def test_a_comment_continued_by_a_backslash_is_skipped(js: CStyleCommentHandler)
     source = ("// пояснение \\" + "\n" + "const a = 1;\n// обычное\n").encode()
 
     assert [u.text for u in js.extract(source)] == ["обычное"]
+
+
+def test_hex_digit_separators_stop_the_scan_too() -> None:
+    """``0xA'B'C``: разделитель бывает и между шестнадцатеричными цифрами."""
+    from content_factory.translation.handlers.code import CFamilyCommentHandler
+
+    source = "int mask = 0xA'B'C;\n// пояснение\n".encode()
+
+    assert CFamilyCommentHandler().extract(source) == []
+
+
+def test_an_english_apostrophe_in_a_comment_does_not_disable_the_file() -> None:
+    """Отказ должен защищать, а не выключать работу: апостроф в прозе встречается постоянно."""
+    from content_factory.translation.handlers.code import CFamilyCommentHandler
+
+    source = "int a = 1;\n// don't touch this, it's the project's entry point\n".encode()
+
+    texts = [u.text for u in CFamilyCommentHandler().extract(source)]
+
+    assert texts == ["don't touch this, it's the project's entry point"]
