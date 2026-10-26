@@ -1229,3 +1229,47 @@ def test_s21_brandbook_text_rules_are_enforced():
     assert "color: var(--s21-ink);" in generate_css
     assert "body.s21-product .methodology-artifact-text" in methodology_css
     assert "color: var(--s21-ink-2) !important;" in methodology_css
+
+
+def test_translator_offers_an_archive_as_a_third_source():
+    """Третий источник рядом с документом и видео: архив проекта целиком."""
+    html = (ROOT / "static" / "translator.html").read_text(encoding="utf-8")
+    js = (ROOT / "static" / "js" / "modules" / "translationArchive.js").read_text(encoding="utf-8")
+    router = (PKG / "api" / "routers" / "readme_translate.py").read_text(encoding="utf-8")
+
+    assert 'id="translationSourceArchive"' in html
+    assert 'id="translationArchiveScreen"' in html
+    assert 'id="translationArchiveFile" accept=".zip"' in html
+    # Два шага: опись до оплаты, затем прогон по отмеченным файлам.
+    assert "/translate/archive/inspect" in js
+    assert "/start" in js
+    assert '@router.post("/translate/archive/inspect"' in router
+    assert '@router.post("/translate/archive/{plan_id}/start"' in router
+
+
+def test_the_archive_screen_keeps_its_logic_out_of_the_page():
+    """Корпоративный прокси школы обрывает ответ со встроенным скриптом загрузки файлов.
+
+    Поэтому логика экрана архива лежит в ``/static/js/``, а страница только её подключает.
+    """
+    html = (ROOT / "static" / "translator.html").read_text(encoding="utf-8")
+
+    assert "/static/js/modules/translationArchive.js" in html
+    # Признаки логики, которой на странице быть не должно.
+    for marker in ("translate/archive/inspect", "FormData(", "plan_id"):
+        assert marker not in html, f"логика экрана архива должна жить в модуле, а не в странице: {marker}"
+
+
+def test_the_archive_source_toggle_knows_all_three_screens():
+    """Переключатель перебирает источники списком: иначе третий теряется в одной из веток."""
+    html = (ROOT / "static" / "translator.html").read_text(encoding="utf-8")
+
+    for screen in ("translationDocumentScreen", "translationVideoScreen", "translationArchiveScreen"):
+        assert f"'{screen}'" in html
+
+
+def test_the_archive_download_is_served_as_a_zip():
+    router = (PKG / "api" / "routers" / "readme_translate.py").read_text(encoding="utf-8")
+
+    assert '"zip": "application/zip"' in router
+    assert 'job.get("job_type") in ("document", "archive")' in router

@@ -32,7 +32,7 @@
     <link rel="stylesheet" href="/static/css/s21-design.css?v=20260514-split">
     <link rel="stylesheet" href="/static/css/s21-dashboard.css?v=20260514-header-fix">
     <link rel="stylesheet" href="/static/css/s21-workflow.css?v=20260514-split3">
-    <link rel="stylesheet" href="/static/css/s21-translation.css?v=20260517-compare-width">
+    <link rel="stylesheet" href="/static/css/s21-translation.css?v=20261026-archive">
     <script src="/static/js/modules/modelSelector.js?v=20260514-header-fix"></script>
     <script src="/static/js/utils/pagePrefetch.js?v=20260518-page-prefetch-lite" defer></script>
     <script src="/static/js/utils/sanitize.js"></script>
@@ -92,6 +92,10 @@
             <label class="translate-source-option" id="translationSourceVideoLabel">
                 <input type="radio" name="translationModeSource" value="video" id="translationSourceVideo" onchange="toggleTranslationSourceMode()">
                 <span>▱ Видео</span>
+            </label>
+            <label class="translate-source-option" id="translationSourceArchiveLabel">
+                <input type="radio" name="translationModeSource" value="archive" id="translationSourceArchive" onchange="toggleTranslationSourceMode()">
+                <span>▣ Архив</span>
             </label>
         </div>
     </div>
@@ -280,6 +284,83 @@
                 <div class="translate-video-download-links" id="translationVideoInlineDownloadLinks"></div>
             </section>
         </section>
+
+        <section id="translationArchiveScreen" class="translate-archive-screen" style="display: none;">
+            <div class="translate-archive-layout">
+                <div class="translate-archive-toolbar">
+                    <div class="translate-field wide">
+                        <label>Архив проекта</label>
+                        <div class="translate-file-pill" onclick="if (event.target.tagName !== 'INPUT') document.getElementById('translationArchiveFile').click()">
+                            <input type="file" id="translationArchiveFile" accept=".zip" onclick="event.stopPropagation()" onchange="handleArchiveFileSelect(event)">
+                            <span class="translate-file-icon">▣</span>
+                            <strong>Загрузить архив проекта</strong>
+                            <small id="translationArchiveFileName">Архив проекта (.zip)</small>
+                            <button type="button" aria-label="Очистить архив" onclick="event.stopPropagation(); clearArchiveFile()">×</button>
+                        </div>
+                        <p class="translate-file-hint">ZIP с файлами проекта: документы, конфиги, комментарии в коде, примеры данных. До 25 MB.</p>
+                    </div>
+
+                    <div class="translate-field">
+                        <label for="translationArchiveLanguage">Целевой язык</label>
+                        <select id="translationArchiveLanguage">
+                            <option value="en" selected>EN · Английский</option>
+                            <option value="kg">KG · Кыргызский</option>
+                            <option value="uz">UZ · Узбекский</option>
+                            <option value="tg">TG · Таджикский</option>
+                        </select>
+                    </div>
+                </div>
+
+                <section id="translationArchivePlanPanel" class="translate-archive-plan" style="display: none;" aria-live="polite">
+                    <div class="translate-archive-estimate">
+                        <div><small>Файлов отмечено</small><strong id="translationArchiveTotalFiles">0</strong></div>
+                        <div><small>Знаков</small><strong id="translationArchiveTotalChars">0</strong></div>
+                        <div><small>Примерно времени</small><strong id="translationArchiveTotalTime">0 с</strong></div>
+                        <div><small>Примерно денег</small><strong id="translationArchiveTotalMoney">$0.00</strong></div>
+                        <div><small>Модель</small><strong id="translationArchiveModel">—</strong></div>
+                    </div>
+                    <p class="translate-archive-note">Смета приблизительная: считается по прайсу модели и числу знаков. Опись получена без обращения к модели.</p>
+
+                    <div class="translate-archive-controls">
+                        <button class="btn secondary" type="button" onclick="archiveTickAll(true)">Отметить всё</button>
+                        <button class="btn secondary" type="button" onclick="archiveTickAll(false)">Снять всё</button>
+                        <button class="btn secondary" type="button" onclick="archiveTickRussianOnly()">Только русские</button>
+                    </div>
+
+                    <div class="translate-archive-table-wrap">
+                        <table class="translate-archive-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col"><span class="visually-hidden">Переводить</span></th>
+                                    <th scope="col">Файл</th>
+                                    <th scope="col">Формат</th>
+                                    <th scope="col">Единиц</th>
+                                    <th scope="col">Знаков</th>
+                                    <th scope="col">Язык</th>
+                                    <th scope="col">Примечание</th>
+                                </tr>
+                            </thead>
+                            <tbody id="translationArchiveRows"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="translate-actions">
+                        <button class="btn" type="button" id="translationArchiveStartBtn" onclick="startArchiveTranslation()" disabled>◎ Перевести отмеченное</button>
+                    </div>
+                </section>
+
+                <section id="translationArchiveResult" class="translate-archive-result" style="display: none;" aria-live="polite">
+                    <div class="translate-video-result-head">
+                        <span class="badge success">✓ Архив готов</span>
+                        <strong>Результат собран с теми же именами файлов</strong>
+                    </div>
+                    <div class="translate-actions">
+                        <button class="btn" type="button" id="translationArchiveDownloadBtn">↓ Скачать архив</button>
+                    </div>
+                    <pre id="translationArchiveReport" class="translate-archive-report"></pre>
+                </section>
+            </div>
+        </section>
     </main>
 
     <script src="/static/js/modules/markdownRendering.js?v=20260520-methodology-diagram-stability"></script>
@@ -291,7 +372,8 @@
     <script src="/static/js/modules/generationFormState.js?v=20260514-model-switch"></script>
     <script src="/static/js/modules/metricsView.js?v=20260514-split"></script>
     <script src="/static/js/utils/authSession.js?v=20260702-auth-cookie-sync"></script>
-    <script src="/static/js/modules/translationPage.js?v=20260520-docx-output"></script>
+    <script src="/static/js/modules/translationPage.js?v=20261026-archive"></script>
+    <script src="/static/js/modules/translationArchive.js?v=20261026-archive"></script>
     <script src="/static/js/main.js?v=20260518-diagram-compact"></script>
     <script>
         (function () {
@@ -364,16 +446,20 @@
         }
 
         function toggleTranslationSourceMode() {
-            const docBlock = document.getElementById('translationDocumentScreen');
-            const videoBlock = document.getElementById('translationVideoScreen');
-            const docRadio = document.getElementById('translationSourceDocument');
-            const docLabel = document.getElementById('translationSourceDocumentLabel');
-            const videoLabel = document.getElementById('translationSourceVideoLabel');
-            const isDoc = !!docRadio?.checked;
-            if (docBlock) docBlock.style.display = isDoc ? 'block' : 'none';
-            if (videoBlock) videoBlock.style.display = isDoc ? 'none' : 'block';
-            if (docLabel) docLabel.classList.toggle('active', isDoc);
-            if (videoLabel) videoLabel.classList.toggle('active', !isDoc);
+            // Источников три, поэтому переключатель перебирает их списком: с парой
+            // «документ или видео» третий пришлось бы вписывать в каждую строку.
+            const screens = {
+                document: ['translationDocumentScreen', 'translationSourceDocument', 'translationSourceDocumentLabel'],
+                video: ['translationVideoScreen', 'translationSourceVideo', 'translationSourceVideoLabel'],
+                archive: ['translationArchiveScreen', 'translationSourceArchive', 'translationSourceArchiveLabel'],
+            };
+            Object.values(screens).forEach(([screenId, radioId, labelId]) => {
+                const active = !!document.getElementById(radioId)?.checked;
+                const screen = document.getElementById(screenId);
+                const label = document.getElementById(labelId);
+                if (screen) screen.style.display = active ? 'block' : 'none';
+                if (label) label.classList.toggle('active', active);
+            });
             refreshTranslationChrome();
         }
 

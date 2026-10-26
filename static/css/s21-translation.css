@@ -624,3 +624,146 @@ body.s21-product.page-translate .translate-document-pane .markdown-preview {
     min-height: 230px;
   }
 }
+
+/* --------------------------------------------------------------- перевод архива проекта */
+/* Опись архива — таблица на сотню строк, поэтому она скроллится внутри себя, а не растит
+   страницу: смета и кнопка запуска должны оставаться на виду. */
+
+.translate-archive-screen {
+  padding: 42px 0;
+}
+
+.translate-archive-layout {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.translate-archive-toolbar {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(180px, 0.4fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.translate-archive-plan {
+  padding: 22px;
+  border: 1px solid var(--s21-border);
+  border-radius: 10px;
+  background: var(--s21-surface);
+}
+
+.translate-archive-estimate {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 14px;
+}
+
+.translate-archive-estimate > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--s21-accent-soft);
+  border-radius: 8px;
+}
+
+.translate-archive-estimate small {
+  color: var(--s21-text-muted);
+}
+
+.translate-archive-estimate strong {
+  font-size: 18px;
+}
+
+.translate-archive-note {
+  margin: 12px 0 0;
+  color: var(--s21-text-muted);
+  font-size: 13px;
+}
+
+.translate-archive-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 12px;
+}
+
+.translate-archive-table-wrap {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--s21-border);
+  border-radius: 8px;
+}
+
+/* Заголовок колонки с галочками скрыт глазами, но нужен считывателю экрана. */
+.translate-archive-table .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.translate-archive-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.translate-archive-table th,
+.translate-archive-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--s21-border);
+  white-space: nowrap;
+}
+
+.translate-archive-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--s21-surface);
+  z-index: 1;
+}
+
+.translate-archive-table tr.is-untranslatable td {
+  color: var(--s21-text-muted);
+}
+
+.translate-archive-path {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--s21-font-mono, monospace);
+}
+
+.translate-archive-report {
+  margin: 18px 0 0;
+  padding: 14px;
+  max-height: 320px;
+  overflow: auto;
+  background: var(--s21-accent-soft);
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.translate-archive-result {
+  padding: 22px;
+  border: 1px solid var(--s21-accent);
+  border-radius: 10px;
+  background: var(--s21-accent-soft);
+}
+
+@media (max-width: 900px) {
+  .translate-archive-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .translate-archive-table th,
+  .translate-archive-table td {
+    white-space: normal;
+  }
+}
