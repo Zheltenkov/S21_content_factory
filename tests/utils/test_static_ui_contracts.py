@@ -394,7 +394,7 @@ def test_translator_accepts_common_document_upload_formats():
     router = (PKG / "api" / "routers" / "readme_translate.py").read_text(encoding="utf-8")
     doc_service = (PKG / "api" / "routers" / "document_translation.py").read_text(encoding="utf-8")
 
-    assert 'accept=".md,.markdown,.txt,.html,.htm,.docx,.pdf,.yml,.yaml,.xlsx,.pptx,.py,.sh,.bash,.js,.ts,.mjs,.cjs,.c,.cpp,.cc,.h,.hpp,.go,.java,.sql"' in html
+    assert 'accept=".md,.markdown,.txt,.html,.htm,.docx,.pdf,.yml,.yaml,.xlsx,.pptx,.py,.sh,.bash,.js,.ts,.mjs,.cjs,.c,.cpp,.cc,.h,.hpp,.go,.java,.sql,.csv,.tsv"' in html
     assert "XLSX, PPTX и файлы кода" in html
     assert "Перевод документов" in html
     # Структурные форматы возвращаются собой же, а не превращаются в Markdown.

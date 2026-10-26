@@ -100,3 +100,10 @@ def test_only_javascript_treats_a_slash_as_unmodelled() -> None:
     """В C и Go косая черта — только деление, там хвостовые пояснения терять незачем."""
     assert handler_for(".js").regex_literals is True
     assert handler_for(".c").regex_literals is False
+
+
+def test_data_examples_have_a_handler() -> None:
+    for extension in (".csv", ".tsv"):
+        handler = handler_for(extension)
+        assert handler is not None, extension
+        assert extension in handler.extensions
