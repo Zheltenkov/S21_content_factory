@@ -70,3 +70,73 @@ def test_windows_line_endings_survive(handler: PlainTextHandler) -> None:
 def test_an_empty_file_has_nothing_to_translate(handler: PlainTextHandler) -> None:
     assert handler.extract(b"") == []
     assert handler.apply(b"", {}) == b""
+
+
+# -------------------------------------------------------------- оглавление после перевода
+
+def _translate(handler: PlainTextHandler, source: str, table: dict[str, str]) -> str:
+    units = handler.extract(source.encode())
+    translations = {u.unit_id: table.get(u.text, u.text) for u in units}
+    return handler.apply(source.encode(), translations).decode("utf-8")
+
+
+def test_a_table_of_contents_still_points_at_its_headings() -> None:
+    """Боевой прогон перевёл заголовки и оставил якоря русскими — оглавление умерло.
+
+    Якорь выводится из заголовка, поэтому после перевода его можно пересчитать без модели.
+    """
+    nl = chr(10)
+    source = (
+        "## Содержание" + nl + nl
+        + "1. [Глава I](#глава-i)" + nl
+        + "2. [Предисловие](#предисловие)" + nl + nl
+        + "## Глава I" + nl + nl
+        + "### Предисловие" + nl
+    )
+    table = {
+        "## Содержание": "## Contents",
+        "1. [Глава I](#глава-i)" + nl + "2. [Предисловие](#предисловие)":
+            "1. [Chapter I](#глава-i)" + nl + "2. [Foreword](#предисловие)",
+        "## Глава I": "## Chapter I",
+        "### Предисловие": "### Foreword",
+    }
+
+    result = _translate(PlainTextHandler(), source, table)
+
+    assert "(#chapter-i)" in result, result
+    assert "(#foreword)" in result, result
+    assert "глава-i" not in result
+
+
+def test_an_anchor_that_is_not_a_heading_is_left_alone() -> None:
+    """Ссылка на чужой якорь — не наше дело: пересчитывать нечего."""
+    nl = chr(10)
+    source = "[к форме](#feedback-form)" + nl + nl + "## Глава I" + nl
+    table = {"[к форме](#feedback-form)": "[to the form](#feedback-form)", "## Глава I": "## Chapter I"}
+
+    result = _translate(PlainTextHandler(), source, table)
+
+    assert "(#feedback-form)" in result
+
+
+def test_headings_that_do_not_line_up_leave_the_anchors_as_they_are() -> None:
+    """Модель склеила или разбила заголовки — соответствие потеряно, и гадать нельзя."""
+    nl = chr(10)
+    source = "[Глава I](#глава-i)" + nl + nl + "## Глава I" + nl + nl + "## Глава II" + nl
+    table = {
+        "[Глава I](#глава-i)": "[Chapter I](#глава-i)",
+        "## Глава I": "## Chapter I" + nl + nl + "## Extra",
+        "## Глава II": "## Chapter II",
+    }
+
+    result = _translate(PlainTextHandler(), source, table)
+
+    assert "(#глава-i)" in result, "при расхождении числа заголовков ничего не трогаем"
+
+
+def test_without_translations_the_anchors_are_untouched() -> None:
+    nl = chr(10)
+    source = "[Глава I](#глава-i)" + nl + nl + "## Глава I" + nl
+    data = source.encode()
+
+    assert PlainTextHandler().apply(data, {}) == data

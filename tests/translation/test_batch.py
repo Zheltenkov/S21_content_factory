@@ -172,3 +172,52 @@ def test_only_the_named_paths_are_translated(selected: list[str]) -> None:
     assert llm.calls == len(selected)
     skipped = {o.path for o in outcomes if o.status == SKIPPED}
     assert skipped == {"a.md", "b.md"} - set(selected)
+
+
+def test_an_unchanged_plain_file_is_not_called_a_failed_integrity_check() -> None:
+    """Боевой прогон сказал про .txt «не прошёл проверку целостности». Проверки там нет.
+
+    Отказаться от перевода умеет только обработчик кода, который разбирает результат заново.
+    У остальных те же байты значат ровно одно: перевод совпал с исходником.
+    """
+    members = [ArchiveMember("notes.txt", "Привет".encode())]
+    entries = take_inventory(members)
+
+    class EchoLlm(FakeLlm):
+        def complete(self, system: str, user: str, **kwargs: object) -> str:
+            marker = "Входные данные:" + chr(10)
+            payload = json.loads(user[user.index(marker) + len(marker) :])
+            return json.dumps(
+                {"translations": {f["id"]: f["text"] for f in payload["fragments"]}},
+                ensure_ascii=False,
+            )
+
+    _translations, outcomes = translate_files(
+        EchoLlm(), members, entries, target_language="en"
+    )
+
+    assert outcomes[0].status == UNCHANGED
+    assert "целостност" not in outcomes[0].detail, outcomes[0].detail
+    assert "совпал" in outcomes[0].detail
+
+
+def test_a_refused_code_translation_still_names_the_integrity_check() -> None:
+    """У обработчика кода та же картина значит другое, и отчёт обязан их различать."""
+    members = [ArchiveMember("t.sh", "# Сборка".encode() + chr(10).encode())]
+    entries = take_inventory(members)
+
+    class BackslashLlm(FakeLlm):
+        def complete(self, system: str, user: str, **kwargs: object) -> str:
+            marker = "Входные данные:" + chr(10)
+            payload = json.loads(user[user.index(marker) + len(marker) :])
+            return json.dumps(
+                {"translations": {f["id"]: "build " + chr(92) + "n x" for f in payload["fragments"]}},
+                ensure_ascii=False,
+            )
+
+    _translations, outcomes = translate_files(
+        BackslashLlm(), members, entries, target_language="en"
+    )
+
+    assert outcomes[0].status == UNCHANGED
+    assert "целостност" in outcomes[0].detail

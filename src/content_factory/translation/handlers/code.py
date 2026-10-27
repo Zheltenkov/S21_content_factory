@@ -41,6 +41,8 @@ class PythonCommentHandler:
     # Языкам программирования не место в списке одиночной загрузки: реестр знает их ради
     # перевода архива, где скрипты проекта идут вместе с документами.
     offered_on_page = False
+    # Результат заново разбирается на токены и сличается с исходником.
+    verifies_integrity = True
 
     def extract(self, content: bytes) -> list[TextUnit]:
         text = _decode(content)

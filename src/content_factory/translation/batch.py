@@ -33,6 +33,7 @@ from content_factory.translation.report import FAILED, SKIPPED, TRANSLATED, UNCH
 SOURCE_LANGUAGE = "ru"
 
 _REFUSED = "обработчик вернул файл нетронутым: перевод не прошёл проверку целостности"
+_SAME = "перевод совпал с исходником"
 _NOTHING = "переводить было нечего"
 _UNTICKED = "снят методистом"
 
@@ -101,7 +102,11 @@ def _translate_one(
         return FileOutcome(member.path, FAILED, 0, str(exc) or exc.__class__.__name__), None
 
     if payload == member.content:
-        return FileOutcome(member.path, UNCHANGED, len(units), _REFUSED), None
+        # Те же байты значат разное. Отказаться от перевода умеет только обработчик,
+        # который разбирает результат заново; у остальных это просто совпадение текстов,
+        # и называть его проверкой целостности — врать в отчёте.
+        reason = _REFUSED if getattr(handler, "verifies_integrity", False) else _SAME
+        return FileOutcome(member.path, UNCHANGED, len(units), reason), None
     return FileOutcome(member.path, TRANSLATED, len(units), ""), payload
 
 

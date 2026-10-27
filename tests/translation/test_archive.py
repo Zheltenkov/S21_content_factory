@@ -247,3 +247,19 @@ def test_a_replacement_for_a_path_that_is_not_in_the_archive_is_an_error() -> No
     """Иначе перевод тихо потерялся бы: файла с таким именем в результате просто нет."""
     with pytest.raises(KeyError):
         repack([ArchiveMember("a.md", b"x")], {"b.md": b"y"}, report="")
+
+
+def test_a_file_with_no_letters_is_not_selected_by_default() -> None:
+    """Боевой прогон оплатил перевод файла из одних номеров и разделителей.
+
+    Язык такого файла определить нельзя, переводить в нём нечего, а галочка по умолчанию
+    стоила вызова модели. Методист при желании поставит её сам.
+    """
+    separator = "*" * 40
+    body = f"0:{chr(10)}{chr(10)}{separator}{chr(10)}{chr(10)}1:{chr(10)}{chr(10)}{separator}{chr(10)}"
+
+    entry = take_inventory([ArchiveMember("TAGS_FILES.txt", body.encode())])[0]
+
+    assert entry.language == "unknown"
+    assert entry.selected is False
+    assert entry.skip_reason == "язык не определён"

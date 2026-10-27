@@ -180,6 +180,10 @@ def _describe(member: ArchiveMember) -> InventoryEntry:
         reason: str | None = "нечего переводить"
     elif language == "other":
         reason = "уже не на русском"
+    elif language == "unknown":
+        # Букв в файле нет вовсе — номера, разделители, коды. Боевой прогон такой файл
+        # оплатил и получил обратно ровно то же самое. Галочку методист поставит сам.
+        reason = "язык не определён"
     else:
         reason = None
 

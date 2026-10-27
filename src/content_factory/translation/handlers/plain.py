@@ -6,6 +6,12 @@
 
 Разделители запоминаются отдельно от блоков, поэтому файл без переводов собирается побайтно
 таким же: это проверяется тестом и служит защитой от тихой порчи переносов строк.
+
+Отдельная забота — оглавление. Боевой прогон курсового README перевёл и заголовки, и подписи
+ссылок, а якоря оставил русскими: ``[Chapter I](#глава-i)`` не ведёт никуда. Просить об этом
+модель бессмысленно — якорь выводится из заголовка по правилу, значит его можно пересчитать
+самим, не тратя ни вызова. Если число заголовков до и после перевода разошлось, соответствия
+нет и якоря остаются как были: лучше прежняя ссылка, чем наугад переставленная.
 """
 
 from __future__ import annotations
@@ -17,6 +23,10 @@ from content_factory.translation.units import TextUnit
 _BOM = "﻿"
 # Разделитель блоков — пустая строка, возможно с пробелами и в любом стиле переносов.
 _BLOCK_SPLIT_RE = re.compile(r"((?:\r\n|\r|\n)[ \t]*(?:\r\n|\r|\n))")
+# Заголовок Markdown — от одной до шести решёток в начале строки.
+_HEADING_RE = re.compile(r"^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$", re.MULTILINE)
+# Ссылка на якорь внутри того же документа.
+_ANCHOR_LINK_RE = re.compile(r"\]\(#([^)\s]+)\)")
 
 
 class PlainTextHandler:
@@ -37,6 +47,7 @@ class PlainTextHandler:
     def apply(self, content: bytes, translations: dict[str, str]) -> bytes:
         text, encoding, had_bom = _decode(content)
         pieces = _split_blocks(text)
+        changed = False
         for index, piece in enumerate(pieces):
             if index % 2 == 1 or not piece.strip():
                 continue
@@ -44,7 +55,10 @@ class PlainTextHandler:
             if translated is None:
                 continue
             pieces[index] = _keep_padding(piece, translated)
+            changed = True
         rebuilt = "".join(pieces)
+        if changed:
+            rebuilt = _retarget_anchors(text, rebuilt)
         return (_BOM + rebuilt if had_bom else rebuilt).encode(encoding)
 
 
@@ -58,6 +72,44 @@ def _decode(content: bytes) -> tuple[str, str, bool]:
 def _split_blocks(text: str) -> list[str]:
     """Чередование: блок, разделитель, блок… Склейка списка даёт исходный текст."""
     return _BLOCK_SPLIT_RE.split(text) if text else []
+
+
+def _retarget_anchors(before: str, after: str) -> str:
+    """Переставляет ссылки оглавления на переведённые заголовки.
+
+    Соответствие — по порядку заголовков: первый заголовок стал первым, второй вторым. Если
+    их число разошлось, соответствия нет, и файл возвращается как есть. Якорь, которого среди
+    заголовков исходника не было, не трогаем: он ведёт не сюда, и это не наша забота.
+    """
+    old_headings = _HEADING_RE.findall(before)
+    new_headings = _HEADING_RE.findall(after)
+    if not old_headings or len(old_headings) != len(new_headings):
+        return after
+
+    mapping: dict[str, str] = {}
+    seen: set[str] = set()
+    for old, new in zip(old_headings, new_headings, strict=True):
+        slug = _anchor_slug(old)
+        if slug in seen:
+            # Два заголовка дали один якорь: Markdown различает их суффиксом, которого мы
+            # не считаем. Ни тот, ни другой не переставляем.
+            mapping.pop(slug, None)
+            continue
+        seen.add(slug)
+        mapping[slug] = _anchor_slug(new)
+
+    def replace(match: re.Match[str]) -> str:
+        target = mapping.get(match.group(1))
+        return match.group(0) if target is None else f"](#{target})"
+
+    return _ANCHOR_LINK_RE.sub(replace, after)
+
+
+def _anchor_slug(heading: str) -> str:
+    """Якорь заголовка по правилу Markdown: строчные буквы, пробелы в дефисы, знаки прочь."""
+    text = heading.strip().lower()
+    text = "".join(char for char in text if char.isalnum() or char in " -_")
+    return "-".join(text.split())
 
 
 def _keep_padding(original: str, translated: str) -> str:
