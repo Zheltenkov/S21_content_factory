@@ -23,8 +23,6 @@ from content_factory.translation.units import TextUnit
 _BOM = "﻿"
 # Разделитель блоков — пустая строка, возможно с пробелами и в любом стиле переносов.
 _BLOCK_SPLIT_RE = re.compile(r"((?:\r\n|\r|\n)[ \t]*(?:\r\n|\r|\n))")
-# Заголовок Markdown — от одной до шести решёток в начале строки.
-_HEADING_RE = re.compile(r"^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$", re.MULTILINE)
 # Ссылка на якорь внутри того же документа.
 _ANCHOR_LINK_RE = re.compile(r"\]\(#([^)\s]+)\)")
 
@@ -81,8 +79,8 @@ def _retarget_anchors(before: str, after: str) -> str:
     их число разошлось, соответствия нет, и файл возвращается как есть. Якорь, которого среди
     заголовков исходника не было, не трогаем: он ведёт не сюда, и это не наша забота.
     """
-    old_headings = _HEADING_RE.findall(before)
-    new_headings = _HEADING_RE.findall(after)
+    old_headings = _headings(before)
+    new_headings = _headings(after)
     if not old_headings or len(old_headings) != len(new_headings):
         return after
 
@@ -103,6 +101,32 @@ def _retarget_anchors(before: str, after: str) -> str:
         return match.group(0) if target is None else f"](#{target})"
 
     return _ANCHOR_LINK_RE.sub(replace, after)
+
+
+def _headings(text: str) -> list[str]:
+    """Заголовки Markdown по порядку.
+
+    Разбор построчный, а не выражением: ``(.+?)[ \\t]*#*[ \\t]*$`` даёт три перекрывающихся
+    квантификатора над одними и теми же знаками, и на строке, где конец недостижим, перебирает
+    разбиения кубически — две тысячи знаков занимали три четверти минуты. Файл внутри архива
+    весит до шестнадцати мегабайт, так что это остановка прогона, а не неудобство.
+
+    Пустой заголовок тоже считается: соответствие держится на порядке, и пропуск сдвинул бы
+    весь список.
+    """
+    found: list[str] = []
+    for line in text.splitlines():
+        body = line.lstrip(" \t")
+        if len(line) - len(body) > 3:
+            continue  # четыре пробела — это блок кода, а не заголовок
+        hashes = len(body) - len(body.lstrip("#"))
+        if not 1 <= hashes <= 6:
+            continue
+        rest = body[hashes:]
+        if rest and rest[0] not in " \t":
+            continue  # ``#тема`` — не заголовок
+        found.append(rest.strip())
+    return found
 
 
 def _anchor_slug(heading: str) -> str:

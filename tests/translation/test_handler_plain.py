@@ -140,3 +140,25 @@ def test_without_translations_the_anchors_are_untouched() -> None:
     data = source.encode()
 
     assert PlainTextHandler().apply(data, {}) == data
+
+
+def test_a_crafted_heading_line_does_not_hang_the_run() -> None:
+    """Разбор заголовков шёл выражением с тремя перекрывающимися квантификаторами.
+
+    Строка «решётка, текст, длинный пробел, длинные решётки, длинный пробел, буква» не
+    даёт выражению дойти до конца строки, и оно перебирает разбиения: 1600 знаков — десять
+    секунд, рост кубический. Файл внутри архива весит до шестнадцати мегабайт.
+    """
+    import time
+
+    nl = chr(10)
+    run = 2000
+    evil = "# x" + " " * run + "#" * run + " " * run + "y"
+    source = evil + nl + nl + "## Глава" + nl
+
+    started = time.monotonic()
+    result = _translate(PlainTextHandler(), source, {"## Глава": "## Chapter"})
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 1.0, f"разбор занял {elapsed:.1f} с"
+    assert evil in result, "строка не наша забота, трогать её нельзя"
