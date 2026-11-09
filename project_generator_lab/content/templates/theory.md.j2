@@ -1,0 +1,27 @@
+{#- Конспекты теории файлом в materials/: собирает код из согласованных разделов, когда план подачи теории кладёт их
+    в материалы. Читается без README и без интернета. Слова — school.yaml · theory_words. -#}
+# {{ title }}
+{% for topic in topics %}
+
+## {{ topic.heading }}
+
+{{ topic.body }}
+{% if topic.links %}
+
+**{{ words.links }}**
+
+{% for link in topic.links %}
+- [{{ link.title }}]({{ link.url }}){{ " — " ~ link.why if link.why else "" }}
+{% endfor %}
+{% endif %}
+{% if topic.excerpt %}
+
+**{{ words.source }}** [{{ topic.excerpt.title | literal }}]({{ topic.excerpt.url | address }})
+
+> {{ topic.excerpt.quote | literal }}
+{% endif %}
+{% if topic.question %}
+
+**{{ words.question }}** {{ topic.question }}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,178 @@
+{#- Весь материал одним текстом для чтения методологом до переноса в README: с пояснениями к заданиям
+    и служебными полями материалов. Участнику не выдаётся. -#}
+# {{ summary.title if summary else "Название ещё не написано" }}
+
+{{ summary.annotation if summary else "_Аннотация ещё не написана._" }}
+{% if style %}
+
+## Стиль проекта: {{ style.name }}
+
+{% if style.stale %}
+_Стиль сменили: обоснование и сюжет ниже написаны для стиля «{{ style.written_for_name }}»._
+{% elif style.reason %}
+{{ style.reason }}
+{% else %}
+_Стиль и сюжет приняты методологом; ассистент этот стиль не обосновывал._
+{% endif %}
+
+**Сюжет:** {{ style.story if style.story else "_не задан_" }}
+{% endif %}
+
+## Введение
+
+{{ frame.introduction if frame else "_Ещё не написано._" }}
+
+## Инструкция
+{% if frame and frame.instruction %}
+
+{% for line in frame.instruction %}
+- {{ line | continued(2) }}
+{% endfor %}
+{% else %}
+
+_Правил проекта нет или ещё не написаны; правила школы добавит код._
+{% endif %}
+
+## Теоретический блок
+{% if plan %}
+
+_Подача: {{ plan.name }}{{ " (materials/" ~ plan.file ~ ")" if plan.file else "" }}; интернет у участников: {{ plan.internet }}; выдержка из первоисточника на английском: {{ plan.english }}._
+{% endif %}
+{% if theory %}
+{% for topic in theory.topics %}
+
+### {{ (topic_names[topic.number] ~ ". ") if style else (topic_prefix ~ topic.number ~ ". ") }}{{ topic.title }} · задания {{ topic.tasks | join(", ") }}
+
+{{ topic.text }}
+{% if topic.notes %}
+
+**Конспект:**
+
+{{ topic.notes }}
+{% endif %}
+{% for link in topic.links %}
+- {{ link.title }} — {{ link.url }}{{ " — " ~ link.why if link.why else "" }}
+{% endfor %}
+{% if theory.excerpt and not theory.excerpt.removed and theory.excerpt.topic == topic.number %}
+
+Выдержка из первоисточника ({{ theory.excerpt.title }} — {{ theory.excerpt.url }}):
+
+> {{ theory.excerpt.quote }}
+{% endif %}
+{% if topic.question %}
+
+Вопрос к практике: {{ topic.question }}
+{% endif %}
+{% endfor %}
+{% if theory.note %}
+
+_{{ theory.note }}_
+{% endif %}
+{% else %}
+
+_Ещё не написано._
+{% endif %}
+
+## Практический блок
+{% for task in tasks %}
+
+### {{ task.heading if style else "Задание " ~ task.number ~ ". " ~ task.title }}
+
+**{{ words.steps if style else "Что нужно сделать" }}**
+{% if task.context %}
+
+{{ task.context }}
+{% endif %}
+
+Цель: {{ task.goal }}
+
+{% for step in task.steps %}
+{{ loop.index }}. {{ step | continued(3) }}
+{% endfor %}
+
+**{{ words.expected }}**
+
+{% for item in task.expected %}
+- {{ item | continued(2) }}
+{% endfor %}
+{% if task.examples %}
+
+**Примеры «ввод → вывод»**
+
+{% for item in task.examples %}
+- {{ item }}
+{% endfor %}
+{% endif %}
+{% if task.constraints %}
+
+**{{ words.constraints }}**
+
+{% for item in task.constraints %}
+- {{ item | continued(2) }}
+{% endfor %}
+{% endif %}
+
+**{{ words.result }}:** {{ task.result }}
+{% if task.check %}
+
+**Проверка:** {{ task.check }}
+{% endif %}
+{% if task.transition %}
+
+**{{ words.transition }}:** {{ task.transition }}
+{% endif %}
+
+**Пункты для пира (check-list.yml):**
+
+{% for item in task.peer_checks %}
+- {{ item | continued(2) }}
+{% endfor %}
+{% if task.rationale %}
+
+**Почему такое задание** (для методолога):
+
+- Замысел и ОР: {{ task.rationale.concept }}
+- Почему сдача доказывает ОР: {{ task.rationale.evidence }}
+- Что участник решает сам: {{ task.rationale.choice }}
+- Как проверит пир: {{ task.rationale.peer }}
+{% if task.rationale.links %}
+- Связь с другими заданиями: {{ task.rationale.links }}
+{% endif %}
+{% if task.rationale.assumptions %}
+- Допущения: {{ task.rationale.assumptions }}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+## Заключение
+
+{{ frame.conclusion if frame and frame.conclusion else "_Нет._" }}
+
+## Материалы
+{% for material in materials %}
+
+### materials/{{ material.path }} · задания {{ material.tasks | join(", ") }}
+
+{{ material.purpose }}{{ " Внутри нет: " ~ material.not_contains if material.not_contains else "" }}
+
+{{ material.fence }}
+{{ material.content.rstrip() if material.content else "(ещё не подготовлен)" }}
+{{ material.fence }}
+{% else %}
+
+_Материалов нет._
+{% endfor %}
+
+## Чек-лист проверки (check-list.yml)
+
+**Дисклеймер:** {{ checklist.disclaimer if checklist.disclaimer else "_не задан — пришлите текст в чат_" }}
+{% for task in tasks %}
+
+**{{ task.heading }}**
+
+{% for item in task.peer_checks %}
+- {{ item }}
+{% endfor %}
+{% endfor %}
+
+Вступление к проверке и правила проверки — стандарт школы, полностью в check-list.yml.

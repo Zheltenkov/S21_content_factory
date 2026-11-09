@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Подготовка проекта · Школа 21</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="static/css/fonts.css">
+  <link rel="stylesheet" href="static/chat.css?v=20261102-02">
+  <script src="static/content.js?v=20261102-02" defer></script>
+  <script src="static/chat.js?v=20261102-02" defer></script>
+</head>
+<body>
+<div class="app intake-mode" id="app">
+  <div class="backdrop" id="backdrop" hidden></div>
+  <aside class="sidebar" id="sidebar" aria-label="Проекты">
+    <a class="brand" id="brand" href="./">ШКОЛА <b>21</b></a>
+    <button type="button" class="new-project" id="newProject"><span data-icon="plus"></span>Новый проект</button>
+    <a class="side-link" href="classic">Классический вид</a>
+    <div class="side-label">Недавние</div>
+    <nav class="recent" id="recentList" aria-label="Недавние проекты"></nav>
+    <div class="side-spacer"></div>
+    <div class="side-label" id="platformLabel" hidden>Платформа</div>
+    <a class="side-link muted" id="platformLink" href="/app" hidden>Все сервисы</a>
+    <div class="model-line" id="modelState">Подключение к модели…</div>
+  </aside>
+
+  <main class="stage" id="stage">
+    <section class="intake" id="intake" aria-labelledby="intakeTitle">
+      <div class="intake-top"><button type="button" class="icon-button menu-toggle" data-toggle="side" aria-label="Открыть список проектов"><span data-icon="menu"></span></button><span class="pill" id="modelPill">ИИ</span></div>
+      <div class="intake-inner">
+        <h1 id="intakeTitle">Какой проект готовим?</h1>
+        <p class="lead">Загрузите учебный план или заполните главное. Недостающее уточним в диалоге — ответы сразу попадут в задание на генерацию.</p>
+        <form class="intake-card" id="briefForm" novalidate>
+          <section class="form-block">
+            <div class="block-head"><h2>Учебный план</h2><button type="button" class="link-button" id="exampleButton">Взять пример из проекта</button></div>
+            <label class="dropzone" id="curriculumDrop" for="curriculumFile"><span class="dz-icon" data-icon="file"></span><span><strong>Загрузить учебный план: CSV или книгу паспорта XLSX</strong></span><input id="curriculumFile" type="file" accept=".csv,.xlsx"></label>
+            <p class="hint">Колонки ищутся по названиям. Если план не читается — возьмите шаблон: <a href="api/curriculum-template.xlsx" download>XLSX</a> · <a href="api/curriculum-template.csv" download>CSV</a>. Обязательные колонки в нём выделены.</p>
+            <div id="curriculumCard" hidden></div>
+            <div class="grid-2" id="curriculumSelectors" hidden>
+              <label>Тематический блок<select id="blockSelect"></select></label>
+              <label>Проект из УП<select id="projectSelect"></select></label>
+            </div>
+            <p class="hint" id="positionLine" hidden></p>
+          </section>
+          <hr>
+          <section class="form-block">
+            <h2>Главное</h2>
+            <label><span>Название проекта <em>*</em></span><input name="title" maxlength="300" required placeholder="Название из УП или рабочее название"></label>
+            <label><span>Краткое описание <em>*</em></span><textarea name="description" rows="2" required placeholder="В чём состоит практическая работа участника"></textarea></label>
+            <div class="field">
+              <div class="field-head"><span>Образовательные результаты <em>*</em></span><small>по одному в строке · номера используются в диалоге</small></div>
+              <div class="outcomes" id="outcomeRows"></div>
+            </div>
+            <div class="grid-3">
+              <label>Тип проекта<select name="format"><option value="individual">Индивидуальный</option><option value="group">Групповой</option></select></label>
+              <label>Трудоёмкость, астр. ч<input name="hours" type="number" min="0.25" step="0.25" inputmode="decimal" placeholder="Например, 12"></label>
+              <label>Основных заданий<input name="tasks_count" type="number" min="1" max="20" inputmode="numeric" placeholder="Предложит ИИ"></label>
+            </div>
+            <label id="groupField" hidden>Человек в группе<input name="group_size" type="number" min="2" max="100" inputmode="numeric"></label>
+            <p class="hint workload-hint" id="intakeWorkload" hidden></p>
+            <label>Аудитория<input name="audience" placeholder="Кто участники: например, начинающие аналитики"></label>
+            <div class="grid-2 align-start">
+              <label>Стартовый уровень<select name="start_level"><option value="">Не указан — ИИ спросит</option><option value="zero">Нулевой: не знакомы с инструментами</option><option value="basic">Базовый</option><option value="intermediate">Средний</option><option value="advanced">Продвинутый</option></select><small class="hint" id="levelSource" hidden></small></label>
+              <label>Что уже умеют<textarea name="start_skills" rows="2" placeholder="С чем работали, какие понятия знают"></textarea></label>
+            </div>
+            <div class="grid-story">
+              <label>Тип сторителлинга<select name="storytelling_type"><option value="none">Без сторителлинга</option><option value="sjm">Практический / SJM</option><option value="case">Рабочий кейс</option><option value="role_play">Ролевая ситуация</option><option value="project_scenario">Сценарий проекта</option><option value="story_arc">Сквозная история</option></select></label>
+              <label>Сторителлинг<textarea name="storytelling" rows="2" placeholder="Ситуация, роль, кейс — как в колонке «Сторителлинг» учебного плана"></textarea></label>
+            </div>
+            <div class="grid-story">
+              <label>Стиль подачи<select name="style_profile"><option value="">Предложит ассистент</option><option value="quest">Квест, как в бассейне</option><option value="legend">Рабочая легенда</option></select><small class="hint">Ассистент скажет в чате, какой стиль берёт и почему. Сменить можно там же.</small></label>
+              <label>Сквозной сюжет серии<textarea name="series_story" rows="2" maxlength="6000" placeholder="Если проект — часть серии с общим сюжетом: кто персонаж, что было в прошлых проектах"></textarea></label>
+            </div>
+          </section>
+          <details class="more" id="moreFields">
+            <summary><span class="more-title">Ещё параметры</span><span class="more-sub">программа, заказчик, инструменты и ПО, сдача, проверка, комплект, репозиторий, ограничения</span><span class="more-count" id="moreCount"></span><span data-icon="chevron"></span></summary>
+            <div class="more-body">
+              <label>ОР программы<textarea name="program_outcomes" rows="2" placeholder="Что участник умеет после всей программы"></textarea><small class="hint">Результаты всей программы, не этого проекта: по ним видно, во что проект вносит вклад. ОР самого проекта — «Образовательные результаты» в блоке «Главное».</small></label>
+              <label>Требования заказчика<textarea name="customer_requirements" rows="2" placeholder="Обязательные ожидания и ограничения заказчика"></textarea><small class="hint">Бриф заказчика в любом формате приложите в «Материалы» с ролью «Бриф заказчика»: ИИ сверит его с УП.</small></label>
+              <label>Инструменты и ПО<input name="tools" placeholder="Markdown, Miro, VS Code…"></label>
+              <label>Как называем участника<input name="learner_term" maxlength="40" placeholder="участник"></label>
+              <label>Получаемые навыки<textarea name="skills" rows="2" placeholder="По одному навыку в строке"></textarea></label>
+              <label>Что участник сдаёт в итоге<textarea name="student_result" rows="2" placeholder="Продукт, файлы, отчёт или демонстрация"></textarea></label>
+              <label>Кто и как проверяет работу<textarea name="checking" rows="2" placeholder="Формат P2P, наблюдаемые признаки результата"></textarea></label>
+              <label>Какой комплект готовит генератор<textarea name="output_package" rows="2" placeholder="Кейс, шаблон, данные, чек-лист"></textarea></label>
+              <label>Ограничения<textarea name="constraints" rows="2" placeholder="Окружение, доступность сервисов, данные"></textarea></label>
+              <label>Репозиторий проекта в GitLab<input name="repository" maxlength="500" placeholder="Адрес из колонки GitLab учебного плана, если репозиторий уже есть"><small class="hint">Файлы проекта в тексте называются путём от корня репозитория: <code>materials/…</code>, <code>src/…</code>. Адрес нужен, чтобы проверка нашла ссылку на файл проекта, записанную полным адресом.</small></label>
+              <label>Опорные материалы и ссылки<textarea name="references" rows="2" placeholder="Ссылки и что именно использовать"></textarea></label>
+              <label>Уточнения методолога<textarea name="notes" rows="2" placeholder="Всё, что не вошло в поля выше"></textarea></label>
+              <fieldset class="checks"><legend>Оформление учебного текста</legend><label><input type="checkbox" name="diagrams"> Диаграммы</label><label><input type="checkbox" name="tables"> Таблицы</label><label><input type="checkbox" name="formulas"> Формулы</label><label><input type="checkbox" name="bonus"> Бонусное задание</label></fieldset>
+            </div>
+          </details>
+          <label class="dropzone dashed" for="materialFiles"><span class="dz-icon" data-icon="clip"></span><span><strong>Прикрепить материалы</strong><small>Требования, примеры, заготовки · DOCX, PDF, XLSX, текст, код · до 4 МБ, до 12 файлов</small></span><input id="materialFiles" type="file" multiple accept=".docx,.pdf,.xlsx,.txt,.md,.csv,.json,.yaml,.yml,.py,.js,.ts,.sql,.sh,.ps1,.html,.ipynb"></label>
+          <details class="more-fields generation-intake">
+            <summary>Работа ассистента и подача текста</summary>
+            <div class="grid-2">
+              <label>Работа с правками<select name="collaboration_mode"><option value="assisted">Вносить явные указания сразу с возможностью отмены</option><option value="review">Согласовывать каждое предложение</option></select></label>
+              <label>Как учитывать УП<select name="curriculum_policy"><option value="authoritative">Учитывать выбранный проект и контекст программы</option><option value="context_only">Описание выбранного проекта устарело — брать требования из формы</option><option value="ignore">Не использовать УП для этого проекта</option></select></label>
+              <label>Подача текста<select name="writing_variety"><option value="restrained">Сдержанная</option><option value="balanced" selected>Сбалансированная</option><option value="expressive">Выразительная</option></select><small class="hint">Разнообразие ситуаций и примеров при сохранении требований и терминов.</small></label>
+              <label>Способ сэмплирования<select name="sampling_mode"><option value="default">По умолчанию модели</option><option value="temperature">Температура</option><option value="top_p">Top P</option></select></label>
+              <label>Температура<input name="writing_temperature" type="number" min="0" max="2" step="0.1" value="0.8"></label>
+              <label>Top P<input name="writing_top_p" type="number" min="0.01" max="1" step="0.01" value="0.95"></label>
+              <label>Штраф за частые повторы<input name="writing_frequency_penalty" type="number" min="-2" max="2" step="0.1" placeholder="По умолчанию"></label>
+              <label>Штраф за повторное появление слов<input name="writing_presence_penalty" type="number" min="-2" max="2" step="0.1" placeholder="По умолчанию"></label>
+              <p class="hint">Числовые настройки экспериментальные: поддержка зависит от модели и шлюза. Они применяются к написанию контента; проверяющие работают со своими настройками. Температура увеличивает вариативность, но не гарантирует интересный текст.</p>
+            </div>
+          </details>
+          <div id="materialsList" class="materials"></div>
+          <div class="notice" id="intakeNotice" role="alert" hidden></div>
+          <div class="form-footer">
+            <span class="hint">Обязательны название, описание и результаты. Для остальных деталей предложим варианты.</span>
+            <button type="button" class="button secondary" id="clearButton">Очистить</button>
+            <button type="submit" class="button primary" id="startButton">Разобрать входные данные<span data-icon="arrow"></span></button>
+          </div>
+        </form>
+        <ol class="steps">
+          <li><span>01</span><p><b>Разбор входов.</b> ИИ покажет, что понял, и задаст вопросы</p></li>
+          <li><span>02</span><p><b>Диалог.</b> Ответы и просьбы становятся правками задания</p></li>
+          <li><span>03</span><p><b>Замысел.</b> План заданий и отдельная проверка по заданию</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="conversation" id="conversation" hidden aria-label="Диалог">
+      <header class="conv-head">
+        <button type="button" class="icon-button menu-toggle" data-toggle="side" aria-label="Открыть список проектов"><span data-icon="menu"></span></button>
+        <div class="conv-title"><strong id="convTitle"></strong><small id="convSub"></small></div>
+        <ol class="stepper" id="stepper" aria-label="Этапы подготовки"></ol>
+        <button type="button" class="button secondary small panel-toggle" data-toggle="panel" aria-label="Показать задание на генерацию">Задание<span class="count" id="panelCount" hidden></span></button>
+      </header>
+      <div class="messages" id="messages" aria-live="polite"><div class="column" id="messageColumn"></div></div>
+      <div class="composer-wrap">
+        <div class="notice conv-notice" id="convNotice" role="alert" hidden></div>
+        <div class="ask-now" id="askNow" aria-live="polite" hidden></div>
+        <form class="composer" id="composer">
+          <textarea id="composerText" rows="2" aria-label="Сообщение ассистенту" placeholder="Ответьте на вопрос или попросите изменить задание…"></textarea>
+          <div class="composer-row">
+            <span class="hint composer-hint">Enter — отправить · «дальше» — следующий этап</span>
+            <span class="grow"></span>
+            <button type="submit" class="send" id="sendButton" aria-label="Отправить"><span data-icon="send"></span></button>
+          </div>
+        </form>
+        <p class="composer-note" id="composerNote">Ответы и просьбы становятся правками задания, замысел строится только по нему. Задание целиком — кнопка «Задание» вверху.</p>
+      </div>
+    </section>
+  </main>
+
+  <aside class="panel" id="panel" aria-label="Задание на генерацию" hidden>
+    <div class="panel-head">
+      <div><h2>Задание на генерацию</h2><p id="versionLine"></p></div>
+      <button type="button" class="icon-button panel-close" data-toggle="panel" aria-label="Скрыть задание"><span data-icon="x"></span></button>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Задание">
+      <button type="button" role="tab" data-tab="fields">Поля</button>
+      <button type="button" role="tab" data-tab="history">История</button>
+      <button type="button" role="tab" data-tab="context">Контекст ИИ</button>
+    </div>
+    <div class="panel-body" id="panelBody" role="tabpanel"></div>
+    <div class="panel-foot" id="panelFoot"></div>
+  </aside>
+</div>
+</body>
+</html>

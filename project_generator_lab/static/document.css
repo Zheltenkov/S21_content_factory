@@ -1,0 +1,49 @@
+/* Reading view of the whole text, the README preview and the check-list: Markdown shown as a page, not a download. */
+:root {
+  --bg: #f7f7f5; --surface: #ffffff; --line: #e6e5e0; --ink: #0f1419; --ink-2: #3b4047; --muted: #5f636b;
+  --accent-ink: #188653; --code-bg: #f0efea;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  --serif: 'Source Serif 4', 'PT Serif', Cambria, Georgia, serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--sans); }
+a { color: var(--accent-ink); }
+.doc-bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 16px; padding: 12px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--line); }
+.doc-bar .brand { font: 700 13px var(--mono); color: var(--ink); text-decoration: none; letter-spacing: .04em; }
+.doc-bar .brand b { color: #2fd18a; }
+.doc-bar .spacer { flex: 1; }
+.doc-bar button { font: inherit; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 4px 12px; cursor: pointer; }
+.doc-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 32px; max-width: 1240px; margin: 0 auto; padding: 24px; }
+.doc-toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 96px); overflow: auto; font-size: 13px; }
+.doc-toc a { display: block; padding: 3px 0; color: var(--ink-2); text-decoration: none; }
+.doc-toc a.l3 { padding-left: 14px; color: var(--muted); }
+.doc-toc a:hover { color: var(--accent-ink); }
+.doc { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 32px 40px; min-width: 0; }
+.doc h1 { font: 600 30px/1.25 var(--serif); margin: 0 0 12px; }
+.doc h2 { font: 600 22px/1.3 var(--serif); margin: 32px 0 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.doc h3 { font-size: 17px; margin: 24px 0 8px; }
+.doc h4 { font-size: 15px; margin: 18px 0 6px; }
+.doc p { margin: 8px 0; }
+.doc ul, .doc ol { margin: 6px 0 10px; padding-left: 24px; }
+.doc li { margin: 3px 0; }
+.doc code { font: 13px var(--mono); background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+.doc pre { font: 13px/1.5 var(--mono); background: var(--code-bg); padding: 12px 14px; border-radius: 8px; overflow: auto; white-space: pre; }
+.doc hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
+/* A table is as wide as its text asks and scrolls inside its own frame: a wide one does not push the page apart. */
+.doc .table-wrap { overflow-x: auto; margin: 12px 0 16px; }
+.doc table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.doc th, .doc td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+.doc th { background: var(--bg); font-weight: 600; }
+.doc tbody tr:nth-child(even) td { background: #fbfbfa; }
+.doc .al-center { text-align: center; } .doc .al-right { text-align: right; }
+.doc td code, .doc th code { white-space: pre-wrap; word-break: break-word; }
+.doc blockquote { margin: 12px 0; padding: 4px 16px; border-left: 3px solid var(--line); color: var(--ink-2); background: #fbfbfa; border-radius: 0 8px 8px 0; }
+.doc blockquote blockquote { margin: 8px 0; }
+.doc .picture { color: var(--muted); }
+.doc-bar #back { color: var(--ink-2); text-decoration: none; font-size: 13px; }
+.doc-bar #back:hover { color: var(--accent-ink); }
+.doc-bar [hidden] { display: none; }
+.hint { color: var(--muted); }
+@media (max-width: 860px) { .doc-layout { grid-template-columns: 1fr; padding: 12px; } .doc-toc { display: none; } .doc { padding: 20px 16px; } }

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Проверка проекта · Школа 21</title>
+  <link rel="icon" href="data:,"><link rel="stylesheet" href="static/css/fonts.css">
+  <link rel="stylesheet" href="static/evaluation.css?v=20261103-02">
+  <script src="static/evaluation.js?v=20261103-02" defer></script>
+</head>
+<body>
+  <header class="topbar"><a id="back" href="./">← К проекту</a><a class="brand" href="./">ШКОЛА <b>21</b></a><span>Проверка готового контента</span></header>
+  <main>
+    <div class="page-head"><div><p class="eyebrow">ПРОЕКТ ЦЕЛИКОМ · 56 КРИТЕРИЕВ</p><h1 id="title">Результаты проверки</h1><p id="subtitle" class="muted">Загружаем данные проекта…</p></div><span class="badge" id="state">Загрузка</span></div>
+    <div id="error" class="notice danger" role="alert" hidden></div>
+    <section class="report-intro" aria-label="Запуск проверки">
+      <div><h2>Проверка требований и экспертный обзор</h2><p>Задания, теория, материалы и P2P проверяются вместе с требованиями и контекстом программы. Итоговая рекомендация — только по 1–40. Замечания 41–56 помогают обсудить качество и не влияют на результат. Работа с проектом остаётся доступной.</p></div>
+      <div class="actions"><button id="start" class="primary" disabled>Проверить проект</button><button id="stop" hidden>Остановить</button></div>
+      <label class="check"><input id="useModel" type="checkbox" checked>Включить содержательную проверку моделью</label>
+      <details class="manifest"><summary>Перечень выдаваемых файлов и повторная проверка</summary><p class="muted">Необязательный утверждённый перечень: по одному относительному пути на строку. Файлы, которые участник создаёт сам, сюда не входят. Без перечня проверка состава останется неполной.</p><textarea id="approvedFiles" rows="4" placeholder="README.md&#10;check-list.yml&#10;materials/data.csv" aria-label="Утверждённый перечень файлов"></textarea><label class="check"><input id="force" type="checkbox">Повторить модельную оценку целиком, даже если текст не менялся</label><p class="muted">По умолчанию неизменные результаты используются повторно. Полная переоценка делает новые вызовы модели.</p></details>
+      <div class="progress-row" id="progressRow" hidden><progress id="progress" max="56" value="0"></progress><span id="progressText" aria-live="polite"></span></div>
+    </section>
+    <div id="recommendation" class="notice" hidden></div>
+    <section class="metrics" aria-label="Сводка результатов" id="metrics"></section>
+    <div class="report-meta"><span id="meta" class="muted">Профиль оценки экспериментальный; итог — рекомендация для методолога.</span><div id="exports" hidden><a id="exportMd">Скачать отчёт</a><a id="exportJson">JSON</a></div></div>
+    <section id="limits" class="notice" hidden><h2>Что ограничивает проверку</h2><ul id="limitList"></ul></section>
+    <section aria-label="Замечания по причинам"><h2>Что исправить</h2><p class="muted">Одна подтверждённая причина может затрагивать несколько критериев. Связанные оценки сохраняются для проверки требований и не складываются в повторные штрафы.</p><div id="findings"></div><div id="reviewQueue"></div></section>
+    <section class="outcomes"><div class="section-head"><h2>ОР → действие → результат → P2P</h2><span class="muted">Свидетельства в обязательных заданиях</span></div><div id="outcomeList"><p class="muted">Связи появятся после содержательной проверки. Само наличие задания не подтверждает достижение ОР.</p></div></section>
+    <section>
+      <div class="section-head"><h2>Все критерии</h2><span id="shown" class="muted"></span></div>
+      <div class="filters"><label>Результат<select id="statusFilter"><option value="all">Все результаты</option><option value="problems">Требуют внимания</option><option value="blockers">Критические замечания</option><option value="assessed">Оценено</option><option value="not_applicable">Неприменимо</option><option value="no_data">Нет исходных данных</option><option value="unverified">Не подтверждено</option><option value="error">Сбой проверки</option><option value="pending">Не проверено</option></select></label><label>Раздел<select id="sectionFilter"><option value="all">Все разделы</option></select></label><label class="search">Найти критерий<input id="search" type="search" placeholder="Номер или название"></label></div>
+      <div id="criteria" class="criteria" aria-live="polite"></div>
+    </section>
+    <section class="sources" id="sourceSection"><details id="sourcesDetails"><summary>Исходный фрагмент проверенной версии</summary><label>Источник<select id="sourceSelect"></select></label><p id="sourceTitle" class="muted"></p><pre id="sourceText"></pre><button id="fullSource" hidden>Показать фрагмент целиком</button></details></section>
+    <footer>Итог определяется по подтверждённым замечаниям и полноте проверки 1–40. Неизвестные условия и неподтверждённые цитаты не являются выполненными требованиями. Универсальный балл качества не откалиброван. Критерии 41–56 — экспертные замечания без баллов и влияния на итог.</footer>
+  </main>
+</body></html>

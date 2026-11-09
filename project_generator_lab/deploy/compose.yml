@@ -1,0 +1,46 @@
+services:
+  project-lab:
+    image: ${PROJECT_LAB_IMAGE:?set an immutable release tag}
+    build:
+      context: ../..
+      dockerfile: project_generator_lab/deploy/Dockerfile
+      args:
+        BASE_IMAGE: ${PROJECT_LAB_BASE_IMAGE:?set the verified production image tag}
+    container_name: cf-project-lab
+    restart: unless-stopped
+    env_file:
+      - ${PROJECT_LAB_ENV_FILE:?set server-only environment file}
+    environment:
+      PROJECT_LAB_AUTH_URL: http://cf-app:8000/api/v1/auth/me
+      PROJECT_LAB_ALLOWED_HOSTS: 77-110-123-227.nip.io,77.110.123.227,213-165-50-148.nip.io,213.165.50.148,sch21gen.aeza.network,localhost,127.0.0.1
+      PROJECT_LAB_RUNS_DIR: /data/project-lab/runs
+      PROJECT_LAB_CONTENT_DIR: /data/project-lab/content
+      # The account of model calls by project (core/usage.py): on the volume — the image itself is read-only.
+      PROJECT_LAB_USAGE_DIR: /data/project-lab/usage
+    ports:
+      - "127.0.0.1:8011:8011"
+    volumes:
+      - project_lab_data:/data/project-lab
+    networks:
+      - factory
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  project_lab_data:
+networks:
+  factory:
+    external: true
+    name: deploy_default

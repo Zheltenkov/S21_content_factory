@@ -1,0 +1,80 @@
+{#- Куски, общие для раскладок README: таблица примеров, ссылки задания на материалы и теорию, раздел теории. -#}
+{% macro examples(rows, columns) %}
+| {{ columns[0] }} | {{ columns[1] }} |
+|---|---|
+{% for row in rows %}
+| {{ row[0] | example }} | {{ row[1] | example }} |
+{% endfor %}
+{% endmacro %}
+
+{% macro refs(task) %}
+{% if task.materials %}
+
+Материалы: {% for path in task.materials %}[{{ path }}](materials/{{ path }}){{ ", " if not loop.last else "." }}{% endfor %}
+
+{% endif %}
+{% if task.theory %}
+
+Теория: {% for ref in task.theory %}[{{ ref.title }}]({{ ref.href }}){{ ", " if not loop.last else "." }}{% endfor %}
+
+{% endif %}
+{% endmacro %}
+
+{#- Раздел теории: текст (справка или конспект — по плану подачи), ссылки, выдержка из первоисточника, вопрос,
+    ссылка на конспект в материалах. words — слова раскладки: source, more. -#}
+{% macro topic_body(topic, words) %}
+{{ topic.body }}
+{% if topic.links %}
+
+**Где изучить:**
+
+{% for link in topic.links %}
+- [{{ link.title }}]({{ link.url }}){{ " — " ~ link.why if link.why else "" }}
+{% endfor %}
+{% elif topic.keywords %}
+
+**Что поискать:** {{ topic.keywords | join(", ") }}.
+{% endif %}
+{% if topic.excerpt %}
+
+**{{ words.source }}** [{{ topic.excerpt.title | literal }}]({{ topic.excerpt.url | address }})
+
+> {{ topic.excerpt.quote | literal }}
+{% endif %}
+{% if topic.question %}
+
+**Вопрос к практике:** {{ topic.question }}
+{% endif %}
+{% if topic.more %}
+
+{{ words.more }} [{{ topic.more.split("#")[0] }}]({{ topic.more }})
+{% endif %}
+{% endmacro %}
+
+{#- Таблица «что изучить → где найти»: теория лежит в файле материалов. -#}
+{% macro theory_table(topics, columns) %}
+| {{ columns[0] }} | {{ columns[1] }} |
+|---|---|
+{% for topic in topics %}
+| {{ topic.title | cell }} | [{{ topic.more.split("#")[0] }}]({{ topic.more }}) |
+{% endfor %}
+{% endmacro %}
+
+{% macro school_rules(school, words, frame, learn) %}
+{% if learn %}
+**{{ words.learn }}**
+
+{% for line in school.how_to_learn %}
+- {{ line }}
+{% endfor %}
+
+{% endif %}
+**{{ words.work }}**
+
+{% for line in school.how_to_work %}
+- {{ line }}
+{% endfor %}
+{% for line in frame.instruction %}
+- {{ line | continued(2) }}
+{% endfor %}
+{% endmacro %}
