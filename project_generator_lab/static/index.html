@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Замысел проекта · Школа 21</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="static/css/fonts.css">
+  <link rel="stylesheet" href="static/css/s21-tokens.css">
+  <link rel="stylesheet" href="static/workbench.css">
+  <script src="static/validation.js?v=20260923-02" defer></script>
+  <script src="static/workbench.js?v=20260923-02" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="./" aria-label="Подготовка замысла">ШКОЛА <b>21</b></a>
+  <nav aria-label="Разделы прототипа"><a class="active" href="#inputPanel">Подготовка проекта</a><a href="#resultPanel">Замысел и план</a></nav>
+  <span class="model-state" id="modelState">Подключение к модели…</span>
+</header>
+<div class="subbar"><div>Генератор проектов <span class="sep">/</span> <strong>Подготовка замысла</strong> <span class="badge" id="runBadge">ЧЕРНОВИК</span></div><span id="saveState">Подготовка замысла · 0.3</span></div>
+<main class="workspace">
+  <div class="input-panel" id="inputPanel">
+    <h1>Входные параметры</h1>
+    <p class="hint">Заполните поля или загрузите CSV с паспортом учебной программы.</p>
+    <form id="briefForm">
+      <fieldset id="inputFields">
+      <section class="form-section">
+        <div class="section-head"><span class="section-index">01</span><div><h2>Учебный план</h2><p>CSV с паспортом программы</p></div></div>
+        <label class="upload-card" for="curriculumFile"><span class="upload-icon">↥</span><strong>Загрузить CSV учебного плана</strong><small id="curriculumName">Сохраним контекст всей программы</small><input id="curriculumFile" type="file" accept=".csv"></label>
+        <div class="row-actions"><button type="button" class="text-button" id="exampleButton">Загрузить пример из проекта</button><button type="button" class="text-button muted" id="removeCurriculum" hidden>Убрать УП</button></div>
+        <div id="curriculumSelectors" hidden><label for="blockSelect">Тематический блок</label><select id="blockSelect"></select><label for="projectSelect">Проект из УП</label><select id="projectSelect"></select></div>
+      </section>
+      <section class="form-section">
+        <div class="section-head"><span class="section-index">02</span><h2>Контекст программы</h2></div>
+        <label for="program">Что должна дать программа в целом</label><textarea id="program" name="program" rows="2" placeholder="Аудитория программы, общая цель, итоговая работа"></textarea>
+      </section>
+      <section class="form-section">
+        <div class="section-head"><span class="section-index">03</span><h2>Параметры проекта</h2></div>
+        <div class="field-grid"><div><label for="format">Тип проекта</label><select name="format" id="format"><option value="individual">Индивидуальный</option><option value="group">Групповой</option></select></div><div><label for="audience">Аудитория и входной уровень</label><input id="audience" name="audience" placeholder="Например, начинающие аналитики"></div></div>
+        <div id="groupField" hidden><label for="group_size">Количество человек в группе</label><input type="number" min="2" max="100" id="group_size" name="group_size"></div>
+        <div class="field-grid"><div><label for="hours">Трудоёмкость, часы</label><input id="hours" name="hours" type="number" min="0.5" step="0.5" placeholder="Уточнить при проектировании"></div><div><label for="tasks_count">Количество основных заданий</label><input id="tasks_count" name="tasks_count" type="number" min="1" max="20" placeholder="Предложит модель"></div></div>
+      </section>
+      <section class="form-section">
+        <div class="section-head"><span class="section-index">04</span><h2>Содержание</h2></div>
+        <label for="title">Название проекта <span class="required">*</span></label><input name="title" id="title" required maxlength="300" placeholder="Название из УП или рабочее название">
+        <label for="description">Краткое описание проекта <span class="required">*</span></label><textarea id="description" name="description" rows="4" required minlength="10" placeholder="В чём состоит практическая работа слушателя"></textarea>
+        <div class="field-grid"><div><label for="tools">Обязательные инструменты</label><input id="tools" name="tools" placeholder="Markdown, Miro…"></div><div><label for="software">Необходимое ПО</label><input id="software" name="software" placeholder="Браузер, VS Code…"></div></div>
+        <label for="storytelling_type">Тип сторителлинга</label><select id="storytelling_type" name="storytelling_type"><option value="none">Без сторителлинга</option><option value="sjm">Практический сторителлинг / SJM</option><option value="case">Рабочий кейс</option><option value="role_play">Ролевая ситуация</option><option value="project_scenario">Сценарий проекта</option><option value="story_arc">Сквозная история</option></select>
+        <label for="storytelling">Сторителлинг / SJM</label><textarea id="storytelling" name="storytelling" rows="2" placeholder="Кейс, роль, рабочая ситуация и ограничения"></textarea>
+        <label for="outcomes">Образовательные результаты <span class="required">*</span></label><textarea id="outcomes" name="outcomes" required minlength="5" rows="4" placeholder="Что слушатель сможет сделать. По одному результату в строке."></textarea>
+        <label for="skills">Получаемые навыки</label><textarea id="skills" name="skills" rows="2" placeholder="По одному навыку в строке"></textarea>
+        <label for="student_result">Что слушатель сдаёт в итоге</label><textarea id="student_result" name="student_result" rows="2" placeholder="Продукт, файлы, отчёт или демонстрация"></textarea>
+        <label for="checking">Кто и как проверяет работу</label><textarea id="checking" name="checking" rows="2" placeholder="Формат P2P, наблюдаемые признаки результата"></textarea>
+      </section>
+      <section class="form-section">
+        <div class="section-head"><span class="section-index">05</span><div><h2>Материалы и ограничения</h2><p>Требования, примеры и справочная информация</p></div></div>
+        <label for="references">Опорные материалы и ссылки</label><textarea id="references" name="references" rows="3" placeholder="Ссылки и пояснение, что именно нужно использовать"></textarea>
+        <label class="upload-card compact" for="materialFiles"><strong>＋ Прикрепить материалы</strong><small>DOCX, PDF, XLSX, текст, код · до 4 МБ на файл</small><input id="materialFiles" type="file" multiple accept=".docx,.pdf,.xlsx,.txt,.md,.csv,.json,.yaml,.yml,.py,.js,.ts,.sql,.sh,.ps1,.html,.ipynb"></label>
+        <div id="materialsList"></div>
+        <p class="hint">Скрипты читаются без запуска. Поиск в этой версии — по приложенным материалам; внешние ссылки сохраняются как непроверенные.</p>
+        <label for="constraints">Технические и организационные ограничения</label><textarea id="constraints" name="constraints" rows="2" placeholder="Окружение, доступность сервисов, ограничения на данные"></textarea>
+        <label for="output_package">Какой комплект должен подготовить генератор</label><textarea id="output_package" name="output_package" rows="2" placeholder="Например: README, чек-лист, исходные данные"></textarea>
+        <details class="options"><summary>Дополнительное оформление учебного текста</summary><div class="checkbox-grid"><label><input type="checkbox" name="diagrams"> Диаграммы</label><label><input type="checkbox" name="tables"> Таблицы</label><label><input type="checkbox" name="formulas"> Формулы</label><label><input type="checkbox" name="bonus"> Бонусное задание</label></div><p class="hint">Таблицы, диаграммы и формулы здесь относятся к учебному тексту. Эти опции не отменяют расчёты, инструменты и артефакты, требуемые образовательными результатами. Бонус включается отдельно.</p></details>
+        <label for="notes">Уточнения методолога</label><textarea id="notes" name="notes" rows="3" placeholder="Ответы на вопросы и изменения для следующей версии замысла"></textarea>
+      </section>
+      </fieldset>
+      <div class="sticky-actions"><button type="button" class="button secondary" id="clearButton">Очистить</button><button class="button primary" id="prepareButton" type="submit">Подготовить замысел <span>→</span></button></div>
+    </form>
+  </div>
+  <section class="result-panel" id="resultPanel" aria-label="Результат проектирования">
+    <div id="notice" role="alert" hidden></div>
+    <div id="emptyState" class="empty-state"><div class="blueprint-icon" aria-hidden="true">▤<span></span></div><h2>Сначала — замысел проекта</h2><p>Соберём входные данные в понятный план.<br>Вы сможете проверить и обсудить каждое решение.</p><div class="deliverables"><div><span>01</span><div><strong>Общий замысел</strong><small>Контекст программы и результат слушателя</small></div></div><div><span>02</span><div><strong>План практической работы</strong><small>Действия, сдача и P2P-проверка</small></div></div><div><span>03</span><div><strong>Обоснования и вопросы</strong><small>Что задано, что предложено и что нужно уточнить</small></div></div><div><span>04</span><div><strong>Проверка замысла</strong><small>Отдельный взгляд на полноту и выполнимость</small></div></div></div><p class="small-note">Стандартный шаблон контента остаётся прежним.</p></div>
+    <div id="runView" hidden>
+      <div class="result-heading"><div><p class="hint" id="runMeta"></p><h2 id="resultTitle">Подготовка замысла</h2></div><button type="button" class="text-button" id="refreshButton">Обновить статус</button></div>
+      <ol class="timeline" id="timeline" aria-live="polite"></ol>
+      <div class="tabs" role="tablist" aria-label="Разделы результата"><button role="tab" aria-selected="false" data-tab="inputs">Понимание входов</button><button role="tab" aria-selected="true" data-tab="concept">Замысел</button><button role="tab" aria-selected="false" data-tab="decisions">Обоснования</button><button role="tab" aria-selected="false" data-tab="review">Проверка</button><button role="tab" aria-selected="false" data-tab="sources">Источники</button></div>
+      <div id="tabContent" class="document" role="tabpanel"></div>
+      <div class="result-actions" id="resultActions" hidden><button class="button primary" id="confirmInputsButton" type="button" hidden>Подтвердить входы и подготовить замысел</button><button class="button primary" id="approveButton" type="button">Согласовать замысел</button><a class="button secondary" id="downloadMd">Скачать текст</a><a class="button secondary" id="downloadJson">JSON</a></div>
+      <p class="hint" id="approvalHint" hidden></p>
+    </div>
+  </section>
+</main>
+</body></html>
+
+

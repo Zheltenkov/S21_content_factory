@@ -1,0 +1,46 @@
+﻿/* Design tokens extracted from s21-design.css. */
+
+/*
+   School 21 product UI.
+   Production vanilla port of `новый дизайн/styles.css`.
+   This file owns application chrome, layout and components; legacy
+   styles.css remains as markdown/functionality compatibility layer.
+*/
+
+:root {
+  --s21-bg: #f7f7f5;
+  --s21-surface: #ffffff;
+  --s21-surface-2: #f7f7f5;
+  --s21-surface-muted: #f3f3f0;
+  --s21-border: #e6e5e0;
+  --s21-border-strong: #c9cbc1;
+  --s21-ink: #0f1419;
+  --s21-ink-2: #0f1419;
+  --s21-muted: #6b6f78;
+  --s21-muted-2: #8b918c;
+  --s21-accent: #2fd18a;
+  --s21-accent-hover: #27bd7b;
+  --s21-accent-soft: #e1f6ec;
+  --s21-accent-text: #0f1419;
+  --s21-dark: #0f1419;
+  --s21-success: #2f7a4d;
+  --s21-success-bg: #eaf4ee;
+  --s21-warn: #a76a14;
+  --s21-warn-bg: #faf1e2;
+  --s21-danger: #b54a3b;
+  --s21-danger-bg: #f7ebe7;
+  --s21-info: #2a5d8f;
+  --s21-info-bg: #eaf0f7;
+  --s21-radius-xs: 6px;
+  --s21-radius-sm: 8px;
+  --s21-radius-md: 10px;
+  --s21-radius-lg: 14px;
+  --s21-radius-xl: 20px;
+  --s21-shadow-1: 0 1px 2px rgba(15, 20, 25, 0.04);
+  --s21-shadow-2: 0 1px 3px rgba(15, 20, 25, 0.06), 0 8px 24px rgba(15, 20, 25, 0.05);
+  --s21-shadow-3: 0 12px 40px rgba(15, 20, 25, 0.08), 0 2px 8px rgba(15, 20, 25, 0.05);
+  --s21-grid-line: rgba(15, 20, 25, 0.055);
+  --s21-font: var(--s21-font-sans);
+  --s21-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --s21-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}

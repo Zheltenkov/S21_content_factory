@@ -1,0 +1,107 @@
+{#- README в стиле «рабочая легенда» (образец — прогон интенсива 28.09): легенда в начале, «Старт работы» с правилами
+    и таблицей материалов, теория, задания со строками «Результат / Проверка / Зачем», итог и таблица «Что сдаётся».
+    Слова стиля — school.yaml · styles.legend. -#}
+{% import "blocks.j2" as blocks %}
+# {{ summary.title }}
+
+{{ summary.annotation }}
+{% if school.feedback_url %}
+
+{{ school.feedback_text | replace("{url}", school.feedback_url) }}
+{% endif %}
+
+{{ frame.introduction }}
+
+## Содержание
+
+{% for item in toc %}
+{{ "  " * item.level }}- [{{ item.title }}](#{{ item.anchor }})
+{% endfor %}
+
+## {{ words.start }}
+
+{{ blocks.school_rules(school, words, frame, learn) }}
+{% if materials or (filed and topics) %}
+
+**{{ words.materials }}**
+
+| {{ words.materials_columns[0] }} | {{ words.materials_columns[1] }} |
+|---|---|
+{% for material in materials %}
+| {{ material.purpose | cell }} | [{{ material.path }}](materials/{{ material.path }}) |
+{% endfor %}
+{% if filed %}
+{% for topic in topics %}
+| {{ words.theory_row | replace("{title}", topic.title) | cell }} | [{{ topic.more.split("#")[0] }}]({{ topic.more }}) |
+{% endfor %}
+{% endif %}
+{% endif %}
+{% if topics and not filed %}
+
+## {{ words.theory }}
+{% for topic in topics %}
+
+### {{ topic.heading }}
+
+{{ blocks.topic_body(topic, words) }}
+{% endfor %}
+{% endif %}
+{% for task in tasks %}
+
+## {{ task.heading }}
+{% if task.context %}
+
+{{ task.context }}
+{% endif %}
+{{ blocks.refs(task) }}
+
+{% for step in task.steps %}
+{{ loop.index }}. {{ step | continued(3) }}
+{% endfor %}
+{% if task.expected %}
+
+{{ words.expected }}
+
+{% for item in task.expected %}
+- {{ item | continued(2) }}
+{% endfor %}
+{% endif %}
+{% if task.examples %}
+
+{{ blocks.examples(task.example_rows, words.examples) }}
+{% endif %}
+{% if task.constraints %}
+
+{{ words.conditions }}
+
+{% for item in task.constraints %}
+- {{ item | continued(2) }}
+{% endfor %}
+{% endif %}
+
+**{{ words.result }}** {{ task.result }}
+{% if task.check %}
+
+**{{ words.check }}** {{ task.check }}
+{% endif %}
+{% if task.transition %}
+
+**{{ words.why }}** {{ task.transition }}
+{% endif %}
+{% endfor %}
+{% if frame.conclusion %}
+
+## {{ words.conclusion }}
+
+{{ frame.conclusion }}
+{% endif %}
+{% if tasks %}
+
+## {{ words.handed }}
+
+| {{ words.handed_columns[0] }} | {{ words.handed_columns[1] }} | {{ words.handed_columns[2] }} |
+|---|---|---|
+{% for task in tasks %}
+| {{ task.label | cell }} | {{ task.result | cell }} | {{ task.check | cell }} |
+{% endfor %}
+{% endif %}

@@ -1,0 +1,2 @@
+# Preserve the spreadsheet export, including line breaks inside quoted cells.
+baton_plan.csv -text

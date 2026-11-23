@@ -35,8 +35,7 @@ logger = get_logger("translate-document")
 
 STORAGE_DIR = os.getenv("STORAGE_DIR", os.path.join(tempfile.gettempdir(), "content_generator_translations"))
 MAX_TRANSLATION_DOCUMENT_SIZE = int(os.getenv("MAX_TRANSLATION_DOCUMENT_SIZE_BYTES", 25 * 1024 * 1024))
-# Презентации хранят тяжёлые изображения, но в модель отправляется только извлечённый текст.
-# Отдельный предел загрузки не меняет ограничений распаковки архива и разбираемого XML.
+# Separate upload budget for image-heavy PPTX; ZIP/XML safety limits stay unchanged.
 MAX_TRANSLATION_PRESENTATION_SIZE = int(os.getenv("MAX_TRANSLATION_PRESENTATION_SIZE_BYTES", 100 * 1024 * 1024))
 # Допустимые расширения ведёт реестр: добавили обработчик — формат принимается на загрузку.
 TRANSLATION_DOCUMENT_EXTENSIONS = set(supported_extensions())

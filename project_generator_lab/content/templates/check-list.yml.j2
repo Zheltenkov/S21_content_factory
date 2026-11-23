@@ -1,0 +1,26 @@
+{#- check-list.yml по формату платформы (образец — examples/PM1_PMStarterPack). Результат сверяется с данными через yaml.safe_load. -#}
+introduction: |-
+{{ checklist.introduction | indent(2, true) }}
+
+quick_actions:
+{% for action in checklist.quick_actions %}
+  - {{ action }}
+{% endfor %}
+
+language: {{ checklist.language }}
+
+guidelines: |-
+{{ checklist.guidelines | indent(2, true) }}
+
+sections:
+  - kind: {{ checklist.section_kind | yaml_string }}
+    name: {{ checklist.section_name | yaml_string }}
+    description: ""
+    questions:{{ " []" if not questions else "" }}
+{% for question in questions %}
+      - name: {{ question.name | yaml_string }}
+        description: |-
+{{ question.description | indent(10, true) }}
+        rating: {{ question.rating | yaml_string }}
+
+{% endfor %}

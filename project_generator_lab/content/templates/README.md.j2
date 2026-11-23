@@ -1,0 +1,120 @@
+{#- README по исходному шаблону генератора (src/content_factory/didactics/readme_template.md, renderers/skeleton.py):
+    Глава 1 — Введение и Инструкция, Глава 2 — теоретический блок 2.N, Глава 3 — задания и бонус, Заключение.
+    Заголовки и постоянные тексты школы — school.yaml. -#}
+# {{ summary.title }}
+
+{{ summary.annotation }}
+{% if school.feedback_url %}
+
+{{ school.feedback_text | replace("{url}", school.feedback_url) }}
+{% endif %}
+
+## Содержание
+
+{% for item in toc %}
+{{ "  " * item.level }}- [{{ item.title }}](#{{ item.anchor }})
+{% endfor %}
+
+## {{ headings.chapter1 }}
+{% if learn %}
+
+### Как учиться в «Школе 21»
+
+{% for line in school.how_to_learn %}
+- {{ line }}
+{% endfor %}
+{% endif %}
+
+### {{ headings.introduction }}
+
+{{ frame.introduction }}
+
+### {{ headings.instruction }}
+
+{% for line in school.how_to_work %}
+- {{ line }}
+{% endfor %}
+{% for line in frame.instruction %}
+- {{ line | continued(2) }}
+{% endfor %}
+
+## {{ headings.theory }}
+{% for topic in topics %}
+
+### {{ topic.heading }}
+
+{{ topic.text }}
+{% if topic.links %}
+
+**Где изучить:**
+
+{% for link in topic.links %}
+- [{{ link.title }}]({{ link.url }}){{ " — " ~ link.why if link.why else "" }}
+{% endfor %}
+{% elif topic.keywords %}
+
+**Что поискать:** {{ topic.keywords | join(", ") }}.
+{% endif %}
+{% if topic.question %}
+
+**Вопрос к практике:** {{ topic.question }}
+{% endif %}
+{% endfor %}
+
+## {{ headings.practice }}
+{% for task in tasks %}
+
+### {{ task.heading }}
+
+**Что нужно сделать**
+{% if task.context %}
+
+{{ task.context }}
+{% endif %}
+
+Цель: {{ task.goal }}
+{% if task.materials %}
+
+Материалы: {% for path in task.materials %}[{{ path }}](materials/{{ path }}){{ ", " if not loop.last else "." }}{% endfor %}
+
+{% endif %}
+{% if task.theory %}
+
+Теория: {% for ref in task.theory %}[{{ ref.title }}](#{{ ref.anchor }}){{ ", " if not loop.last else "." }}{% endfor %}
+
+{% endif %}
+
+{% for step in task.steps %}
+{{ loop.index }}. {{ step | continued(3) }}
+{% endfor %}
+
+**Что должно получиться**
+
+{% for item in task.expected %}
+- {{ item | continued(2) }}
+{% endfor %}
+{% if task.constraints %}
+
+**Ограничения и условия**
+
+{% for item in task.constraints %}
+- {{ item | continued(2) }}
+{% endfor %}
+{% endif %}
+
+**Формат сдачи**
+
+{{ task.result }}
+{% if task.transition %}
+
+**Переход к следующему заданию**
+
+{{ task.transition }}
+{% endif %}
+{% endfor %}
+{% if frame.conclusion %}
+
+## {{ headings.conclusion }}
+
+{{ frame.conclusion }}
+{% endif %}

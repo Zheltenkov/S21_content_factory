@@ -7,7 +7,7 @@ each caller: retry / JSON-content parsing (audit), citations + usage logging
 (catalog), and budgets / roles / structured output (the generation gateway).
 
 Polza is the unified default provider across content_factory; it is
-OpenAI-compatible and proxies the same models (openai/gpt-6-sol,
+OpenAI-compatible and proxies the same models (openai/gpt-5.4-mini,
 perplexity/sonar, qwen/qwen3-coder).
 """
 

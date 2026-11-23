@@ -1,0 +1,85 @@
+{#- README в стиле «квест» (образец — шаблоны бассейна на C): Введение с рекомендациями, Chapter I — сцена,
+    Chapter II — теория листками, Chapter III — квесты, Chapter IV — развязка. Слова стиля — school.yaml · styles.quest. -#}
+{% import "blocks.j2" as blocks %}
+# {{ summary.title }}
+
+{{ summary.annotation }}
+{% if school.feedback_url %}
+
+{{ school.feedback_text | replace("{url}", school.feedback_url) }}
+{% endif %}
+
+## Содержание
+
+{% for item in toc %}
+{{ "  " * item.level }}- [{{ item.title }}](#{{ item.anchor }})
+{% endfor %}
+
+## {{ words.introduction }}
+
+### {{ words.recommendations }}
+
+{{ blocks.school_rules(school, words, frame, learn) }}
+## {{ words.scene }}
+
+{{ frame.introduction }}
+
+## {{ words.theory }}
+{% if filed %}
+
+{{ words.theory_filed }}
+
+{{ blocks.theory_table(topics, words.theory_columns) }}
+{% else %}
+{% for topic in topics %}
+
+### {{ topic.heading }}
+
+{{ blocks.topic_body(topic, words) }}
+{% endfor %}
+{% endif %}
+
+## {{ words.practice }}
+{% for task in tasks %}
+
+### {{ task.heading }}
+{% if task.context %}
+
+{{ task.context }}
+{% endif %}
+
+**{{ words.statement | replace("{n}", task.number) }}** {{ task.steps | statement }}
+{% if task.expected %}
+
+{% for item in task.expected %}
+- {{ item | continued(2) }}
+{% endfor %}
+{% endif %}
+{% for item in task.constraints %}
+
+**{{ words.attention }}** {{ item }}
+{% endfor %}
+{% if task.examples %}
+
+{{ blocks.examples(task.example_rows, words.examples) }}
+{% endif %}
+{{ blocks.refs(task) }}
+
+**{{ words.submit }}** {{ task.result }}
+{% if task.check %}
+
+{{ task.check }}
+{% endif %}
+{% if task.transition %}
+
+{{ task.transition }}
+{% endif %}
+
+***{{ words.pause }}***
+{% endfor %}
+{% if frame.conclusion %}
+
+## {{ words.conclusion }}
+
+{{ frame.conclusion }}
+{% endif %}
