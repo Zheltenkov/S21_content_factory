@@ -19,6 +19,10 @@ RpdLlmRole = Literal[
     "rpd_validate",
     "rpd_repair",
     "rpd_semantic_preflight",
+    "rpd_profstandard_match",
+    "rpd_competency_design",
+    "rpd_competency_validate",
+    "rpd_curriculum_titles",
 ]
 T = TypeVar("T", bound=BaseModel)
 
@@ -59,6 +63,10 @@ _POLICIES = (
     _RolePolicy("rpd_validate", "RPD_LLM_VALIDATE", 60.0, 1, False),
     _RolePolicy("rpd_repair", "RPD_LLM_REPAIR", 90.0, 1, False),
     _RolePolicy("rpd_semantic_preflight", "RPD_LLM_SEMANTIC_PREFLIGHT", 60.0, 1, True),
+    _RolePolicy("rpd_profstandard_match", "RPD_LLM_PROFSTANDARD_MATCH", 60.0, 1, True),
+    _RolePolicy("rpd_competency_design", "RPD_LLM_COMPETENCY_DESIGN", 90.0, 2, True),
+    _RolePolicy("rpd_competency_validate", "RPD_LLM_COMPETENCY_VALIDATE", 60.0, 1, False),
+    _RolePolicy("rpd_curriculum_titles", "RPD_LLM_CURRICULUM_TITLES", 60.0, 1, True),
 )
 
 

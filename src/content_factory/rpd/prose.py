@@ -1,14 +1,19 @@
 """Генерация прозаических разделов РПД (актуальность, цели, паспорт) через LLM.
 
 Разделы-проза не переносятся из УП — их генерирует LLM по теме и содержанию УП, с учётом правил из
-комментариев методиста (актуальность — развёрнуто, цели — поверхностно/общей фразой). Без клиента или
-при ошибке возвращаем пусто → рендер подставит плейсхолдер.
+комментариев методиста: актуальность развёрнута, 1.4 кратко формулирует цель и задачи, а 2.1
+синтезирует интегральные результаты после оценки целей модулей, результатов и компетенций УП.
+Без клиента или при ошибке возвращаем пусто → рендер подставит плейсхолдер.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from .prose_contracts import (
+    program_implementation_goals_generation_instruction,
+    relevance_generation_instruction,
+)
 from .up_models import UpPlan
 
 _SYSTEM = (
@@ -16,11 +21,12 @@ _SYSTEM = (
     "Опирайся ТОЛЬКО на данные программы, которые тебе дают (тема, модули, компетенции). Без воды, по делу, "
     "без выдуманных фактов и без английских слов, кроме терминов и имён собственных."
 )
-PROMPT_VERSION = "rpd-prose-v1"
+PROMPT_VERSION = "rpd-prose-v4"
 
 # (matcher-substring, инструкция). Порядок важен: более узкие проверки — выше.
 _PROMPTS: list[tuple[str, str]] = [
-    ("актуальн", "Напиши «Актуальность программы» (2–3 абзаца): почему эта тема востребована, кому и зачем нужна именно эта программа. Свяжи с её модулями."),
+    ("актуальн", relevance_generation_instruction()),
+    ("цели реализации программы", program_implementation_goals_generation_instruction()),
     ("паспорт оцен", "Опиши общий состав оценочных материалов программы: виды заданий (проекты по модулям) и форму проверки (p2p, защита). Без конкретных заданий."),
     ("паспорт", "Напиши аннотацию-паспорт программы (3–5 предложений): о чём программа, для кого, какой результат — по её модулям."),
     ("характеристика", "Кратко опиши область и виды профессиональной деятельности, к которым готовит программа (1 абзац), исходя из её модулей."),
@@ -75,14 +81,25 @@ def _instruction_for(title: str) -> str | None:
 
 
 def _up_context(up: UpPlan) -> str:
-    modules = "\n".join(f"- {module.title}" for module in up.modules[:15])
+    modules = "\n".join(
+        f"- {module.title}" + (f"; цель модуля: {module.goals}" if module.goals.strip() else "")
+        for module in up.modules[:15]
+    )
     outcomes = "; ".join(up.all_outcomes()[:12])
     competencies = "; ".join(comp.code for comp in up.competencies()[:12])
+    learning_products = "\n".join(
+        f"- {row.name}"
+        for module in up.modules
+        for row in module.rows
+        if row.name.strip()
+    )
+    learning_products = "\n".join(learning_products.splitlines()[:20])
     return (
         f"Название программы: {up.title or 'не указано'}\n"
         f"Объём: {up.total_hours or '—'} академических часов\n"
         f"Модулей: {len(up.modules)}\n"
         f"Модули:\n{modules}\n"
+        f"Учебные продукты и задания:\n{learning_products or '—'}\n"
         f"Компетенции (навыки): {competencies or '—'}\n"
         f"Ключевые результаты: {outcomes or '—'}"
     )

@@ -29,7 +29,7 @@ class RpdRoleMetrics(BaseModel):
 class RpdEvaluationArtifact(BaseModel):
     """Versioned metrics that can be aggregated across a real-methodologist pilot."""
 
-    schema_version: int = 1
+    schema_version: int = 2
     evaluated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     program_title: str
     template_profile_id: str
@@ -48,6 +48,14 @@ class RpdEvaluationArtifact(BaseModel):
     accepted_generated_without_edits: int
     accepted_without_edits_rate: float | None
     manual_dependency_sections: int
+    competency_family: str = ""
+    competency_pipeline_status: str = "not_run"
+    competency_source_items: int = 0
+    competency_covered_items: int = 0
+    competency_source_coverage_rate: float | None = None
+    profstandard_candidates: int = 0
+    profstandard_matches: int = 0
+    profstandard_approved: int = 0
     llm_calls: int
     llm_failed_calls: int
     llm_cache_hits: int
@@ -89,6 +97,13 @@ def evaluate_rpd_build(build: RpdBuild) -> RpdEvaluationArtifact:
     llm_total_latency_ms = sum(metrics.latency_ms for metrics in llm_by_role.values())
     llm_total_tokens = sum(metrics.total_tokens for metrics in llm_by_role.values())
     llm_total_cost_usd = sum(metrics.cost_usd for metrics in llm_by_role.values())
+    competency_trace = build.competency_trace
+    source_ids = set(competency_trace.source_item_ids) if competency_trace is not None else set()
+    covered_ids = (
+        set(competency_trace.covered_source_ids) & source_ids
+        if competency_trace is not None
+        else set()
+    )
 
     return RpdEvaluationArtifact(
         program_title=build.program_title,
@@ -108,6 +123,22 @@ def evaluate_rpd_build(build: RpdBuild) -> RpdEvaluationArtifact:
         accepted_generated_without_edits=len(accepted_without_edits),
         accepted_without_edits_rate=acceptance_rate,
         manual_dependency_sections=sum(section.category in {"gap", "platform"} for section in build.sections),
+        competency_family=competency_trace.family if competency_trace is not None else "",
+        competency_pipeline_status=(
+            competency_trace.status if competency_trace is not None else "not_run"
+        ),
+        competency_source_items=len(source_ids),
+        competency_covered_items=len(covered_ids),
+        competency_source_coverage_rate=(
+            competency_trace.source_coverage_rate if competency_trace is not None else None
+        ),
+        profstandard_candidates=(
+            len(competency_trace.candidate_standard_codes) if competency_trace is not None else 0
+        ),
+        profstandard_matches=len(competency_trace.matches) if competency_trace is not None else 0,
+        profstandard_approved=(
+            len(competency_trace.approved_standard_codes) if competency_trace is not None else 0
+        ),
         llm_calls=llm_calls,
         llm_failed_calls=llm_failed_calls,
         llm_cache_hits=llm_cache_hits,

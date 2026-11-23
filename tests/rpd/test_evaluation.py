@@ -72,3 +72,28 @@ def test_llm_metrics_are_aggregated_by_role() -> None:
     assert artifact.llm_total_tokens == 100
     assert artifact.llm_total_cost_usd == 0.01
     assert artifact.llm_by_role["rpd_validate"].failed_calls == 1
+
+
+def test_competency_lineage_is_exposed_in_pilot_artifact() -> None:
+    build = build_rpd_sections(
+        from_registry_plan(
+            {
+                "title": "Компетенции",
+                "rows": [
+                    {
+                        "block_title": "Модуль",
+                        "skills": ["Навык А", "Навык Б"],
+                    }
+                ],
+            }
+        )
+    )
+
+    artifact = evaluate_rpd_build(build)
+
+    assert artifact.schema_version == 2
+    assert artifact.competency_family == "ПК"
+    assert artifact.competency_pipeline_status == "fallback"
+    assert artifact.competency_source_items == 2
+    assert artifact.competency_covered_items == 2
+    assert artifact.competency_source_coverage_rate == 1.0

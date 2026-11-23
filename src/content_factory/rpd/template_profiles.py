@@ -17,7 +17,10 @@ import docx
 from docx.enum.section import WD_ORIENT
 from pydantic import BaseModel, Field
 
+from .curriculum import build_curriculum_table
 from .dpo_spec import Cat, category_for
+from .module_evidence import MODULE_PROGRAM_HEADER, build_module_program_table
+from .schedule import build_schedule_table
 from .template import default_pk_skeleton_path, load_rpd_template
 from .up_models import UpPlan
 
@@ -68,6 +71,11 @@ class TemplateProfile(ABC):
         """Return the deterministic fallback category for a section."""
         return category_for(number, title)
 
+    def should_review_boilerplate(self, number: str, title: str) -> bool:
+        """Whether a template-owned section must be visible in HITL without becoming editable."""
+        del number, title
+        return False
+
     @abstractmethod
     def table_for(self, category: Cat, up: UpPlan) -> TableContent | None:
         """Map normalized curriculum data to a profile-specific table schema."""
@@ -83,6 +91,10 @@ class BuiltinPkProfile(TemplateProfile):
     profile_id = BUILTIN_PK_PROFILE_ID
     program_type = "повышение квалификации"
 
+    # These profile-owned sections must be visible in the methodologist's checklist even though
+    # their wording and DOCX formatting continue to come verbatim from the internal template.
+    _reviewable_boilerplate_numbers = {"1.2", "4.3", "5.4", "5.5", "6"}
+
     _required_bindings = {
         "program_title": "[НАИМЕНОВАНИЕ ПРОГРАММЫ]",
         "organization_name": "[ПОЛНОЕ НАИМЕНОВАНИЕ ОБРАЗОВАТЕЛЬНОЙ ОРГАНИЗАЦИИ]",
@@ -93,19 +105,38 @@ class BuiltinPkProfile(TemplateProfile):
         "year": "[ГОД]",
     }
     _required_table_labels = {
+        "Наименование",
+        "Вид программы",
         "Категория слушателей",
+        "Требования к поступающим",
+        "Объем",
         "Объем программы",
         "Форма обучения",
+        "Продолжительность",
+        "Режим занятий",
+        "Форма итоговой аттестации",
         "Итоговая аттестация",
+        "Документ о квалификации",
         "Выдаваемый документ",
     }
     _required_section_keys = {
+        "2.1 Цели реализации программы",
+        "1.5 Характеристика профессиональной деятельности",
         "2.2 Профессиональные компетенции и их качественное изменение",
         "3.1 Учебный план",
         "3.2 Календарный учебный график",
         "3.3.1 Пример оформления учебного модуля",
+        "4.1 Текущий контроль",
+        "4.2 Итоговая аттестация",
         "4.3 Паспорт оценочных материалов",
+        "4.4 Пример оценки",
+        "5.1 Учебно-методическое и информационное обеспечение",
+        "5.2 Материально-технические условия",
+        "5.3 Кадровое обеспечение",
+        "5.4 Реализация с применением ЭО и ДОТ",
         "5.5 Условия для инвалидов и лиц с ограниченными возможностями здоровья",
+        "6 ОЦЕНКА КАЧЕСТВА РЕАЛИЗАЦИИ ПРОГРАММЫ",
+        "7 РАЗРАБОТЧИКИ ПРОГРАММЫ",
     }
     _required_table_schemas = {
         "компетенции": (
@@ -127,11 +158,91 @@ class BuiltinPkProfile(TemplateProfile):
             "Контроль",
         ),
         "календарный график": ("Компонент", "Период", "Часы", "Форма организации", "Контроль"),
+        "паспорт учебного модуля": ("Параметр", "Минимальный пример заполнения"),
         "рабочая программа модуля": ("№", "Тема и краткое содержание", "Вид работы", "Часы", "Методы", "Контроль"),
+        "характеристика профессиональной деятельности": (
+            "Позиция",
+            "Минимальный пример заполнения",
+            "Основание",
+        ),
+        "текущий контроль": (
+            "Компонент",
+            "Форма контроля",
+            "Процедура",
+            "Критерии",
+            "Результат",
+        ),
+        "итоговая аттестация": ("Параметр", "Минимальный пример заполнения"),
+        "пример оценки": (
+            "Здесь нужен скрин из задания (если программа реализуется в очно-заочной форме).",
+        ),
+        "учебно-методическое обеспечение": (
+            "Категория",
+            "Минимальный пример",
+            "Реквизиты / ссылка",
+            "Доступ",
+        ),
+        "материально-технические условия": (
+            "Вид работы",
+            "Помещение / среда",
+            "Оборудование и ПО",
+            "Параметры",
+            "Основание доступа",
+        ),
+        "кадровое обеспечение": (
+            "Роль",
+            "Требования",
+            "Практический опыт",
+            "Ф.И.О. / должность",
+            "Подтверждение",
+        ),
+        "оценка качества реализации": (
+            "Направление оценки",
+            "Показатель",
+            "Метод",
+            "Периодичность",
+            "Ответственный",
+        ),
+        "разработчики программы": (
+            "Роль",
+            "Ф.И.О.",
+            "Ученая степень / квалификация",
+            "Должность / место работы",
+            "Подпись / дата",
+        ),
     }
 
     def template_path(self, override: str | Path | None = None) -> Path:
         return Path(override) if override is not None else default_pk_skeleton_path()
+
+    def category_for(self, number: str, title: str) -> Cat:
+        """Bind internal School 21 structural tables without imposing them on external profiles."""
+        normalized_number = number.strip().rstrip(".")
+        normalized_title = title.casefold()
+        if normalized_number == "4.3" and "паспорт" in normalized_title and "оцен" in normalized_title:
+            return Cat.BOILERPLATE
+        if normalized_number == "4.4" and "пример" in normalized_title and "оцен" in normalized_title:
+            return Cat.ASSESSMENT_EVIDENCE
+        if normalized_number == "1.5" and "характеристика" in normalized_title and "проф" in normalized_title:
+            return Cat.PROF_ACTIVITY
+        if normalized_number == "4.1" and "текущий контроль" in normalized_title:
+            return Cat.CURRENT_CONTROL
+        if normalized_number == "4.2" and "итоговая аттест" in normalized_title:
+            return Cat.FINAL_ATTESTATION
+        if normalized_number == "5.1" and "учебно-метод" in normalized_title:
+            return Cat.METHODOLOGICAL_SUPPORT
+        if normalized_number == "5.2" and "материально-техничес" in normalized_title:
+            return Cat.MATERIAL_CONDITIONS
+        if normalized_number == "5.3" and "кадров" in normalized_title:
+            return Cat.STAFFING
+        if normalized_number == "7" and "разработчик" in normalized_title:
+            return Cat.PROGRAM_DEVELOPERS
+        return super().category_for(number, title)
+
+    def should_review_boilerplate(self, number: str, title: str) -> bool:
+        """Expose mandatory internal boilerplate while preserving its DOCX formatting."""
+        del title
+        return number.strip().rstrip(".") in self._reviewable_boilerplate_numbers
 
     def inspect(self, path: Path) -> TemplateCapabilityReport:
         data = path.read_bytes()
@@ -244,54 +355,24 @@ class BuiltinPkProfile(TemplateProfile):
 
     @staticmethod
     def _curriculum_table(up: UpPlan) -> TableContent | None:
-        if not up.modules:
-            return None
-        header = [
-            "№",
-            "Наименование модуля",
-            "Всего",
-            "Лекции",
-            "Практические занятия",
-            "Самостоятельная работа",
-            "Контроль",
-        ]
-        rows = [[str(index), module.title, module.hours, "", module.hours, "", module.control()] for index, module in enumerate(up.modules, start=1)]
-        return header, rows
+        result = build_curriculum_table(up, None, profile_id=BUILTIN_PK_PROFILE_ID)
+        return (result.header, result.rows) if result.rows else None
 
     @staticmethod
     def _schedule_table(up: UpPlan) -> TableContent | None:
-        if not up.modules:
-            return None
-        header = ["Компонент", "Период", "Часы", "Форма организации", "Контроль"]
-        return header, [[module.title, "", module.hours, module.fmt(), module.control()] for module in up.modules]
+        result = build_schedule_table(
+            up,
+            duration="",
+            final_attestation="",
+            profile_id=BUILTIN_PK_PROFILE_ID,
+        )
+        return (result.header, result.rows) if result.rows else None
 
     @staticmethod
     def _module_table(up: UpPlan) -> TableContent | None:
-        if not up.modules:
-            return None
-        header = ["№", "Тема и краткое содержание", "Вид работы", "Часы", "Методы", "Контроль"]
-        rows: list[list[str]] = []
-        index = 1
-        for module in up.modules:
-            for row in module.rows:
-                theme = f"[{module.title}] {row.name}".strip()
-                if row.description:
-                    theme = f"{theme}: {row.description}"
-                rows.append([str(index), theme, row.fmt, row.hours, "", row.control()])
-                index += 1
-            # Комментарии методиста к шаблону требуют подтверждение из LMS для каждого модуля.
-            # Маркер живёт в редактируемой таблице и блокирует финальный экспорт до замены.
-            rows.append(
-                [
-                    "",
-                    f"[Методист: вставьте скрин заданий и контролей модуля «{module.title}» с платформы/LMS]",
-                    "",
-                    "",
-                    "",
-                    "",
-                ]
-            )
-        return (header, rows) if rows else None
+        result = build_module_program_table(up, profile_id=BUILTIN_PK_PROFILE_ID)
+        rows = [row for block in result.blocks for row in block.topics_rows]
+        return (list(MODULE_PROGRAM_HEADER), rows) if rows else None
 
     @staticmethod
     def _competency_table(up: UpPlan) -> TableContent | None:
@@ -313,14 +394,34 @@ class BuiltinPkProfile(TemplateProfile):
     def _fill_program_parameters(document: Any, total_hours: str, fields: Any) -> None:
         values = {
             "Категория слушателей": fields.audience,
+            "Требования к поступающим": fields.admission_requirements,
+            "Объем": f"{total_hours} академических часов" if total_hours else "",
             "Объем программы": f"{total_hours} академических часов" if total_hours else "",
             "Форма обучения": fields.delivery_mode,
+            "Продолжительность": fields.duration,
+            "Режим занятий": fields.study_mode,
+            "Форма итоговой аттестации": fields.final_attestation,
             "Итоговая аттестация": fields.final_attestation,
+            "Документ о квалификации": fields.issued_document,
             "Выдаваемый документ": fields.issued_document,
         }
         for table in document.tables:
-            if table.rows and len(table.rows[0].cells) >= 2 and table.rows[0].cells[0].text.strip() == "Параметр":
-                _replace_paragraph_text(table.rows[0].cells[1].paragraphs[0], "Значение")
+            if (
+                not table.rows
+                or len(table.rows[0].cells) < 2
+                or table.rows[0].cells[0].text.strip() != "Параметр"
+            ):
+                continue
+            row_labels = {
+                row.cells[0].text.strip()
+                for row in table.rows[1:]
+                if len(row.cells) >= 2
+            }
+            # Section 4.2 is also a two-column "Параметр" table. Passport bindings must never
+            # rename its template header or replace semantically unrelated attestation values.
+            if not {"Категория слушателей", "Форма обучения"}.issubset(row_labels):
+                continue
+            _replace_paragraph_text(table.rows[0].cells[1].paragraphs[0], "Значение")
             for row in table.rows:
                 if len(row.cells) < 2:
                     continue

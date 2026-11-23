@@ -92,7 +92,7 @@ def test_run_consilium_is_cached() -> None:
         "rpd_prose",
         "rpd_validate",
     ]
-    assert all(version.startswith("rpd-consilium-v4:") for _role, version in second.cache_hits)
+    assert all(version.startswith("rpd-consilium-v10:") for _role, version in second.cache_hits)
 
 
 def test_run_consilium_without_client_is_empty() -> None:
@@ -235,9 +235,26 @@ def test_validate_prose_detects_exact_cross_section_repetition() -> None:
     assert "Повторяет длинное предложение" in flags["1.4 Цель и задачи"]
 
 
+def test_validate_prose_softens_duplication_flag_for_relevance_section() -> None:
+    # Критик считает «Актуальность» дублирующей; для риторического раздела это гасится.
+    complaint = "Есть смысловое дублирование: повторяются одни и те же тезисы о востребованности."
+    client = _RecordingClient([json.dumps({"1.3 Актуальность программы": complaint}, ensure_ascii=False)])
+    texts = {"1.3 Актуальность программы": ["Абзац первый.", "Абзац второй раскрывает тезис иначе."]}
+
+    flags = consilium_mod._validate_prose(texts, from_registry_plan(_PLAN), client)
+
+    # Субъективный dup-флаг «Актуальности» отфильтрован (может остаться легитимный флаг длины, но не про дубли).
+    relevance_flag = flags.get("1.3 Актуальность программы", "").casefold()
+    assert "дублирован" not in relevance_flag and "одни и те же" not in relevance_flag
+    # но для другого раздела такое же замечание сохраняется
+    other = _RecordingClient([json.dumps({"1.4 Цель и задачи": complaint}, ensure_ascii=False)])
+    kept = consilium_mod._validate_prose({"1.4 Цель и задачи": ["Текст раздела."]}, from_registry_plan(_PLAN), other)
+    assert "одни и те же" in kept.get("1.4 Цель и задачи", "")
+
+
 def test_validate_prose_allows_shared_domain_terms_with_distinct_meaning() -> None:
     texts = {
-        "1.3 Актуальность": ["Искусственный интеллект востребован предпринимателями для ускорения анализа рынка."],
+        "1.5 Характеристика деятельности": ["Искусственный интеллект востребован предпринимателями для ускорения анализа рынка."],
         "1.4 Цель и задачи": ["Цель программы — научить предпринимателей проверять продуктовые гипотезы с применением искусственного интеллекта."],
     }
 
@@ -246,9 +263,79 @@ def test_validate_prose_allows_shared_domain_terms_with_distinct_meaning() -> No
     assert flags == {}
 
 
+def test_validate_prose_discards_false_generality_for_grounded_program_goals() -> None:
+    key = "2.1 Цели реализации программы"
+    complaint = (
+        "Текст в целом соответствует программе, но есть риск излишней обобщённости: добавьте более "
+        "наблюдаемых действий слушателя и опору на результаты/компетенции, чтобы цель была менее декларативной."
+    )
+    up = from_registry_plan(
+        {
+            "title": "Начинающий технологический предприниматель: запуск цифровых продуктов",
+            "meta": {"total_hours": 72},
+            "rows": [
+                {
+                    "block_title": "Проблема клиента и ценностное предложение",
+                    "block_goal": "Выявить проблему клиента и проверить продуктовую гипотезу",
+                    "project_name": "Отчёт о проблеме и клиенте",
+                    "description": "Исследование рынка и формулирование ценностного предложения",
+                    "outcomes_can": "выявляет проблему; формулирует предложение; обосновывает решение",
+                    "effort_hours": 36,
+                    "skills": ["Понимание клиента", "Проверка гипотез"],
+                },
+                {
+                    "block_title": "MVP и разработка цифрового продукта",
+                    "block_goal": "Определить границы MVP и создать цифровой продукт",
+                    "project_name": "Прототип цифрового продукта",
+                    "description": "Разработка, инженерная дисциплина и защита итогового решения",
+                    "outcomes_can": "определяет MVP; создаёт прототип; применяет AI-инструменты",
+                    "effort_hours": 36,
+                    "skills": ["Продуктовая приоритизация", "Разработка с применением AI"],
+                },
+            ],
+        }
+    )
+    paragraphs = [
+        "Цель реализации программы — подготовить начинающего технологического предпринимателя к запуску "
+        "цифрового продукта, обеспечив переход от понимания проблемы и клиента к обоснованному решению, "
+        "проверяемому в практике проекта.",
+        "По итогам обучения слушатель выявляет проблему клиента, анализирует рынок, формулирует ценностное "
+        "предложение, проверяет продуктовую гипотезу, определяет границы MVP, создаёт прототип цифрового "
+        "продукта, применяет AI-инструменты в разработке, обосновывает решение и демонстрирует результат "
+        "на итоговой защите.",
+        "Проверяемыми результатами становятся отчёт о проблеме и клиенте, сформулированное ценностное "
+        "предложение и прототип цифрового продукта. Слушатель связывает их с данными исследования, "
+        "оценивает ограничения решения, планирует следующие проверки и защищает выбранный подход перед "
+        "экспертами, показывая владение продуктовыми и инженерными компетенциями программы.",
+    ]
+    client = _RecordingClient([json.dumps({key: complaint}, ensure_ascii=False)])
+
+    flags = consilium_mod._validate_prose({key: paragraphs}, up, client)
+
+    assert flags == {}
+
+
+def test_validate_prose_keeps_generality_flag_when_program_goals_lack_evidence() -> None:
+    key = "2.1 Цели реализации программы"
+    complaint = "Текст декларативный: недостаточно конкретных наблюдаемых действий и опоры на компетенции."
+    paragraphs = [
+        "Программа направлена на развитие необходимых качеств слушателя.",
+        "Полученные знания будут полезны в профессиональной деятельности.",
+    ]
+    client = _RecordingClient([json.dumps({key: complaint}, ensure_ascii=False)])
+
+    flags = consilium_mod._validate_prose(
+        {key: paragraphs},
+        from_registry_plan(_PLAN),
+        client,
+    )
+
+    assert flags[key] == complaint
+
+
 def test_run_consilium_repairs_repeated_section_once() -> None:
     sections = [
-        {"number": "1.3", "title": "Актуальность программы"},
+        {"number": "1.5", "title": "Характеристика профессиональной деятельности"},
         {"number": "1.4", "title": "Цель и задачи программы"},
     ]
     keys = [section_key(item["number"], item["title"]) for item in sections]
@@ -272,6 +359,64 @@ def test_run_consilium_repairs_repeated_section_once() -> None:
     assert texts[keys[1]] == ["Цель программы — освоить проверку продуктовых гипотез."]
     assert flags == {}
     assert client.roles == ["rpd_classify", "rpd_interpret", "rpd_prose", "rpd_validate", "rpd_repair", "rpd_validate"]
+
+
+def test_run_consilium_repairs_short_relevance_to_contract() -> None:
+    key = section_key("1.3", "Актуальность программы")
+    long_text = "\n".join(
+        " ".join([f"Подтверждённый тезис программы {paragraph}-{item}." for item in range(12)])
+        for paragraph in range(4)
+    )
+    responses = [
+        json.dumps({key: "generate"}, ensure_ascii=False),
+        json.dumps({key: {"purpose": "Обосновать актуальность"}}, ensure_ascii=False),
+        json.dumps({key: "Короткое обоснование актуальности."}, ensure_ascii=False),
+        "{}",
+        json.dumps({key: long_text}, ensure_ascii=False),
+        "{}",
+    ]
+    client = _StageClient(responses)
+
+    _roles, texts, flags = run_consilium(
+        [{"number": "1.3", "title": "Актуальность программы"}],
+        from_registry_plan(_PLAN),
+        client,
+    )
+
+    assert len(texts[key]) == 4
+    assert flags == {}
+    assert client.roles == ["rpd_classify", "rpd_interpret", "rpd_prose", "rpd_validate", "rpd_repair", "rpd_validate"]
+
+
+def test_composer_prompt_contains_relevance_length_contract() -> None:
+    key = "1.3 Актуальность программы"
+    client = _RecordingClient([json.dumps({key: "Текст."}, ensure_ascii=False)])
+
+    consilium_mod._compose_prose(
+        [{"key": key, "role": "generate"}],
+        {key: consilium_mod.SectionBrief(purpose="Обосновать актуальность")},
+        from_registry_plan(_PLAN),
+        client,
+    )
+
+    assert '"target_words": "220-280"' in client.users[0]
+    assert '"paragraphs": "4-5"' in client.users[0]
+
+
+def test_section_response_alignment_accepts_unique_number_but_not_ambiguous_unknowns() -> None:
+    expected = {"1.3 Актуальность программы", "1.4 Цель и задачи программы"}
+    data = {
+        "1.3 Описание программы": "Текст актуальности.",
+        "99 Несуществующий раздел": "Чужой текст.",
+    }
+
+    aligned = consilium_mod._align_section_response(data, expected)
+
+    assert aligned == {"1.3 Актуальность программы": "Текст актуальности."}
+    assert consilium_mod._align_section_response(
+        {"Описание": "Единственный текст."},
+        {"1.3 Актуальность программы"},
+    ) == {"1.3 Актуальность программы": "Единственный текст."}
 
 
 def test_run_consilium_repairs_non_repetition_validator_issue_once() -> None:

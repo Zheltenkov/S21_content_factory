@@ -684,7 +684,7 @@ def test_practice_service_blocks_critical_critic_issue() -> None:
     )
 
     assert result.status == "error"
-    assert "PracticeCritic оставил нерешённые критические замечания." in result.issues
+    assert "PracticeCritic оставил нерешённые критические замечания: детали не переданы критиком" in result.issues
 
 
 def test_finalize_service_prefers_resumed_context_dataset_files() -> None:

@@ -8,6 +8,8 @@ import docx
 import pytest
 
 from content_factory.rpd.build import build_rpd_sections
+from content_factory.rpd.dpo_spec import Cat
+from content_factory.rpd.template import load_rpd_template
 from content_factory.rpd.template_profiles import (
     BUILTIN_PK_PROFILE_ID,
     UnsupportedTemplateProfileError,
@@ -63,6 +65,89 @@ def test_build_persists_profile_and_template_fingerprints() -> None:
     assert build.source_spec.module_count == 1
     assert build.source_spec.calculated_total_hours == "16"
     assert len(build.source_spec.fingerprint) == 64
+
+
+def test_builtin_pk_exposes_mandatory_boilerplate_sections_for_review() -> None:
+    profile = get_template_profile(BUILTIN_PK_PROFILE_ID)
+
+    assert profile.should_review_boilerplate("1.2", "Нормативно-правовые основания")
+    assert profile.should_review_boilerplate("4.3", "Паспорт оценочных материалов")
+    assert profile.should_review_boilerplate("5.4", "Реализация с применением ЭО и ДОТ")
+    assert profile.should_review_boilerplate("5.5", "Условия для инвалидов")
+    assert profile.should_review_boilerplate("6", "Оценка качества реализации программы")
+    assert not profile.should_review_boilerplate("7", "Произвольный раздел")
+
+
+def test_builtin_pk_owns_assessment_materials_contract() -> None:
+    profile = get_template_profile(BUILTIN_PK_PROFILE_ID)
+
+    assert profile.category_for("4.3", "Паспорт оценочных материалов") is Cat.BOILERPLATE
+    assert profile.category_for("4.4", "Пример оценки") is Cat.ASSESSMENT_EVIDENCE
+
+
+def test_build_contains_all_twenty_one_methodologist_sections() -> None:
+    build = build_rpd_sections(from_registry_plan(_plan()))
+    sections = {section.number: section for section in build.sections}
+
+    assert len(build.sections) == 21
+    assert sections["2.1"].title == "Цели реализации программы"
+    assert sections["2.1"].category == "generate"
+    assert sections["2.1"].kind == "paragraphs"
+    assert sections["2.1"].paragraphs == ["[Будет сгенерировано]"]
+    assert sections["4.3"].preserve_template
+    assert sections["4.3"].editable  # форма ДПО: правки чтутся, без правок — дословная вёрстка
+    assert sections["4.3"].paragraphs == [
+        "! Все вопросы итоговой аттестации должны быть заранее опубликованы без ключей !",
+        "Ключи должны быть в отдельном файле (приложении), не в доке. "
+        "Обычно их никто не спрашивает, но должны быть",
+    ]
+    assert sections["4.4"].category == "assessment_evidence"
+    assert sections["4.4"].kind == "table"
+    assert not sections["4.4"].editable
+    assert sections["4.4"].table_header == [
+        "Здесь нужен скрин из задания (если программа реализуется в очно-заочной форме)."
+    ]
+    assert len(sections["4.4"].table_rows) == 1
+    assert sections["5.4"].preserve_template
+    assert sections["5.4"].editable
+    assert "электронная образовательная среда" in " ".join(sections["5.4"].paragraphs)
+    assert sections["5.5"].preserve_template
+    assert sections["5.5"].editable
+    assert "доступные форматы учебных материалов" in " ".join(sections["5.5"].paragraphs)
+    assert sections["6"].preserve_template
+    assert sections["6"].editable
+    assert sections["6"].kind == "table"
+    assert sections["6"].table_header == [
+        "Направление оценки",
+        "Показатель",
+        "Метод",
+        "Периодичность",
+        "Ответственный",
+    ]
+    assert [row[0] for row in sections["6"].table_rows] == [
+        "Достижение результатов",
+        "Удовлетворенность",
+        "Актуальность содержания",
+    ]
+    assert sections["7"].category == "program_developers"
+    assert sections["7"].kind == "table"
+    assert [row[0] for row in sections["7"].table_rows] == [
+        "Руководитель программы",
+        "Разработчик",
+        "Эксперт / рецензент",
+    ]
+
+
+def test_builtin_pk_treats_empty_goals_leaf_as_content_slot_not_container() -> None:
+    profile = get_template_profile(BUILTIN_PK_PROFILE_ID)
+
+    template = load_rpd_template(profile.template_path())
+    sections = {section.number: section for section in template.sections}
+
+    assert sections["2.1"].title == "Цели реализации программы"
+    assert not sections["2.1"].is_container
+    assert sections["2"].is_container
+    assert sections["3.3"].is_container
 
 
 def test_profile_rejects_docx_without_required_bindings(tmp_path: Path) -> None:

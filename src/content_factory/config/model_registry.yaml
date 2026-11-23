@@ -35,6 +35,10 @@ aliases:
   rpd_validate: critic
   rpd_repair: critic
   rpd_semantic_preflight: critic
+  rpd_profstandard_match: planner
+  rpd_competency_design: theory
+  rpd_competency_validate: critic
+  rpd_curriculum_titles: theory
 
 roles:
   planner:

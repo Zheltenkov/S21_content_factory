@@ -89,6 +89,10 @@ def test_model_registry_maps_rpd_nodes_to_independent_quality_cost_roles() -> No
     assert registry.canonical_role("rpd_validate") == "critic"
     assert registry.canonical_role("rpd_repair") == "critic"
     assert registry.canonical_role("rpd_semantic_preflight") == "critic"
+    assert registry.canonical_role("rpd_profstandard_match") == "planner"
+    assert registry.canonical_role("rpd_competency_design") == "theory"
+    assert registry.canonical_role("rpd_competency_validate") == "critic"
+    assert registry.canonical_role("rpd_curriculum_titles") == "theory"
 
 
 def test_router_supports_repetition_repair_as_a_critic_role() -> None:
@@ -137,3 +141,7 @@ def test_factory_applies_role_specific_model_timeout_retry_and_cache(
     assert by_role["rpd_prose"]["enable_cache"] is True
     assert by_role["rpd_validate"]["max_retries"] == 3
     assert by_role["rpd_validate"]["enable_cache"] is False
+    assert by_role["rpd_profstandard_match"]["enable_cache"] is True
+    assert by_role["rpd_competency_design"]["max_retries"] == 2
+    assert by_role["rpd_competency_validate"]["enable_cache"] is False
+    assert by_role["rpd_curriculum_titles"]["enable_cache"] is True

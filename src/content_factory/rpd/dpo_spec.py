@@ -2,7 +2,9 @@
 
 Определяет, ОТКУДА берётся содержимое каждого раздела при сборке РПД:
 - ``UP_*``       — из УП (учебный план, график, модули, компетенции) — ядро ценности;
-- ``GENERATE``   — проза, генерируется LLM прямо в РПД (актуальность длинно, цели поверхностно, паспорт);
+- ``PASSPORT``   — табличный паспорт: факты из УП + fixed-нормативка + structured LLM suggestions;
+- ``PROF_ACTIVITY`` — профильная таблица характеристики профессиональной деятельности;
+- ``GENERATE``   — проза, генерируется LLM прямо в РПД (актуальность длинно, 1.4 кратко, 2.1 по УП);
 - ``BOILERPLATE``— фиксированный текст ФОРМЫ, держим как в шаблоне (нормативка, документ, инвалиды);
 - ``PLATFORM``   — нужен скрин задания с платформы/LMS → авто НЕ закрывается, помечаем;
 - ``GAP``        — специфично для программы, методист впишет (оценочные материалы, разработчики).
@@ -22,6 +24,15 @@ class Cat(StrEnum):
     UP_GRAFIK = "up_grafik"
     UP_MODULES = "up_modules"
     UP_COMP = "up_comp"
+    PASSPORT = "passport"
+    PROF_ACTIVITY = "professional_activity"
+    CURRENT_CONTROL = "current_control"
+    FINAL_ATTESTATION = "final_attestation"
+    ASSESSMENT_EVIDENCE = "assessment_evidence"
+    METHODOLOGICAL_SUPPORT = "methodological_support"
+    MATERIAL_CONDITIONS = "material_conditions"
+    STAFFING = "staffing"
+    PROGRAM_DEVELOPERS = "program_developers"
     GENERATE = "generate"
     BOILERPLATE = "boilerplate"
     PLATFORM = "platform"
@@ -41,11 +52,11 @@ def category_for(number: str, title: str) -> Cat:
         return Cat.GENERATE
     if "паспорт" in t and "оцен" in t:  # 4.3 паспорт оценочных материалов — ВАЖНО (#15)
         return Cat.GAP
-    if "паспорт" in t:  # 1.1 паспорт программы — генерим (опц., вузы удаляют #7)
+    if "паспорт" in t:  # 1.1 — сохраняем табличный контракт стандартного шаблона (#7)
+        return Cat.PASSPORT
+    if "характеристика" in t and "проф" in t:  # профиль без специального контракта может оставить прозой
         return Cat.GENERATE
-    if "характеристика" in t and "проф" in t:  # 1.5 — опц. (#9)
-        return Cat.GENERATE
-    if "цель" in t or "цели" in t or "задач" in t:  # 1.4 / 2.1 цели — поверхностно (#10)
+    if "цель" in t or "цели" in t or "задач" in t:  # 1.4 кратко; 2.1 синтезирует результаты из УП
         return Cat.GENERATE
     if "компетенц" in t:  # 2.1 компетенции — из профстандарта/УП (#11)
         return Cat.UP_COMP
