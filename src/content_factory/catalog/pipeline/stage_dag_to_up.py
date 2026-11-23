@@ -8,6 +8,7 @@ the final payload remains compatible with the existing UI and CSV export.
 from __future__ import annotations
 
 import re
+from copy import deepcopy
 from math import isfinite
 from typing import Any
 
@@ -19,6 +20,10 @@ from .curriculum.edge_policy import curriculum_edge_role
 from .curriculum.methodology_profile import DEFAULT_PROFILE, MethodologyProfile
 from .curriculum.project_quality import report_only_quality_metrics
 from .curriculum.publication_gate import evaluate_publication_gate
+from .curriculum.revision_planner import apply_revision_rows, build_revision_blocks
+from .curriculum.revision_proposals import pending_revision_generation
+from .curriculum.revision_workload import refresh_revision_workload
+from .curriculum.source_fidelity import apply_source_fidelity_gate
 from .curriculum.workload import build_workload_contract
 from .models import SkillCandidate
 
@@ -351,24 +356,30 @@ def enrich_curriculum_row(row: dict[str, Any], project: ProjectBlueprint, spec: 
             "validation_criteria": _project_assessment_criteria(project),
         }
     )
+    _apply_content_profile(row, spec, block_key, [tool for node in project.unique_nodes for tool in node.tools])
+    row["node_ids"] = protected_node_ids
+    row["node_names"] = protected_node_names
+
+
+def _apply_content_profile(
+    row: dict[str, Any], spec: dict[str, Any] | None, block_key: str, tools: list[str],
+) -> None:
     profile_decision = infer_content_profile(
         direction=str((spec or {}).get("direction_code") or (spec or {}).get("direction") or ""),
         thematic_block=block_key,
-        title=project_name,
+        title=row["project_name"],
         description=str(row.get("project_summary") or ""),
-        skills=[node.name for node in project.unique_nodes],
-        required_tools=[tool for node in project.unique_nodes for tool in node.tools],
+        skills=row.get("node_names") or [],
+        required_tools=tools,
         learning_outcomes=[
             str(row.get("outcomes_know") or ""),
             str(row.get("outcomes_can") or ""),
             str(row.get("outcomes_skills") or ""),
         ],
-        artifact=project.artifact,
+        artifact=row["artifact"],
     )
     row["project_content_type"] = profile_decision.profile
     row["content_profile_decision"] = profile_decision.model_dump(mode="json")
-    row["node_ids"] = protected_node_ids
-    row["node_names"] = protected_node_names
 
 
 def _occurrence_totals(blocks: list[CurriculumBlock]) -> dict[str, int]:
@@ -653,8 +664,6 @@ def _format_rows(blocks: list[CurriculumBlock], spec: dict[str, Any] | None) -> 
             )
             row["platform_project_name"] = row["project_name"]
             rows.append(row)
-    _scale_hours_to_target(rows, spec)
-    _fill_effort_columns(rows)
     return rows
 
 
@@ -771,7 +780,8 @@ def _quality_metrics(rows: list[dict[str, Any]], planner_meta: dict[str, Any]) -
         "avg_primary_skills_per_project": round(sum(primary_skill_counts) / project_count, 2),
         "avg_repeat_skills_per_project": round(sum(repeat_skill_counts) / project_count, 2),
         "avg_outcomes_per_project": round(sum(outcome_counts) / project_count, 2),
-        "single_skill_project_count": sum(1 for count in skill_counts if count <= 1),
+        "single_skill_project_count": sum(1 for row, count in zip(rows, skill_counts, strict=True)
+                                          if count == 1 or (count == 0 and not row.get("source_unit_ids"))),
         "overloaded_project_count": len(overloaded),
         "enriched_project_count": enriched_project_count,
         "enrichment_completeness_pct": round(enriched_project_count / project_count * 100, 1),
@@ -816,9 +826,14 @@ def run(
     # This is the build composition root: resolve the hardcoded default here, then pass the
     # resolved profile object down. The identity is snapshotted so the read path re-resolves it.
     profile = profile or DEFAULT_PROFILE
+    # Keep the original inventory independent of planner decisions for the final audit.
+    source_curriculum = deepcopy((spec or {}).get("source_curriculum") or [])
+    revision_generation = (spec or {}).get("revision_generation")
+    if source_curriculum and not revision_generation:
+        revision_generation = pending_revision_generation((spec or {}).get("requirements_text") or "")
     # Планировщик работает только по фактически принятым узлам DAG.
     if not candidates or not dag_payload.get("order"):
-        return {
+        deferred: dict[str, Any] = {
             "status": "deferred",
             "message": "Черновик УП пока не строится: нет принятых навыков с валидным DAG.",
             "title": "Черновик учебного плана",
@@ -845,19 +860,39 @@ def run(
                 "publication_gate": evaluate_publication_gate(_quality_metrics([], {}), profile=profile).as_dict(),
             },
         }
+        if source_curriculum:
+            deferred["source_curriculum"] = source_curriculum
+            deferred["revision_generation"] = revision_generation
+            apply_source_fidelity_gate(deferred)
+        return deferred
 
     nodes = build_plan_nodes(candidates)
     artifact_templates = (spec or {}).get("artifact_templates")
     if not isinstance(artifact_templates, list):
         artifact_templates = []
-    blocks, planner_meta = build_curriculum_blocks(
-        nodes,
-        dag_payload,
-        artifact_templates,
-        planning_context=spec,
-        profile=profile,
-    )
+    if source_curriculum:
+        blocks, planner_meta = build_revision_blocks(nodes, dag_payload, spec or {}, profile=profile)
+    else:
+        blocks, planner_meta = build_curriculum_blocks(
+            nodes, dag_payload, artifact_templates, planning_context=spec, profile=profile,
+        )
     rows = _format_rows(blocks, spec)
+    if source_curriculum:
+        # Work estimates come from the projects. The calendar is a comparison target.
+        apply_revision_rows(rows, planner_meta)
+    else:
+        _scale_hours_to_target(rows, spec)
+    _fill_effort_columns(rows)
+    if source_curriculum:
+        block_key = ""
+        for row in rows:
+            block_key = row.get("block_title") or block_key
+            _apply_content_profile(row, spec, block_key, (row.get("required_tools") or "").split(", "))
+            if row.get("peer_reviews") is not None:
+                row["p2p_checks"] = row["peer_reviews"]
+            elif row.get("source_unit_ids") and re.search(r"\b(?:пир(?:ы|а|у|ом)?|напарник\w*|p2p|peer)\b", str(row.get("validation_criteria") or ""), re.I):
+                # Short assignments with an explicit peer check still require one review.
+                row["p2p_checks"] = max(1, row["p2p_checks"])
     total_hours = sum(float(row.get("effort_hours", 0) or 0) for row in rows)
     total_days = sum(float(row.get("effort_days", 0) or 0) for row in rows)
     total_xp = sum(int(row.get("xp", 0) or 0) for row in rows)
@@ -891,7 +926,7 @@ def run(
             }
         )
 
-    return {
+    plan: dict[str, Any] = {
         "status": "invalid" if is_invalid else "built",
         "message": (
             "Черновик УП невалиден: найдены нарушения порядка DAG. Нужна перенарезка проектов или правка DAG."
@@ -927,3 +962,18 @@ def run(
         "csv_secondary_header": CSV_SECONDARY_HEADER,
         "report": report,
     }
+    if source_curriculum:
+        plan["source_curriculum"] = source_curriculum
+        plan["revision_generation"] = revision_generation
+        plan["revision_calendar"] = {
+            key: (spec or {}).get(key) for key in ("target_total_hours", "hours_per_week", "study_days_per_week")
+        }
+        refresh_revision_workload(plan, plan["revision_calendar"])
+        plan["source_policy"] = "revision_with_accepted_skills"
+        plan["message"] = (
+            "Черновик обновления построен с привязкой к прежним работам. "
+            "Проверьте решения по переносу содержания и замечания по готовности."
+            if not is_invalid else plan["message"]
+        )
+        apply_source_fidelity_gate(plan)
+    return plan

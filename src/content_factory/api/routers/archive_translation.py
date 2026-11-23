@@ -24,6 +24,7 @@ from typing import Any, cast
 
 from fastapi import HTTPException, UploadFile
 
+from content_factory.api.db.user_runs_db import upsert_user_run
 from content_factory.api.routers.document_translation import (
     SOURCE_LANGUAGE,
     _write_translation_artifact,
@@ -48,7 +49,7 @@ from content_factory.translation.errors import DocumentFormatError
 from content_factory.translation.report import build_report
 
 ARCHIVE_EXTENSIONS = {".zip"}
-MAX_ARCHIVE_SIZE = int(os.getenv("MAX_TRANSLATION_ARCHIVE_SIZE_BYTES", 25 * 1024 * 1024))
+MAX_ARCHIVE_SIZE = int(os.getenv("MAX_TRANSLATION_ARCHIVE_SIZE_BYTES", 70 * 1024 * 1024))
 
 # Пределы на хранилище планов: план держит распакованный архив в памяти.
 MAX_PLANS = 10
@@ -206,6 +207,11 @@ def run_archive_translation(
             len(entries),
             len(translations),
         )
+        upsert_user_run(
+            request_id=request_id, user_id=user_id, kind="translation", status="completed",
+            title=plan["filename"], result_url=f"/api/v1/translate/status/{request_id}",
+            metadata={"target_language": target_language, "source_format": "zip", "files": len(paths)},
+        )
     except Exception as exc:  # noqa: BLE001 — задача не должна падать молча
         logger.error("Archive translation failed (request_id=%s): %s", request_id, exc, exc_info=True)
         set_translation_job(
@@ -218,6 +224,11 @@ def run_archive_translation(
             source_filename=plan.get("filename", ""),
             source_format="zip",
             error=str(exc) or exc.__class__.__name__,
+        )
+        upsert_user_run(
+            request_id=request_id, user_id=user_id, kind="translation", status="failed",
+            title=plan.get("filename"), result_url=f"/api/v1/translate/status/{request_id}",
+            metadata={"target_language": target_language, "source_format": "zip", "error": str(exc)},
         )
     finally:
         # План больше не нужен: архив лежит в памяти, а результат уже на диске.

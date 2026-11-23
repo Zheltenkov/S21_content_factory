@@ -20,6 +20,7 @@ from content_factory.catalog.pipeline._storage_common import (
 )
 from content_factory.catalog.pipeline.skill_promotion import sync_curriculum_plan_skill_set
 
+from .curriculum.source_fidelity import is_source_backed
 from .models import Evidence, SkillCandidate
 from .template_binding_snapshots import (
     canonical_template_snapshot_json,
@@ -29,9 +30,11 @@ from .template_binding_snapshots import (
 
 
 def save_brief(con: CatalogConnection, raw: str, spec: dict) -> int:
+    # Keep the intake snapshot available even when a job payload expires or the CLI saved the brief.
+    metadata = json.dumps({"brief_spec": spec}, ensure_ascii=False)
     cur = con.execute(
-        "INSERT INTO profile_brief(raw_text, role, seniority, domain) VALUES (?,?,?,?)",
-        (raw, spec.get("role"), spec.get("seniority"), spec.get("domain")),
+        "INSERT INTO profile_brief(raw_text, role, seniority, domain, metadata_json) VALUES (?,?,?,?,?)",
+        (raw, spec.get("role"), spec.get("seniority"), spec.get("domain"), metadata),
     )
     con.commit()
     return int(cur.lastrowid or 0)
@@ -266,6 +269,8 @@ def save_curriculum_plan(
         )
         plan_id = int(cur.lastrowid or 0)
         row_count = 0
+        bind_revision = is_source_backed(plan_payload)
+        bound_rows: list[dict[str, Any]] = []
         for row in plan_payload.get("rows", []):
             if not isinstance(row, dict):
                 continue
@@ -321,6 +326,10 @@ def save_curriculum_plan(
                 ),
             )
             plan_row_id = int(row_cursor.lastrowid or 0)
+            if bind_revision:
+                if not plan_row_id:
+                    raise RuntimeError("Source-backed curriculum row did not return a database identity")
+                bound_rows.append({**row, "id": plan_row_id})
             template_binding = row.get("template_binding")
             if isinstance(template_binding, dict):
                 if not _table_exists(con, "curriculum_plan_row_template_binding"):
@@ -357,6 +366,12 @@ def save_curriculum_plan(
                     ),
                 )
             row_count += 1
+        if bind_revision:
+            # Store lineage in the same transaction as the rows it describes.
+            con.execute(
+                "UPDATE curriculum_plan SET payload_json = ? WHERE id = ?",
+                (json.dumps({**plan_payload, "rows": bound_rows}, ensure_ascii=False), plan_id),
+            )
         skill_set = sync_curriculum_plan_skill_set(
             con,
             brief_id=brief_id,
@@ -367,4 +382,7 @@ def save_curriculum_plan(
     except Exception:
         con.rollback()
         raise
+    if bind_revision:
+        # Callers persist the returned plan again as a job snapshot; expose committed IDs.
+        plan_payload["rows"] = bound_rows
     return {"plan_id": plan_id, "row_count": row_count, "skill_set_id": int(skill_set.get("skill_set_id") or 0)}

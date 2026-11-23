@@ -63,6 +63,10 @@ def test_without_translations_the_file_is_byte_identical(handler: YamlHandler) -
     assert handler.apply(source, {}) == source
 
 
+@pytest.mark.skipif(
+    not Path("DSB10_Intro_to_ML.ID_886521-master/check-list.yml").is_file(),
+    reason="Requires the optional local School 21 project corpus",
+)
 def test_the_real_check_list_round_trips_byte_for_byte(handler: YamlHandler) -> None:
     source = Path("DSB10_Intro_to_ML.ID_886521-master/check-list.yml").read_bytes()
 

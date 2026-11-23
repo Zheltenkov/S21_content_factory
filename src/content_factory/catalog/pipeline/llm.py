@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
@@ -14,6 +16,16 @@ from . import config
 from .prompt_versions import prompt_version_for_stage
 
 _USAGE_CONTEXT: ContextVar[dict[str, object] | None] = ContextVar("llm_usage_context", default=None)
+
+
+@contextmanager
+def scoped_usage_context(**fields: object) -> Iterator[None]:
+    """Attribute a nested model call without losing the intake job or its parent stage."""
+    token = _USAGE_CONTEXT.set({**(_USAGE_CONTEXT.get() or {}), **fields})
+    try:
+        yield
+    finally:
+        _USAGE_CONTEXT.reset(token)
 
 
 def set_usage_context(**kwargs: object) -> None:

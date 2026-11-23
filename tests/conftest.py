@@ -44,6 +44,13 @@ def mock_llm_client():
     return client
 
 
+@pytest.fixture(autouse=True)
+def isolated_translation_job_storage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Tests never write durable translation metadata into developer or production storage."""
+    monkeypatch.setenv("TRANSLATION_JOB_DB_PATH", str(tmp_path / "translation-jobs.sqlite3"))
+    yield
+
+
 @pytest.fixture
 def mock_embedding_function():
     """Создает мок функции эмбеддингов."""

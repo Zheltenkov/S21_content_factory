@@ -3,7 +3,7 @@
 Covers the brief workspace (GET/POST), the async job view + JSON status polling
 (same contract the inline ``intake.html`` JS expects), the workflow actions
 (next-step / build-dag / apply-catalog / candidate-decision) and the curriculum
-plan CSV export. Pipeline/data logic lives in ``catalog.viewer`` modules; this
+plan CSV and Excel downloads. Pipeline/data logic lives in ``catalog.viewer`` modules; this
 file owns only Starlette/FastAPI transport concerns.
 """
 
@@ -13,7 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from content_factory.catalog.db import CatalogConnection
-from content_factory.catalog.viewer.curriculum_ops import curriculum_plan_to_csv_bytes
+from content_factory.catalog.pipeline.curriculum.source_fidelity import is_source_backed
+from content_factory.catalog.viewer.curriculum_ops import get_curriculum_plan
 from content_factory.catalog.viewer.intake_brief_io import load_brief_text
 from content_factory.catalog.viewer.intake_catalog_apply import (
     apply_brief_catalog_decisions,
@@ -36,6 +37,7 @@ from content_factory.catalog.viewer.intake_workspace import (
     hydrate_job_result_payload,
 )
 from content_factory.catalog.viewer.labels import intake_job_status_label, intake_stage_label
+from content_factory.catalog.web.curriculum_download import ExportFormat, curriculum_attachment
 from content_factory.catalog.web.deps import catalog_db_path, get_conn
 from content_factory.catalog.web.form_parsing import form_and_files, form_fields
 from content_factory.catalog.web.rendering import CATALOG_URL_PREFIX, render
@@ -244,10 +246,9 @@ async def intake_job_candidate_decision(
 
 
 # --------------------------------------------------------------------------- #
-# curriculum plan CSV
+# curriculum downloads
 # --------------------------------------------------------------------------- #
-@router.get("/intake/jobs/{job_id}/plan.csv")
-def intake_job_plan_csv(job_id: int, conn: CatalogConnection = Depends(get_conn)) -> Response:
+def _download_job_plan(conn: CatalogConnection, job_id: int, fmt: ExportFormat) -> Response:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     job = get_intake_job(conn, job_id)
     if not job:
@@ -258,12 +259,25 @@ def intake_job_plan_csv(job_id: int, conn: CatalogConnection = Depends(get_conn)
     plan_payload = result_payload.get("curriculum_plan")
     if not isinstance(plan_payload, dict) or not plan_payload.get("rows"):
         raise HTTPException(status_code=404, detail="Curriculum plan rows not found")
-    filename = f"curriculum_plan_brief_{result_payload.get('brief_id', job_id)}.csv"
-    return Response(
-        content=curriculum_plan_to_csv_bytes(plan_payload),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    if is_source_backed(plan_payload) and plan_payload.get("plan_id"):
+        # Use the same persisted rows and gate as the plan editor when a job has been saved.
+        current = get_curriculum_plan(conn, int(plan_payload["plan_id"]))
+        if current is None:
+            plan_payload = {**plan_payload, "status": "deferred", "message": "Сохранённая версия УП недоступна."}
+        else:
+            plan_payload = current
+    stem = f"curriculum_plan_brief_{result_payload.get('brief_id', job_id)}"
+    return curriculum_attachment(plan_payload, stem, fmt, check_dag_status=False)
+
+
+@router.get("/intake/jobs/{job_id}/plan.csv")
+def intake_job_plan_csv(job_id: int, conn: CatalogConnection = Depends(get_conn)) -> Response:
+    return _download_job_plan(conn, job_id, "csv")
+
+
+@router.get("/intake/jobs/{job_id}/plan.xlsx")
+def intake_job_plan_xlsx(job_id: int, conn: CatalogConnection = Depends(get_conn)) -> Response:
+    return _download_job_plan(conn, job_id, "xlsx")
 
 
 # --------------------------------------------------------------------------- #

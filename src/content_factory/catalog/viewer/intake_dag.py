@@ -414,6 +414,7 @@ def load_brief_spec_for_plan(conn: CatalogConnection, brief_id: int) -> dict[str
         return {}
     from content_factory.catalog.pipeline import stage_brief_to_catalog
     from content_factory.catalog.pipeline import storage as intake_storage
+    from content_factory.catalog.pipeline.brief_source_curriculum import split_curriculum_brief
 
     metadata = _load_json_object(row["metadata_json"])
     latest_job = conn.execute(
@@ -432,12 +433,23 @@ def load_brief_spec_for_plan(conn: CatalogConnection, brief_id: int) -> dict[str
     raw_latest_spec = latest_payload.get("spec")
     latest_spec: dict[str, Any] = raw_latest_spec if isinstance(raw_latest_spec, dict) else {}
     spec = {
+        **_load_json_object(metadata.get("brief_spec")),
         **latest_spec,
         "role": row["role"],
         "seniority": row["seniority"],
         "domain": row["domain"],
         "raw_text": row["raw_text"],
     }
+    # Legacy intakes have only raw text or a spec predating the source register. Rebuild without an LLM.
+    if "source_curriculum" not in spec or (spec["source_curriculum"] and "requirements_text" not in spec):
+        parsed = split_curriculum_brief(str(row["raw_text"] or ""))
+        spec["source_curriculum"] = parsed.projects
+        if parsed.projects:
+            spec["requirements_text"] = parsed.requirements_text
+    if metadata.get("revision_reviews"):
+        from .curriculum_revision_review import apply_reviewed_revisions
+
+        apply_reviewed_revisions(spec, metadata["revision_reviews"])
     accepted_design = metadata.get("curriculum_design_spec") if isinstance(metadata, dict) else None
     if isinstance(accepted_design, dict):
         spec["curriculum_design_spec"] = accepted_design
@@ -445,7 +457,7 @@ def load_brief_spec_for_plan(conn: CatalogConnection, brief_id: int) -> dict[str
     spec.update(
         {
             key: value
-            for key, value in stage_brief_to_catalog.extract_workload_from_text(str(row["raw_text"] or "")).items()
+            for key, value in stage_brief_to_catalog.extract_workload_from_text(str(spec.get("requirements_text", row["raw_text"]) or "")).items()
             if value is not None
         }
     )
@@ -625,6 +637,7 @@ def build_curriculum_plan_for_brief(
     dag_payload: dict[str, Any] | None = None,
     *,
     allow_open_edge_reviews: bool = False,
+    require_current_dag: bool = False,
 ) -> dict[str, Any]:
     from content_factory.catalog.pipeline import stage_dag_to_up, storage
     from content_factory.catalog.viewer.intake_reviews import count_open_prerequisite_edge_reviews_for_brief
@@ -637,6 +650,15 @@ def build_curriculum_plan_for_brief(
     cands = accepted_candidates if candidates is None else candidates
     persisted_dag_payload = load_latest_brief_dag_payload(conn, brief_id)
     effective_dag_payload = dag_payload or persisted_dag_payload
+    if require_current_dag:
+        # A reviewer confirms a replacement of the plan they saw. A missing or stale
+        # graph must leave both that plan and the uncommitted review untouched.
+        order = effective_dag_payload.get("order")
+        order = order if isinstance(order, list) else []
+        ids = [item["id"] for item in order if isinstance(item, dict) and isinstance(item.get("id"), str)]
+        if (not cands or len(ids) != len(order) or len(ids) != len(cands)
+                or set(ids) != {candidate.tmp_id for candidate in cands}):
+            raise ValueError("Для пересборки подтвердите навыки и постройте актуальный DAG. Прежний УП сохранён.")
     if not effective_dag_payload:
         effective_dag_payload = build_deferred_dag_payload(
             get_brief_dag_state(conn, brief_id),
@@ -646,6 +668,8 @@ def build_curriculum_plan_for_brief(
     spec = load_brief_spec_for_plan(conn, brief_id)
     # Compute the complete replacement before storage mutates the current plan.
     plan_payload = stage_dag_to_up.run(spec, cands, effective_dag_payload)
+    if require_current_dag and (plan_payload.get("status") == "deferred" or not plan_payload.get("rows")):
+        raise ValueError("Пересборка не сформировала строки УП. Прежний УП сохранён.")
     save_meta = storage.save_curriculum_plan(conn, brief_id, plan_payload)
     plan_payload["plan_id"] = save_meta["plan_id"]
     plan_payload["row_count"] = save_meta["row_count"]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -304,3 +305,57 @@ def test_readiness_gate_blocks_generation_when_brief_reviews_are_open() -> None:
 
     assert exc_info.value.status_code == 409
     assert exc_info.value.detail["blockers"][0]["code"] == "open_reviews"
+
+
+def test_source_revision_freeze_and_seed_recheck_current_sql_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    session_factory = _session_factory()
+    monkeypatch.setattr(contract, "SessionLocal", session_factory)
+    source = {"source_id": "work-17", "title": "Измерения", "team_mode": "individual", "source_ref": "Реестр!C17"}
+    decision = {
+        "source_id": "work-17", "disposition": "retain", "target_project_ids": ["proj-17"],
+        "rationale": "Сохранить измерения", "source_ref": "Реестр!C17",
+    }
+    plan = {
+        "source_curriculum": [source],
+        "revision_generation": {"state": "complete", "issues": []},
+        "report": {"planner_meta": {"revision": {"source_curriculum": [source], "dispositions": [decision]}}},
+        "rows": [{
+            "id": 100, "row_number": 1, "revision_project_id": "proj-17", "source_unit_ids": ["work-17"],
+            "participant_action": "Сопоставить измерения", "artifact": "Таблица отклонений", "source_refs": ["Реестр!C17"],
+            "node_ids": ["a", "b"], "policy_area": "measurement",
+        }],
+        # A stale block must never be used to construct the actual generator payload.
+        "blocks": [{"title": "Старый блок", "rows": [{"project_name": "Удалённая работа"}]}],
+    }
+    with session_factory() as db:
+        db.execute(text("UPDATE catalog.curriculum_plan SET payload_json=:payload WHERE id=10"),
+                   {"payload": json.dumps(plan)})
+        db.execute(text("UPDATE catalog.curriculum_plan_row SET project_name='Анализ показаний датчиков', "
+                        "validation_criteria='Расчёт → эталон' WHERE id=100"))
+        db.commit()
+        context = contract.build_generation_context_from_persisted_plan(
+            db, plan_id=10, block_name="Блок 1. Данные", project_order=1,
+        )
+        assert context["origin"]["source_unit_ids"] == ["work-17"]
+        assert context["origin"]["revision_project_id"] == "proj-17"
+        assert "Таблица отклонений" in context["context"]["current_project_description"]
+        seed = {"curriculum_origin": context["origin"], "project_type": "individual"}
+        assert contract.validate_generation_seed_curriculum_contract(seed)
+        with pytest.raises(contract.CurriculumContractError, match="Форма"):
+            contract.validate_generation_seed_curriculum_contract({**seed, "project_type": "group"})
+
+        decision["rationale"] = "Согласовано с руководителем практики"
+        db.execute(text("UPDATE catalog.curriculum_plan SET payload_json=:payload WHERE id=10"),
+                   {"payload": json.dumps(plan)})
+        db.commit()
+        with pytest.raises(contract.CurriculumContractError, match="изменился"):
+            contract.validate_generation_seed_curriculum_contract(seed)
+        db.execute(text("DELETE FROM catalog.curriculum_plan_row WHERE id=100"))
+        db.commit()
+        snapshot = contract.load_persisted_curriculum_snapshot(db, 10)
+        assert snapshot["curriculum"]["blocks"] == []
+        assert snapshot["readiness"]["ready"] is False
+        with pytest.raises(contract.CurriculumContractError) as blocked:
+            contract.validate_generation_seed_curriculum_contract(seed)
+        assert blocked.value.status_code == 409
+        assert any(item["code"] == "source_fidelity" for item in blocked.value.detail["blockers"])

@@ -168,13 +168,14 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
     )
     # FACTS only — the single-skill EXEMPTION (labs etc.) is policy, applied by the gate via
     # the profile's single_skill_exempt_kinds, not baked into the measurement.
-    single_skill_count = sum(1 for row in rows if len(row.get("node_ids") or []) <= 1)
+    unmapped_source_count = sum(1 for row in rows if row.get("source_unit_ids") and not row.get("node_ids"))
+    single_skill_count = sum(1 for row in rows if len(row.get("node_ids") or []) <= 1) - unmapped_source_count
     project_count_by_type: dict[str, int] = {}
     single_skill_count_by_type: dict[str, int] = {}
     for row in rows:
         project_type = str(row.get("project_type") or "project")
         project_count_by_type[project_type] = project_count_by_type.get(project_type, 0) + 1
-        if len(row.get("node_ids") or []) <= 1:
+        if len(row.get("node_ids") or []) <= 1 and not (row.get("source_unit_ids") and not row.get("node_ids")):
             single_skill_count_by_type[project_type] = single_skill_count_by_type.get(project_type, 0) + 1
     testable_criteria_count = sum(1 for row in rows if is_testable_criterion(row.get("validation_criteria") or ""))
     unclassified_policy_area_count = sum(1 for row in rows if not is_classified(row))
@@ -241,6 +242,7 @@ def report_only_quality_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         # single_skill_exempt_kinds. Kept for backward compatibility with existing consumers.
         "single_skill_project_pct": round(single_skill_count / project_count * 100, 1),
         "single_skill_count": single_skill_count,
+        "unmapped_source_project_count": unmapped_source_count,
         "project_count": project_count,
         "project_count_by_type": project_count_by_type,
         "single_skill_count_by_type": single_skill_count_by_type,

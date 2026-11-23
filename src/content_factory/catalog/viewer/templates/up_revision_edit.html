@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block content %}
+{% set link = base ~ '/up/plans/' ~ editor.plan_id %}
+{% set values = submitted if submitted is defined else current %}
+{% set selected_ids = selected_ids if selected_ids is defined else current.get('source_ids', [source.source_id]) %}
+{% set selected_refs = selected_refs if selected_refs is defined else current.get('requirement_refs', []) %}
+<section class="hero"><div><h1>Решение по прежней работе</h1>
+<p>Учебный план № {{ editor.plan_id }}. Выберите работу, проверьте предложение и укажите основание принятого решения.</p></div>
+<a class="action-btn action-btn-secondary" href="{{ link }}">Вернуться к УП</a></section>
+{% if error %}<p class="status-badge warn" role="alert">{{ error }}</p>{% endif %}
+<section class="filter-panel">
+<form class="admin-form" action="{{ link }}/revision" method="get">
+    <label>Работа для проверки <select name="source">
+    {% for work in works %}<option value="{{ work.source_id }}" {% if work.source_id == source.source_id %}selected{% endif %}>{{ work.title }} · {{ work.source_ref }}</option>{% endfor %}
+    </select></label><button class="action-btn action-btn-secondary" type="submit">Показать решение</button>
+</form>
+<p>{{ source.description }}</p>{% for outcome in source.outcomes %}<div>{{ outcome }}</div>{% endfor %}
+{% if current %}<p>{{ 'Методолог подтвердил решение.' if current.approved else 'Предложение модели ожидает проверки.' }} {{ current.source_ref }}</p>{% endif %}
+</section>
+<section class="filter-panel"><form class="admin-form" action="{{ link }}/revision" method="post">
+<input type="hidden" name="version" value="{{ editor.token }}"><input type="hidden" name="selected" value="{{ source.source_id }}">
+<label>Исходные работы <select name="source_ids" multiple size="6" required>
+{% for work in works %}<option value="{{ work.source_id }}" {% if work.source_id in selected_ids %}selected{% endif %}>{{ work.title }} · {{ work.source_ref }}</option>{% endfor %}
+</select></label>
+<label>Решение <select name="disposition">{% for key, label in [('retain','Сохранить'),('revise','Обновить'),('merge','Объединить выбранные работы'),('specialize','Перенести в специализацию'),('hold','Оставить на обсуждение'),('omit','Исключить')] %}
+<option value="{{ key }}" {% if values.get('disposition', 'retain') == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+<label>Название проекта <input name="title" value="{{ values.get('title') or source.card_title or source.title }}" required minlength="3"></label>
+{% for key, label in [('case_context','Условия задачи'),('participant_action','Действие участника'),('artifact','Что сдаёт участник'),('validation_criteria','Как проверить результат'),('rationale','Почему принято это решение'),('review_question','Вопрос или формулировка согласованного исключения')] %}
+<label>{{ label }} <textarea name="{{ key }}" {% if key == 'rationale' %}required minlength="8"{% endif %}>{{ values.get(key, '') }}</textarea></label>
+{% endfor %}
+{% for key, label in [('inputs','Исходные данные или необходимые умения'),('prerequisite_source_ids','ID прежних работ, результат которых нужен на входе'),('required_tools','Инструменты'),('lost_outcomes','Какие исходные результаты будут утрачены')] %}
+<label>{{ label }} (по одному на строку) <textarea name="{{ key }}">{{ values.get(key, '') if submitted is defined else values.get(key, [])|join('\n') }}</textarea></label>
+{% endfor %}
+{% for key, label in [('know','Что узнает участник'),('can','Что сможет сделать участник'),('skills','Какой навык продемонстрирует')] %}
+<label>{{ label }} (по одному на строку) <textarea name="outcomes_{{ key }}">{{ values.get('outcomes_' ~ key, '') if submitted is defined else (current.get('learning_outcomes') or {}).get(key, [])|join('\n') }}</textarea></label>
+{% endfor %}
+{% set acceptance = current.get('acceptance_test') or {} %}
+<label>Контрольная проверка <textarea name="acceptance_check">{{ values.get('acceptance_check', '') if submitted is defined else acceptance.get('check', '') }}</textarea></label>
+<label>Ожидаемый результат проверки <textarea name="acceptance_expected">{{ values.get('acceptance_expected', '') if submitted is defined else acceptance.get('expected_result', '') }}</textarea></label>
+<label>Название группы специализаций с выбором одной работы <input name="choose_one_group" value="{{ values.get('choose_one_group', '') }}"></label>
+<label>Форма сдачи <select name="target_team_mode">
+{% for key, label in [('', 'Сохранить исходную'),('individual','Индивидуальная'),('team','Групповая')] %}<option value="{{ key }}" {% if values.get('target_team_mode','') == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+<label>Оценка часов <input type="number" name="effort_hours" min="0.01" step="any" value="{{ values.get('effort_hours') or '' }}"></label>
+<label>Человек в команде <input type="number" name="group_size" min="2" step="1" value="{{ values.get('group_size') or '' }}"></label>
+<label>Количество независимых проверок <input type="number" name="peer_reviews" min="0" step="1" value="{{ values.peer_reviews if values.get('peer_reviews') is not none else '' }}"></label>
+<input type="hidden" name="edit_capstone" value="yes">
+<label><input type="checkbox" name="is_capstone" value="yes" {% if values.get('is_capstone') %}checked{% endif %}>Итоговая защита всей программы</label>
+<input type="hidden" name="edit_entry_project" value="yes">
+<label><input type="checkbox" name="is_entry_project" value="yes" {% if values.get('is_entry_project') %}checked{% endif %}>Эта работа открывает программу для всех участников</label>
+<fieldset><legend>Цитаты, на которых основано решение</legend><p>Отметьте только требования, реализованные в задании. При сохранении прежней работы можно сослаться на её исходное описание.</p>
+{% for p in passages if p.text|length >= 12 %}<label><input type="checkbox" name="refs" value="{{ p.ref }}" {% if p.ref in selected_refs %}checked{% endif %}>{{ p.ref }} · {{ p.text }}</label>{% endfor %}
+<label><input type="checkbox" name="historical" value="yes" {% if (submitted is defined and submitted.get('historical')) or (submitted is not defined and historical) %}checked{% endif %}>Добавить цитату из прежней карточки</label></fieldset>
+<label><input name="confirmed" type="checkbox" value="yes" required>Подтверждаю решение и пересборку УП. Ручные правки строк заменятся результатом новой сборки.</label>
+<button class="action-btn action-btn-primary" type="submit">Подтвердить и пересобрать УП</button></form></section>
+{% endblock %}

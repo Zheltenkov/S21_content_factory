@@ -32,6 +32,7 @@ from .brief_mock_spec import (
     _short_topic_label,
     _topic_to_mock_skill_name,
 )
+from .brief_source_curriculum import split_curriculum_brief
 from .brief_triage import (
     _confidence,
     _is_for_resolve,
@@ -52,6 +53,8 @@ RUSSIAN_OUTPUT_RULE = (
 
 # --------- decompose ---------
 def decompose(brief: str) -> dict:
+    parsed = split_curriculum_brief(brief)
+    brief = parsed.requirements_text
     if config.USE_LIVE:
         sys = (
             "Ты анализируешь бриф для построения skill portrait. "
@@ -77,8 +80,16 @@ def decompose(brief: str) -> dict:
         for field in ("duration_months_min", "duration_months_max", "hours_per_week", "target_total_hours"):
             if raw.get(field) not in (None, "") and field not in spec:
                 spec[field] = raw[field]
-        return spec
-    return _mock_spec_from_brief(brief)
+    else:
+        spec = _mock_spec_from_brief(brief)
+    spec["source_curriculum"] = parsed.projects
+    if parsed.projects:
+        spec["requirements_text"] = brief
+        if config.USE_LIVE:
+            from .curriculum.revision_proposals import propose_curriculum_revisions
+
+            spec.update(propose_curriculum_revisions(spec))
+    return spec
 
 
 def _candidate_source_text(candidate: SkillCandidate) -> str:
@@ -111,6 +122,7 @@ def synthesize_draft_from_brief(brief: str, spec: dict) -> tuple[list[SkillCandi
     Perplexity для него не вызывается.
     """
     if config.USE_LIVE:
+        brief = spec.get("requirements_text", brief)
         spec_context = {
             "artifact_type": spec.get("artifact_type"),
             "target_role": spec.get("role"),

@@ -51,7 +51,8 @@ def _archive(files: dict[str, bytes | str]) -> bytes:
 
 
 @pytest.fixture(autouse=True)
-def _clean_plans():
+def _clean_plans(monkeypatch):
+    monkeypatch.setattr(module, "upsert_user_run", lambda **kwargs: None)
     module._PLANS.clear()
     yield
     module._PLANS.clear()
@@ -322,6 +323,15 @@ def test_a_file_that_is_not_an_archive_is_refused_over_http() -> None:
 
     assert response.status_code == 400
     assert "zip" in response.json()["detail"]
+
+
+def test_completed_archive_updates_the_dashboard(monkeypatch, tmp_path) -> None:
+    updates = []
+    monkeypatch.setattr(module, "upsert_user_run", lambda **values: updates.append(values))
+    job = _run(monkeypatch, tmp_path, {"README.md": "Проверьте решение"})
+    assert job["status"] == "completed"
+    assert updates[-1]["status"] == "completed"
+    assert updates[-1]["user_id"] == "user-1"
 
 
 def test_an_unknown_plan_is_not_found_over_http() -> None:

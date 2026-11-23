@@ -1,6 +1,6 @@
 """Curriculum-plan (УП) UI served by the native FastAPI catalog router.
 
-Covers the plan index, plan detail, CSV export (409 when the DAG order is invalid),
+Covers the plan index, plan detail, CSV and Excel downloads,
 row create/edit/delete, and the artifact-template proposal workflow
 (generate / save / accept / reject).
 
@@ -25,7 +25,6 @@ from content_factory.catalog.viewer._common import parse_optional_float
 from content_factory.catalog.viewer.curriculum_ops import (
     cleanup_empty_curriculum_plans,
     create_curriculum_plan_row,
-    curriculum_plan_to_csv_bytes,
     delete_curriculum_plan,
     delete_curriculum_plan_row,
     get_curriculum_plan,
@@ -34,6 +33,12 @@ from content_factory.catalog.viewer.curriculum_ops import (
     parse_scope_names,
     update_curriculum_plan_row,
 )
+from content_factory.catalog.viewer.curriculum_revision_review import (
+    StaleRevisionError,
+    confirm_revision,
+    editor_context,
+    load_revision_editor,
+)
 from content_factory.catalog.viewer.intake_dag import (
     approve_brief_curriculum_design,
     build_curriculum_plan_for_brief,
@@ -41,6 +46,7 @@ from content_factory.catalog.viewer.intake_dag import (
 )
 from content_factory.catalog.viewer.intake_runtime import ensure_intake_runtime_schema
 from content_factory.catalog.viewer.ui_constants import ARTIFACT_FAMILY_OPTIONS, ARTIFACT_SCOPE_TYPE_OPTIONS
+from content_factory.catalog.web.curriculum_download import ExportFormat, curriculum_attachment
 from content_factory.catalog.web.deps import catalog_db_path, get_conn
 from content_factory.catalog.web.rendering import CATALOG_URL_PREFIX, render
 
@@ -198,22 +204,60 @@ async def up_plan_methodology_post(
     return _redirect_synced(f"/up/plans/{rebuilt_plan_id}#methodology-review")
 
 
-@router.get("/up/plans/{plan_id}/csv")
-def up_plan_csv(plan_id: int, conn: CatalogConnection = Depends(get_conn)) -> Response:
+@router.api_route("/up/plans/{plan_id}/revision", methods=["GET", "POST"], response_class=HTMLResponse)
+async def up_plan_revision(plan_id: int, request: Request, conn: CatalogConnection = Depends(get_conn)) -> Response:
+    """Review a grounded source decision and rebuild this brief through the normal planner."""
+    from content_factory.api.integrations.auth_cookie import validate_request_user
+
+    ensure_intake_runtime_schema(conn, catalog_db_path())
+    submitted = request.method == "POST"
+    data = await request.form() if submitted else None
+    selected = str(data.get("selected") or "") if data is not None else request.query_params.get("source")
+    try:
+        editor = load_revision_editor(conn, plan_id, for_update=submitted)
+    except StaleRevisionError as exc:
+        raise HTTPException(status_code=409 if submitted else 404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    context = editor_context(editor, selected)
+    status = 200
+    if data is not None:
+        user = await validate_request_user(request)
+        if user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Подтверждение решения доступно администратору каталога.")
+        form = {key: str(value) for key, value in data.items()}
+        source_ids = [str(s) for s in data.getlist("source_ids")]
+        refs = [str(s) for s in data.getlist("refs")]
+        try:
+            confirm_revision(conn, editor, form, source_ids, refs, actor=str(user["id"]))
+            rebuilt = build_curriculum_plan_for_brief(conn, editor.brief_id, require_current_dag=True)
+        except StaleRevisionError as exc:
+            conn.rollback()
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ValueError as exc:
+            conn.rollback()
+            context.update(error=str(exc), submitted=form, selected_ids=source_ids, selected_refs=refs)
+            status = 422
+        else:
+            return _redirect_synced(f"/up/plans/{int(rebuilt['plan_id'])}#curriculum-revision")
+    return HTMLResponse(render("up_revision_edit.html", context, request_path=f"/up/plans/{plan_id}/revision"),
+                        status_code=status)
+
+
+def _download_plan(conn: CatalogConnection, plan_id: int, fmt: ExportFormat) -> Response:
     ensure_intake_runtime_schema(conn, catalog_db_path())
     plan = _require_plan(conn, plan_id)
-    if str(plan.get("status") or "").casefold() == "invalid":
-        return Response(
-            content="CSV export is blocked: curriculum plan has DAG order violations.",
-            status_code=409,
-            media_type="text/plain; charset=utf-8",
-        )
-    filename = f"curriculum_plan_{plan_id}.csv"
-    return Response(
-        content=curriculum_plan_to_csv_bytes(plan),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    return curriculum_attachment(plan, f"curriculum_plan_{plan_id}", fmt, check_dag_status=True)
+
+
+@router.get("/up/plans/{plan_id}/csv")
+def up_plan_csv(plan_id: int, conn: CatalogConnection = Depends(get_conn)) -> Response:
+    return _download_plan(conn, plan_id, "csv")
+
+
+@router.get("/up/plans/{plan_id}/xlsx")
+def up_plan_xlsx(plan_id: int, conn: CatalogConnection = Depends(get_conn)) -> Response:
+    return _download_plan(conn, plan_id, "xlsx")
 
 
 # --------------------------------------------------------------------------- #

@@ -811,7 +811,7 @@
     </div>
     <div class="review-actions">
         {% set up_is_valid = result.curriculum_plan.status == 'built' %}
-        {% if result.curriculum_plan.plan_id and up_is_valid %}
+        {% if result.curriculum_plan.plan_id and (up_is_valid or result.curriculum_plan.source_curriculum) %}
         <a class="action-btn action-btn-primary" href="{{ base }}/up/plans/{{ result.curriculum_plan.plan_id }}">Открыть УП</a>
         {% elif result.curriculum_plan.plan_id %}
         <span class="action-btn action-btn-light disabled">Открыть УП недоступно</span>
@@ -819,17 +819,20 @@
         {% if result.curriculum_plan.plan_id and result.curriculum_plan.template_proposal_count %}
         <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ result.curriculum_plan.plan_id }}/template-proposals">Шаблоны УП ({{ result.curriculum_plan.template_proposal_count }})</a>
         {% endif %}
-        {% if result.curriculum_plan.rows and up_is_valid %}
-        <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ result.curriculum_plan.plan_id }}/csv">Скачать CSV</a>
+        {% set draft = result.curriculum_plan.source_curriculum and (not up_is_valid or not result.curriculum_plan.report.publication_gate.passed) %}
+        {% if result.curriculum_plan.rows and (draft or up_is_valid) and (result.curriculum_plan.plan_id or job) %}
+        {% set export_base = base ~ "/up/plans/" ~ result.curriculum_plan.plan_id ~ "/" if result.curriculum_plan.plan_id else base ~ "/intake/jobs/" ~ job.id ~ "/plan." %}
+        <a class="action-btn action-btn-secondary" href="{{ export_base }}csv">Скачать {{ "черновик " if draft else "" }}CSV</a>
+        <a class="action-btn action-btn-secondary" href="{{ export_base }}xlsx">Скачать {{ "черновик " if draft else "" }}Excel</a>
         {% elif result.curriculum_plan.rows %}
-        <span class="action-btn action-btn-light disabled">CSV заблокирован</span>
+        <span class="action-btn action-btn-light disabled">Выгрузка заблокирована</span>
         {% endif %}
     </div>
 </section>
 <section class="chips-row">
     <div class="summary-card"><div class="summary-label">Блоков</div><div class="summary-value">{{ result.curriculum_plan.summary.blocks }}</div></div>
-    <div class="summary-card"><div class="summary-label">Проектов</div><div class="summary-value">{{ result.curriculum_plan.summary.projects }}</div></div>
-    <div class="summary-card"><div class="summary-label">Астр. часы</div><div class="summary-value">{{ result.curriculum_plan.summary.total_hours }}</div></div>
+    <div class="summary-card"><div class="summary-label">{% if result.curriculum_plan.source_curriculum %}Строк в реестре{% else %}Проектов{% endif %}</div><div class="summary-value">{{ result.curriculum_plan.summary.projects }}</div></div>
+    <div class="summary-card"><div class="summary-label">{% if result.curriculum_plan.source_curriculum %}Часы по всем строкам{% else %}Астр. часы{% endif %}</div><div class="summary-value">{{ result.curriculum_plan.summary.total_hours }}</div></div>
     {% if result.curriculum_plan.summary.workload %}
     <div class="summary-card">
         <div class="summary-label">Длительность</div>
@@ -838,6 +841,9 @@
     </div>
     {% endif %}
 </section>
+{% if result.curriculum_plan.get('source_curriculum') %}
+{% with plan=result.curriculum_plan %}{% include "curriculum_revision.html" %}{% endwith %}
+{% endif %}
 {% if result.curriculum_plan.blocks %}
 <section class="table-wrap">
     <table class="data-table">

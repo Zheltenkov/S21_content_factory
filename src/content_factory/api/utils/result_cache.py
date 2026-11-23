@@ -3,9 +3,17 @@
 import os
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
+from threading import RLock
 from typing import Any
 
+from fastapi import HTTPException
+
 from content_factory.api.utils.logger import get_logger
+from content_factory.api.utils.translation_job_store import (
+    TranslationJobRecord,
+    TranslationJobStoreError,
+    translation_job_store,
+)
 from content_factory.generation.orchestrator import OrchestratorResult
 from content_factory.generation.utils.markdown_display_normalizer import normalize_markdown_display_blocks
 from content_factory.generation.utils.rubric_export import convert_numpy_types
@@ -334,7 +342,35 @@ def unregister_generation_task(request_id: str) -> None:
 
 # --- Кэш задач перевода (асинхронный режим: POST возвращает request_id, статус опрашивается через GET) ---
 _translation_jobs: dict[str, dict[str, Any]] = {}
-_translation_ttl = timedelta(hours=2)
+_translation_memory_limit = 100
+_translation_memory_lock = RLock()
+
+
+def _cache_translation(record: TranslationJobRecord) -> dict[str, Any]:
+    """Bound memory usage without deleting durable records or their result links."""
+    job = record.model_dump(exclude_none=True)
+    with _translation_memory_lock:
+        _translation_jobs.pop(record.request_id, None)
+        _translation_jobs[record.request_id] = job
+        while len(_translation_jobs) > _translation_memory_limit:
+            _translation_jobs.pop(next(iter(_translation_jobs)))
+    return job
+
+
+def _load_translation_record(request_id: str) -> TranslationJobRecord | None:
+    try:
+        return translation_job_store().get(request_id)
+    except TranslationJobStoreError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+def _update_translation_record(
+    request_id: str, patch: dict[str, object], *, phase_only: bool = False
+) -> TranslationJobRecord | None:
+    try:
+        return translation_job_store().update(request_id, patch, phase_only=phase_only)
+    except TranslationJobStoreError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
 
 def set_translation_job(
@@ -357,71 +393,44 @@ def set_translation_job(
     source_format: str | None = None,
 ) -> None:
     """Создаёт или обновляет задачу перевода (status: pending, in_progress, completed, failed)."""
-    now = _utc_now()
-    if request_id not in _translation_jobs:
-        _translation_jobs[request_id] = {"created_at": now}
-    job = _translation_jobs[request_id]
-    job["status"] = status
-    if user_id is not None:
-        job["user_id"] = user_id
-    if phase is not None:
-        job["phase"] = phase
-    if original_markdown is not None:
-        job["original_markdown"] = original_markdown
-    if translated_markdown is not None:
-        job["translated_markdown"] = translated_markdown
-    if target_language is not None:
-        job["target_language"] = target_language
-    if error is not None:
-        job["error"] = error
-    if job_type is not None:
-        job["job_type"] = job_type
-    if translated_subtitles is not None:
-        job["translated_subtitles"] = translated_subtitles
-    if original_transcript is not None:
-        job["original_transcript"] = original_transcript
-    if subtitle_format is not None:
-        job["subtitle_format"] = subtitle_format
-    if progress is not None:
-        job["progress"] = progress
-    if error_code is not None:
-        job["error_code"] = error_code
-    if result_links is not None:
-        job["result_links"] = result_links
-    if source_filename is not None:
-        job["source_filename"] = source_filename
-    if source_format is not None:
-        job["source_format"] = source_format
-    job["updated_at"] = now
+    patch: dict[str, object] = {"status": status}
+    fields = {
+        "user_id": user_id, "phase": phase, "original_markdown": original_markdown,
+        "translated_markdown": translated_markdown, "target_language": target_language,
+        "error": error, "job_type": job_type, "translated_subtitles": translated_subtitles,
+        "original_transcript": original_transcript, "subtitle_format": subtitle_format,
+        "progress": progress, "error_code": error_code, "result_links": result_links,
+        "source_filename": source_filename, "source_format": source_format,
+    }
+    patch.update({key: value for key, value in fields.items() if value is not None})
+    record = _update_translation_record(request_id, patch)
+    assert record is not None
+    _cache_translation(record)
     logger.debug(f"Translation job updated: request_id={request_id}, status={status}, phase={phase}")
 
 
 def get_translation_job_owner(request_id: str) -> str | None:
     """Возвращает владельца задачи перевода без раскрытия его в public status payload."""
-    job = _translation_jobs.get(request_id)
-    if not isinstance(job, dict):
-        return None
-    owner = job.get("user_id")
-    return str(owner) if owner else None
+    record = _load_translation_record(request_id)
+    return record.user_id if record is not None else None
 
 
 def set_translation_phase(request_id: str, phase: str, progress: float | None = None) -> None:
     """Обновляет фазу и опционально прогресс текущей задачи перевода."""
-    if request_id in _translation_jobs:
-        _translation_jobs[request_id]["phase"] = phase
-        if progress is not None:
-            _translation_jobs[request_id]["progress"] = progress
-        _translation_jobs[request_id]["updated_at"] = _utc_now()
+    patch: dict[str, object] = {"phase": phase}
+    if progress is not None:
+        patch["progress"] = progress
+    record = _update_translation_record(request_id, patch, phase_only=True)
+    if record is not None:
+        _cache_translation(record)
 
 
 def get_translation_job(request_id: str) -> dict[str, Any] | None:
-    """Возвращает задачу перевода или None (если не найдена или истек TTL)."""
-    if request_id not in _translation_jobs:
+    """Восстанавливает задачу с диска; возраст задачи не удаляет статус и результат."""
+    record = _load_translation_record(request_id)
+    if record is None:
         return None
-    job = _translation_jobs[request_id]
-    if _utc_now() - job["created_at"] > _translation_ttl:
-        del _translation_jobs[request_id]
-        return None
+    job = _cache_translation(record)
     allowed = (
         "status", "phase", "original_markdown", "translated_markdown", "target_language",
         "error", "created_at", "job_type", "translated_subtitles", "original_transcript",

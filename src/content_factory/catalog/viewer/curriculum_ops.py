@@ -1,4 +1,4 @@
-"""Curriculum-plan (УП) operations — read + CRUD + CSV export + quality metrics.
+"""Curriculum-plan (УП) operations — read + CRUD + CSV/XLSX export + quality metrics.
 
 Extracted from ``viewer/app.py`` (slice 4). The leaf curriculum-plan cluster: plan/row
 read + create/update/delete, payload assembly from rows, quality metrics, CSV export, and
@@ -14,6 +14,7 @@ import csv
 import io
 import json
 import re
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from math import isfinite
 from typing import Any
@@ -23,6 +24,13 @@ from content_factory.catalog.pipeline import config
 from content_factory.catalog.pipeline.curriculum.methodology_profile import resolve_profile
 from content_factory.catalog.pipeline.curriculum.project_quality import report_only_quality_metrics
 from content_factory.catalog.pipeline.curriculum.publication_gate import evaluate_publication_gate
+from content_factory.catalog.pipeline.curriculum.revision_workload import refresh_revision_workload
+from content_factory.catalog.pipeline.curriculum.source_fidelity import (
+    REVISION_ROW_FIELDS,
+    apply_source_fidelity_gate,
+    is_source_backed,
+    source_release_failures,
+)
 from content_factory.catalog.pipeline.curriculum.workload import build_workload_contract
 from content_factory.catalog.pipeline.template_binding_snapshots import decode_and_verify_template_snapshot
 from content_factory.catalog.viewer._common import (
@@ -33,6 +41,7 @@ from content_factory.catalog.viewer._common import (
     table_exists,
     utc_now_iso,
 )
+from content_factory.catalog.viewer.curriculum_xlsx import write_curriculum_xlsx
 
 
 def build_deferred_curriculum_plan_payload(message: str, audience_level: str = "Начальный") -> dict[str, Any]:
@@ -113,45 +122,59 @@ def weighted_skills_from_row(row: dict[str, Any]) -> str:
     return ", ".join(f"{skill}: {weight}%" for skill, weight in zip(skills, weights, strict=False))
 
 
-def curriculum_plan_to_csv_bytes(plan_payload: dict[str, Any]) -> bytes:
-    buffer = io.StringIO(newline="")
-    writer = csv.writer(buffer)
-    primary_header = plan_payload.get("csv_primary_header") or []
-    secondary_header = plan_payload.get("csv_secondary_header") or []
-    if isinstance(primary_header, list) and primary_header:
-        writer.writerow(primary_header)
-    if isinstance(secondary_header, list) and secondary_header:
-        writer.writerow(secondary_header)
+def _export_headers(plan: dict[str, Any]) -> list[list[Any]]:
+    headers = [plan.get("csv_primary_header"), plan.get("csv_secondary_header")]
+    return [row for row in headers if isinstance(row, list) and row]
+
+
+def _export_projects(plan_payload: dict[str, Any], failures: list[dict[str, Any]] | None) -> Iterator[list[Any]]:
+    if failures is None:
+        failures = source_release_failures(plan_payload)
+    # Keep both template headers and all 22 columns intact in the downloadable review copy.
+    draft_notice = "\n".join(["Черновик УП для обсуждения", *(item["message"] for item in failures)]) if failures else ""
     for row in plan_payload.get("rows", []):
         if not isinstance(row, dict):
             continue
-        writer.writerow(
-            [
-                row.get("block_title", ""),
-                row.get("block_goal", ""),
-                row.get("row_number", ""),
-                row.get("project_name", ""),
-                row.get("project_summary", ""),
-                row.get("outcomes_know", ""),
-                row.get("outcomes_can", ""),
-                row.get("outcomes_skills", ""),
-                row.get("required_tools", ""),
-                row.get("materials", ""),
-                row.get("storytelling", ""),
-                row.get("delivery_format", ""),
-                row.get("group_size", ""),
-                row.get("effort_hours", ""),
-                row.get("effort_days", ""),
-                row.get("cumulative_days", ""),
-                row.get("xp", ""),
-                row.get("completion_percent", ""),
-                row.get("p2p_checks", ""),
-                weighted_skills_from_row(row),
-                row.get("platform_project_name", ""),
-                row.get("artifact_links", ""),
-            ]
-        )
+        materials = row.get("materials", "")
+        if draft_notice:
+            materials = "\n".join(filter(None, (draft_notice, str(materials or ""))))
+            draft_notice = ""
+        yield [
+            row.get("block_title", ""),
+            row.get("block_goal", ""),
+            row.get("row_number", ""),
+            row.get("project_name", ""),
+            row.get("project_summary", ""),
+            row.get("outcomes_know", ""),
+            row.get("outcomes_can", ""),
+            row.get("outcomes_skills", ""),
+            row.get("required_tools", ""),
+            materials,
+            row.get("storytelling", ""),
+            row.get("delivery_format", ""),
+            row.get("group_size", ""),
+            row.get("effort_hours", ""),
+            row.get("effort_days", ""),
+            row.get("cumulative_days", ""),
+            row.get("xp", ""),
+            row.get("completion_percent", ""),
+            row.get("p2p_checks", ""),
+            weighted_skills_from_row(row),
+            row.get("platform_project_name", ""),
+            row.get("artifact_links", ""),
+        ]
+
+
+def curriculum_plan_to_csv_bytes(plan_payload: dict[str, Any], *, failures: list[dict[str, Any]] | None = None) -> bytes:
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer)
+    writer.writerows(_export_headers(plan_payload))
+    writer.writerows(_export_projects(plan_payload, failures))
     return buffer.getvalue().encode("utf-8-sig")
+
+
+def curriculum_plan_to_xlsx_bytes(plan_payload: dict[str, Any], *, failures: list[dict[str, Any]] | None = None) -> bytes:
+    return write_curriculum_xlsx(_export_headers(plan_payload), _export_projects(plan_payload, failures))
 
 
 def load_curriculum_plan_rows(conn: CatalogConnection, plan_id: int) -> list[dict[str, Any]]:
@@ -255,7 +278,8 @@ def build_curriculum_quality_metrics_for_ui(
         metrics["avg_primary_skills_per_project"] = round(sum(primary_skill_counts) / project_count, 2)
         metrics["avg_repeat_skills_per_project"] = round(sum(repeat_skill_counts) / project_count, 2)
         metrics["avg_outcomes_per_project"] = round(sum(outcome_counts) / project_count, 2)
-        metrics["single_skill_project_count"] = sum(1 for count in skill_counts if count <= 1)
+        metrics["single_skill_project_count"] = sum(1 for row, count in zip(rows, skill_counts, strict=True)
+                                                   if count == 1 or (count == 0 and not row.get("source_unit_ids")))
         metrics["overloaded_project_count"] = sum(
             1
             for skill_count, outcome_count in zip(skill_counts, outcome_counts, strict=False)
@@ -298,19 +322,21 @@ def build_curriculum_plan_payload_from_rows(
         except json.JSONDecodeError:
             payload = {}
 
-    payload_rows_by_number: dict[int, dict[str, Any]] = {}
+    source_backed = is_source_backed(payload)
+    identity_key = "id" if source_backed else "row_number"
+    payload_rows_by_id: dict[int, dict[str, Any]] = {}
     if isinstance(payload.get("rows"), list):
         for payload_row in payload.get("rows") or []:
             if not isinstance(payload_row, dict):
                 continue
-            row_number = int(payload_row.get("row_number", 0) or 0)
-            if row_number:
-                payload_rows_by_number[row_number] = payload_row
+            identity = int(payload_row.get(identity_key, 0) or 0)
+            if identity:
+                payload_rows_by_id[identity] = payload_row
 
     normalized_rows: list[dict[str, Any]] = []
     for source_row in rows:
         row = dict(source_row)
-        payload_row = payload_rows_by_number.get(int(row.get("row_number", 0) or 0), {})
+        payload_row = payload_rows_by_id.get(int(row.get(identity_key, 0) or 0), {})
         for transient_key in (
             "node_ids",
             "primary_node_ids",
@@ -345,6 +371,7 @@ def build_curriculum_plan_payload_from_rows(
             "artifact_contract_sources",
             "artifact_slot_sources",
             "artifact_merge_diagnostics",
+            *REVISION_ROW_FIELDS,
         ):
             if transient_key in payload_row and transient_key not in row:
                 row[transient_key] = payload_row[transient_key]
@@ -434,6 +461,18 @@ def build_curriculum_plan_payload_from_rows(
         "report": report,
         "design_spec": design_spec,
     }
+    if source_backed:
+        # Keep the expected inventory separate from the planner's decisions on every edit.
+        built_payload["source_policy"] = "revision_with_accepted_skills"
+        for key in ("source_curriculum", "revision_generation"):
+            if key in payload:
+                built_payload[key] = payload[key]
+        if "planner_meta" in payload_report:
+            report["planner_meta"] = payload_report["planner_meta"]
+        if isinstance(payload.get("revision_calendar"), dict):
+            built_payload["revision_calendar"] = payload["revision_calendar"]
+            refresh_revision_workload(built_payload, payload["revision_calendar"])
+        apply_source_fidelity_gate(built_payload)
     return built_payload
 
 

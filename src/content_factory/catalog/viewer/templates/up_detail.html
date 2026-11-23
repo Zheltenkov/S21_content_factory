@@ -13,10 +13,14 @@
         {% if plan.latest_job_id %}
         <a class="action-btn action-btn-secondary" href="/app/curriculum?job_id={{ plan.latest_job_id }}">Открыть бриф</a>
         {% endif %}
-        {% if plan.row_count and plan.status != 'invalid' %}
+        {% if plan.row_count and plan.source_curriculum and (plan.status in ['deferred', 'invalid'] or not plan.report.publication_gate.passed) %}
+        <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ plan.id }}/csv">Скачать черновик CSV</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ plan.id }}/xlsx">Скачать черновик Excel</a>
+        {% elif plan.row_count and plan.status != 'invalid' %}
         <a class="action-btn action-btn-primary" href="{{ base }}/up/plans/{{ plan.id }}/csv">Скачать CSV</a>
+        <a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ plan.id }}/xlsx">Скачать Excel</a>
         {% elif plan.row_count %}
-        <span class="action-btn action-btn-light disabled">CSV заблокирован: УП невалиден</span>
+        <span class="action-btn action-btn-light disabled">Выгрузка заблокирована: УП невалиден</span>
         {% endif %}
         <form method="post" action="{{ base }}/up/plans/{{ plan.id }}/rows/new">
             <button type="submit" class="action-btn">Добавить строку</button>
@@ -37,8 +41,8 @@
     <div class="summary-card"><div class="summary-label">Роль</div><div class="summary-value">{{ plan.brief_role or "—" }}</div></div>
     <div class="summary-card"><div class="summary-label">Уровень</div><div class="summary-value">{{ plan.audience_level or "—" }}</div></div>
     <div class="summary-card"><div class="summary-label">Блоков</div><div class="summary-value">{{ plan.summary.blocks }}</div></div>
-    <div class="summary-card"><div class="summary-label">Проектов</div><div class="summary-value">{{ plan.summary.projects }}</div></div>
-    <div class="summary-card"><div class="summary-label">Астр. часы</div><div class="summary-value">{{ plan.summary.total_hours }}</div></div>
+    <div class="summary-card"><div class="summary-label">{% if plan.source_curriculum %}Строк в реестре{% else %}Проектов{% endif %}</div><div class="summary-value">{{ plan.summary.projects }}</div></div>
+    <div class="summary-card"><div class="summary-label">{% if plan.source_curriculum %}Часы по всем строкам{% else %}Астр. часы{% endif %}</div><div class="summary-value">{{ plan.summary.total_hours }}</div></div>
     {% if plan.summary.workload %}
     <div class="summary-card">
         <div class="summary-label">Длительность</div>
@@ -52,6 +56,10 @@
         <div class="small muted">{{ plan.template_proposal_status or "none" }}</div>
     </div>
 </section>
+{% if plan.get('source_curriculum') %}
+{% include "curriculum_revision.html" %}
+{% include "curriculum_revision_edit_link.html" %}
+{% endif %}
 {% set quality = plan.report.quality_metrics if plan.report and plan.report.quality_metrics else none %}
 {% set gate = plan.report.publication_gate if plan.report and plan.report.publication_gate else none %}
 {% set design = plan.design_spec if plan.design_spec else none %}
@@ -282,7 +290,7 @@
 
 {% if plan.report and (plan.report.order_violations or plan.report.project_violations) %}
 <section class="filter-panel">
-    <div class="small"><strong>УП не прошёл проверку DAG.</strong> Экспорт CSV заблокирован до исправления нарезки или графа.</div>
+    <div class="small"><strong>УП не прошёл проверку DAG.</strong> {% if plan.source_curriculum %}Доступен черновик CSV для обсуждения.{% else %}Экспорт CSV заблокирован до исправления нарезки или графа.{% endif %}</div>
     {% if plan.report.order_violations %}
     <div class="small muted">Нарушения порядка: {{ plan.report.order_violations|join(", ") }}</div>
     {% endif %}

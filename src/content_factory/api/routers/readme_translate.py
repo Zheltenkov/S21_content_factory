@@ -128,6 +128,16 @@ def _translation_job_for_user(request_id: str, user: dict) -> dict:
         raise HTTPException(status_code=403, detail="Нет доступа к задаче перевода другого пользователя")
     if not owner_id:
         raise HTTPException(status_code=403, detail="Владелец задачи перевода не определен")
+    if job.get("error_code") == "TRANSLATION_INTERRUPTED":
+        # Keep the user's dashboard consistent with the recovered durable status.
+        upsert_user_run(
+            request_id=request_id, user_id=owner_id,
+            kind="video_translation" if job.get("job_type") == "video" else "translation",
+            status="failed", title=job.get("source_filename"),
+            result_url=f"/api/v1/translate/status/{request_id}",
+            metadata={"error_code": job["error_code"], "error": job.get("error"),
+                      "source_format": job.get("source_format"), "target_language": job.get("target_language")},
+        )
     return job
 
 

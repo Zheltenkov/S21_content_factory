@@ -22,7 +22,13 @@
     }
 
     function authHeaders() {
-        return typeof window.getAuthHeaders === 'function' ? window.getAuthHeaders() : {};
+        const headers = new Headers(
+            typeof window.getAuthHeaders === 'function' ? window.getAuthHeaders() : {}
+        );
+        // Общий helper добавляет JSON. Для FormData браузер сам задаёт тип и boundary.
+        // Копия сохраняет авторизацию и не меняет заголовки остальных модулей.
+        headers.delete('Content-Type');
+        return headers;
     }
 
     function byId(id) {

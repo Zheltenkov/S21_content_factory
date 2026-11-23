@@ -35,6 +35,9 @@ logger = get_logger("translate-document")
 
 STORAGE_DIR = os.getenv("STORAGE_DIR", os.path.join(tempfile.gettempdir(), "content_generator_translations"))
 MAX_TRANSLATION_DOCUMENT_SIZE = int(os.getenv("MAX_TRANSLATION_DOCUMENT_SIZE_BYTES", 25 * 1024 * 1024))
+# Презентации хранят тяжёлые изображения, но в модель отправляется только извлечённый текст.
+# Отдельный предел загрузки не меняет ограничений распаковки архива и разбираемого XML.
+MAX_TRANSLATION_PRESENTATION_SIZE = int(os.getenv("MAX_TRANSLATION_PRESENTATION_SIZE_BYTES", 100 * 1024 * 1024))
 # Допустимые расширения ведёт реестр: добавили обработчик — формат принимается на загрузку.
 TRANSLATION_DOCUMENT_EXTENSIONS = set(supported_extensions())
 # Язык исходников фабрики. Перевод всегда идёт с него, поэтому запрос «перевести на русский» —
@@ -215,20 +218,33 @@ def _extract_translation_document_text(filename: str, content: bytes) -> str:
         return _extract_text_from_docx(content)
     if extension == ".pdf":
         return _extract_text_from_pdf(content)
-    raise HTTPException(status_code=400, detail="Формат документа не поддерживается")
+    # Остальные форматы читаем тем же обработчиком, который затем возвращает перевод в файл.
+    # Разрешение расширения и фактическое чтение больше не расходятся при добавлении формата.
+    handler = handler_for(extension)
+    if handler is None:
+        raise HTTPException(status_code=400, detail="Формат документа не поддерживается")
+    try:
+        units = handler.extract(content)
+    except UnicodeError as exc:
+        raise HTTPException(status_code=400, detail="Не удалось прочитать текст документа. Сохраните его в UTF-8.") from exc
+    except DocumentFormatError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _normalize_extracted_text("\n\n".join(unit.text for unit in units))
 
 
 async def _read_uploaded_translation_document(file: UploadFile) -> ExtractedTranslationDocument:
     """Валидирует upload и извлекает текст для дальнейшего LLM-перевода."""
     filename, extension = _safe_translation_filename(file)
-    if getattr(file, "size", None) and file.size and file.size > MAX_TRANSLATION_DOCUMENT_SIZE:
-        limit_mb = MAX_TRANSLATION_DOCUMENT_SIZE // (1024 * 1024)
+    # Проверяем и заявленный, и фактически прочитанный размер по одному пределу формата.
+    max_size = MAX_TRANSLATION_PRESENTATION_SIZE if extension == ".pptx" else MAX_TRANSLATION_DOCUMENT_SIZE
+    if getattr(file, "size", None) and file.size and file.size > max_size:
+        limit_mb = max_size // (1024 * 1024)
         raise HTTPException(status_code=413, detail=f"Документ слишком большой. Максимум: {limit_mb} MB")
 
     try:
-        content = await read_upload_limited(file, max_size=MAX_TRANSLATION_DOCUMENT_SIZE)
+        content = await read_upload_limited(file, max_size=max_size)
     except HTTPException as exc:
-        limit_mb = MAX_TRANSLATION_DOCUMENT_SIZE // (1024 * 1024)
+        limit_mb = max_size // (1024 * 1024)
         exc.detail = f"Документ слишком большой. Максимум: {limit_mb} MB"
         raise
 

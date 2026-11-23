@@ -29,8 +29,24 @@ def _is_program_brief_text(brief: str) -> bool:
 
 def _brief_sentence_candidates(brief: str) -> list[str]:
     """Extract neutral topic candidates from a free-form brief for offline mode."""
+    # An explicit graduate-outcome section takes precedence over the plan writer's instructions.
+    topics: list[str] = []
+    outcome_depth = 0
+    for line in brief.splitlines():
+        heading = re.match(r"^\s*(#{1,6})\s+(.+)", line)
+        if heading:
+            if outcome_depth and len(heading[1]) <= outcome_depth:
+                outcome_depth = 0
+            if re.search(r"результат\w*.*(?:обучени|выпускник)|образовательн\w* результат|learning outcomes", heading[2], re.I):
+                outcome_depth = len(heading[1])
+        elif outcome_depth and (bullet := re.match(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)(.+)", line)):
+            topics.append(re.split(r"\.\s", bullet[1], maxsplit=1)[0].strip(" ."))
+    if topics:
+        return list(dict.fromkeys(topics))[:12]
     candidates: list[str] = []
     for chunk in re.split(r"[\n.;•\u2022]+", brief):
+        if chunk.lstrip().startswith("#"):
+            continue
         text = _BRIEF_SECTION_LABEL_RE.sub("", chunk).strip(" \t:-")
         text = re.sub(r"\s+", " ", text)
         if len(text) < 12 or len(text) > 180:
@@ -70,16 +86,22 @@ def _topic_to_mock_skill_name(topic: str) -> str:
 
 def _extract_mock_role(brief: str, *, is_program: bool) -> str:
     for pattern in (
-        r"(?:подготовить|обучить|готовим|готовить)\s+([^.\n;,:]{3,90})",
-        r"(?:роль|профиль|выпускник|специалист)\s*[:\-]\s*([^.\n;]{3,90})",
+        r"(?:роль(?: выпускника)?|профиль(?: выпускника)?|выпускник|специалист)\s*[:—\-]\s*([^.\n;]{3,90})",
+        r"(?:подготовить|обучить|готовим|готовить)\s+((?:специалист|участник|сотрудник|студент|слушател|выпускник)\w*[^.\n;,:]{0,65})",
     ):
         match = re.search(pattern, brief, flags=re.IGNORECASE)
         if match:
             return " ".join(match.group(1).split()).strip(" .,-")
+    program = re.search(r"\bпрограмм[ауые]\s+«([^»\n]{2,120})»", brief, re.I)
+    if is_program and program:
+        return f"Выпускник программы «{program[1]}»"
     return "Выпускник программы" if is_program else "Специалист"
 
 
 def _extract_mock_domain(brief: str, areas: list[str]) -> str:
+    explicit = re.search(r"(?:\b(?:домен|направление)\s*[:—-]\s*|выбирающ\w+ направление\s+)([^.\n;]{2,120})", brief, re.I)
+    if explicit:
+        return explicit[1].strip()
     if areas:
         return areas[0][:120]
     first_line = next((line.strip() for line in brief.splitlines() if line.strip()), "")
@@ -91,13 +113,14 @@ def _mock_spec_from_brief(brief: str) -> dict[str, Any]:
     areas = _brief_sentence_candidates(brief)
     if not areas:
         areas = ["Ключевые задачи и навыки из брифа"]
+    goal = re.search(r"(?:цель программы|результат для заказчика)\s*[:—-]\s*([^.\n]+)", brief, re.I)
     raw = {
         "artifact_type": "program_brief" if is_program else "learner_brief",
         "role": _extract_mock_role(brief, is_program=is_program),
         "seniority": "не указан",
         "domain": _extract_mock_domain(brief, areas),
         "operator_role": None,
-        "program_goal": areas[0] if is_program and areas else "",
+        "program_goal": goal[1].strip() if goal else areas[0] if is_program else "",
         "must_include_areas": areas[:12],
         "sub_queries": [f"Навыки выпускника: {area}" for area in areas[:6]],
     }

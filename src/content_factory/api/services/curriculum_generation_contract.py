@@ -22,6 +22,12 @@ from content_factory.api.db.session import SessionLocal
 from content_factory.api.integrations.spravochnik_curriculum_sync import (
     convert_spravochnik_plan_to_generator_curriculum,
 )
+from content_factory.catalog.pipeline.curriculum.source_fidelity import (
+    REVISION_ROW_FIELDS,
+    is_source_backed,
+    source_release_failures,
+)
+from content_factory.catalog.viewer.curriculum_ops import build_curriculum_plan_payload_from_rows
 from content_factory.generation.models.curriculum import CurriculumPlan, CurriculumProject, ThematicBlock
 
 
@@ -144,11 +150,31 @@ def load_persisted_curriculum_snapshot(db: Session, plan_id: int) -> dict[str, A
     plan_dict = dict(plan)
     row_dicts = [dict(row) for row in rows]
     payload = _assemble_plan_payload(plan_dict, row_dicts)
+    revision = is_source_backed(payload)
+    if revision:
+        # The viewer rebuilds blocks from current SQL rows and binds their lineage by primary key.
+        # The generator must see that same version, including manual changes and deletions.
+        payload = build_curriculum_plan_payload_from_rows(plan_dict, row_dicts)
     effective_rows = [dict(row) for row in payload.get("rows", []) if isinstance(row, Mapping)]
     curriculum = convert_spravochnik_plan_to_generator_curriculum(payload)
-    plan_hash = _snapshot_hash(_snapshot_source(plan_dict, effective_rows))
+    hash_input = _snapshot_source(plan_dict, effective_rows)
+    if revision:
+        hash_input["source_curriculum"] = payload.get("source_curriculum")
+        hash_input["revision"] = payload["report"].get("planner_meta", {}).get("revision")
+        hash_input["revision_generation"] = payload.get("revision_generation")
+        hash_input["revision_calendar"] = payload.get("revision_calendar")
+        hash_input["row_lineage"] = [
+            {"id": row.get("id"), **{key: row.get(key) for key in REVISION_ROW_FIELDS}} for row in effective_rows
+        ]
+    plan_hash = _snapshot_hash(hash_input)
     plan_version = _snapshot_version(plan_dict, plan_hash)
     readiness = build_curriculum_readiness(db, plan_dict, effective_rows, curriculum)
+    if revision:
+        for failure in source_release_failures(payload):
+            readiness["blockers"].append({
+                "code": failure["code"], "severity": "error", "count": 1, "message": failure["message"],
+            })
+        readiness["ready"] = not readiness["blockers"]
 
     snapshot = {
         "source": "catalog.curriculum_plan",
@@ -284,6 +310,17 @@ def build_generation_context_from_persisted_plan(
         pipeline_run_id=pipeline_run_id or new_pipeline_run_id(),
     )
     context_payload = context.model_dump()
+    if is_source_backed(snapshot["payload"]):
+        source_row = next(row for row in snapshot["rows"] if row["id"] == project.plan_row_id)
+        origin.update(_revision_origin(source_row))
+        # The generator's existing description input is consumed by context and theory agents.
+        description = context_payload["current_project_description"]
+        notes = [description]
+        if source_row["participant_action"] not in description:
+            notes.append(source_row["participant_action"])
+        if source_row["artifact"] not in description:
+            notes.append(f"Артефакт: {source_row['artifact']}")
+        context_payload["current_project_description"] = "\n".join(filter(None, notes))
     context_payload["curriculum_origin"] = origin
     return {
         "context": context_payload,
@@ -321,6 +358,14 @@ def validate_generation_seed_curriculum_contract(seed_data: dict[str, Any]) -> d
         "pipeline_run_id": _optional_text(origin.get("pipeline_run_id") or seed_data.get("pipeline_run_id"))
         or new_pipeline_run_id(),
     }
+    if is_source_backed(snapshot.get("payload", {})):
+        source_row = next((row for row in snapshot["rows"] if row["id"] == plan_row_id), None)
+        if source_row is None or not expected_hash:
+            raise CurriculumContractError(409, "Для обновлённого УП выберите проект из актуальной версии плана.")
+        expected_form = "group" if source_row["delivery_format"] == "групповой" else "individual"
+        if seed_data.get("project_type") != expected_form:
+            raise CurriculumContractError(409, "Форма проекта расходится с утверждённой строкой УП.")
+        enriched_origin.update(_revision_origin(source_row))
     for key in ("plan_row_id", "project_index", "block_index", "row_number", "row_hash"):
         if origin.get(key) is not None:
             enriched_origin[key] = origin[key]
@@ -339,6 +384,14 @@ def validate_generation_seed_curriculum_contract(seed_data: dict[str, Any]) -> d
     if isinstance(curriculum_context, dict):
         curriculum_context["curriculum_origin"] = enriched_origin
     return enriched_origin
+
+
+def _revision_origin(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "revision_project_id": row["revision_project_id"],
+        "source_unit_ids": row["source_unit_ids"],
+        "requirement_refs": row.get("requirement_refs", []),
+    }
 
 
 def _assemble_plan_payload(plan: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:

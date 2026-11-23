@@ -1,0 +1,72 @@
+{% set revision = plan.report.get('planner_meta', {}).get('revision', {}) %}
+{% set effort = plan.summary.get('revision_workload', {}) %}
+{% set generation = plan.get('revision_generation', {}) %}
+{% set labels = {'retain':'Сохранить', 'revise':'Обновить', 'merge':'Объединить', 'specialize':'В специализацию', 'omit':'Исключить', 'hold':'На обсуждение'} %}
+<section class="filter-panel" aria-label="Обновление прежней программы">
+    <h2>Что изменилось в программе</h2>
+    {% for attempt in generation.get('attempts', []) %}
+    {% for item in attempt.get('pending_suggestions', []) %}
+    {% set addition = item.proposal %}
+    <details><summary>Предложение по требованию {{ addition.requirement_ref }} требует сверки</summary>
+        <p>{{ item.reasons|join('. ') }}.</p>
+        <p><strong>Что предлагает генератор</strong> {{ addition.participant_action }}</p>
+        <p><strong>Что сдаёт участник</strong> {{ addition.artifact }}</p>
+        <p><strong>Как проверить</strong> {{ addition.test.check }} {{ addition.test.expected_result }}</p>
+    </details>
+    {% endfor %}
+    {% endfor %}
+    {% if effort %}
+    <p>Общая часть — {{ '%g'|format(effort.core_hours) }} ч. Сумма часов по всем специализациям — {{ '%g'|format(effort.elective_hours) }} ч.
+       {% if effort.choice_groups %}Участник выбирает по одному проекту из каждой группы: {{ effort.choice_groups|join(', ') }}.
+       Маршрут участника — {{ '%g'|format(effort.min_route_hours) }}{% if effort.max_route_hours != effort.min_route_hours %}–{{ '%g'|format(effort.max_route_hours) }}{% endif %} ч.{% endif %}
+       {% if effort.target_hours is not none %}Календарный ориентир — {{ '%g'|format(effort.target_hours) }} ч.
+       {% if effort.min_route_hours == effort.max_route_hours %}{% if effort.difference_hours > 0 %}Маршрут превышает его на {{ '%g'|format(effort.difference_hours) }} ч.
+       {% elif effort.difference_hours < 0 %}До ориентира остаётся {{ '%g'|format(-effort.difference_hours) }} ч.{% endif %}{% endif %}{% endif %}
+       {% if effort.historical_estimates %}У {{ effort.historical_estimates }} проектов пока указана трудоёмкость из прежнего плана.{% endif %}</p>
+    {% endif %}
+    {% if effort.pending_projects %}
+    <p>Ещё {{ effort.pending_projects }} заявок из графа навыков требуют проектирования. Их предварительная оценка — {{ '%g'|format(effort.pending_hours) }} ч сверх маршрута.</p>
+    {% endif %}
+    {% if plan.report.quality_metrics.get('unmapped_source_project_count') %}
+    <p>У {{ plan.report.quality_metrics.unmapped_source_project_count }} работ пока нет подтверждённой привязки к навыкам справочника.</p>
+    {% endif %}
+    <details><summary>Прежние работы и решения по переносу · {{ plan.source_curriculum|length }}</summary>
+        <table class="data-table">
+            <thead><tr><th>Прежняя работа</th><th>Решение и основание</th><th>Место в новом плане</th></tr></thead>
+            <tbody>{% for source in plan.source_curriculum %}
+                {% set d = revision.get('dispositions', [])|selectattr('source_id', 'equalto', source.source_id)|first %}
+                <tr><td>{{ source.title }}<div class="small muted">{{ source.source_ref }}</div></td>
+                    <td>{% if d %}{% if d.decision_origin == 'historical_copy' or (not d.decision_ref and not d.decision_approved and d.disposition == 'retain') %}
+                        <strong>Перенос из прежнего УП · требуется решение</strong>
+                        <div class="small">Действие, сдача и проверка заполнены по умолчанию.</div>
+                        {% else %}<strong>{{ labels.get(d.disposition, d.disposition) }}</strong> · {{ d.rationale }}
+                        <div class="small">{{ "Решение подтвердил методолог" if d.decision_approved else "Предложение генератора" }}</div>{% endif %}
+                        {% if d.decision_ref %}<div class="small">{{ d.decision_ref }}</div>{% endif %}
+                        {% if d.review_question %}<p>{{ d.review_question }}</p>{% endif %}
+                        {% if d.lost_outcomes %}<p>Утрачиваемые результаты: {{ d.lost_outcomes|join(' · ') }}</p>{% endif %}
+                        {% else %}Требуется решение{% endif %}</td>
+                    <td>{% for row in plan.rows if source.source_id in row.get('source_unit_ids', []) %}
+                        <div>№ {{ row.row_number }} · {{ row.project_name }}</div>
+                    {% else %}Строка отсутствует{% endfor %}</td></tr>
+            {% endfor %}</tbody>
+        </table>
+    </details>
+    {% for group in plan.report.get('repeated_revision_practice', []) %}
+    <p><strong>Совпадают действие, сдача и проверка.</strong>
+        {% for project in group %}{{ project.title }}{% if not loop.last %} · {% endif %}{% endfor %}.
+        Уточните, что отрабатывает участник во втором проекте и как проявляется прогресс.</p>
+    {% endfor %}
+    {% if generation.get('requirements') %}
+    <details><summary>Где учтены перечисленные требования брифа</summary>
+        <p class="small">Ссылки показывают, в каких заданиях предложено учесть требование. Для содержательной проверки сопоставьте действие участника, сдаваемую работу и критерий приёмки.</p>
+        <ul>{% for req in generation.requirements %}<li>{{ req.text }}
+            <div class="small">{% for row in plan.rows if req.ref in row.get('requirement_refs', []) %}
+               <details><summary>№ {{ row.row_number }} · {{ row.project_name }}</summary>
+                   <p><strong>Действие участника</strong><br>{{ row.participant_action }}</p>
+                   <p><strong>Что сдаёт</strong><br>{{ row.artifact }}</p>
+                   <p><strong>Как проверить</strong><br>{{ row.validation_criteria }}</p>
+               </details>
+               {% else %}Методологу определить место в программе{% endfor %}</div></li>{% endfor %}</ul>
+    </details>
+    {% endif %}
+</section>

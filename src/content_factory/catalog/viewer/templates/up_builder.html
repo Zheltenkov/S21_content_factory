@@ -670,14 +670,18 @@
         </section>
         {% endif %}
 
-        {% if builder.snapshot.plan_row_count > 0 and builder.next_action and builder.next_action.code == "open_plan" %}
-        <section class="builder-plan-ready" id="plan-ready" aria-label="Учебный план готов">
+        {% if builder.snapshot.plan_id and builder.snapshot.plan_row_count > 0 %}
+        {% set plan_url = base ~ "/up/plans/" ~ builder.snapshot.plan_id %}
+        <section class="builder-plan-ready" id="plan-ready" aria-label="Сохранённый учебный план">
             <div>
-                <span class="status-badge">УП готов</span>
-                <h2>Собрано строк: {{ builder.snapshot.plan_row_count }}</h2>
-                <p class="small">DAG и принятые шаблоны применены. План готов к методологической проверке и редактированию строк.</p>
+                <h2>Сохранённый учебный план</h2>
+                <p class="small">Выгружаются строки из последней сохранённой сборки ({{ builder.snapshot.plan_row_count }}).</p>
             </div>
-            {{ render_action(builder.next_action, "action-btn-primary") }}
+            <a class="action-btn action-btn-primary" href="{{ plan_url }}">Открыть УП</a>
+            {% if builder.snapshot.plan_status != "invalid" %}
+            <a class="action-btn action-btn-secondary" href="{{ plan_url }}/xlsx">Скачать Excel</a>
+            <a class="action-btn action-btn-secondary" href="{{ plan_url }}/csv">Скачать CSV</a>
+            {% endif %}
         </section>
         {% endif %}
 

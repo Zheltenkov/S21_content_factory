@@ -9,8 +9,8 @@
 
 Распакованное живёт в памяти, а не в каталоге. Так проще: обработчики принимают байты, и
 промежуточного состояния на диске, которое надо убирать за собой, не возникает вовсе. Расплата —
-предел на объём, и он здесь свой, строже общего для сжатых документов: архив курса весит
-единицы мегабайт, а шестьдесят четыре мегабайта разом в памяти процесс выдержит.
+предел на объём, и он здесь свой, строже общего для сжатых документов: ZIP до 70 МБ
+может занимать до 140 МБ после распаковки, а отдельный файл — не больше 16 МБ.
 
 Опись прогоняет ``extract`` вхолостую: единицы считаются, модель не зовётся. Побочная польза
 важнее основной — битый файл всплывает до оплаты, а не посреди прогона.
@@ -34,7 +34,7 @@ from content_factory.translation.registry import handler_for
 MAX_FILES = 2_000
 # Предел на распакованный объём. Сжатый размер о нём не говорит ничего: мегабайт нулей
 # сжимается до килобайта, поэтому ограничение на загрузку здесь не помогает.
-MAX_UNPACKED_BYTES = 64 * 1024 * 1024
+MAX_UNPACKED_BYTES = 140 * 1024 * 1024
 MAX_MEMBER_BYTES = 16 * 1024 * 1024
 
 REPORT_NAME = "ПЕРЕВОД-ОТЧЁТ.md"
@@ -148,6 +148,18 @@ def repack(members: list[ArchiveMember], replacements: dict[str, bytes], *, repo
 
 def _describe(member: ArchiveMember) -> InventoryEntry:
     extension = posixpath.splitext(member.path)[1].lower()
+    # Метаданные Finder могут иметь расширение исходного документа, оставаясь бинарными.
+    # Сохраняем их в ZIP побайтно, но не передаём обработчику текста и модели.
+    if _is_macos_metadata(member):
+        return InventoryEntry(
+            path=member.path,
+            handler=None,
+            units=0,
+            chars=0,
+            language="unknown",
+            selected=False,
+            skip_reason="служебный файл macOS — сохраняется без перевода",
+        )
     handler = handler_for(extension)
     if handler is None:
         return InventoryEntry(
@@ -163,7 +175,13 @@ def _describe(member: ArchiveMember) -> InventoryEntry:
     kind = extension.lstrip(".")
     try:
         units = handler.extract(member.content)
-    except DocumentFormatError as exc:
+    except (DocumentFormatError, UnicodeError) as exc:
+        # Нечитаемое содержимое относится к одному файлу, а не ко всему архиву.
+        read_error = (
+            "Не удалось прочитать текст файла. Ожидается кодировка UTF-8; файл сохранён без перевода."
+            if isinstance(exc, UnicodeError)
+            else str(exc)
+        )
         return InventoryEntry(
             path=member.path,
             handler=kind,
@@ -171,7 +189,7 @@ def _describe(member: ArchiveMember) -> InventoryEntry:
             chars=0,
             language="unknown",
             selected=False,
-            skip_reason=str(exc),
+            skip_reason=read_error,
         )
 
     chars = sum(len(unit.text) for unit in units)
@@ -196,6 +214,16 @@ def _describe(member: ArchiveMember) -> InventoryEntry:
         selected=reason is None,
         skip_reason=reason,
     )
+
+
+def _is_macos_metadata(member: ArchiveMember) -> bool:
+    """Опознаёт служебные пути Finder и бинарные спутники AppleDouble."""
+    parts = member.path.split("/")
+    if "__MACOSX" in parts or parts[-1] == ".DS_Store":
+        return True
+    # RFC 1740, section 4: сигнатура AppleDouble 00 05 16 07.
+    # Обычный текст с именем ._notes.md без этой сигнатуры остаётся учебным файлом.
+    return parts[-1].startswith("._") and member.content.startswith(b"\x00\x05\x16\x07")
 
 
 def _is_directory(info: zipfile.ZipInfo) -> bool:

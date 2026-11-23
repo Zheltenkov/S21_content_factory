@@ -120,7 +120,7 @@
                         <small id="translationFileName">Документ для перевода</small>
                         <button type="button" aria-label="Очистить файл" onclick="event.stopPropagation(); clearTranslationFile()">×</button>
                     </div>
-                    <p class="translate-file-hint">TXT, Markdown, HTML, DOCX, PDF, YAML, XLSX, PPTX, CSV. До 25 MB.</p>
+                    <p class="translate-file-hint">TXT, Markdown, HTML, DOCX, PDF, YAML, XLSX, PPTX, CSV. Презентации PPTX — до 100 МБ, остальные документы — до 25 МБ.</p>
                     <textarea id="translationInput" class="translate-hidden-input" rows="8" placeholder="Вставьте текст документа вручную"></textarea>
                 </div>
 
@@ -297,7 +297,7 @@
                             <small id="translationArchiveFileName">Архив проекта (.zip)</small>
                             <button type="button" aria-label="Очистить архив" onclick="event.stopPropagation(); clearArchiveFile()">×</button>
                         </div>
-                        <p class="translate-file-hint">ZIP с файлами проекта: документы, конфиги, комментарии в коде, примеры данных. До 25 MB.</p>
+                        <p class="translate-file-hint">ZIP с файлами проекта: документы, конфиги, комментарии в коде, примеры данных. До 70 Мб.</p>
                     </div>
 
                     <div class="translate-field">
@@ -316,10 +316,7 @@
                         <div><small>Файлов отмечено</small><strong id="translationArchiveTotalFiles">0</strong></div>
                         <div><small>Знаков</small><strong id="translationArchiveTotalChars">0</strong></div>
                         <div><small>Примерно времени</small><strong id="translationArchiveTotalTime">0 с</strong></div>
-                        <div><small>Примерно денег</small><strong id="translationArchiveTotalMoney">$0.00</strong></div>
-                        <div><small>Модель</small><strong id="translationArchiveModel">—</strong></div>
                     </div>
-                    <p class="translate-archive-note">Смета приблизительная: считается по прайсу модели и числу знаков. Опись получена без обращения к модели.</p>
 
                     <div class="translate-archive-controls">
                         <button class="btn secondary" type="button" onclick="archiveTickAll(true)">Отметить всё</button>
@@ -373,7 +370,7 @@
     <script src="/static/js/modules/metricsView.js?v=20260514-split"></script>
     <script src="/static/js/utils/authSession.js?v=20260702-auth-cookie-sync"></script>
     <script src="/static/js/modules/translationPage.js?v=20261026-archive"></script>
-    <script src="/static/js/modules/translationArchive.js?v=20261026-archive"></script>
+    <script src="/static/js/modules/translationArchive.js?v=20261027-multipart"></script>
     <script src="/static/js/main.js?v=20260518-diagram-compact"></script>
     <script>
         (function () {

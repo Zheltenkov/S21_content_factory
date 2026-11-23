@@ -1,0 +1,3 @@
+{% if plan.get('source_curriculum') and (plan.get('plan_id') or plan.get('id')) %}
+<a class="action-btn action-btn-secondary" href="{{ base }}/up/plans/{{ plan.get('plan_id') or plan.get('id') }}/revision">Проверить и исправить решение по прежней работе</a>
+{% endif %}
